@@ -40,7 +40,7 @@ on those exact same variables already exclude the zero case those `>=`
 mutants would newly capture, `>` and `>=` are behaviorally identical for
 every input that reaches the third clause — no test input can distinguish
 them. Confirmed equivalent rather than spending more scenarios trying to kill
-it; logged to `technical-debt.md` (TD-37) alongside the message-text canaries
+it; logged to `technical-debt.md` (TD-39) alongside the message-text canaries
 (same accepted-debt-class handling as TD-34/TD-36) instead.
 
 **The feature-key contract is this story's real design decision, not an
