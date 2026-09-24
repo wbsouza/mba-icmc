@@ -15,4 +15,4 @@ one coder pass then one hardener pass, not parallel workers (avoids same-file ra
 - [x] T7 — gate: `make check` green; mutation pass on `chain/model.py`
       (`uv run python tools/mutation_harness.py algo-backtest --paths src/algo_backtest/chain/model.py`
       or `mutmut`), surviving mutants killed or logged to `technical-debt.md` with rationale
-- [ ] `lessons-learned.md` written, story moved to `docs/stories/done/`
+- [x] `lessons-learned.md` written, story moved to `docs/stories/done/`

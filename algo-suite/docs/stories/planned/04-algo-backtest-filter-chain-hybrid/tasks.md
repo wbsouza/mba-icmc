@@ -1,6 +1,8 @@
 # Spec 04 tasks — algo-backtest: order-execution engine + filter chain + hybrid
 
-**Tool:** `algo-suite/algo-backtest/` · **Status:** planning — Wave 1 ready to start now.
+**Tool:** `algo-suite/algo-backtest/` · **Status:** Wave 1 in progress — Track B (filter-chain
+mechanics, Spec 04b) landed on `feat/04b-filter-chain-mechanics`; Track A (order-execution engine,
+Spec 04a) still in flight in another session.
 **Governing docs:** this folder's [`spec.md`](spec.md) (§3–§7), [`algo-backtest/SPEC.md`](../../../../algo-backtest/SPEC.md)
 (§3 dir layout: `engine/`, `chain/`, `rules/`, `config/`), `specs.md` §11.3.1 (dataclasses,
 verbatim), §14.5–§14.8 (risk/capital-management formulas).
