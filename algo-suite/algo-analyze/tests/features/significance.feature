@@ -39,3 +39,35 @@ Feature: Monte-Carlo permutation significance test
     When the permutation test is computed
     Then it raises an error containing "n_permutations"
     And it raises an error containing "at least 100"
+
+  # significance-mcp-05
+  Scenario: The minimum permutation count is accepted
+    Given baseline returns 0.010, 0.012, 0.011
+    And comparison returns 0.030, 0.033, 0.031
+    And 100 permutations with seed 1
+    When the permutation test is computed
+    Then no permutation error is raised
+
+  # significance-mcp-06
+  Scenario: Non-finite returns fail fast
+    Given baseline returns 0.010, NaN, 0.011
+    And comparison returns 0.030, 0.033, 0.031
+    And 100 permutations with seed 1
+    When the permutation test is computed
+    Then it raises an error containing "finite returns"
+
+  # significance-mcp-07
+  Scenario: Undersized samples fail fast
+    Given baseline returns 0.010
+    And comparison returns 0.030, 0.033
+    And 100 permutations with seed 1
+    When the permutation test is computed
+    Then it raises an error containing "at least two returns"
+
+  # significance-mcp-08
+  Scenario: Boolean permutation settings fail fast
+    Given baseline returns 0.010, 0.012
+    And comparison returns 0.030, 0.033
+    And boolean permutation settings
+    When the permutation test is computed
+    Then it raises an error containing "n_permutations"

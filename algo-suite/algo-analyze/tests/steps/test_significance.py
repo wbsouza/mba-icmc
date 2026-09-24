@@ -36,6 +36,13 @@ def _permutation_settings(sctx: dict[str, Any], count: int, seed: int) -> None:
     sctx["seed"] = seed
 
 
+@given("boolean permutation settings")
+def _boolean_permutation_settings(sctx: dict[str, Any]) -> None:
+    """Store invalid bool values, which are ints in Python but not valid settings."""
+    sctx["n_permutations"] = True
+    sctx["seed"] = False
+
+
 @when("the permutation test is computed")
 def _compute(sctx: dict[str, Any]) -> None:
     """Compute the MCP test once, storing either the result or ValueError."""
@@ -111,3 +118,10 @@ def _raises_error_containing(sctx: dict[str, Any], text: str) -> None:
     error = sctx.get("error")
     assert isinstance(error, ValueError)
     assert text in str(error)
+
+
+@then("no permutation error is raised")
+def _no_permutation_error(sctx: dict[str, Any]) -> None:
+    """Assert the permutation test succeeded."""
+    assert "error" not in sctx
+    assert isinstance(sctx["result"], MCPResult)
