@@ -41,6 +41,7 @@ name = "algo-analyze"
 version = "0.0.0"
 source = { editable = "algo-analyze" }
 dependencies = [
+    { name = "algo-backtest" },
     { name = "algo-core" },
     { name = "structlog" },
     { name = "typer" },
@@ -48,6 +49,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "algo-backtest", editable = "algo-backtest" },
     { name = "algo-core", editable = "algo-core" },
     { name = "structlog", specifier = ">=24" },
     { name = "typer", specifier = ">=0.12" },
