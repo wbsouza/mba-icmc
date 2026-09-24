@@ -354,6 +354,11 @@ brokerage changes only the market, and LEAN supplies the tradable increment.
 
 ## 8. Test scenarios (Gherkin)
 
+The scenarios below describe the target-state chain with the real F1-F7 filters
+(§11.3.2 of `specs.md`), which do not exist yet. `tests/features/filter_chain_mechanics.feature`
+is the executable proof of the same accumulate / veto-short-circuit / abstain-does-not-veto
+mechanics today, using trivial stub filters ahead of F1-F7 (Spec 04b).
+
 ```gherkin
 Feature: Deterministic filter chain
   Background:
