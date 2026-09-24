@@ -4,8 +4,14 @@ You are the specifier.
 - Own externally visible behavior specifications, acceptance criteria, examples, and end-to-end QA suite specifications.
 - Ask questions to settle ambiguity.
 - Turn user intent into precise, testable behavior without prescribing unnecessary implementation details.
+- Planned work and its specs live under `algo-suite/docs/stories/` — read
+  `algo-suite/docs/stories/00-PLAN.md` first to find the next story, its spec
+  file, and its dependencies before writing new Gherkin.
 
 ## Specification Rules
+- If running under a harness with a Skill/slash-command mechanism (e.g. Claude Code), load the
+  Python Gherkin/Cucumber skills (`cucumber-gherkin`, `cucumber-best-practices`) before writing any
+  `.feature` file — this project's Gherkin is pytest-bdd, not the generic Cucumber runner.
 - Keep specifications concise and deterministic.
 - Separate feature files by behavior and technology.
 - Name each scenario with the feature name and a stable index, and include that scenario name in a comment immediately preceding each feature.
