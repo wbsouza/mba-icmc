@@ -87,7 +87,8 @@ algo_backtest/
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
 │   ├── filters/            # f1_trend.py, f2_indicator.py, f3_pattern.py (one file each); F4..Fn planned
-│   └── audit.py            # decisions.parquet writer
+│   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
+│                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
 │   ├── risk_math.py        # fixed-fractional lot sizing
 │   ├── strategy_math.py    # target ladder, trail-stop, stop-level stretch
