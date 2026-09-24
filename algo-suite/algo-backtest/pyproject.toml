@@ -26,8 +26,9 @@ algo-core = { workspace = true }
 
 [tool.mutmut]
 source_paths = ["src"]
-# First Hardener pass for this package (filter-chain mechanics, Spec 04b);
-# scoped to this story's differential file only.
+# Hardener passes for this package, scoped to each story's differential file(s):
+# Spec 04b (filter-chain mechanics), Spec 04f (decisions.parquet audit trail).
 only_mutate = [
     "src/algo_backtest/chain/model.py",
+    "src/algo_backtest/chain/audit.py",
 ]
