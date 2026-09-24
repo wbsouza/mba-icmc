@@ -81,7 +81,15 @@ class ExecutionState:
 
 @dataclass(frozen=True)
 class ChainOutcome:
-    """The single return value of `FilterChain.run()`: the final decision and the state it saw."""
+    """The single return value of `FilterChain.run()`: the final decision and the state it saw.
+
+    `frozen=True` makes the outcome itself immutable, but `state` is a *reference* to the same
+    `ExecutionState` the caller passed into `run()` — it is not a deep copy. A caller that keeps
+    mutating that `ExecutionState` after `run()` returns will retroactively change an
+    already-issued `ChainOutcome`. No caller does this today; when Wave 2's audit-trail writer
+    persists `ChainOutcome.state`, it must treat it as a snapshot to copy immediately, never a
+    reference to hold onto.
+    """
 
     decision: Decision
     state: ExecutionState
