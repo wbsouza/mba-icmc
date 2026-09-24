@@ -33,6 +33,6 @@ code that isn't accessible from this sandbox. Document this deviation in `lesson
       "not integration and not network"` 120 passed (algo-backtest scope, per this story's
       own step-7 command — not a workspace-wide `make check`, which also runs sibling
       tools' concurrent in-progress work); mutation pass on all `rules/*.py` + both filter
-      files (380 mutants, 361 killed, 19 survivors logged as TD-37/TD-38/TD-39 in
+      files (380 mutants, 361 killed, 19 survivors logged as TD-40/TD-41/TD-42 in
       `docs/technical-debt.md`)
 - [x] `lessons-learned.md` written, story moved to `docs/stories/done/`

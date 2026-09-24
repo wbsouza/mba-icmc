@@ -41,10 +41,9 @@ schemas at once, whichever `resolve()` call runs would reject the other schemas'
 unknown. This story's own boundary explicitly forbids touching `algo-backtest/config.py`
 (not in the "only create" file list), so unifying the schema into one call is out of
 scope here — each rule module resolves its own slice independently, per the task brief's
-"your call how to thread it." Not logged as a numbered technical-debt item because it
-isn't yet blocking anything (no real `conf/backtest.yaml` exists combining these keys
-today) and the right fix — a single aggregated `BacktestConfig` schema — belongs to
-whoever next touches `algo-backtest/config.py`, not a rule-module addition.
+"your call how to thread it." Logged as **TD-43** (promoted from this prose note during
+review — it fits the ledger's exact pattern, e.g. TD-27's identical split-brain-config
+shape, and the ledger is the searchable place this belongs, not a per-story paragraph).
 
 **Mutation testing found real boundary-condition gaps beyond the message-text-canary
 class already known from TD-34/TD-36.** Of 380 mutants across the six new files (plus
@@ -58,10 +57,10 @@ it — the two caps have opposite boundary semantics by design: risk/leverage ca
 needed an exact-equal-to-available-margin scenario. Strengthening tests for these
 (9 new/expanded scenarios across `risk_guard.feature`, `f5_risk_guard.feature`,
 `f6_capital_mgmt.feature`, `close_portion.feature`) brought survivors down to 19 — killing
-25 of the 44. Logged the remaining 19 as three new technical-debt items (TD-37 message-text
-canaries — the same class as TD-34/TD-36; TD-38 confirmed-equivalent `veto=False`-kwarg
+25 of the 44. Logged the remaining 19 as three new technical-debt items (TD-40 message-text
+canaries — the same class as TD-34/TD-36; TD-41 confirmed-equivalent `veto=False`-kwarg
 mutants, unkillable by construction since `FilterResult.veto` already defaults to `False`;
-TD-39 an epsilon-tolerance boundary mutant impractical to hit with any meaningful
+TD-42 an epsilon-tolerance boundary mutant impractical to hit with any meaningful
 percentage ladder) rather than chasing them, per the team-lead brief's explicit guidance.
 
 **Note (unrelated, flagged not fixed):** same pre-existing drift Spec 04b already noted —
