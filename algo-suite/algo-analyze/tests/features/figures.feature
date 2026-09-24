@@ -25,6 +25,21 @@ Feature: Render thesis figures from analysis artifacts
       When I render the drawdown curve figure
       Then the figure PDF is valid and non-empty
 
+    Scenario: a missing trade ledger fails fast
+      Given a run directory without trade artifacts
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with FileNotFoundError naming "trades.json"
+
+    Scenario: a trade ledger without fractional returns fails fast
+      Given a run directory with absolute PnL trades
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "fractional return"
+
+    Scenario: a trade ledger with null returns fails fast
+      Given a run directory with a null trade return
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "null"
+
   Rule: Cross-run ablation summaries render as valid vector PDFs
 
     Scenario: ablation rows render a bars PDF

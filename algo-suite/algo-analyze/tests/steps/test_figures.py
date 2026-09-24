@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 from algo_analyze.figures import (
     ablation_bars_figure,
@@ -39,6 +38,25 @@ def _run_with_zero_closed_trades(fctx: dict[str, Any]) -> None:
     _write_trades(fctx["run_dir"], [])
 
 
+@given("a run directory without trade artifacts")
+def _run_without_trade_artifacts(fctx: dict[str, Any]) -> None:
+    """Leave the run directory without a trades.json file."""
+
+
+@given("a run directory with absolute PnL trades")
+def _run_with_absolute_pnl_trades(fctx: dict[str, Any]) -> None:
+    """Create a ledger that must not be mistaken for fractional returns."""
+    (fctx["run_dir"] / "trades.json").write_text(
+        json.dumps([{"profitLoss": 125.0}, {"profitLoss": -40.0}])
+    )
+
+
+@given("a run directory with a null trade return")
+def _run_with_null_trade_return(fctx: dict[str, Any]) -> None:
+    """Create a ledger with invalid null return data."""
+    (fctx["run_dir"] / "trades.json").write_text(json.dumps([{"return": None}]))
+
+
 @given("ablation rows:")
 def _ablation_rows(fctx: dict[str, Any], datatable: list[list[str]]) -> None:
     """Load ablation rows from a Gherkin data table."""
@@ -56,6 +74,17 @@ def _ablation_rows(fctx: dict[str, Any], datatable: list[list[str]]) -> None:
 def _render_equity(fctx: dict[str, Any]) -> None:
     """Render the equity curve figure."""
     fctx["figure"] = equity_curve_figure(fctx["run_dir"], fctx["out"])
+
+
+@when("I render the equity curve figure expecting failure")
+def _render_equity_failing(fctx: dict[str, Any]) -> None:
+    """Capture an expected equity rendering failure."""
+    try:
+        equity_curve_figure(fctx["run_dir"], fctx["out"])
+    except (FileNotFoundError, ValueError) as exc:
+        fctx["error"] = exc
+    else:
+        pytest.fail("equity_curve_figure unexpectedly succeeded")
 
 
 @when("I render the drawdown curve figure")
@@ -82,7 +111,22 @@ def _valid_pdf(fctx: dict[str, Any]) -> None:
     assert b"/Subtype /Image" not in content
 
 
+@then(parsers.parse('figure rendering fails with FileNotFoundError naming "{text}"'))
+def _file_error_names(fctx: dict[str, Any], text: str) -> None:
+    """Assert a figure rendering FileNotFoundError names the expected artifact."""
+    assert isinstance(fctx["error"], FileNotFoundError)
+    assert text in str(fctx["error"])
+
+
+@then(parsers.parse('figure rendering fails with ValueError naming "{text}"'))
+def _value_error_names(fctx: dict[str, Any], text: str) -> None:
+    """Assert a figure rendering ValueError names the expected artifact issue."""
+    assert isinstance(fctx["error"], ValueError)
+    assert text in str(fctx["error"])
+
+
 def _write_trades(run_dir: Path, returns: list[float]) -> None:
-    """Write a minimal ``trades.parquet`` fixture with trade returns."""
-    table = pa.table({"return": pa.array(returns, type=pa.float64())})
-    pq.write_table(table, run_dir / "trades.parquet")
+    """Write a minimal ``trades.json`` fixture with fractional trade returns."""
+    (run_dir / "trades.json").write_text(
+        json.dumps([{"return": value} for value in returns])
+    )

@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-import pyarrow.parquet as pq
-
 from algo_analyze._style import ACCENT, DANGER, FIGURE_SIZE, PRIMARY, plt, thesis_style
 
 _RETURN_COLUMNS = ("return", "returns", "trade_return", "realized_return")
-_PNL_COLUMNS = ("realized_pnl", "pnl", "profit_loss", "net_profit")
 
 
 def equity_curve_figure(run_dir: Path, out: Path) -> Path:
@@ -77,35 +75,38 @@ def _save_pdf(fig: Any, out: Path) -> None:
 
 
 def _trade_returns(run_dir: Path) -> list[float]:
-    """Read trade returns from ``run_dir / 'trades.parquet'``."""
-    path = run_dir / "trades.parquet"
+    """Read fractional trade returns from ``run_dir / 'trades.json'``."""
+    path = run_dir / "trades.json"
     if not path.is_file():
         raise FileNotFoundError(f"run {run_dir.name!r} has no trades artifact: {path}")
-    table = pq.read_table(path)  # type: ignore[no-untyped-call]
-    if table.num_rows == 0:
+    try:
+        document = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path} is not valid JSON") from exc
+    if not isinstance(document, list):
+        raise ValueError(f"{path} must contain a list of closed trades")
+    if not document:
         return []
-    columns = table.to_pydict()
+    return [_trade_return(path, index, trade) for index, trade in enumerate(document)]
+
+
+def _trade_return(path: Path, index: int, trade: Any) -> float:
+    """Extract one finite fractional return from a closed-trade mapping."""
+    if not isinstance(trade, Mapping):
+        raise ValueError(f"{path} trade {index} is not an object")
     for name in _RETURN_COLUMNS:
-        if name in columns:
-            return _finite_values(name, columns[name])
-    for name in _PNL_COLUMNS:
-        if name in columns:
-            return _finite_values(name, columns[name])
-    known = ", ".join(table.column_names)
-    raise ValueError(f"{path} has no return or PnL column; known columns: {known}")
-
-
-def _finite_values(name: str, values: Sequence[Any]) -> list[float]:
-    """Return finite float values from a Parquet column, rejecting nulls and NaNs."""
-    result: list[float] = []
-    for value in values:
-        if value is None:
-            raise ValueError(f"trade column {name!r} contains null values")
-        number = float(value)
-        if not math.isfinite(number):
-            raise ValueError(f"trade column {name!r} contains non-finite values")
-        result.append(number)
-    return result
+        if name in trade:
+            value = trade[name]
+            if value is None:
+                raise ValueError(f"{path} trade {index} return {name!r} is null")
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError(f"{path} trade {index} return {name!r} is not finite")
+            return number
+    known = ", ".join(str(key) for key in trade)
+    raise ValueError(
+        f"{path} trade {index} has no fractional return field; known fields: {known}"
+    )
 
 
 def _equity_curve(returns: Sequence[float]) -> list[float]:
