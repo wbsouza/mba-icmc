@@ -21,3 +21,14 @@ snapshots.
 `python -m pytest` saw matplotlib while the `pytest` console script did not; the
 script shebang pointed at a different checkout. Reinstalling pytest through uv
 repaired the script, and fresh worktrees passed normally.
+
+**Fixing a consumer is not the same as proving the producer contract.** The
+figures lane now reads `trades.json` rather than the future `trades.parquet`, and
+it refuses to treat absolute PnL as fractional return data. That is safer, but
+review still found the real completed-run contract incomplete:
+`write_run_artifacts()` preserves LEAN closed-trade payloads and does not yet
+guarantee a normalized fractional `return` field. The required producer-side
+work is tracked as backlog story
+[`05f-normalized-trade-returns`](../../planned/05f-normalized-trade-returns/spec.md)
+(PR #12: https://forge.wiseprax.ai/wellington.souza/mba-ai-capstone/pulls/12)
+so it can be reviewed separately instead of hidden inside the figures PR.
