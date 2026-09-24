@@ -149,17 +149,17 @@ def f6_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return conf
 
 
-@given(parsers.parse("a capital_mgmt config with risk_per_trade={risk_per_trade:g}"))
+@given(parsers.parse("a risk_math config with risk_per_trade={risk_per_trade:g}"))
 def _config_with_risk(f6_ctx: _F6Ctx, f6_conf_dir: Path, risk_per_trade: float) -> None:
     (f6_conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "capital_mgmt": {"risk_per_trade": risk_per_trade}})
+        yaml.safe_dump({"schema_version": 1, "risk_math": {"risk_per_trade": risk_per_trade}})
     )
 
 
-@given("a capital_mgmt config missing risk_per_trade")
+@given("a risk_math config missing risk_per_trade")
 def _config_missing_risk(f6_ctx: _F6Ctx, f6_conf_dir: Path) -> None:
     (f6_conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "capital_mgmt": {}})
+        yaml.safe_dump({"schema_version": 1, "risk_math": {}})
     )
 
 

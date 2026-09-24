@@ -31,7 +31,7 @@ _FILTER_NAME = "f6_capital_mgmt"
 
 _SCHEMA_VERSION = 1
 _SCHEMA: tuple[ParameterSpec, ...] = (
-    ParameterSpec(name="capital_mgmt.risk_per_trade", impact=Impact.TRADING, reference_value=0.03),
+    ParameterSpec(name="risk_math.risk_per_trade", impact=Impact.TRADING, reference_value=0.03),
 )
 
 _REQUIRED_FEATURE_KEYS = (
@@ -51,14 +51,14 @@ class CapitalMgmtConfig:
 
 
 def load_capital_mgmt_config() -> CapitalMgmtConfig:
-    """Resolve `capital_mgmt.risk_per_trade` via the shared `algo_core.config` loader.
+    """Resolve `risk_math.risk_per_trade` via the shared `algo_core.config` loader.
 
     Raises:
         ConfigError: (`MissingTradingParameter`) if `risk_per_trade` is absent from
             config — a hard stop, per CLAUDE.md's fail-fast policy.
     """
     result = resolve("backtest", _SCHEMA, _SCHEMA_VERSION)
-    return CapitalMgmtConfig(risk_per_trade=float(result.values["capital_mgmt.risk_per_trade"]))
+    return CapitalMgmtConfig(risk_per_trade=float(result.values["risk_math.risk_per_trade"]))
 
 
 def _require_float(features: dict[str, object], key: str) -> float:

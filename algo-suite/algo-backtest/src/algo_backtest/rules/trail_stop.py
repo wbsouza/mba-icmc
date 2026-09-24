@@ -69,7 +69,18 @@ def trail_stop_to_level(
     spread: float,
     direction: Direction,
 ) -> float:
-    """The tightened stop-loss price the armed trail relocates to (loss side of entry)."""
+    """The tightened stop-loss price the armed trail relocates to (loss side of entry).
+
+    `trail_stop_to_level_factor` is normalized to its magnitude before use. specs.md
+    §14.9.4's canonical config carries this factor as a *negative* value
+    (`strategy_math.trail_stop_to_level_factor: -0.66`), encoding "loss side" via sign —
+    but this function already derives the loss-side direction independently from
+    `direction` (see the module docstring's documented asymmetry). Applying the signed
+    config value on top of that direction logic would double-apply the sign and move the
+    result to the profit side instead. `abs()` here lets a caller pass the real config
+    value (`-0.66`) and get the direction-correct result, rather than requiring callers
+    to know to pre-negate it.
+    """
     distance = _sl_distance(entry, stop_loss)
-    offset = distance * trail_stop_to_level_factor + spread
+    offset = distance * abs(trail_stop_to_level_factor) + spread
     return entry - _profit_sign(direction) * offset

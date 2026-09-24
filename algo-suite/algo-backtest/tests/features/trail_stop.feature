@@ -14,6 +14,10 @@ Feature: Target / trail-stop level math
   is a deliberate reading of the ambiguous "±" against §14.7's concrete example, documented
   here since the fx-manager source itself is not available in this checkout (specs.md §14.3).
 
+  specs.md §14.9.4's canonical sample config carries `trail_stop_to_level_factor` as a
+  *negative* value (`-0.66`) — the scenarios below pass that exact signed value, not an
+  undocumented positive convention, proving `trail_stop_to_level` normalizes it correctly.
+
   Rule: BUY-direction levels move up for targets/arming and down (but above the original SL) for the trail destination
 
     Scenario: Strategy A05's target/arm/destination factors on a BUY at entry 1.1000, SL 1.0950
@@ -23,7 +27,7 @@ Feature: Target / trail-stop level math
       Then the target level is 1.1106
       When I compute the trail-stop arm level for factor 0.5
       Then the trail-stop arm level is 1.1025
-      When I compute the trail-stop destination level for factor 0.66
+      When I compute the trail-stop destination level for factor -0.66
       Then the trail-stop destination level is 1.0965
 
   Rule: SELL-direction levels move down for targets/arming and up (but below the original SL) for the trail destination
@@ -35,7 +39,7 @@ Feature: Target / trail-stop level math
       Then the target level is 1.0894
       When I compute the trail-stop arm level for factor 0.5
       Then the trail-stop arm level is 1.0975
-      When I compute the trail-stop destination level for factor 0.66
+      When I compute the trail-stop destination level for factor -0.66
       Then the trail-stop destination level is 1.1035
 
   Rule: An entry equal to its stop-loss fails fast (zero risk distance is meaningless)

@@ -56,11 +56,11 @@ Feature: F6 — capital-management filter
   Rule: Loading risk_per_trade from config is fail-fast on a missing trading-impactful parameter
 
     Scenario: risk_per_trade present in config loads cleanly
-      Given a capital_mgmt config with risk_per_trade=0.03
+      Given a risk_math config with risk_per_trade=0.03
       When I load the capital-mgmt config
       Then the loaded risk_per_trade is 0.03
 
     Scenario: a config missing risk_per_trade entirely hard-stops
-      Given a capital_mgmt config missing risk_per_trade
+      Given a risk_math config missing risk_per_trade
       When I load the capital-mgmt config
       Then loading fails with a missing-trading-parameter error naming "risk_per_trade"

@@ -90,7 +90,8 @@ algo_backtest/
 │   └── audit.py            # decisions.parquet writer
 ├── rules/
 │   ├── risk_math.py        # IMPLEMENTED — fixed-fractional lot sizing (Spec 04d)
-│   ├── strategy_math.py    # target ladder, trail-stop, stop-level stretch
+│   ├── strategy_math.py    # stop-level stretch (target ladder + trail-stop landed in
+│   │                       #   trail_stop.py, Spec 04d)
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
 │   │                       #   level math (Spec 04d)
 │   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)

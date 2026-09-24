@@ -66,6 +66,11 @@ def _account_features_missing(f5_ctx: _F5Ctx, missing_key: str) -> None:
     f5_ctx.features = {k: v for k, v in _ALL_ACCOUNT_KEYS.items() if k != missing_key}
 
 
+@given(parsers.parse("synthetic account features with a fractional open trade count {value:g}"))
+def _account_features_fractional_count(f5_ctx: _F5Ctx, value: float) -> None:
+    f5_ctx.features = {**_ALL_ACCOUNT_KEYS, "account_open_trade_count": value}
+
+
 @given(
     parsers.parse(
         "risk-guard caps: portfolio_at_risk_cap={portfolio_at_risk_cap}, "
@@ -101,7 +106,7 @@ def _apply(f5_ctx: _F5Ctx) -> None:
     risk_filter = RiskGuardFilter(caps=f5_ctx.caps)
     try:
         f5_ctx.result = risk_filter.apply(state)
-    except (KeyError, ValueError) as exc:
+    except (KeyError, ValueError, TypeError) as exc:
         f5_ctx.error = exc
 
 

@@ -45,8 +45,21 @@ def _require_float(features: dict[str, object], key: str) -> float:
 
 
 def _require_int(features: dict[str, object], key: str) -> int:
-    """`_require()`, coerced to `int`."""
-    return int(_require(features, key))  # type: ignore[call-overload, no-any-return]
+    """`_require()`, requiring an actual `int` — never silently truncated from a float.
+
+    `state.features: dict[str, object]` gives no type guarantee, so an upstream filter
+    could hand this a float (e.g. `2.9`). `open_trade_count` is trading-impactful (it
+    feeds the `max_concurrent_trades_per_account` cap), so a fractional value is a
+    data-contract violation to fail fast on, not a number to round away.
+    """
+    value = _require(features, key)
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(
+            f"{_FILTER_NAME}: state.features key {key!r} must be an int, got {value!r} "
+            f"({type(value).__name__}) — a fractional or non-numeric trade count is a "
+            "data-contract violation, not a value to coerce"
+        )
+    return value
 
 
 def _account_state_from_features(features: dict[str, object]) -> AccountState:

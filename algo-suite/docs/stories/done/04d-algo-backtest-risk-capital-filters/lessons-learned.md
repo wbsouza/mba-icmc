@@ -77,3 +77,54 @@ separator. Added a two-simultaneous-breach scenario specifically to exercise it;
 survives as a message-text canary (the mutated `"XX; XX"` separator still contains the
 literal substring `"; "`), but the scenario itself was a real coverage gap worth closing
 regardless of whether it fully kills that particular mutant.
+
+## Post-review fixes (PR #8)
+
+An independent review (Forgejo PR #8) found 4 real issues after the story was first marked
+done; all fixed on the same branch before merge:
+
+1. **`risk_math.risk_per_trade`, not `capital_mgmt.risk_per_trade`.** F6 registered a new
+   config key under a namespace (`capital_mgmt.*`) this repo's own config contract never
+   uses — `specs.md` §14.9.4's canonical sample YAML and startup-log trace both use
+   `risk_math.risk_per_trade`. A config file written to the documented schema would have
+   hard-stopped in F6 as "missing `capital_mgmt.risk_per_trade`." Renamed the schema key
+   (and the fixture-writing test steps that constructed the old section name) to match.
+2. **`trail_stop_to_level`'s sign convention didn't match the documented config value.**
+   `specs.md` §14.9.4 carries `strategy_math.trail_stop_to_level_factor: -0.66` (negative)
+   in its canonical sample config, but the scenarios here were passing a positive `0.66`
+   and the function's `entry - profit_sign*offset` formula only produced the documented
+   loss-side destination for that positive convention — passing the *actual* config value
+   flipped the result to the profit side. Fixed by normalizing the factor to its magnitude
+   inside `trail_stop_to_level` (`abs(trail_stop_to_level_factor)`) so a caller can pass
+   the real signed config value and get the direction-correct result; updated both
+   scenarios to pass `-0.66`, proving the normalization rather than an undocumented
+   convention.
+3. **`_require_int` silently truncated a fractional value via `int()`.** `state.features`
+   gives no type guarantee, so an upstream filter could hand F5 a float
+   `account_open_trade_count` (e.g. `2.9`), which `int()` would round away instead of
+   rejecting — exactly the kind of silent coercion this module's own fail-fast convention
+   elsewhere forbids. Changed to an `isinstance(value, int)` check (excluding `bool`, which
+   is an `int` subclass in Python) raising `TypeError`, plus a new scenario proving a
+   fractional count fails fast rather than truncating.
+4. **Stale `SPEC.md` ownership comment.** `strategy_math.py`'s dir-tree line still credited
+   it with "target ladder, trail-stop" after `trail_stop.py` (this story) actually
+   implemented both — narrowed to "stop-level stretch" so a future reader isn't misled
+   about which module owns what.
+
+Re-ran the full gate after all four fixes: 121 passed (up from 120 — the new
+fractional-open-trade-count scenario), ruff/mypy clean, mutmut re-run scoped to the same
+files: 387 mutants (up from 380 — the new `_require_int` branch and `trail_stop`'s `abs()`
+call), 365 killed (up from 361), 22 survived. All 22 verified individually: 0 are new
+gaps — 16 are the existing message-text-canary class (TD-40, updated from 13 to include 3
+new `_require_int` message-text mutants), 2 are the existing `veto=False`-equivalent class
+(TD-41, unchanged), 1 is the existing epsilon-boundary-equivalent class (TD-42, unchanged),
+3 are the pre-existing, unrelated `chain/model.py` TD-36 canaries. Net non-`chain/model.py`
+survivor count held exactly at 19 before and after — the fixes redistributed which mutants
+survive (my two new checks introduced their own small message-text-canary tails) without
+introducing or hiding a real gap.
+
+A separate reviewer finding on TD-43 (the config split-brain across F5/F6/`config.py`) was
+**not** fixed here — the reviewer explicitly called it a fast-follow, not a blocker
+("failure is loud... not requesting changes on this PR alone"), and fixing it means
+touching `algo-backtest/config.py`, outside this story's file boundary and shared with
+Spec 04b/04c's concurrent work.

@@ -49,3 +49,11 @@ Feature: F5 — RiskGuard filter
       And risk-guard caps: portfolio_at_risk_cap=0.1, daily_drawdown_limit=-0.05, weekly_drawdown_limit=-0.1, max_concurrent_trades_per_account=2, max_leverage=10.0
       When F5 applies to the state
       Then applying F5 fails naming "account_leverage"
+
+  Rule: A fractional open-trade-count is rejected, never silently truncated
+
+    Scenario: a non-integer account_open_trade_count fails fast
+      Given synthetic account features with a fractional open trade count 2.9
+      And risk-guard caps: portfolio_at_risk_cap=0.1, daily_drawdown_limit=-0.05, weekly_drawdown_limit=-0.1, max_concurrent_trades_per_account=2, max_leverage=10.0
+      When F5 applies to the state
+      Then applying F5 fails naming "account_open_trade_count"
