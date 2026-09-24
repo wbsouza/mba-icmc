@@ -9,11 +9,11 @@ work). Each filter below must define and document its own minimal `state.feature
 contract, proven with synthetic feature dicts (same stub-state pattern as Spec 04b),
 per specs.md §11.3.2's conceptual description (no concrete key catalogue exists to reuse).
 
-- [ ] T1 — `chain/filters/f1_trend.py`: trend-regime filter (BUY/SELL aligned with trend,
+- [x] T1 — `chain/filters/f1_trend.py`: trend-regime filter (BUY/SELL aligned with trend,
       vetoes on direction conflict) + `tests/features/f1_trend.feature` (VETO/ABSTAIN/PASS)
-- [ ] T2 — `chain/filters/f2_indicator.py`: indicator filter (RSI/Stochastic/MACD-style
+- [x] T2 — `chain/filters/f2_indicator.py`: indicator filter (RSI/Stochastic/MACD-style
       confirmation, ABSTAIN on no-information bar) + `tests/features/f2_indicator.feature`
-- [ ] T3 — `chain/filters/f3_pattern.py`: pattern filter (candlestick/chart pattern,
+- [x] T3 — `chain/filters/f3_pattern.py`: pattern filter (candlestick/chart pattern,
       ABSTAIN if no pattern this bar) + `tests/features/f3_pattern.feature`
-- [ ] T4 — gate: `make check` green; mutation pass on all three filter files
-- [ ] `lessons-learned.md` written, story moved to `docs/stories/done/`
+- [x] T4 — gate: `make check` green; mutation pass on all three filter files
+- [x] `lessons-learned.md` written, story moved to `docs/stories/done/`

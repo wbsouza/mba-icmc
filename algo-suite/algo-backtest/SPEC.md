@@ -86,7 +86,7 @@ algo_backtest/
 │   └── algorithm.py        # QCAlgorithm: Initialize / OnData / OnOrderEvent (planned)
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
-│   ├── filters/            # F1..Fn filter classes (one file each)
+│   ├── filters/            # f1_trend.py, f2_indicator.py, f3_pattern.py (one file each); F4..Fn planned
 │   └── audit.py            # decisions.parquet writer
 ├── rules/
 │   ├── risk_math.py        # fixed-fractional lot sizing
