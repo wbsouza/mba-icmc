@@ -1,1 +1,0 @@
-../../../algo-download/tests/qa/spec-gdelt-ngrams.qa.md

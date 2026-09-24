@@ -15,7 +15,7 @@ are separate parallel lanes.
 
 Setup common to every section: `ALGO_DATA_ROOT` points at an empty, writable
 temp directory holding a mocked canonical event Parquet fixture (`GdeltEvent`/
-`GprEvent` rows per `algo-transform/src/algo_transform/events.py`); discard it
+`GprEvent` rows per [`algo-transform/src/algo_transform/events.py`](../../../../../algo-transform/src/algo_transform/events.py)); discard it
 afterward.
 
 ## 1. GPR event feature, happy path
@@ -58,7 +58,7 @@ afterward.
 3. Expect: exit code 0.
 4. Expect: every minute of 2020-01-05 carries `event_intensity` equal to
    `1.3333333333333333` (the unweighted mean of -4.0, 2.0, 6.0 — per
-   `algo-score/SPEC.md` §6.2 and its 2026-09-22 decision: mean of
+   [`algo-score/SPEC.md`](../../../../../algo-score/SPEC.md) §6.2 and its 2026-09-22 decision: mean of
    `goldstein_scale` only, `avg_tone` not folded in).
 5. Expect: the column is named `event_intensity`, never `sentiment`.
 
