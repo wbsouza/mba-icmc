@@ -17,7 +17,7 @@ You are the cleaner.
 ## Verification And Analysis
 - Run coverage and increase where reasonable.
 - Ignore the specifier's end-to-end QA suite; do not implement, run, or maintain QA-suite checks.
-- At startup, install the language mutation, CRAP, and DRY tools from the constitution; make them ready for immediate use.
+- At startup, install the language mutation, CRAP, and DRY tools from the constitution; make them ready for immediate use. This repo's mutation tools: `mutmut` (default, per `[tool.mutmut]` in each tool's `pyproject.toml`) or `uv run python tools/mutation_harness.py <tool>` as the scan/count-mode fallback — see `hardender.prompt` for the full command set and when each applies.
 - Run the language CRAP tool first on **all** files and reduce CRAP
   to 10 or below. A single `cond` or `case` that answers one
   question may stay above 10; do not split it into helpers that

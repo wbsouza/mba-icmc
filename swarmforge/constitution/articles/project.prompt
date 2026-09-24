@@ -13,3 +13,32 @@
 
 ## Ownership
 - Do not change another role's prompt or workflow ownership without explicit user direction.
+
+## Repository Organization
+- This repo is a TCC (MBA thesis). `monografia/` is the LaTeX thesis; `algo-suite/`
+  is the uv Python workspace holding the empirical pipeline, one member per
+  stage: `algo-core` (shared lib), `algo-download`, `algo-transform`,
+  `algo-score`, `algo-backtest`, `algo-analyze`. `PRD.md` (repo root) is the
+  product roadmap; `algo-suite/specs.md` is the dated architectural-decision
+  log (later entries amend, never overwrite). Each tool's technical contract
+  is colocated at `algo-suite/algo-<tool>/SPEC.md`.
+- **Where to find planned work:** `algo-suite/docs/stories/00-PLAN.md` is the
+  single entry point for what is done, what remains, in what order, and which
+  spec file owns each piece — read it first. It links out to the spec map and
+  each numbered spec.
+- **Story lifecycle:** `algo-suite/docs/stories/{planned,in-progress,done}/`.
+  Each story is its own folder (`<NN-short-name>/` while planned/in-progress,
+  renamed to `<YYYY-MM-DD>-<short-name>/` once moved to `done/`) containing at
+  minimum `spec.md` (the requirements/contract for that slice). A large or
+  multi-track spec also gets a `tasks.md` (atomic task breakdown with
+  dependencies) — not every story needs one; small stories implement straight
+  from `spec.md`. Before implementation starts, the story also gets a
+  `progress.md`: a TODO checklist of its deliverables, written up front and
+  checked off `[x]` item by item as each is actually completed (code +
+  passing test), never marked done in advance of the work.
+- **On completion:** move the story folder from `planned/` or `in-progress/`
+  into `done/<YYYY-MM-DD>-<short-name>/` and add a `lessons-learned.md`
+  alongside its `spec.md` (see existing `done/` folders for the format). Also
+  update `00-PLAN.md` §1's state table, the tool's own `SPEC.md` status line,
+  and `algo-suite/docs/technical-debt.md` — a spec is not done until the next
+  agent can read `00-PLAN.md` alone and see current reality.
