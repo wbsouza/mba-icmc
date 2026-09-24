@@ -13,6 +13,8 @@ Feature: Filter-chain mechanics with stub filters
       And state.features holds both filters' enrichment
       And state.filter_results holds both filters' results in order
       And the chain outcome decision is "BUY"
+      And every filter received the running state
+      And the terminal decision-maker observed the accumulated state
 
   Rule: A veto short-circuits the chain
 
@@ -22,6 +24,8 @@ Feature: Filter-chain mechanics with stub filters
       When the chain runs
       Then the filter "capital" was never called
       And the chain outcome decision is "NO_TRADE"
+      And state.features holds the enrichment from filters that ran
+      And state.filter_results holds results for filters that ran
 
   Rule: An ABSTAIN carries no veto and does not stop the chain
 

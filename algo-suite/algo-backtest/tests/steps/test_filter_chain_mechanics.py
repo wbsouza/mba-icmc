@@ -35,10 +35,12 @@ class _StubFilter:
     call_log: list[str]
     veto: bool = False
     enrichment: dict[str, object] = field(default_factory=dict)
+    received: list[ExecutionState] = field(default_factory=list, init=False)
 
     def apply(self, state: ExecutionState) -> FilterResult:
-        """Record the call and return the fixed, pre-configured `FilterResult`."""
+        """Record the call and the exact `state` object received, then return the fixed result."""
         self.call_log.append(self.name)
+        self.received.append(state)
         return FilterResult(
             filter_name=self.name,
             recommendation=self.recommendation,
@@ -50,12 +52,19 @@ class _StubFilter:
 
 @dataclass
 class _StubTerminal:
-    """A terminal decision-maker that always reports a fixed `Decision`."""
+    """A terminal decision-maker that always reports a fixed `Decision`.
+
+    Reads `state.features` on every call (mirroring the real `TerminalDecision` contract
+    of "interpret the accumulated state") and records what it saw, so tests can verify it
+    was handed the actual running state rather than a stand-in.
+    """
 
     decision: Decision
+    received_features: dict[str, object] | None = field(default=None, init=False)
 
     def decide(self, state: ExecutionState) -> Decision:
-        """Return the pre-configured decision, ignoring `state`."""
+        """Record the observed `state.features`, then return the pre-configured decision."""
+        self.received_features = dict(state.features)
         return self.decision
 
 
@@ -67,6 +76,7 @@ class _ChainCtx:
     filters: list[Filter] = field(default_factory=list)
     terminal: TerminalDecision | None = None
     outcome: ChainOutcome | None = None
+    state: ExecutionState | None = None
 
 
 def _pass_filter(ctx: _ChainCtx, name: str) -> _StubFilter:
@@ -146,6 +156,7 @@ def _run_chain(chain_ctx: _ChainCtx) -> None:
     assert chain_ctx.terminal is not None
     chain = FilterChain(filters=chain_ctx.filters, terminal=chain_ctx.terminal)
     state = ExecutionState(timestamp=datetime(2024, 1, 1, tzinfo=UTC), pair="EURUSD", features={})
+    chain_ctx.state = state
     chain_ctx.outcome = chain.run(state)
 
 
@@ -205,3 +216,42 @@ def _abstain_result_present(chain_ctx: _ChainCtx, reco: str) -> None:
     matches = [r for r in chain_ctx.outcome.state.filter_results if r.recommendation == wanted]
     assert matches, f"no filter_results entry with recommendation {reco}"
     assert all(not r.veto for r in matches)
+
+
+@then("every filter received the running state")
+def _every_filter_received_running_state(chain_ctx: _ChainCtx) -> None:
+    """Each filter's `apply()` was called with the actual running `ExecutionState` object."""
+    assert chain_ctx.state is not None
+    for chain_filter in chain_ctx.filters:
+        assert isinstance(chain_filter, _StubFilter)
+        assert chain_filter.received, f"filter {chain_filter.name} was never called"
+        assert chain_filter.received[-1] is chain_ctx.state
+
+
+@then("the terminal decision-maker observed the accumulated state")
+def _terminal_observed_state(chain_ctx: _ChainCtx) -> None:
+    """The terminal collaborator was handed the real, accumulated state, not a stand-in."""
+    assert chain_ctx.outcome is not None
+    assert isinstance(chain_ctx.terminal, _StubTerminal)
+    assert chain_ctx.terminal.received_features == chain_ctx.outcome.state.features
+
+
+@then("state.features holds the enrichment from filters that ran")
+def _features_from_called_filters(chain_ctx: _ChainCtx) -> None:
+    """Every filter that actually ran has its enrichment merged into `state.features`,
+    even when a later filter vetoes."""
+    assert chain_ctx.outcome is not None
+    features = chain_ctx.outcome.state.features
+    for chain_filter in chain_ctx.filters:
+        if isinstance(chain_filter, _StubFilter) and chain_filter.name in chain_ctx.call_log:
+            for key in chain_filter.enrichment:
+                assert key in features
+
+
+@then("state.filter_results holds results for filters that ran")
+def _filter_results_for_called(chain_ctx: _ChainCtx) -> None:
+    """`state.filter_results` lists exactly the filters that were actually called, in order —
+    proof the real accumulated state (not a stand-in) survives past a veto."""
+    assert chain_ctx.outcome is not None
+    names = [r.filter_name for r in chain_ctx.outcome.state.filter_results]
+    assert names == list(chain_ctx.call_log)
