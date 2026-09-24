@@ -61,3 +61,39 @@ object]` — deliberate per-filter, not an inconsistency: F1 has no ABSTAIN
 requirement in the spec, F2 and F3 do. Whoever wires the real LEAN/TA-Lib
 perception layer (04a/04h) needs to either match these exact keys/semantics
 or update these filters' docstrings and tests in the same change.
+
+## Post-review fixes (PR #7)
+
+An independent review found one real correctness bug and one missing invariant:
+
+1. **F1's required-key check used `not in`, not `state.features.get(key) is None`.**
+   F2 and F3 both treat a present-but-`None` feature as "not available yet" via
+   `.get(key) is None`; F1 alone checked `key not in state.features`, which a
+   present-but-`None` value passes straight through — falling into
+   `float(None)`'s unguided `TypeError` instead of F1's own crafted, remediation-
+   bearing `ValueError`. Fixed to match F2/F3's convention; added a
+   present-but-`None` scenario (F1 previously only tested the absent-key case).
+2. **`trend_strength`/`rsi` had no range enforcement.** Both are documented as
+   `[0, 100]` in their own module docstrings, but neither filter validated it —
+   an out-of-range or `nan` reading (a real upstream-bug scenario, not just a
+   theoretical one) would have silently produced out-of-contract enrichment or
+   a directional recommendation instead of failing at the filter boundary.
+   Added `0.0 <= x <= 100.0` checks to both, raising `ValueError` with a
+   remediation hint, plus boundary-value scenarios (reject/accept at the edges).
+   **The first boundary scenarios (0.0/100.0 accepted, -1.0/150.0 rejected)
+   still left a mutmut survivor**: a `100.0`→`101.0` mutant on the upper bound
+   passed every one of those four values unchanged. Needed a reject value
+   *just past* the true boundary (`101.0`) to pin the exact cutoff — the same
+   "boundary-value tests need to bracket the boundary tightly, not just prove
+   'clearly inside' vs. 'clearly outside'" lesson from Spec 04b/04d, recurring
+   a third time.
+3. **F3's closed pattern vocabulary** (reviewer's minor finding) — logged as
+   **TD-45**, matching TD-29's precedent for a documented forward-risk with a
+   concrete future trigger (04a/04h wiring real TA-Lib output) rather than a
+   code change now.
+
+Re-ran the full gate: 109 passed (was 98), ruff/mypy clean (one self-inflicted
+`# type: ignore` misplacement from a multi-line reformat, caught by mypy
+immediately), mutmut 190/205 killed (was 174/187) — all 15 survivors verified
+individually as the existing accepted classes (TD-39, updated counts), no new
+gaps; the two boundary mutants the first fix pass missed are both now killed.

@@ -33,19 +33,31 @@ _REQUIRED_KEYS = ("trend_direction", "trend_strength", "higher_tf_trend_directio
 
 
 def _read_required(state: ExecutionState) -> tuple[float, float, float]:
-    """Read F1's three required feature keys, failing fast with a remediation hint."""
-    missing = [key for key in _REQUIRED_KEYS if key not in state.features]
+    """Read F1's three required feature keys, failing fast with a remediation hint.
+
+    A key counts as missing if it's absent *or* present with value `None` —
+    `state.features.get(key) is None`, matching F2/F3's own "no-information-yet"
+    convention, not Python's `in` operator (which a present-but-`None` value would
+    incorrectly pass, falling through to `float(None)`'s unguided `TypeError`).
+    """
+    missing = [key for key in _REQUIRED_KEYS if state.features.get(key) is None]
     if missing:
         raise ValueError(
             f"F1TrendFilter requires state.features{_REQUIRED_KEYS!r}; missing {missing!r} "
             "— populate them upstream (perception layer / LEAN indicators) before running "
             "the chain."
         )
-    return (
-        float(state.features["trend_direction"]),  # type: ignore[arg-type]
-        float(state.features["trend_strength"]),  # type: ignore[arg-type]
-        float(state.features["higher_tf_trend_direction"]),  # type: ignore[arg-type]
+    trend_direction = float(state.features["trend_direction"])  # type: ignore[arg-type]
+    trend_strength = float(state.features["trend_strength"])  # type: ignore[arg-type]
+    higher_tf_trend_direction = float(
+        state.features["higher_tf_trend_direction"]  # type: ignore[arg-type]
     )
+    if not 0.0 <= trend_strength <= 100.0:
+        raise ValueError(
+            f"F1TrendFilter: trend_strength must be in [0, 100] (an ADX-style reading), "
+            f"got {trend_strength!r} — check the upstream indicator computation"
+        )
+    return trend_direction, trend_strength, higher_tf_trend_direction
 
 
 def _conflicts(trend_direction: float, higher_tf_trend_direction: float) -> bool:

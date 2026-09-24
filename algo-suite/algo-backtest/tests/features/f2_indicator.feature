@@ -86,3 +86,26 @@ Feature: F2 indicator filter
       Given rsi 38.0 and macd_hist 0.5
       When F2 is applied
       Then F2 recommends "NEUTRAL"
+
+  Rule: rsi outside [0, 100] fails fast
+
+    Scenario Outline: an out-of-range rsi is rejected
+      Given rsi <rsi> and macd_hist 0.4
+      When F2 is applied
+      Then F2 raises an error naming "rsi"
+
+      Examples:
+        | rsi   |
+        | -1.0  |
+        | 101.0 |
+        | 150.0 |
+
+    Scenario Outline: a boundary rsi is accepted
+      Given rsi <rsi> and macd_hist 0.4
+      When F2 is applied
+      Then F2's filter_name is "F2_indicator"
+
+      Examples:
+        | rsi   |
+        | 0.0   |
+        | 100.0 |

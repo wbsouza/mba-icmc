@@ -63,6 +63,17 @@ def _given_missing_key(f1_ctx: _F1Ctx, key: str) -> None:
     del f1_ctx.features[key]
 
 
+@given(parsers.parse('a state where "{key}" is present but None'))
+def _given_present_none(f1_ctx: _F1Ctx, key: str) -> None:
+    """Stage a feature dict where the named required key is present with value `None`."""
+    f1_ctx.features = {
+        "trend_direction": 0.5,
+        "trend_strength": 20.0,
+        "higher_tf_trend_direction": 0.5,
+    }
+    f1_ctx.features[key] = None
+
+
 @when("F1 is applied")
 def _apply_f1(f1_ctx: _F1Ctx) -> None:
     """Run `F1TrendFilter.apply()` against the staged features, capturing any error."""

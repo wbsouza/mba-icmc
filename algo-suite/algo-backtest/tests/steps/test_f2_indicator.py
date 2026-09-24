@@ -15,10 +15,11 @@ scenarios("../features/f2_indicator.feature")
 
 @dataclass
 class _F2Ctx:
-    """Per-scenario fixture context: the staged features plus the result seen."""
+    """Per-scenario fixture context: the staged features plus the result or error seen."""
 
     features: dict[str, object] = field(default_factory=dict)
     result: FilterResult | None = None
+    error: Exception | None = None
 
 
 @pytest.fixture
@@ -47,11 +48,14 @@ def _both_present(f2_ctx: _F2Ctx, rsi: float, macd_hist: float) -> None:
 
 @when("F2 is applied")
 def _apply_f2(f2_ctx: _F2Ctx) -> None:
-    """Run `F2IndicatorFilter.apply()` against the staged features."""
+    """Run `F2IndicatorFilter.apply()` against the staged features, capturing any error."""
     state = ExecutionState(
         timestamp=datetime(2024, 1, 1, tzinfo=UTC), pair="EURUSD", features=dict(f2_ctx.features)
     )
-    f2_ctx.result = F2IndicatorFilter().apply(state)
+    try:
+        f2_ctx.result = F2IndicatorFilter().apply(state)
+    except ValueError as exc:
+        f2_ctx.error = exc
 
 
 @then(parsers.parse('F2 abstains with reason mentioning "{fragment}"'))
@@ -83,3 +87,10 @@ def _reason_non_empty(f2_ctx: _F2Ctx) -> None:
     """The result carries a non-empty reason string."""
     assert f2_ctx.result is not None
     assert f2_ctx.result.reason
+
+
+@then(parsers.parse('F2 raises an error naming "{name}"'))
+def _raises_naming(f2_ctx: _F2Ctx, name: str) -> None:
+    """Application raised, and the message names the out-of-range parameter."""
+    assert isinstance(f2_ctx.error, ValueError)
+    assert name in str(f2_ctx.error)

@@ -53,6 +53,11 @@ class F2IndicatorFilter:
             )
         rsi = float(rsi)  # type: ignore[arg-type]
         macd_hist = float(macd_hist)  # type: ignore[arg-type]
+        if not 0.0 <= rsi <= 100.0:
+            raise ValueError(
+                f"F2IndicatorFilter: rsi must be in [0, 100], got {rsi!r} — check the "
+                "upstream indicator computation"
+            )
         if _bullish(rsi, macd_hist):
             recommendation = Recommendation.BUY
         elif _bearish(rsi, macd_hist):

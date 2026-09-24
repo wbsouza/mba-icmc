@@ -67,3 +67,33 @@ Feature: F1 trend-regime filter
       Given a state missing "trend_direction"
       When F1 is applied
       Then F1 raises an error naming "trend_direction"
+
+  Rule: A present-but-None required feature fails fast, not with an unguided crash
+
+    Scenario: trend_direction is present but None
+      Given a state where "trend_direction" is present but None
+      When F1 is applied
+      Then F1 raises an error naming "trend_direction"
+
+  Rule: trend_strength outside [0, 100] fails fast
+
+    Scenario Outline: an out-of-range trend_strength is rejected
+      Given trend_direction 0.5, trend_strength <trend_strength> and higher_tf_trend_direction 0.5
+      When F1 is applied
+      Then F1 raises an error naming "trend_strength"
+
+      Examples:
+        | trend_strength |
+        | -1.0           |
+        | 101.0          |
+        | 150.0          |
+
+    Scenario Outline: a boundary trend_strength is accepted
+      Given trend_direction 0.5, trend_strength <trend_strength> and higher_tf_trend_direction 0.5
+      When F1 is applied
+      Then F1 recommends "BUY" with no veto
+
+      Examples:
+        | trend_strength |
+        | 0.0            |
+        | 100.0          |
