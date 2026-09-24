@@ -23,3 +23,11 @@ packages = ["src/algo_backtest"]
 
 [tool.uv.sources]
 algo-core = { workspace = true }
+
+[tool.mutmut]
+source_paths = ["src"]
+# First Hardener pass for this package (filter-chain mechanics, Spec 04b);
+# scoped to this story's differential file only.
+only_mutate = [
+    "src/algo_backtest/chain/model.py",
+]
