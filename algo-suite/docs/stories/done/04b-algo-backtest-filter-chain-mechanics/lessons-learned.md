@@ -83,3 +83,41 @@ apparently mid-scaffold in another concurrent session). `uv sync` during
 this story's setup surfaced that drift as an unstaged `uv.lock` diff; left
 untouched and uncommitted — it belongs to whoever owns the `algo-analyze`
 lane, not to Spec 04b.
+
+## Retrospective (post-merge, `3b900af`)
+
+**The orchestrator's job here was arbitration, not typing.** Every line of
+`chain/model.py` and its tests was written by sub-agents (coder, hardener);
+the orchestrating session's actual contribution was sequencing (coder before
+hardener, never parallel, because the boundary was one file), verifying each
+agent's claims against real command output instead of trusting the report
+text, reconciling two conflicting spec sources (`specs.md`'s tuple vs.
+`SPEC.md`'s `ChainOutcome`) into one decision, and later triaging two
+reviewers' overlapping-but-not-identical findings into a single fix list.
+None of that was "write code" — it was deciding what counted as done and
+catching the two places (uv.lock drift, a stray `principal_mba_tlc_pr_review_prompt.md`
+file from an unrelated session) where "keep going" would have quietly swept
+someone else's in-flight work into this branch.
+
+**Verification cost less than it looked like it would.** Independently
+re-running `pytest`/`ruff`/`mypy`/`mutmut` after each sub-agent's report added
+maybe two tool calls per stage — cheap insurance against a report that
+oversold itself. It never actually caught a fabricated claim in this story
+(both agents' summaries held up), but that's the point of trust-but-verify:
+the cost is small and constant, the payoff is avoiding a merge on the one
+time a report is wrong.
+
+**Gauntlet stage names map cleanly onto this session's own sub-agent
+dispatch**, independent of `swarmforge`'s tmux/worktree pipeline (which was
+busy on Spec 04a throughout this story). Coder → Hardener → (fresh-eyes
+Verifier, here supplied by two independently-reasoning reviewers rather than
+a single scripted Verifier) is the same shape whether the mechanism is a
+tmux pane per role or an `Agent` tool call per stage. The value isn't the
+infrastructure, it's fresh context per stage and an author-≠-verifier split.
+
+**Process friction worth remembering for next time:** this Forgejo instance
+returns 405 on threaded PR-comment replies and thread-resolve — both
+`reply_comment` and `resolve_thread` are dead ends here, so review responses
+have to land as one consolidated top-level comment instead. Not a code
+issue, just a platform capability gap worth not re-discovering mid-review
+next time.
