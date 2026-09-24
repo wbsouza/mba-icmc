@@ -86,8 +86,9 @@ algo_backtest/
 │   └── algorithm.py        # QCAlgorithm: Initialize / OnData / OnOrderEvent (planned)
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
-│   ├── filters/            # F1..Fn filter classes (one file each)
-│   └── audit.py            # decisions.parquet writer
+│   ├── filters/            # f1_trend.py, f2_indicator.py, f3_pattern.py (one file each); F4..Fn planned
+│   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
+│                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
 │   ├── risk_math.py        # IMPLEMENTED — fixed-fractional lot sizing (Spec 04d)
 │   ├── strategy_math.py    # stop-level stretch (target ladder + trail-stop landed in
