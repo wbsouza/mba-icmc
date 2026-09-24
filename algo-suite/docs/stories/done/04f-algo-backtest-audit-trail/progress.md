@@ -12,16 +12,16 @@ a pydantic `DecisionRow` model for the §11.3.4 column set and map `ChainOutcome
 scenario below proves the *schema* is join-ready (a `trade_id`-keyed row shape), not an
 actual join against a real `trades.parquet`; the real join is Spec 04h's integration test.
 
-- [ ] T1 — `chain/audit.py`: `DecisionRow` pydantic model, full §11.3.4 columns (`timestamp`,
+- [x] T1 — `chain/audit.py`: `DecisionRow` pydantic model, full §11.3.4 columns (`timestamp`,
       `pair`, `features_hash`, `filter_results` (list[struct]), `final_decision`,
       `vetoed_by`), plus a `trade_id` key field for the future join
-- [ ] T2 — `chain/audit.py`: conversion function `ChainOutcome` (+ pair/trade_id context) →
+- [x] T2 — `chain/audit.py`: conversion function `ChainOutcome` (+ pair/trade_id context) →
       `DecisionRow`, `features_hash` computed over `outcome.state.features` at write time
       (documented: this is the accumulated feature set at chain completion, since
       `ChainOutcome` doesn't preserve a separate pre-chain snapshot — see 04b's aliasing note)
-- [ ] T3 — `chain/audit.py`: writer function using `ParquetRepository[DecisionRow]`
-- [ ] T4 — `tests/features/audit.feature`: scenario — one audit row persisted per chain
+- [x] T3 — `chain/audit.py`: writer function using `ParquetRepository[DecisionRow]`
+- [x] T4 — `tests/features/audit.feature`: scenario — one audit row persisted per chain
       decision, with the full column set; scenario — a veto's `vetoed_by` is recorded;
       scenario — the row's `trade_id` key makes it join-ready (schema-level proof only)
-- [ ] T5 — gate: `make check` green; mutation pass on `chain/audit.py`
-- [ ] `lessons-learned.md` written, story moved to `docs/stories/done/`
+- [x] T5 — gate: `make check` green; mutation pass on `chain/audit.py`
+- [x] `lessons-learned.md` written, story moved to `docs/stories/done/`
