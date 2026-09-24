@@ -15,7 +15,7 @@ trivial stub filters (`tests/features/filter_chain_mechanics.feature`).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol
 
@@ -51,6 +51,14 @@ class FilterResult:
     enrichment: dict[str, object] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Fail fast on a confidence outside `[0, 1]` (specs.md §11.3.1: 'confidence in [0, 1]')."""
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(
+                f"FilterResult.confidence must be in [0, 1] or None, got {self.confidence!r} "
+                f"from filter {self.filter_name!r}"
+            )
+
 
 @dataclass
 class ExecutionState:
@@ -60,6 +68,15 @@ class ExecutionState:
     pair: str
     features: dict[str, object]
     filter_results: list[FilterResult] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Fail fast on a naive or non-UTC timestamp — the future `decisions.parquet` audit
+        trail (specs.md §11.3.4) is UTC end-to-end; a naive/local value would corrupt joins."""
+        if self.timestamp.tzinfo is None or self.timestamp.utcoffset() != timedelta(0):
+            raise ValueError(
+                f"ExecutionState.timestamp must be timezone-aware UTC, got {self.timestamp!r} "
+                "— construct it with tzinfo=UTC (from datetime import UTC)"
+            )
 
 
 @dataclass(frozen=True)

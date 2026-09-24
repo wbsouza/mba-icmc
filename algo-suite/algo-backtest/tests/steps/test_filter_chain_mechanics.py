@@ -8,7 +8,7 @@ is proven ahead of that Wave-2 work.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from algo_backtest.chain.model import (
@@ -77,6 +77,7 @@ class _ChainCtx:
     terminal: TerminalDecision | None = None
     outcome: ChainOutcome | None = None
     state: ExecutionState | None = None
+    error: Exception | None = None
 
 
 def _pass_filter(ctx: _ChainCtx, name: str) -> _StubFilter:
@@ -107,12 +108,12 @@ def _two_pass_filters(chain_ctx: _ChainCtx, first: str, second: str) -> None:
 
 @given(
     parsers.parse(
-        'a chain of a PASS filter "{first}", a VETO filter "{veto_name}", '
+        'a chain of a PASS filter "{first}", a VETO filter "{veto_name}" that also enriches, '
         'and a PASS filter "{last}"'
     )
 )
 def _pass_veto_pass(chain_ctx: _ChainCtx, first: str, veto_name: str, last: str) -> None:
-    """PASS, then a hard VETO, then a PASS that must never be reached."""
+    """PASS, then a hard VETO that carries its own enrichment, then a PASS never reached."""
     chain_ctx.filters = [
         _pass_filter(chain_ctx, first),
         _StubFilter(
@@ -120,6 +121,7 @@ def _pass_veto_pass(chain_ctx: _ChainCtx, first: str, veto_name: str, last: str)
             recommendation=Recommendation.HOLD,
             call_log=chain_ctx.call_log,
             veto=True,
+            enrichment={f"{veto_name}_value": True},
         ),
         _pass_filter(chain_ctx, last),
     ]
@@ -255,3 +257,75 @@ def _filter_results_for_called(chain_ctx: _ChainCtx) -> None:
     assert chain_ctx.outcome is not None
     names = [r.filter_name for r in chain_ctx.outcome.state.filter_results]
     assert names == list(chain_ctx.call_log)
+
+
+@then("state.features holds the vetoing filter's own enrichment")
+def _vetoing_filter_enrichment_survives(chain_ctx: _ChainCtx) -> None:
+    """The chain merges a filter's enrichment before checking its veto flag (`chain/model.py`'s
+    `run()`), so even the filter that stops the chain still contributes its own enrichment."""
+    assert chain_ctx.outcome is not None
+    vetoing = next(
+        f for f in chain_ctx.filters if isinstance(f, _StubFilter) and f.veto
+    )
+    for key in vetoing.enrichment:
+        assert key in chain_ctx.outcome.state.features
+
+
+@when(parsers.parse("a FilterResult is built with confidence {confidence:g}"))
+def _build_filter_result_with_confidence(chain_ctx: _ChainCtx, confidence: float) -> None:
+    """Attempt to construct a `FilterResult` with the given confidence, capturing any error."""
+    try:
+        FilterResult(
+            filter_name="probe", recommendation=Recommendation.HOLD, reason="probe",
+            confidence=confidence,
+        )
+    except ValueError as exc:
+        chain_ctx.error = exc
+
+
+@when("a FilterResult is built with confidence absent")
+def _build_filter_result_without_confidence(chain_ctx: _ChainCtx) -> None:
+    """Construct a `FilterResult` with no confidence at all (the default `None`)."""
+    try:
+        FilterResult(filter_name="probe", recommendation=Recommendation.HOLD, reason="probe")
+    except ValueError as exc:
+        chain_ctx.error = exc
+
+
+@then("it is rejected for an out-of-range confidence")
+def _confidence_rejected(chain_ctx: _ChainCtx) -> None:
+    """Construction raised, and the message names the bad value."""
+    assert isinstance(chain_ctx.error, ValueError)
+    assert "confidence" in str(chain_ctx.error)
+
+
+@then("it is accepted")
+def _construction_accepted(chain_ctx: _ChainCtx) -> None:
+    """Construction did not raise."""
+    assert chain_ctx.error is None
+
+
+@when("an ExecutionState is built with a naive timestamp")
+def _build_state_naive_timestamp(chain_ctx: _ChainCtx) -> None:
+    """Attempt to construct an `ExecutionState` with a tzinfo-less timestamp."""
+    try:
+        ExecutionState(timestamp=datetime(2024, 1, 1), pair="EURUSD", features={})
+    except ValueError as exc:
+        chain_ctx.error = exc
+
+
+@when("an ExecutionState is built with a timestamp in a non-UTC timezone")
+def _build_state_non_utc_timestamp(chain_ctx: _ChainCtx) -> None:
+    """Attempt to construct an `ExecutionState` with a tz-aware but non-UTC timestamp."""
+    non_utc = timezone(timedelta(hours=-5))
+    try:
+        ExecutionState(timestamp=datetime(2024, 1, 1, tzinfo=non_utc), pair="EURUSD", features={})
+    except ValueError as exc:
+        chain_ctx.error = exc
+
+
+@then("it is rejected for a non-UTC timestamp")
+def _timestamp_rejected(chain_ctx: _ChainCtx) -> None:
+    """Construction raised, and the message names the timezone requirement."""
+    assert isinstance(chain_ctx.error, ValueError)
+    assert "UTC" in str(chain_ctx.error)
