@@ -1,0 +1,58 @@
+% Pipeline diagram — tikzpicture only (shared by the monografia figure float
+% and the Beamer deck). Requires: \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit}
+\begin{tikzpicture}[
+  node distance=0.45cm and 0.4cm,
+  src/.style={draw, rounded corners, fill=blue!8, minimum width=2.0cm, minimum height=0.7cm, align=center, font=\scriptsize},
+  proc/.style={draw, rounded corners, fill=blue!25, minimum width=2.0cm, minimum height=0.7cm, align=center, font=\scriptsize},
+  store/.style={draw, fill=gray!10, minimum width=2.0cm, minimum height=0.7cm, align=center, font=\scriptsize},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+]
+
+% Row 1: sources
+\node[src] (px)   {Dukascopy\\(ticks)};
+\node[src, below=of px] (gdelt) {GDELT 2.0};
+\node[src, below=of gdelt] (gpr) {GPR index\\Caldara--Iacoviello};
+\node[src, below=of gpr] (fnspid) {FNSPID / CC-News /\\central banks / Reddit};
+
+% Adapter + storage
+\node[proc, right=of gdelt, xshift=0.3cm] (adapt) {Self-registering\\\texttt{DataSource}\\adapters};
+\node[store, right=of adapt, xshift=0.3cm] (parq) {Parquet\\\texttt{year=YYYY/}\\\texttt{month=MM/}};
+
+% Feature layer
+\node[proc, right=of parq, xshift=0.3cm] (feat) {Feature layer\\\textit{5 families}\\TA · ind · pat · news · vol};
+
+% Sub-models
+\node[proc, above right=0.15cm and 0.4cm of feat] (lgbm) {5 LightGBM\\sub-models};
+
+% Meta-learner
+\node[proc, below=of lgbm] (meta) {Logistic\\meta-learner $\hat{p}_t$};
+
+% Deterministic chain
+\node[proc, below=of meta] (chain) {Deterministic\\filter chain\\(8 filters)};
+
+% Backtest
+\node[store, below left=0.15cm and 0.4cm of chain] (bt) {LEAN backtest\\purged $k$-fold\\+ embargo};
+
+% Metrics
+\node[store, left=of bt, xshift=-0.3cm] (metr) {Metrics:\\Sharpe · DD\\hit · holding · turnover};
+
+% Arrows: sources → adapter
+\draw[arrow] (px) -- (adapt);
+\draw[arrow] (gdelt) -- (adapt);
+\draw[arrow] (gpr) -- (adapt);
+\draw[arrow] (fnspid) -- (adapt);
+
+% Pipeline forward
+\draw[arrow] (adapt) -- (parq);
+\draw[arrow] (parq) -- (feat);
+\draw[arrow] (feat) -- (lgbm);
+\draw[arrow] (lgbm) -- (meta);
+\draw[arrow] (meta) -- (chain);
+\draw[arrow] (chain) -- (bt);
+\draw[arrow] (bt) -- (metr);
+
+% Annotation: agentic perception vs deterministic execution
+\node[draw=blue!50, dashed, rounded corners, fit=(lgbm)(meta), inner sep=4pt, label={[font=\tiny\bfseries, blue!70]above:Agentic perception (cached)}] {};
+\node[draw=red!50, dashed, rounded corners, fit=(chain), inner sep=4pt, label={[font=\tiny\bfseries, red!70]below:Deterministic execution}] {};
+
+\end{tikzpicture}

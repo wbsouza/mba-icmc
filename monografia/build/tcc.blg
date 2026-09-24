@@ -1,0 +1,80 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: tcc.aux
+The style file: classe/abntex2-alfeng-USPSC.bst
+A level-1 auxiliary file: pre/cover.aux
+A level-1 auxiliary file: pre/catalog-card.aux
+A level-1 auxiliary file: pre/approval-sheet.aux
+A level-1 auxiliary file: pre/dedication.aux
+A level-1 auxiliary file: pre/epigraph.aux
+A level-1 auxiliary file: pre/abstract.aux
+A level-1 auxiliary file: pre/resumo.aux
+A level-1 auxiliary file: pre/abbreviations.aux
+A level-1 auxiliary file: pre/symbols.aux
+A level-1 auxiliary file: chapters/01-introduction.aux
+A level-1 auxiliary file: chapters/02-theoretical-foundation.aux
+A level-1 auxiliary file: chapters/03-methodology.aux
+A level-1 auxiliary file: chapters/04-experimental-evaluation.aux
+A level-1 auxiliary file: chapters/05-conclusion.aux
+A level-1 auxiliary file: pos/index.aux
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Database file #1: abntex2-options.bib
+Database file #2: bib/references.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
++---------------------------------------------------------+
+| Estilo bibliográfico abntex2-alf.bst versão v-1.9.7           |
+| Em caso de dúvidas ou problemas com este estilo procure |
+| http://www.abntex.net.br/                               |
++---------------------------------------------------------+
+You've used 65 entries,
+            6710 wiz_defined-function locations,
+            1518 strings with 20056 characters,
+and the built_in function-call counts, 47411 in all, are:
+= -- 3921
+> -- 1441
+< -- 228
++ -- 760
+- -- 443
+* -- 3194
+:= -- 6273
+add.period$ -- 222
+call.type$ -- 68
+change.case$ -- 468
+chr.to.int$ -- 107
+cite$ -- 53
+duplicate$ -- 2615
+empty$ -- 3715
+format.name$ -- 2097
+if$ -- 11192
+int.to.chr$ -- 12
+int.to.str$ -- 3
+missing$ -- 1084
+newline$ -- 275
+num.names$ -- 265
+pop$ -- 1249
+preamble$ -- 1
+purify$ -- 236
+quote$ -- 0
+skip$ -- 3292
+stack$ -- 1
+substring$ -- 1753
+swap$ -- 1159
+text.length$ -- 39
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 28
+warning$ -- 0
+while$ -- 366
+width$ -- 0
+write$ -- 851

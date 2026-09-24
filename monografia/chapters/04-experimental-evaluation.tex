@@ -1,0 +1,41 @@
+\chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
+
+\textit{Work in progress.} The present version of this manuscript is an intermediate submission. The experimental chapter is being completed iteratively as the engineering components described in Chapter~\ref{cap:methodology} are brought to a runnable state. The final version of this document, submitted for the defense, will report the results enumerated below.
+
+The chapter is planned in seven sections. Section~\ref{sec:experimental-setup} (planned) will describe the implementation status at submission time (which adapters, which scorers, which strategies are runnable end to end) and the exact data spans used. Section~\ref{sec:coverage-results} (planned) will report the coverage matrix of news corpora over the target window and the empirical training-span derived from the coverage rule of Section~\ref{subsec:coverage-rule}. Section~\ref{sec:baseline-results} (planned) will report the price-only baseline on EUR/USD (and on USD/JPY where time permits) under the protocol of Section~\ref{sec:evaluation}: Sharpe, maximum drawdown, hit rate, average holding time and turnover. Section~\ref{sec:hybrid-results} (planned) will report the hybrid strategy under the same protocol and the same metrics. Section~\ref{sec:ablations} (planned) will report the ablation between price-only, price-plus-sentiment, price-plus-events and full hybrid. Section~\ref{sec:zhang-comparison} (planned) will report a side-by-side comparison against \citeonline{zhang2025macroalpha} on the metrics in common (Sharpe, drawdown), with explicit discussion of why any divergence in headline Sharpe is expected from the stricter validation protocol of Section~\ref{sec:evaluation}. Section~\ref{sec:experimental-threats} (planned) will close the chapter with the threats-to-validity discussion specialized to the actually observed results.
+
+Items deferred at submission time, if any, will be listed in the experimental chapter as documented future work rather than as silent omissions, consistent with the layered MVP commitment of Section~\ref{sec:reproducibility}.
+
+\section{Experimental Setup} \label{sec:experimental-setup}
+
+This intermediate version reports the implementation status of the experimental pipeline at the time of submission, as anticipated in Section~\ref{sec:price-pipeline}. The engineering work is being delivered in vertical layers rather than all at once, and the present submission documents which layers are runnable end to end and which remain in progress, so that the deferral of empirical results is explicit rather than silent (Section~\ref{sec:reproducibility}).
+
+Two components are implemented and pass the project's quality gate. The first is a shared core library holding the cross-cutting contracts of the pipeline: the instrument abstraction that carries the LEAN-aligned system identity of Section~\ref{sec:execution-engine} (symbol, security type, market and the pip convention that distinguishes the yen-quoted pair), the canonical storage layout of Section~\ref{sec:data-architecture} (the partitioned Parquet tree and the derived execution store), the configuration policy, the read-through cache port, and the repository abstraction over the Parquet store. The second is the Forex price-ingestion stage of Section~\ref{sec:price-pipeline}, realized as a self-registering Dukascopy adapter that retrieves the broker's native tick payloads and writes them unmodified to the raw store, leaving normalization to the downstream transform stage. Both components are developed test-first under a behavior-driven regime and, at submission, comprise more than seventy automated tests at ninety-nine per cent line coverage, passing the static-analysis and strict type-checking gate.
+
+The remaining stages are specified in Chapter~\ref{cap:methodology} but not yet runnable: the transform stage that resamples raw ticks into the minute-resolution \texttt{QuoteBar} Parquet of Section~\ref{sec:price-pipeline}; the sentiment and event feature layer of Section~\ref{sec:feature-layer}; the late-fusion model of Section~\ref{sec:fusion}; the LEAN-based execution engine of Section~\ref{sec:execution-engine}, whose Parquet-to-\path{lean-data} materializer and timezone convention are nonetheless already implemented and validated by a containerized integration test against the pinned engine image, leaving the strategy algorithm and the backtest run as the remaining work; and the analysis layer that computes the evaluation metrics of Section~\ref{sec:evaluation}. The bulk historical retrieval over the full target window (2015-02-19 to 2024-12-31) has likewise not yet been executed: the ingestion stage is validated on its logic and on mocked datafeed responses rather than on a completed ten-year download.
+
+Consequently, the results enumerated in the remaining sections of this chapter (the coverage matrix of Section~\ref{sec:coverage-results}, the baseline and hybrid performance of Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results}, the ablations of Section~\ref{sec:ablations} and the comparison with the closest prior art of Section~\ref{sec:zhang-comparison}) are deferred to the final version submitted for the defense. The immediate engineering priority is the vertical completion of the price-only path, namely the transform stage, a minimal execution-engine integration and a baseline backtest, so that the first empirical figures of Section~\ref{sec:baseline-results} can be produced; the textual stages follow once that path yields a result.
+
+\section{Data Coverage} \label{sec:coverage-results}
+
+\textit{To be added in the final version.}
+
+\section{Baseline Strategy} \label{sec:baseline-results}
+
+\textit{To be added in the final version.}
+
+\section{Hybrid Strategy} \label{sec:hybrid-results}
+
+\textit{To be added in the final version.}
+
+\section{Ablations} \label{sec:ablations}
+
+\textit{To be added in the final version.}
+
+\section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
+
+\textit{To be added in the final version.}
+
+\section{Threats to Validity Specific to the Observed Results} \label{sec:experimental-threats}
+
+\textit{To be added in the final version.}

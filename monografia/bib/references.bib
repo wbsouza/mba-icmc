@@ -1,0 +1,710 @@
+% bib/references.bib
+% Working bibliography for the TCC. Entries are grouped roughly by theme
+% (financial markets, news / sentiment, NLP / language models, geopolitical
+% events, sequence models).
+
+% =======================================================================
+% Foreign exchange, algorithmic trading and quantitative finance
+% =======================================================================
+
+@TechReport{bis2022triennial,
+  author      = {{Bank for International Settlements}},
+  title       = {Triennial Central Bank Survey: {OTC} Foreign Exchange Turnover in {A}pril 2022},
+  institution = {Bank for International Settlements},
+  year        = {2022},
+  address     = {Basel},
+  note        = {\url{https://www.bis.org/statistics/rpfx22.htm}}
+}
+
+@Book{murphy1999technical,
+  author    = {Murphy, John J.},
+  title     = {Technical Analysis of the Financial Markets: A Comprehensive Guide to Trading Methods and Applications},
+  publisher = {Prentice Hall Press},
+  year      = {1999},
+  address   = {New York},
+  isbn      = {0735200661}
+}
+
+@Book{chan2009quantitative,
+  author    = {Chan, Ernest P.},
+  title     = {Quantitative Trading: How to Build Your Own Algorithmic Trading Business},
+  publisher = {John Wiley \& Sons},
+  year      = {2008},
+  address   = {Hoboken, NJ},
+  isbn      = {9780470411148}
+}
+
+@Book{chan2013algorithmic,
+  author    = {Chan, Ernest P.},
+  title     = {Algorithmic Trading: Winning Strategies and Their Rationale},
+  publisher = {John Wiley \& Sons},
+  year      = {2013},
+  address   = {Hoboken, NJ},
+  isbn      = {1118460146}
+}
+
+@Book{lopezdeprado2018advances,
+  author    = {{L{\'o}pez de Prado}, Marcos},
+  title     = {Advances in Financial Machine Learning},
+  publisher = {John Wiley \& Sons},
+  year      = {2018},
+  address   = {Hoboken, NJ},
+  isbn      = {1119482089}
+}
+
+@Book{lopezdeprado2020machine,
+  author    = {{L{\'o}pez de Prado}, Marcos},
+  title     = {Machine Learning for Asset Managers},
+  publisher = {Cambridge University Press},
+  year      = {2020},
+  address   = {Cambridge},
+  isbn      = {1108792898}
+}
+
+% =======================================================================
+% News, textual analysis and sentiment in finance
+% =======================================================================
+
+@Article{tetlock2007giving,
+  author  = {Tetlock, Paul C.},
+  title   = {Giving Content to Investor Sentiment: The Role of Media in the Stock Market},
+  journal = {The Journal of Finance},
+  year    = {2007},
+  volume  = {62},
+  number  = {3},
+  pages   = {1139--1168},
+  doi     = {10.1111/j.1540-6261.2007.01232.x}
+}
+
+@Article{loughran2011liability,
+  author  = {Loughran, Tim and McDonald, Bill},
+  title   = {When Is a Liability Not a Liability? {T}extual Analysis, Dictionaries, and 10-{K}s},
+  journal = {The Journal of Finance},
+  year    = {2011},
+  volume  = {66},
+  number  = {1},
+  pages   = {35--65},
+  doi     = {10.1111/j.1540-6261.2010.01625.x}
+}
+
+% =======================================================================
+% Word representations, transformers and language models
+% =======================================================================
+
+@InProceedings{mikolov2013word2vec,
+  author    = {Mikolov, Tomas and Sutskever, Ilya and Chen, Kai and Corrado, Greg S. and Dean, Jeffrey},
+  title     = {Distributed Representations of Words and Phrases and Their Compositionality},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2013},
+  volume    = {26},
+  pages     = {3111--3119},
+  note      = {\url{https://arxiv.org/abs/1310.4546}}
+}
+
+@Article{bojanowski2017fasttext,
+  author  = {Bojanowski, Piotr and Grave, Edouard and Joulin, Armand and Mikolov, Tomas},
+  title   = {Enriching Word Vectors with Subword Information},
+  journal = {Transactions of the Association for Computational Linguistics},
+  year    = {2017},
+  volume  = {5},
+  pages   = {135--146},
+  doi     = {10.1162/tacl_a_00051}
+}
+
+@InProceedings{souza2020bertimbau,
+  author    = {Souza, F{\'a}bio and Nogueira, Rodrigo and Lotufo, Roberto},
+  title     = {{BERTimbau}: Pretrained {BERT} Models for {B}razilian {P}ortuguese},
+  booktitle = {Intelligent Systems: 9th Brazilian Conference, {BRACIS} 2020},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {12319},
+  pages     = {403--417},
+  publisher = {Springer International Publishing},
+  address   = {Cham},
+  year      = {2020},
+  note      = {\url{https://github.com/neuralmind-ai/portuguese-bert}}
+}
+
+@TechReport{radford2018gpt,
+  author      = {Radford, Alec and Narasimhan, Karthik and Salimans, Tim and Sutskever, Ilya},
+  title       = {Improving Language Understanding by Generative Pre-Training},
+  institution = {OpenAI},
+  year        = {2018},
+  note        = {\url{https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf}}
+}
+
+@Book{goodfellow2016deep,
+  author    = {Goodfellow, Ian and Bengio, Yoshua and Courville, Aaron},
+  title     = {Deep Learning},
+  publisher = {MIT Press},
+  year      = {2016},
+  address   = {Cambridge, MA},
+  isbn      = {0262035618},
+  note      = {\url{https://www.deeplearningbook.org/}}
+}
+
+@Book{caseli2024pln,
+  editor    = {Caseli, Helena de Medeiros and Nunes, Maria das Gra{\c c}as Volpe},
+  title     = {Processamento de Linguagem Natural: Conceitos, T{\'e}cnicas e Aplica{\c c}{\~o}es em Portugu{\^e}s},
+  publisher = {{BPLN}},
+  edition   = {2},
+  year      = {2024},
+  note      = {\url{https://brasileiraspln.com/livro-pln/}}
+}
+
+@InProceedings{pennington2014glove,
+  author    = {Pennington, Jeffrey and Socher, Richard and Manning, Christopher D.},
+  title     = {{GloVe}: Global Vectors for Word Representation},
+  booktitle = {Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing ({EMNLP})},
+  year      = {2014},
+  pages     = {1532--1543},
+  address   = {Doha},
+  note      = {\url{https://aclanthology.org/D14-1162/}}
+}
+
+@InProceedings{vaswani2017attention,
+  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, {\L}ukasz and Polosukhin, Illia},
+  title     = {Attention Is All You Need},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2017},
+  volume    = {30},
+  pages     = {5998--6008},
+  address   = {Long Beach, CA},
+  note      = {\url{https://arxiv.org/abs/1706.03762}}
+}
+
+@InProceedings{kudo2018sentencepiece,
+  author    = {Kudo, Taku and Richardson, John},
+  title     = {{SentencePiece}: A Simple and Language Independent Subword Tokenizer and Detokenizer for Neural Text Processing},
+  booktitle = {Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing: System Demonstrations},
+  year      = {2018},
+  pages     = {66--71},
+  address   = {Brussels},
+  note      = {\url{https://aclanthology.org/D18-2012/}}
+}
+
+@InProceedings{devlin2019bert,
+  author    = {Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  title     = {{BERT}: Pre-training of Deep Bidirectional Transformers for Language Understanding},
+  booktitle = {Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies},
+  year      = {2019},
+  pages     = {4171--4186},
+  address   = {Minneapolis, MN},
+  note      = {\url{https://aclanthology.org/N19-1423/}}
+}
+
+@Misc{araci2019finbert,
+  author       = {Araci, Dogu},
+  title        = {{FinBERT}: Financial Sentiment Analysis with Pre-trained Language Models},
+  year         = {2019},
+  howpublished = {arXiv preprint arXiv:1908.10063}
+}
+
+@Misc{yang2020finbert,
+  author       = {Yang, Yi and Uy, Mark Christopher Siy and Huang, Allen},
+  title        = {{FinBERT}: A Pretrained Language Model for Financial Communications},
+  year         = {2020},
+  howpublished = {arXiv preprint arXiv:2006.08097}
+}
+
+@Book{tunstall2022nlp,
+  author    = {Tunstall, Lewis and von Werra, Leandro and Wolf, Thomas},
+  title     = {Natural Language Processing with Transformers: Building Language Applications with {H}ugging {F}ace},
+  edition   = {1},
+  publisher = {O'Reilly Media},
+  year      = {2022},
+  address   = {Sebastopol, CA},
+  isbn      = {1098103246}
+}
+
+@Book{geron2022hands,
+  author    = {G{\'e}ron, Aur{\'e}lien},
+  title     = {Hands-On Machine Learning with {S}cikit-{L}earn, {K}eras, and {T}ensor{F}low},
+  edition   = {3},
+  publisher = {O'Reilly Media},
+  year      = {2022},
+  address   = {Sebastopol, CA},
+  isbn      = {1098125975}
+}
+
+@Misc{wu2023bloomberggpt,
+  author       = {Wu, Shijie and Irsoy, Ozan and Lu, Steven and Dabravolski, Vadim and Dredze, Mark and Gehrmann, Sebastian and Kambadur, Prabhanjan and Rosenberg, David and Mann, Gideon},
+  title        = {{BloombergGPT}: A Large Language Model for Finance},
+  year         = {2023},
+  howpublished = {arXiv preprint arXiv:2303.17564}
+}
+
+@Misc{liu2023fingpt,
+  author       = {Yang, Hongyang and Liu, Xiao-Yang and Wang, Christina Dan},
+  title        = {{FinGPT}: Open-Source Financial Large Language Models},
+  year         = {2023},
+  howpublished = {arXiv preprint arXiv:2306.06031}
+}
+
+@Misc{xiao2024tradingagents,
+  author       = {Xiao, Yijia and Sun, Edward and Luo, Di and Wang, Wei},
+  title        = {{TradingAgents}: Multi-Agents {LLM} Financial Trading Framework},
+  year         = {2024},
+  howpublished = {arXiv preprint arXiv:2412.20138},
+  note         = {First posted 28 December 2024. \url{https://arxiv.org/abs/2412.20138}}
+}
+
+@Book{jurafsky2023speech,
+  author    = {Jurafsky, Daniel and Martin, James H.},
+  title     = {Speech and Language Processing: An Introduction to Natural Language Processing, Computational Linguistics, and Speech Recognition with Language Models},
+  edition   = {3 (draft)},
+  year      = {2026},
+  note      = {Online manuscript released January 6, 2026. \url{https://web.stanford.edu/~jurafsky/slp3/}}
+}
+
+% =======================================================================
+% Geopolitical and event data
+% =======================================================================
+
+@Article{caldara2022geopolitical,
+  author  = {Caldara, Dario and Iacoviello, Matteo},
+  title   = {Measuring Geopolitical Risk},
+  journal = {American Economic Review},
+  year    = {2022},
+  volume  = {112},
+  number  = {4},
+  pages   = {1194--1225},
+  doi     = {10.1257/aer.20191823},
+  note    = {GPR index data: \url{https://www.matteoiacoviello.com/gpr.htm}}
+}
+
+@InProceedings{leetaru2013gdelt,
+  author    = {Leetaru, Kalev and Schrodt, Philip A.},
+  title     = {{GDELT}: Global Data on Events, Location, and Tone, 1979--2012},
+  booktitle = {International Studies Association Annual Convention},
+  year      = {2013},
+  address   = {San Francisco, CA},
+  note      = {\url{http://data.gdeltproject.org/documentation/ISA.2013.GDELT.pdf}}
+}
+
+% =======================================================================
+% Datasets used in the methodology
+% =======================================================================
+
+@Misc{dong2024fnspid,
+  author       = {Dong, Zihan and Fan, Xinyu and Peng, Zhiyuan},
+  title        = {{FNSPID}: A Comprehensive Financial News Dataset in Time Series},
+  year         = {2024},
+  howpublished = {arXiv preprint arXiv:2402.06698},
+  note         = {\url{https://arxiv.org/abs/2402.06698}}
+}
+
+@InProceedings{baumgartner2020pushshift,
+  author    = {Baumgartner, Jason and Zannettou, Savvas and Keegan, Brian and Squire, Megan and Blackburn, Jeremy},
+  title     = {The {P}ushshift {R}eddit Dataset},
+  booktitle = {Proceedings of the International {AAAI} Conference on Web and Social Media},
+  year      = {2020},
+  volume    = {14},
+  number    = {1},
+  pages     = {830--839},
+  doi       = {10.1609/icwsm.v14i1.7347}
+}
+
+% =======================================================================
+% Technical analysis and chart-pattern detection
+% =======================================================================
+
+@Article{lo2000foundations,
+  author  = {Lo, Andrew W. and Mamaysky, Harry and Wang, Jiang},
+  title   = {Foundations of Technical Analysis: Computational Algorithms, Statistical Inference, and Empirical Implementation},
+  journal = {The Journal of Finance},
+  year    = {2000},
+  volume  = {55},
+  number  = {4},
+  pages   = {1705--1765},
+  doi     = {10.1111/0022-1082.00265},
+  note    = {{NBER} Working Paper No.~7613, March 2000.}
+}
+
+@Book{bulkowski2005encyclopedia,
+  author    = {Bulkowski, Thomas N.},
+  title     = {Encyclopedia of Chart Patterns},
+  edition   = {2},
+  publisher = {John Wiley \& Sons},
+  year      = {2005},
+  address   = {Hoboken, NJ},
+  series    = {Wiley Trading Series},
+  isbn      = {9780471668268}
+}
+
+@Book{nison1991candlestick,
+  author    = {Nison, Steve},
+  title     = {Japanese Candlestick Charting Techniques: A Contemporary Guide to the Ancient Investment Techniques of the Far East},
+  publisher = {New York Institute of Finance},
+  year      = {1991},
+  address   = {New York},
+  isbn      = {0139316507}
+}
+
+% =======================================================================
+% Closest prior art on news-sentiment Forex strategies
+% =======================================================================
+
+@Misc{zhang2025macroalpha,
+  author       = {Zhang, Yuke},
+  title        = {Interpretable Machine Learning for Macro Alpha: A News Sentiment Case Study},
+  year         = {2025},
+  howpublished = {arXiv preprint arXiv:2505.16136},
+  note         = {\url{https://arxiv.org/abs/2505.16136}. Source code: \url{https://github.com/yukepenn/macro-news-sentiment-trading}}
+}
+
+% =======================================================================
+% Concurrent agentic-LLM trading frameworks (referenced as future-work
+% comparators in Chapter 5)
+% =======================================================================
+
+@Misc{papadakis2025atlas,
+  author       = {Papadakis, Charidimos and Dimitriou, Angeliki and Filandrianos, Giorgos and Lymperaiou, Maria and Thomas, Konstantinos and Stamou, Giorgos},
+  title        = {{ATLAS}: Adaptive Trading with {LLM} {A}gent{S} Through Dynamic Prompt Optimization and Multi-Agent Coordination},
+  year         = {2025},
+  howpublished = {arXiv preprint arXiv:2510.15949},
+  note         = {\url{https://arxiv.org/abs/2510.15949}}
+}
+
+@Misc{tian2025tradinggroup,
+  author       = {Tian, Feng and Salim, Flora D. and Xue, Hao},
+  title        = {{TradingGroup}: A Multi-Agent Trading System with Self-Reflection and Data-Synthesis},
+  year         = {2025},
+  howpublished = {arXiv preprint arXiv:2508.17565},
+  note         = {\url{https://arxiv.org/abs/2508.17565}}
+}
+
+@Misc{xiong2025quantagent,
+  author       = {Xiong, Fei and Zhang, Xiang and Feng, Aosong and Sun, Siqi and You, Chenyu},
+  title        = {{QuantAgent}: Price-Driven Multi-Agent {LLM}s for High-Frequency Trading},
+  year         = {2025},
+  howpublished = {arXiv preprint arXiv:2509.09995},
+  note         = {\url{https://arxiv.org/abs/2509.09995}}
+}
+
+
+
+% =======================================================================
+% Related work -- USP MBA and graduation monographs
+% =======================================================================
+
+@MastersThesis{felix2024swing,
+  author       = {Felix, Claudinei},
+  title        = {Explorando a Inteligência Artificial na Previsão de Tendências e Preços no Contexto do Swing Trading: Um Estudo de Caso para Aprimorar Estratégias de Investimento},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2024},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{veiga2022pso,
+  author       = {Veiga, {\'A}tila da},
+  title        = {Aplicação de Algoritmos Heurísticos na Otimização dos Parâmetros de Trading com Pares Cointegrados},
+  school       = {Escola Politécnica, Universidade de São Paulo},
+  year         = {2022},
+  address      = {São Paulo, SP},
+  type         = {Monografia de MBA em Engenharia Financeira}
+}
+
+@MastersThesis{lee2014tradability,
+  author       = {Lee, H{\^o} Don},
+  title        = {Aplicação de métodos quantitativos no ADR/ORD Pairs trading},
+  school       = {Escola Politécnica, Universidade de São Paulo},
+  year         = {2014},
+  address      = {São Paulo, SP},
+  type         = {Trabalho de Conclusão de Curso em Engenharia de Produção}
+}
+
+@Book{miner2009highprobability,
+  author    = {Miner, Robert C.},
+  title     = {High Probability Trading Strategies: Entry to Exit Tactics for the Forex, Futures, and Stock Markets},
+  publisher = {John Wiley \& Sons},
+  address   = {Hoboken, NJ},
+  year      = {2009}
+}
+
+@MastersThesis{vanhelden2021fx,
+  author       = {Van Helden, Bruno Machado},
+  title        = {Uma análise fundamentalista e técnica do mercado cambial latino-americano},
+  school       = {Faculdade de Economia, Administração e Contabilidade, Universidade de São Paulo},
+  year         = {2021},
+  address      = {São Paulo, SP},
+  type         = {Monografia de Graduação em Economia}
+}
+
+@MastersThesis{ferrarini2025aspectos,
+  author       = {Ferrarini, Jos{\'e} Eduardo Athayde},
+  title        = {Uso de LLMs para a classificação de aspectos em feedbacks de desenvolvedores de software},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2025},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{pugina2024jira,
+  author       = {Pugina, Rafael Galo},
+  title        = {Uso de LLMs para a previsibilidade de projetos de desenvolvimento de software},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2024},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{brito2025grafos,
+  author       = {Brito, Bruno Henrique de},
+  title        = {Integrando Ciência da Informação e Processamento em Linguagem Natural: Uma abordagem baseada em frameworks para facilitação do compartilhamento de conhecimento organizacional},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2025},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{cruz2025incidentes,
+  author       = {Cruz, Bruna Magrini da},
+  title        = {Classificação de Incidentes de TI usando TF-IDF e LLMs},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2025},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{silva2024ner,
+  author       = {Silva, Jean Lourenço da},
+  title        = {Extração de Entidades Nomeadas em Documentos Fiscais: BERT vs LLMs},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2024},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+@MastersThesis{santos2024infra,
+  author       = {Santos, Diogo Moura},
+  title        = {Sistema de Detecção e Categorização de Falhas de Infraestrutura},
+  school       = {Instituto de Ciências Matemáticas e de Computação, Universidade de São Paulo},
+  year         = {2024},
+  address      = {São Carlos, SP},
+  type         = {Monografia de MBA em Inteligência Artificial e Big Data}
+}
+
+% =======================================================================
+% Classic trading and market analysis books (post-LLM relevance only)
+% =======================================================================
+
+@Book{aronson2007evidence,
+  author    = {Aronson, David R.},
+  title     = {Evidence-Based Technical Analysis: Applying the Scientific Method and Statistical Inference to Trading Signals},
+  publisher = {John Wiley \& Sons},
+  year      = {2007},
+  address   = {Hoboken, NJ},
+  isbn      = {9780470088746}
+}
+
+@Book{lefevre1923reminiscences,
+  author    = {Lefèvre, Edwin},
+  title     = {Reminiscences of a Stock Operator},
+  publisher = {George H. Doran Company},
+  year      = {1923},
+  address   = {New York},
+  note      = {Reprinted by Wiley, 1994}
+}
+
+@Article{white2000reality,
+  author    = {White, Halbert},
+  title     = {A Reality Check for Data Snooping},
+  journal   = {Econometrica},
+  year      = {2000},
+  volume    = {68},
+  number    = {5},
+  pages     = {1097--1126},
+  doi       = {10.1111/1468-0262.00158}
+}
+
+@Book{jansen2020ml4t,
+  author    = {Jansen, Stefan},
+  title     = {Machine Learning for Algorithmic Trading: Predictive Models to Extract Signals from Market and Alternative Data for Systematic Trading Strategies with Python},
+  edition   = {2},
+  publisher = {Packt Publishing},
+  address   = {Birmingham, UK},
+  year      = {2020},
+  isbn      = {9781839217715}
+}
+
+@Book{hallsmoore2015,
+  author    = {Halls-Moore, Michael L.},
+  title     = {Successful Algorithmic Trading},
+  publisher = {QuantStart},
+  address   = {London, UK},
+  year      = {2015},
+  note      = {Self-published, available at \url{https://www.quantstart.com/}}
+}
+
+@Book{chan2013algo,
+  author    = {Chan, Ernest P.},
+  title     = {Algorithmic Trading: Winning Strategies and Their Rationale},
+  publisher = {John Wiley \& Sons},
+  address   = {Hoboken, NJ},
+  year      = {2013},
+  isbn      = {9781118460146}
+}
+
+@Book{laidi2009intermarket,
+  author    = {La{\"\i}di, Ashraf},
+  title     = {Currency Trading and Intermarket Analysis: How to Profit from the Shifting Currents in Global Markets},
+  series    = {Wiley Trading},
+  publisher = {John Wiley \& Sons},
+  address   = {Hoboken, NJ},
+  year      = {2009},
+  isbn      = {9780470226230}
+}
+
+@Book{saettele2008sentiment,
+  author    = {Saettele, Jamie},
+  title     = {Sentiment in the Forex Market: Indicators and Strategies to Profit from Crowd Behavior and Market Extremes},
+  series    = {Wiley Trading},
+  publisher = {John Wiley \& Sons},
+  address   = {Hoboken, NJ},
+  year      = {2008},
+  isbn      = {9780470208236}
+}
+
+@Book{henderson2002currency,
+  author    = {Henderson, Callum},
+  title     = {Currency Strategy: The Practitioner's Guide to Currency Investing, Hedging and Forecasting},
+  series    = {Wiley Finance},
+  publisher = {John Wiley \& Sons},
+  address   = {Chichester, UK},
+  year      = {2002},
+  isbn      = {0470846844}
+}
+
+@Book{twomey2012inside,
+  author    = {Twomey, Brian},
+  title     = {Inside the Currency Market: Mechanics, Valuation, and Strategies},
+  series    = {Bloomberg Financial},
+  publisher = {John Wiley \& Sons},
+  address   = {Hoboken, NJ},
+  year      = {2012},
+  isbn      = {9780470952757}
+}
+
+@Article{mackinlay1997event,
+  author    = {MacKinlay, A. Craig},
+  title     = {Event Studies in Economics and Finance},
+  journal   = {Journal of Economic Literature},
+  year      = {1997},
+  volume    = {35},
+  number    = {1},
+  pages     = {13--39}
+}
+
+@Article{bailey2017overfitting,
+  author    = {Bailey, David H. and Borwein, Jonathan M. and L{\'o}pez de Prado, Marcos and Zhu, Qiji Jim},
+  title     = {The Probability of Backtest Overfitting},
+  journal   = {Journal of Computational Finance},
+  year      = {2017},
+  volume    = {20},
+  number    = {4},
+  pages     = {39--69},
+  doi       = {10.21314/JCF.2016.322}
+}
+
+@Article{hafez2012sentiment,
+  author    = {Hafez, Peter A. and Xie, Junqiang},
+  title     = {Factoring Sentiment Risk into Quant Models},
+  journal   = {RavenPack White Paper},
+  year      = {2012},
+  note      = {Cited in \cite{chan2013algo}, pp.~148--149.}
+}
+
+@Article{kirtac2024sentiment,
+  author    = {Kirtac, Kemal and Germano, Guido},
+  title     = {Sentiment Trading with Large Language Models},
+  journal   = {Finance Research Letters},
+  volume    = {62},
+  pages     = {105227},
+  year      = {2024},
+  doi       = {10.1016/j.frl.2024.105227}
+}
+
+@Article{fatouros2023chatgpt,
+  author    = {Fatouros, Georgios and Soldatos, John and Kouroumali, Kalliopi and Makridis, Georgios and Kyriazis, Dimosthenis},
+  title     = {Transforming Sentiment Analysis in the Financial Domain with {C}hat{GPT}},
+  journal   = {Machine Learning with Applications},
+  volume    = {14},
+  pages     = {100508},
+  year      = {2023},
+  doi       = {10.1016/j.mlwa.2023.100508}
+}
+
+@TechReport{hafezxie2013intraday,
+  author      = {Hafez, Peter and Xie, Junqiang},
+  title       = {Intraday Forex Trading Based on Sentiment Inflection Points},
+  institution = {RavenPack},
+  year        = {2013},
+  month       = jan,
+  url         = {https://ssrn.com/abstract=2198816},
+  note        = {RavenPack Research note. Posted to SSRN on 9 January 2013}
+}
+
+@Article{iacovides2025findpo,
+  author    = {Iacovides, Giorgos and Zhou, Wuyang and Mandic, Danilo},
+  title     = {{FinDPO}: Financial Sentiment Analysis for Algorithmic Trading through Preference Optimization of {LLMs}},
+  journal   = {arXiv preprint arXiv:2507.18417},
+  year      = {2025},
+  url       = {https://arxiv.org/abs/2507.18417}
+}
+
+@TechReport{ballinari2025fxllm,
+  author      = {Ballinari, Daniele and Maly, Jessica},
+  title       = {{FX} Sentiment Analysis with Large Language Models},
+  institution = {Swiss National Bank},
+  type        = {SNB Working Papers},
+  number      = {11/2025},
+  year        = {2025},
+  month       = aug,
+  url         = {https://www.snb.ch/en/publications/research/working-papers/2025/wp_2025_11},
+  note        = {Swiss National Bank Working Paper 11/2025}
+}
+
+@Article{liu2024gprcurrency,
+  author    = {Liu, Xi and Zhang, Xueyong},
+  title     = {Geopolitical Risk and Currency Returns},
+  journal   = {Journal of Banking \& Finance},
+  volume    = {161},
+  pages     = {107097},
+  year      = {2024},
+  doi       = {10.1016/j.jbankfin.2024.107097}
+}
+
+@Article{lopezdeprado2018tenreasons,
+  author    = {L{\'o}pez de Prado, Marcos},
+  title     = {The 10 Reasons Most Machine Learning Funds Fail},
+  journal   = {The Journal of Portfolio Management},
+  volume    = {44},
+  number    = {6},
+  pages     = {120--133},
+  year      = {2018},
+  doi       = {10.3905/jpm.2018.44.6.120}
+}
+
+@TechReport{melone2026geopolitical,
+  author      = {Melone, Alessandro and Stathopoulos, Andreas},
+  title       = {Geopolitical Risk in Currency Markets},
+  institution = {Fisher College of Business, The Ohio State University},
+  type        = {Charles A. Dice Center Working Paper},
+  number      = {2026-03},
+  year        = {2026},
+  month       = feb,
+  doi         = {10.2139/ssrn.6438919},
+  url         = {https://ssrn.com/abstract=6438919},
+  note        = {Fisher College of Business Working Paper No.~2026-03-003. Date written 27~February 2026}
+}
+
+@Article{bampinas2026stocks,
+  author    = {Bampinas, Georgios and Karfakis, Ioannis and Panagiotidis, Theodore and Papapanagiotou, Georgios},
+  title     = {Stocks, Currencies, and Geopolitical Shocks: Evidence from Advanced and Emerging Markets},
+  journal   = {Economic Modelling},
+  volume    = {156},
+  pages     = {107454},
+  year      = {2026},
+  doi       = {10.1016/j.econmod.2025.107454}
+}

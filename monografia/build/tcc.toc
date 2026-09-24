@@ -1,0 +1,94 @@
+\changetocdepth {4}
+\babel@toc {brazil}{}\relax 
+\babel@toc {english}{}\relax 
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\setlength {\cftchapterindent }{0em} \setlength {\cftchapternumwidth }{\cftlastnumwidth }
+\contentsline {chapter}{\chapternumberline {1}\MakeTextUppercase []{Introduction}}{29}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Theme and Problem}{29}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Justification and Motivation}{30}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Objectives}{31}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}General objective}{31}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}Specific objectives}{31}{subsection.1.3.2}%
+\contentsline {section}{\numberline {1.4}Document Structure}{32}{section.1.4}%
+\setlength {\cftchapterindent }{0em} \setlength {\cftchapternumwidth }{\cftlastnumwidth }
+\contentsline {chapter}{\chapternumberline {2}\MakeTextUppercase []{Theoretical Foundation}}{33}{chapter.2}%
+\contentsline {section}{\numberline {2.1}The Foreign Exchange Market}{33}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Algorithmic Trading and Quantitative Strategies}{34}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Natural Language Processing for Financial Text}{34}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Financial text representation}{35}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Sentiment analysis in finance}{35}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Transformer models in finance}{35}{subsection.2.3.3}%
+\contentsline {subsection}{\numberline {2.3.4}Event extraction from financial text}{36}{subsection.2.3.4}%
+\contentsline {section}{\numberline {2.4}Geopolitical Events and Macroeconomic News}{37}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Hybrid Approaches}{38}{section.2.5}%
+\setlength {\cftchapterindent }{0em} \setlength {\cftchapternumwidth }{\cftlastnumwidth }
+\contentsline {chapter}{\chapternumberline {3}\MakeTextUppercase []{Methodology}}{43}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Positioning Relative to Prior Art}{43}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Research Design}{45}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Experimental Variables and Type of Relationship}{46}{subsection.3.2.1}%
+\contentsline {section}{\numberline {3.3}Data Architecture and Storage}{47}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Forex Price-Data Pipeline}{49}{section.3.4}%
+\contentsline {section}{\numberline {3.5}News and Event-Data Pipeline}{51}{section.3.5}%
+\contentsline {subsection}{\numberline {3.5.1}Source priority and rationale}{51}{subsection.3.5.1}%
+\contentsline {subsection}{\numberline {3.5.2}Excluded sources}{52}{subsection.3.5.2}%
+\contentsline {subsection}{\numberline {3.5.3}Coverage rule for the training window}{52}{subsection.3.5.3}%
+\contentsline {subsection}{\numberline {3.5.4}Dataset Summary}{53}{subsection.3.5.4}%
+\contentsline {section}{\numberline {3.6}Feature Layer}{53}{section.3.6}%
+\contentsline {subsection}{\numberline {3.6.1}Technical-analysis features}{54}{subsection.3.6.1}%
+\contentsline {subsection}{\numberline {3.6.2}Indicator features}{54}{subsection.3.6.2}%
+\contentsline {subsection}{\numberline {3.6.3}Chart and candlestick pattern features}{54}{subsection.3.6.3}%
+\contentsline {subsection}{\numberline {3.6.4}Sentiment features}{55}{subsection.3.6.4}%
+\contentsline {subsection}{\numberline {3.6.5}Event features}{56}{subsection.3.6.5}%
+\contentsline {subsection}{\numberline {3.6.6}Market-activity features}{56}{subsection.3.6.6}%
+\contentsline {section}{\numberline {3.7}Fusion and Deterministic Execution}{57}{section.3.7}%
+\contentsline {subsection}{\numberline {3.7.1}Phase one: late fusion of the perception layer}{57}{subsection.3.7.1}%
+\contentsline {subsubsection}{\numberline {3.7.1.1}Phased delivery from a minimum viable baseline}{58}{subsubsection.3.7.1.1}%
+\contentsline {subsection}{\numberline {3.7.2}Phase two: deterministic execution as a filter chain}{58}{subsection.3.7.2}%
+\contentsline {subsection}{\numberline {3.7.3}Extended filter set: perception and execution quality gates}{60}{subsection.3.7.3}%
+\contentsline {paragraph}{\numberline {3.7.3.0.1}F8: Candlestick Confirmation Gate (Felix, 2024).}{61}{paragraph.3.7.3.0.1}%
+\contentsline {paragraph}{\numberline {3.7.3.0.2}F9: Regime Viability Gate (H\^o Don Lee, 2014).}{61}{paragraph.3.7.3.0.2}%
+\contentsline {paragraph}{\numberline {3.7.3.0.3}F10: Textual Confidence Gate (Ferrarini, 2025).}{61}{paragraph.3.7.3.0.3}%
+\contentsline {paragraph}{\numberline {3.7.3.0.4}F11: Cross-Model Agreement Gate (Ferrarini, 2025).}{62}{paragraph.3.7.3.0.4}%
+\contentsline {paragraph}{\numberline {3.7.3.0.5}F12: Sub-Model Consensus Gate (Veiga, 2022).}{62}{paragraph.3.7.3.0.5}%
+\contentsline {paragraph}{\numberline {3.7.3.0.6}F13: Duplicate Detection Gate (Pugina, 2024).}{62}{paragraph.3.7.3.0.6}%
+\contentsline {paragraph}{\numberline {3.7.3.0.7}F14: Entity Relevance Gate (Brito, 2025).}{62}{paragraph.3.7.3.0.7}%
+\contentsline {paragraph}{\numberline {3.7.3.0.8}F17: Cross-Market Risk-Off Gate (La\"\i di, 2009; Chan, 2013).}{63}{paragraph.3.7.3.0.8}%
+\contentsline {paragraph}{\numberline {3.7.3.0.9}F18: S\&P Alignment Gate (La\"\i di, 2009; USD/JPY only).}{63}{paragraph.3.7.3.0.9}%
+\contentsline {paragraph}{\numberline {3.7.3.0.10}F19: Positioning Extreme Veto (Saettele, 2008).}{63}{paragraph.3.7.3.0.10}%
+\contentsline {paragraph}{\numberline {3.7.3.0.11}F20: Data-Mining Significance Gate (Aronson, 2007).}{64}{paragraph.3.7.3.0.11}%
+\contentsline {subsection}{\numberline {3.7.4}Strategy variants for ablation}{64}{subsection.3.7.4}%
+\contentsline {section}{\numberline {3.8}Backtesting and Evaluation Protocol}{65}{section.3.8}%
+\contentsline {subsection}{\numberline {3.8.1}Numbered Experiments}{66}{subsection.3.8.1}%
+\contentsline {section}{\numberline {3.9}Execution Engine}{67}{section.3.9}%
+\contentsline {section}{\numberline {3.10}Reproducibility and Threats to Validity}{68}{section.3.10}%
+\contentsline {subsection}{\numberline {3.10.1}Rule-level significance under multiple comparisons}{69}{subsection.3.10.1}%
+\contentsline {section}{\numberline {3.11}Final Remarks}{72}{section.3.11}%
+\setlength {\cftchapterindent }{0em} \setlength {\cftchapternumwidth }{\cftlastnumwidth }
+\contentsline {chapter}{\chapternumberline {4}\MakeTextUppercase []{Experimental Evaluation}}{73}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Experimental Setup}{73}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Data Coverage}{74}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Baseline Strategy}{74}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Hybrid Strategy}{74}{section.4.4}%
+\contentsline {section}{\numberline {4.5}Ablations}{74}{section.4.5}%
+\contentsline {section}{\numberline {4.6}Comparison with Closest Prior Art}{74}{section.4.6}%
+\contentsline {section}{\numberline {4.7}Threats to Validity Specific to the Observed Results}{75}{section.4.7}%
+\setlength {\cftchapterindent }{0em} \setlength {\cftchapternumwidth }{\cftlastnumwidth }
+\contentsline {chapter}{\chapternumberline {5}\MakeTextUppercase []{Conclusion}}{77}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Final Remarks}{77}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Future Work}{77}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Tier A: richer single-agent perception}{78}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Tier B: specialist multi-agent perception}{78}{subsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.2.3}Tier C: consensus across heterogeneous agents}{79}{subsection.5.2.3}%
+\contentsline {subsection}{\numberline {5.2.4}Tier D: agent-proposed rule modifications}{79}{subsection.5.2.4}%
+\contentsline {subsection}{\numberline {5.2.5}Platform migration toward an actor-based engine}{79}{subsection.5.2.5}%
+\contentsline {subsection}{\numberline {5.2.6}From MVP to production: backtest, paper trading, live capital}{80}{subsection.5.2.6}%
+\contentsline {subsection}{\numberline {5.2.7}Knowledge-graph mediation and unsupervised news anomaly features}{81}{subsection.5.2.7}%
+\contentsline {subsection}{\numberline {5.2.8}Strategy-variant ablations}{81}{subsection.5.2.8}%
+\contentsline {subsection}{\numberline {5.2.9}Application to other financial markets}{81}{subsection.5.2.9}%
+\vspace {\cftbeforechapterskip }
+\setlength {\cftchapterindent }{\cftlastnumwidth } \setlength {\cftchapternumwidth }{2em}
+\contentsline {chapter}{\uppercase {References}}{83}{section*.20}%

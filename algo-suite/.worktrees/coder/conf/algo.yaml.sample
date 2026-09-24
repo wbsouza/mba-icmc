@@ -1,0 +1,8 @@
+# Global overrides (cross-cutting). Copy to `algo.yaml` to activate.
+# Everything here has a convention default; only set what you want to change.
+
+# Data root. Convention default: algo-suite/data/ (env: ALGO_DATA_ROOT).
+# data_root: /volume1/tcc
+
+# Logging. Convention default: INFO (env: ALGO_LOG_LEVEL).
+# log_level: INFO

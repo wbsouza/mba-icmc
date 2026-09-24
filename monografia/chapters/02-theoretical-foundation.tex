@@ -1,0 +1,145 @@
+\chapter{Theoretical Foundation} \label{cap:theoretical-foundation}
+
+This chapter reviews the conceptual building blocks this work relies on. The objective is not to provide an exhaustive survey of any of the underlying fields but to fix the terminology and the methodological assumptions that subsequent chapters use without further justification. The presentation is organized in five blocks: the structure of the foreign exchange market (Section~\ref{sec:fx-market}), the principles of algorithmic and quantitative trading (Section~\ref{sec:algotrading}), Natural Language Processing applied to financial text (Section~\ref{sec:nlp-sentiment}), the use of geopolitical and event data in macro-financial research (Section~\ref{sec:geopolitical}), and recent hybrid designs that combine these pieces (Section~\ref{sec:hybrid}).
+
+\section{The Foreign Exchange Market} \label{sec:fx-market}
+
+The foreign exchange market is an over-the-counter (OTC), continuously-traded market in which currencies are quoted in pairs. The price of a pair $XY$ at time $t$, denoted $P_{XY,t}$, is the amount of currency $Y$ required to acquire one unit of currency $X$. Four characteristics differentiate Forex from equity markets and shape the methodology of the present work.
+
+First, scale and liquidity. The 2022 BIS Triennial Survey reports an average daily turnover of USD 7.5 trillion across spot transactions, outright forwards, FX swaps, currency swaps and options \cite{bis2022triennial}, of which the spot segment alone exceeds USD 2.1 trillion. Such depth means that, for major pairs, even large algorithmic orders can typically be filled with negligible market impact, which is methodologically convenient: backtests in major pairs can ignore the price-impact term that distorts equity backtests at comparable notional sizes.
+
+Second, decentralization. Forex has no central exchange. Liquidity sits with a handful of money-center banks and a growing number of electronic communication networks (ECNs). The consequence for empirical work is that ``the price'' at a given timestamp is not a single number but a distribution over venues; care is needed to reconcile feeds and to attribute realized slippage between strategy decisions and venue selection.
+
+Third, leverage. Retail Forex brokers commonly offer leverage in the range 1:30 to 1:500, an order of magnitude higher than typical equity margin. Leverage transforms small price moves into large profit-and-loss swings; risk-management procedures and position-sizing rules therefore dominate strategy performance to a degree that is unusual in cash-equity research.
+
+Fourth, the central role of macroeconomic information. Differential interest rates, balance-of-payments flows, central-bank communication, inflation prints and political stability are first-order drivers of cross-rate moves. In contrast with equity markets, where firm-level fundamentals and earnings revisions explain a substantial share of return variance, Forex is strongly exposed to macroeconomic and geopolitical news flows. The cross-asset evidence in \citeonline{caldara2022geopolitical} documents measurable real-activity and financial-market effects of geopolitical-risk shocks in general rather than Forex-specific effects, but the indirect implication for cross-rate moves is consistent with the structural characterization given here. This is precisely the structural feature that makes Forex an interesting laboratory for an NLP-augmented strategy.
+
+\section{Algorithmic Trading and Quantitative Strategies} \label{sec:algotrading}
+
+Algorithmic trading covers any approach in which buy and sell decisions are produced by a computer-encoded rule rather than by direct human discretion. Within that broad definition the literature commonly distinguishes between technical, fundamental and statistical approaches \cite{chan2009quantitative,chan2013algorithmic}.
+
+Technical approaches treat past prices and volumes as the only information set and apply transformations (moving averages, oscillators, volatility filters, support-and-resistance heuristics) to derive entry and exit signals \cite{murphy1999technical}. Their appeal is operational simplicity and low data requirements. Their weakness is that any signal extractable from past prices alone is in principle available to every other participant on the same data feed, and therefore prone to arbitrage decay.
+
+Fundamental approaches use financial-statement data and macroeconomic series to estimate the equilibrium value of an asset and trade deviations between price and fundamental value. In Forex, fundamental analysis revolves around interest-rate parity, purchasing-power parity, current-account dynamics and central-bank policy reaction functions. The data is typically released at low frequency (monthly or quarterly), which makes fundamental approaches better suited to position trading than to intraday execution.
+
+Statistical and machine-learning approaches replace closed-form rules with models fit to historical data. The financial-machine-learning literature \cite{lopezdeprado2018advances,lopezdeprado2020machine} surveys the modern variants: ensembles of decision trees, deep neural networks, sequence models. LSTM networks and, more recently, transformer-based architectures \cite{vaswani2017attention} are now standard tools for sequence modeling on financial time series.
+
+A common methodological pitfall, emphasized by \citeonline{lopezdeprado2018advances}, is that financial data violates several of the assumptions on which standard cross-validation techniques rely: observations are not independent, distributions are non-stationary, and look-ahead leakage is easily introduced when features are computed without strict point-in-time discipline. Backtesting protocols, walk-forward evaluation and combinatorial purged cross-validation are therefore non-negotiable when claiming out-of-sample performance.
+
+\section{Natural Language Processing for Financial Text} \label{sec:nlp-sentiment}
+
+This section reviews the NLP elements directly used by the methodology: how financial text becomes numeric features, how sentiment is scored on that text, how the Transformer architecture and its finance-adapted descendants supply the scorer, and how the orthogonal task of event extraction structures occurrence-typed signals from the same textual input. Generic-NLP background material (linguistic levels, static word embeddings, classical text-classification estimators, the full LLM training pipeline) is omitted: the focus is on the components this work reuses.
+
+\subsection{Financial text representation} \label{subsec:fin-text-repr}
+
+Financial text reaches a numerical representation through one of two families. The \textit{bag-of-words} family represents a document by the multiset of its tokens (TF, TF--IDF, or presence/absence). The \textit{distributional} family represents words by dense low-dimensional vectors learned from co-occurrence patterns under the \textit{distributional hypothesis}: static variants assign one vector per word and conflate polysemy, while \textit{contextual} embeddings produced by Transformer encoders such as BERT \cite{devlin2019bert} yield a different vector per token occurrence. Polysemy resolution matters for financial text, where words such as \textit{call}, \textit{bond}, \textit{liability} or \textit{depreciation} carry technical senses distinct from everyday usage. The methodology of this work uses contextual embeddings from the FinBERT family of Section~\ref{subsec:transformers-finance} for sentence-level scoring of financial text.
+
+\subsection{Sentiment analysis in finance} \label{subsec:sentiment-finance}
+
+Sentiment analysis of financial text predates the deep-learning era. The lexicon-based approach of \citeonline{loughran2011liability} introduces a domain-specific dictionary that corrects the misclassifications general-purpose lexicons commit on financial language: words such as \textit{liability}, \textit{tax} or \textit{depreciation} carry negative polarity in everyday English but are neutral in a financial-statement context. \citeonline{tetlock2007giving} earlier showed that media tone, measured by dictionary methods of this kind, has predictive content for short-horizon equity returns beyond what is contained in past prices. Loughran--McDonald has remained an influential baseline; the FinBERT-class scorers reviewed below are the modern frontier and are benchmarked against it in this work.
+
+\subsection{Transformer models in finance} \label{subsec:transformers-finance}%
+\label{subsec:fin-nlp}\label{subsec:llms}%
+
+The Transformer architecture of \citeonline{vaswani2017attention} replaced recurrent sequence models with \textit{self-attention}, which computes for each token a weighted combination of every other token in the sequence; the context-sensitive representations and the training parallelism that this enables underlie nearly every modern language model. Two families derive from this architecture: \textit{encoders} (the BERT lineage), suited to representation and classification, and \textit{decoders} (the GPT lineage), suited to autoregressive generation. The methodology of this work uses encoders for sentence-level scoring.
+
+For financial text, two finance-adapted encoders bear the \textit{FinBERT} name. \citeonline{araci2019finbert} fine-tunes a BERT base model on a small set of finance-specific sentiment datasets. \citeonline{yang2020finbert} pre-trains BERT from scratch on a much larger corpus of financial communications and benchmarks the resulting model on the Financial PhraseBank dataset and other downstream finance tasks. Together they constitute the current methodological baseline for sentence-level sentiment scoring on English-language financial text.
+
+Beyond the FinBERT baseline, the release of BloombergGPT by \citeonline{wu2023bloomberggpt} marks the entry of large foundation models into finance: a 50-billion-parameter decoder model trained on a curated mixture of public web text and Bloomberg's proprietary corpus, outperforming general-purpose LLMs of similar size on financial-domain benchmarks. The open-source FinGPT initiative \cite{liu2023fingpt} addresses the reproducibility gap by providing open code, data-curation pipelines and fine-tuning recipes, and offers a practical path for academic and applied work that cannot rely on closed proprietary models.
+
+More recent evidence narrows the gap between general financial NLP and Forex-specific sentiment modeling. \citeonline{fatouros2023chatgpt} evaluate zero-shot ChatGPT~3.5 on a curated dataset of Forex-related news headlines and report approximately 35\,\% better sentiment-classification performance and a 36\,\% stronger correlation between predicted sentiment and market returns than FinBERT on that dataset. The gap reflects model scale and pre-training data rather than an architectural limitation, a point reinforced by \citeonline{ballinari2025fxllm}: domain-specific fine-tuning of contemporary open-source LLMs can match or exceed the zero-shot performance of general foundation models on FX sentiment tasks, and the resulting fine-tuned models outperform existing methods in both classification accuracy and the trading performance of sentiment-driven strategies. Outside FX but still within tradable financial sentiment, \citeonline{iacovides2025findpo} introduce a finance-specific LLM aligned by Direct Preference Optimization and report state-of-the-art benchmark performance together with portfolio simulations that remain profitable under transaction costs. These results justify treating LLM-class scorers as a credible upgrade path beyond the FinBERT baseline rather than a speculative future extension; the cost--benefit trade-off against the inference-latency budget of any live deployment is discussed in the methodology chapter.
+
+\subsection{Event extraction from financial text} \label{subsec:event-extraction}
+
+Where sentiment analysis aggregates the \textit{tone} of a corpus, event extraction identifies the \textit{occurrence} of specific events --- a sanction package, a central-bank decision, a military operation, a sovereign downgrade --- and attaches structured meta-data: actors, location, severity and time. The canonical NLP pipeline combines named-entity recognition (NER) for actor and location detection, event-trigger detection for the predicate, and role assignment for event arguments against a target ontology. For political and macroeconomic events the dominant ontology is \textbf{CAMEO} (Conflict and Mediation Event Observations), under which actors and event types are encoded into a fixed taxonomy that supports cross-document aggregation. The Global Database of Events, Language and Tone (GDELT), discussed in detail in Section~\ref{sec:geopolitical}, operationalizes this pipeline at scale: it processes broadcast, print and web news in more than a hundred languages and emits CAMEO-coded events updated every fifteen minutes. The separation of sentiment (tone) and event (occurrence) as orthogonal textual channels is a deliberate design choice of the methodology of this work.
+
+\section{Geopolitical Events and Macroeconomic News} \label{sec:geopolitical}
+
+While sentiment analysis aggregates the \textit{tone} of a corpus, geopolitical and macroeconomic event analysis aims at identifying the \textit{occurrence} of specific events (a sanction package, a central-bank decision, a military operation, a sovereign downgrade) and at attaching meta-data such as actors, location, severity and time. Two complementary data sources are referenced in this work.
+
+The Global Database of Events, Language and Tone (GDELT), introduced by \citeonline{leetaru2013gdelt}, monitors broadcast, print and web news in over a hundred languages and codifies events using the CAMEO taxonomy. The GDELT 2.0 release exposes three core tables, Events, Mentions and the Global Knowledge Graph (GKG), updated every fifteen minutes and freely downloadable. For the present work, GDELT serves as the primary high-frequency event-data source.
+
+The Geopolitical Risk (GPR) index of \citeonline{caldara2022geopolitical} is a complementary source built from automated text analysis of the major newspapers' archives. The authors show that GPR shocks have measurable, negative and persistent effects on real activity and on financial variables. The combination of an event-level data source (GDELT) with a continuous risk index (GPR) lets the proposed framework distinguish between the impact of isolated events and the impact of sustained risk regimes.
+
+Complementary cross-market evidence comes from \citeonline{bampinas2026stocks}, who study stock and currency markets jointly and report that, under elevated geopolitical risk, stock--currency dependence strengthens and tail risks become more synchronized, especially in emerging markets. The result is not a trading rule and is not Forex-only; it is nonetheless directly relevant to the present work because it reinforces the view that geopolitical shocks alter the dependence structure around currencies rather than merely adding noise to a price-only process.
+
+Recent evidence sharpens the empirical case for treating GPR as an investable signal in FX specifically. \citeonline{liu2024gprcurrency} construct a zero-cost cross-sectional currency strategy that buys higher-GPR currencies and sells lower-GPR ones, sorting 42 currencies into five portfolios on monthly GPR indices over June 2002 to December 2019, and report a statistically significant excess return of 5.72\,\% per year before transaction costs and 4.73\,\% after bid--ask costs. The same study decomposes the GPR exposure into a country-specific idiosyncratic component and a regional component. A complementary result comes from \citeonline{melone2026geopolitical}, in a working paper that sorts currencies not on the \emph{level} of geopolitical risk but on the \emph{exposure} of their expected excess returns to the global geopolitical-threats index of \citeonline{caldara2022geopolitical}: their dollar-neutral high-minus-low-exposure strategy yields an annualized return of 3.28\,\% with an annualized alpha of 2.76\,\% after controlling for the standard dollar and carry currency factors, and the corresponding traded factor is priced in the cross-section of currency returns. Notably, the same study finds that these geopolitical factor loadings are \emph{unrelated} to the exposure of currency returns to measures of policy uncertainty, which supports the present work's decision to feed a dedicated geopolitical-risk index rather than substituting a generic economic-policy-uncertainty index for it. The two studies establish, by distinct constructions (a level sort and an exposure sort), that GPR carries directional information for currency returns beyond its already documented effect on real activity and broad financial variables, which motivates including the GPR index as a continuous feature alongside the event-level features in the methodology of the present work.
+
+\section{Hybrid Approaches} \label{sec:hybrid}
+
+Hybrid trading frameworks combine signals coming from heterogeneous sources (prices, volumes, order-book imbalances, sentiment, events) into a single decision rule. Two design questions distinguish proposals in the recent literature.
+
+The first is the level of fusion. Early-fusion designs concatenate raw features into a single feature vector and let a downstream model learn the joint mapping. Late-fusion designs train a separate model per source and combine their outputs at a final stage, typically by stacking or by ensemble voting. Late-fusion is the safer default when the underlying sources have very different signal-to-noise ratios, as is the case between price-based features (low noise, high frequency) and text-derived features (high noise, lower effective frequency).
+
+The second design question is the choice of language model. Until 2023 the methodological default for financial text was a fine-tuned BERT-class model such as the two FinBERT variants \cite{araci2019finbert,yang2020finbert}; with the release of BloombergGPT \cite{wu2023bloomberggpt} and the open FinGPT pipelines \cite{liu2023fingpt} the practical frontier has shifted toward larger foundation models, with measurable but uneven gains on financial benchmarks.
+
+A third design question, raised by the most recent agentic-LLM proposals in finance, is the execution paradigm. The question is whether the language model produces structured features that feed a deterministic decision rule, or whether the language model is itself the decision-maker. According to the financial-NLP literature, the implicit default has been the first option: BERT-class scorers feed price-based models whose execution layer remains rule-based \cite{tetlock2007giving,loughran2011liability}. The release of multi-agent LLM frameworks such as TradingAgents \cite{xiao2024tradingagents} explores the second option, in which ensembles of role-playing LLM agents (analyst, researcher, trader, risk manager) reach trading decisions through structured debate, and the agent ensemble itself emits the buy/sell signal. Subsequent proposals along the same lines specialize the agent ensemble for different objectives: ATLAS \cite{papadakis2025atlas} introduces dynamic prompt optimization through an Adaptive-OPRO mechanism around a central trading agent; TradingGroup \cite{tian2025tradinggroup} combines specialist agents with self-reflection and an automated data-synthesis pipeline for post-training; and QuantAgent \cite{xiong2025quantagent} targets high-frequency trading by decomposing the price-driven technical-analysis layer into separate indicator, pattern, trend and risk agents.
+
+The trade-off is clear. The agentic-execution variant is more expressive and easier to extend with new analysts. However, its outputs are non-deterministic, and the model drift introduced by vendor updates of the underlying foundation models makes rigorous backtesting under the validation discipline of \citeonline{lopezdeprado2018advances} substantially harder. By contrast, the deterministic-execution variant constrains the language model to a perception role, which preserves backtest reproducibility and regulatory auditability, at the cost of a less expressive decision-time pipeline.
+
+The methodological intuition behind the present late-fusion design predates the modern NLP-era papers. \citeonline{henderson2002currency} (Ch.~10, Table~10.1, p.~204) sketches a manual ``Signal Grid'' in which a currency-pair decision is reached by combining four orthogonal channels (currency-economics indicator, capital-flow proxy, technical signal, and long-term valuation deviation) and converting the row of channel votes into a single Buy/Sell/Hold. That 2002 hand-built scheme is the conceptual ancestor of the deterministic execution chain of the present work; the present contribution is to replace the manual analyst with an algorithmic pipeline in which the ``flow'' column is filled by NLP-derived sentiment over GDELT and the ``technical'' column by a learned meta-learner over price features. \citeauthor{henderson2002currency} also identifies the yen explicitly as a safe-haven funding currency that recovers when global risk appetite collapses (p.~56), an observation that motivates regime-aware feature engineering for USD/JPY distinct from EUR/USD in Chapter~\ref{cap:methodology}.
+
+Empirical evidence for textual sentiment as an investable factor predates BERT-class scoring as well. \citeonline{chan2013algo} (Ch.~6, p.~148) reports the \citeonline{hafez2012sentiment} portfolio sort on S\&P~100 names using RavenPack sentiment scores: a long-top-decile / short-bottom-decile sentiment portfolio produced annualized returns of 52--156\,\% and Sharpe ratios of 3.9--5.3 over the 2008--2010 sample. The Sharpe magnitudes sit well above the range that the methodological discipline of \citeonline{lopezdeprado2018advances} would treat as plausible without further scrutiny: the sentiment scorer of that period was lexicon-based, the portfolio was rebalanced daily without realistic costs, and the multiple-comparisons correction discussed in Section~\ref{subsec:rule-significance} of the methodology chapter was not applied. Nevertheless, the result is a useful empirical pedigree for the design choice of feeding a sentiment channel into a directional model. A replication on FX with FinBERT-class scoring, walk-forward validation and explicit transaction costs, which is what the present work undertakes for EUR/USD and USD/JPY, is expected to deliver a more modest but more defensible effect size.
+
+FX-specific intraday evidence, while still sparse, points in the same direction. \citeonline{hafezxie2013intraday} introduce a EUR/USD cross-over strategy driven by sentiment-inflection points and report that their U.S.~macro sentiment index predicts intraday EUR/USD price moves for several hours after an inflection point. The present work does not reuse RavenPack's proprietary indices or their exact cross-over rule; the paper is used here only as empirical support for preserving publication-time information at intraday resolution rather than collapsing all textual information to a daily frequency.
+
+Hybrid designs targeting Forex specifically remain comparatively rare. The closest prior art at the time of writing is the recent work of \citeonline{zhang2025macroalpha}. The author builds daily sentiment indices from GDELT using a FinBERT scorer, feeds the indices into an XGBoost classifier and reports out-of-sample backtests on EUR/USD, USD/JPY and ten-year U.S.~Treasury futures over the 2017--2025 window. The decision rule of that work is itself deterministic: the classifier output is converted into a directional position by a fixed probability threshold and the resulting rule is evaluated unchanged on the held-out window. The methodological choices are close enough to those of the present work to warrant explicit positioning. The design overlap (sources, scorer, pairs) is high. However, the validation protocol (five-fold expanding-window cross-validation), the temporal resolution (daily), the absence of a chart-and-candlestick pattern layer and the thin nature of the deterministic execution stage (a single-threshold rule) are points of divergence. The implications are discussed in Section~\ref{sec:positioning} of the methodology chapter.
+
+The cost-adjusted Sharpe ratios reported by \citeonline{zhang2025macroalpha} are 5.87 on EUR/USD and 4.65 on USD/JPY. Obviously, such figures sit well above the range that the methodological discipline of \citeonline{lopezdeprado2018advances} would treat as plausible without further scrutiny. In this regard, the comparison with that benchmark is one of the reporting commitments of Chapter~\ref{cap:experimental-evaluation}.
+
+For the present work the implications are threefold. First, the methodology adopts a late-fusion architecture, with FinBERT-class models for sentence-level sentiment and a separate event-extraction layer fed by GDELT and the GPR index. Second, the execution paradigm is deterministic: language models occupy the perception layer only, and trading decisions are emitted by a rule-based stage on top of cached perception outputs. Third, where performance gains and computational budget justify it, larger foundation models are evaluated as drop-in replacements for the sentence-level scoring component, with explicit measurement of the inference latency cost. The latter is a constraint that purely academic studies typically ignore but that any future live deployment requires the strategy to honor.
+
+Table~\ref{tab:state-of-art} positions the present work against the closest recent proposals in the AI-augmented trading strand.
+
+\begin{table}[htbp]
+\centering
+\caption{Recent hybrid trading proposals positioned against the present work.}
+\label{tab:state-of-art}
+\small
+\begin{tabular}{p{2.7cm}p{1.6cm}p{2.6cm}p{2.7cm}p{2.6cm}}
+\toprule
+\textbf{Work} & \textbf{Domain} & \textbf{Perception / scorer} & \textbf{Validation} & \textbf{Execution} \\
+\midrule
+\citeonline{zhang2025macroalpha}
+  & Forex (EUR/USD, USD/JPY) + UST
+  & FB $\to$ XGBoost on daily GDELT
+  & 5-fold expanding
+  & Single threshold rule \\
+\citeonline{xiao2024tradingagents}
+  & US equities
+  & Multi-role LLM analyst debate
+  & WF
+  & Agentic decision \\
+\citeonline{papadakis2025atlas}
+  & US equities
+  & LLM + Adaptive-OPRO prompt-opt.
+  & WF
+  & Agentic decision \\
+\citeonline{tian2025tradinggroup}
+  & US equities
+  & Specialist agents + self-reflection
+  & WF
+  & Agentic decision \\
+\citeonline{xiong2025quantagent}
+  & HFT
+  & Decomposed indicator agents
+  & Tick-level
+  & Agentic decision \\
+\midrule
+\textbf{This work}
+  & Forex (EUR/USD, USD/JPY)
+  & FB + LM dictionary + GPR + GDELT events
+  & CPK + embargo + WF
+  & Late fusion + 7-filter deterministic chain \\
+\bottomrule
+\end{tabular}
+\par\vspace{3pt}
+\begin{minipage}{12.2cm}
+\footnotesize Acronyms: CPK = combinatorial purged $k$-fold; WF = walk-forward; FB = FinBERT; LM = Loughran--McDonald.
+\end{minipage}
+\end{table}
+
+The present work is positioned closest to \citeonline{zhang2025macroalpha}
+in source coverage and asset class, and furthest in validation discipline
+and execution layer. The methodological divergence is elaborated in
+Section~\ref{sec:positioning} of the methodology chapter.

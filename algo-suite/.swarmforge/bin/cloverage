@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec clojure -Sdeps '{:paths ["src" "spec" "test"] :deps {cloverage/cloverage {:mvn/version "RELEASE"} speclj/speclj {:mvn/version "3.13.0"}}}' -M -m cloverage.coverage -p src -s spec -s test -r speclj "$@"

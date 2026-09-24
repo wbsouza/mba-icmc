@@ -1,0 +1,55 @@
+%% pos/appendices.tex
+
+\begin{apendicesenv}
+\partapendices
+\chapter{Appendix(es)}
+Optional element consisting of a text or document elaborated by the author to complement their argument, as per ABNT NBR 14724.
+
+Appendices must be identified by consecutive uppercase letters, followed by a hyphen and their titles. Exceptionally, doubled uppercase letters are used when the 26 letters of the alphabet are exhausted. Pagination must be continuous with the main text.
+
+\chapter{Example of a vertically and horizontally centered table}
+\index{tables}\autoref{tab-centralizada} illustrates how to obtain a table that is centered vertically and horizontally.
+\begin{table}[htb]
+\ABNTEXfontereduzida
+\caption[Example of a vertically and horizontally centered table]{Example of a vertically and horizontally centered table}
+\label{tab-centralizada}
+
+\begin{tabular}{ >{\centering\arraybackslash}m{6cm}  >{\centering\arraybackslash}m{6cm} }
+\hline
+ \centering \textbf{Column A} & \textbf{Column B}\\
+\hline
+  Column A, row 1 & This is a much longer text used to demonstrate how content is centered vertically and horizontally in the table. Second paragraph to confirm the table layout.\\
+  When the text in column A, row 2 is much longer than in the other columns & Column B, row 2\\
+\hline
+\end{tabular}
+\begin{flushleft}
+		Source: prepared by the authors.\
+\end{flushleft}
+\end{table}
+
+\chapter{Example of a gridded table}
+\index{tables}\autoref{tab-grade} illustrates the inclusion of grid lines that structure content for clearer reading, in line with IBGE tabular presentation rules.
+\begin{table}[htb]
+\ABNTEXfontereduzida
+\caption[Example of gridded tables]{Example of gridded tables}
+\label{tab-grade}
+\begin{tabular}{ >{\centering\arraybackslash}m{8cm} | >{\centering\arraybackslash}m{6cm} }
+\hline
+ \centering \textbf{Column A} & \textbf{Column B}\\
+\hline
+  A1 & B1\\
+\hline
+  A2 & B2\\
+\hline
+  A3 & B3\\
+\hline
+  A4 & B4\\
+\hline
+\end{tabular}
+\begin{flushleft}
+		Source: prepared by the authors.\
+\end{flushleft}
+\end{table}
+
+
+\end{apendicesenv}

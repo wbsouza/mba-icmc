@@ -1,0 +1,83 @@
+%% pre-textual.tex
+%% Front-matter metadata: institution, program, title, author, advisor.
+%% Loaded by classe/USPSC.cls via \siglaunidade{ICMC} -> unidades.tex.
+%%
+%% This file is configured for a document written in English (the Portuguese
+%% commands and the unused program branches from the original USPSC
+%% template have been pruned for readability).
+
+% --- Institution --------------------------------------------------------
+\instituicao{Institute of Mathematics and Computer Sciences, University of S\~ao Paulo}
+\unidade{INSTITUTE OF MATHEMATICS AND COMPUTER SCIENCES}
+\unidademin{Institute of Mathematics and Computer Sciences}
+\universidademin{University of S\~ao Paulo}
+\universidade{UNIVERSITY OF S\~AO PAULO}
+\setorpos{ICMC-USP GRADUATE STUDIES OFFICE}
+
+% --- Title page version note --------------------------------------------
+% Main folha de rosto (English document); folha adicional mirrors in pt-BR.
+\notafolharosto{Original version}
+\notafolharostoadic{Vers\~ao original}
+% Switch both to "Final version" / "Vers\~ao corrigida" after revised submission.
+
+% --- Title -------------------------------------------------------------
+% In an English-only document the *adic / *resumo fields would normally
+% carry the Portuguese mirror; here they are kept identical to the main
+% title so that any rendered fallback also appears in English.
+\titulo{Algorithmic Trading Enhanced by AI: Using News, Geopolitical Events and NLP-Based Sentiment in Forex Decision-Making}
+\titleabstract{Algorithmic Trading Enhanced by AI: Using News, Geopolitical Events and NLP-Based Sentiment in Forex Decision-Making}
+\tituloadic{Algorithmic Trading Enhanced by AI: Using News, Geopolitical Events and NLP-Based Sentiment in Forex Decision-Making}
+\tituloresumo{Algorithmic Trading Enhanced by AI: Using News, Geopolitical Events and NLP-Based Sentiment in Forex Decision-Making}
+
+% --- Author -------------------------------------------------------------
+\autor{Wellington Baltazar de Souza}
+\autorficha{Baltazar de Souza, Wellington}
+\autorabr{BALTAZAR DE SOUZA, W.}
+
+% --- Cataloging-card Cutter code (TODO: confirm with library) ----------
+\cutter{S729a}
+
+% --- Place and year -----------------------------------------------------
+\local{S\~ao Carlos}
+\data{2026}
+
+% --- Advisor ------------------------------------------------------------
+% Main folha de rosto (EN) uses \orientadorname = "Advisor:";
+% folha adicional (pt-BR) prints \imprimirorientadoradic verbatim.
+\renewcommand{\orientadorname}{Advisor:}
+\orientador{Profa. Dra. Carolina Toledo Ferraz}
+\orientadoradic{Orientadora: Profa. Dra. Carolina Toledo Ferraz}
+\orientadorcorpoficha{orientadora Carolina Toledo Ferraz}
+\orientadorficha{Ferraz, Carolina Toledo, orient}
+
+
+% --- Concentration-area label (English) ---------------------------------
+\renewcommand{\areaname}{Concentration area: }
+
+% --- Reproduction authorization (English) -------------------------------
+\notaautorizacao{I AUTHORIZE THE REPRODUCTION AND DISSEMINATION OF TOTAL OR PARTIAL COPIES OF THIS DOCUMENT, BY CONVENTIONAL OR ELECTRONIC MEDIA FOR STUDY OR RESEARCH PURPOSE, SINCE IT IS REFERENCED.}
+
+% Multi-line PT header for the ficha catalogr\'afica page (ICMC convention; matches Bruna Magrini's 2025 TCC).
+\notabib{Ficha catalogr\'afica elaborada pela Biblioteca Prof.\ Achille Bassi \\ e Se\c{c}\~ao T\'ecnica de Inform\'atica, ICMC/USP, \\ com os dados inseridos pelo(a) autor(a)}
+
+% =========================================================================
+% Program dispatcher
+% Original USPSC template carries 22 program branches; only the MBA in
+% Artificial Intelligence and Big Data (English) is kept here. To restore
+% another program, copy the corresponding branch from the upstream
+% USPSC-pre-textual-ICMC.tex.
+% =========================================================================
+\newcommand{\programa}[1]{
+    \ifthenelse{\equal{#1}{MBAIAe}}{
+        \tipotrabalho{Monograph (MBA in Artificial Intelligence and Big Data)}
+        \tipotrabalhoabs{Monograph (MBA in Artificial Intelligence and Big Data)}
+        \renewcommand{\areaname}{Concentration area:}
+        \area{Artificial Intelligence and Big Data}
+        % -adic fields render on the Portuguese folha de rosto adicional.
+        \areaadic{\'Area de concentra\c{c}\~ao: Intelig\^encia Artificial e Big Data}
+        \preambulo{Monograph presented to the Department of Computer Sciences of the Institute of Mathematics and Computer Sciences, University of S\~ao Paulo - ICMC/USP, as part of the requirements for obtaining the title of Specialist in Artificial Intelligence and Big Data.}
+        \preambuloadic{Monografia apresentada ao Departamento de Ci\^encias de Computa\c{c}\~ao do Instituto de Ci\^encias Matem\'aticas e de Computa\c{c}\~ao, Universidade de S\~ao Paulo - ICMC/USP, como parte dos requisitos para obten\c{c}\~ao do t\'itulo de Especialista em Intelig\^encia Artificial e Big Data.}
+        \notaficha{Monograph (MBA in Artificial Intelligence and Big Data)}
+        \notacapaicmc{Monograph - MBA in Artificial Intelligence and Big Data}
+    }{} % \ifthenelse requires three args; this empty else-branch is mandatory.
+}

@@ -1,0 +1,346 @@
+\documentclass[aspectratio=169,10pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+
+\definecolor{uspblue}{RGB}{0,63,122}
+\definecolor{usplight}{RGB}{232,241,250}
+\setbeamercolor{structure}{fg=uspblue}
+\setbeamercolor{title}{fg=white,bg=uspblue}
+\setbeamercolor{frametitle}{fg=white,bg=uspblue}
+\setbeamercolor{block title}{fg=white,bg=uspblue}
+\setbeamercolor{block body}{bg=usplight}
+\setbeamercolor{alerted text}{fg=uspblue}
+
+\title[Trading com IA: Forex]{Algorithmic Trading Enhanced by AI}
+\subtitle{Notícias, eventos geopolíticos e sentimento via NLP em decisões de Forex}
+\author[Wellington Souza]{Wellington Souza}
+\institute[ICMC/USP]{Instituto de Ciências Matemáticas e de Computação\\Universidade de São Paulo\\MBA em Inteligência Artificial e Big Data}
+\date{São Carlos, 2026}
+
+\begin{document}
+
+% =========================================================================
+% 1. APRESENTAÇÃO E OBJETIVOS -- 3 slides
+% =========================================================================
+
+\section{Apresentação e Objetivos}
+
+\begin{frame}
+  \titlepage
+  \vspace{-0.4cm}
+  \begin{center}
+    \small Orientadora: Profª. Drª. Carolina Toledo Ferraz
+  \end{center}
+\end{frame}
+
+\begin{frame}{Contexto e motivação}
+  \begin{itemize}
+    \item O mercado de Forex reage em segundos a anúncios macroeconômicos, decisões de bancos centrais, choques geopolíticos e instabilidade política.
+    \item Estratégias \emph{retail} baseadas apenas em OHLC e indicadores técnicos falham quando o fluxo de notícias domina o comportamento do mercado.
+    \item NLP financeiro moderno permite transformar notícias, sentimento e contexto de eventos em \emph{features} sistemáticas de trading.
+    \item O trabalho é concebido como TCC acadêmico \alert{e} como base para um futuro MVP de trading algorítmico.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Problema de pesquisa e objetivos}
+  \begin{block}{Pergunta de pesquisa (falseável)}
+    Uma estratégia híbrida que combina indicadores técnicos com escores de sentimento via NLP e \emph{features} de eventos contextuais consegue superar um \emph{baseline} \textit{price-only} em pares de Forex \emph{majors}, em retorno ajustado a risco, após custos de transação realistas?
+  \end{block}
+
+  \begin{alertblock}{HIPÓTESE (H1): uma conjectura a testar, não uma afirmação}
+    \small O autor \emph{acredita} que a híbrida supere, com base na evidência do mercado acionário e na falha documentada de uma fusão macro-only em EUR/USD e USD/JPY. Isto é uma \alert{hipótese}: todo o aparato existe para testá-la, e uma rejeição é um resultado válido e reportável.
+  \end{alertblock}
+
+  \vspace{0.15cm}
+  \textbf{Objetivos}
+  \begin{enumerate}
+    \item Construir um \emph{pipeline} reprodutível para preços intradiários, notícias e eventos.
+    \item Gerar \emph{features} de sentimento e eventos via métodos lexicais e \emph{transformer}.
+    \item Comparar um \emph{baseline} \textit{price-only} contra uma estratégia híbrida sob \emph{backtesting} rigoroso.
+    \item Preservar auditabilidade via execução determinística e logs filtro a filtro.
+  \end{enumerate}
+\end{frame}
+
+% =========================================================================
+% 2. FUNDAMENTOS TEÓRICOS -- 4 slides
+% =========================================================================
+
+\section{Fundamentos Teóricos}
+
+\begin{frame}{Forex e \emph{algotrading}}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \begin{block}{Mercado de câmbio}
+      \begin{itemize}
+        \item Pares de moedas sensíveis a juros, inflação, apetite por risco e geopolítica.
+        \item Alta liquidez não elimina custos de transação, \emph{spreads} e \emph{slippage}.
+        \item BIS 2022: US\$ 7,5T/dia (spot US\$ 2,1T).
+      \end{itemize}
+    \end{block}
+
+    \column{0.48\textwidth}
+    \begin{block}{\emph{Algotrading} e disciplina}
+      \begin{itemize}
+        \item Regras devem ser testáveis, reprodutíveis e executáveis sem discrição.
+        \item \emph{Backtests} exigem custos realistas e ordenação temporal rigorosa.
+        \item López de Prado: dados financeiros violam i.i.d. $\Rightarrow$ \alert{walk-forward + purged k-fold + embargo} inegociáveis.
+      \end{itemize}
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{NLP para finanças}
+  \begin{itemize}
+    \item NLP transforma texto não estruturado em representações numéricas usáveis por modelos preditivos.
+    \item Linguagem financeira é específica do domínio: \emph{liability}, \emph{risk} e \emph{uncertainty} carregam significado especializado.
+    \item Métodos lexicais (Loughran-McDonald) fornecem \emph{baseline} transparente de sentimento.
+    \item \emph{Transformers} \emph{finance-tuned} (FinBERT (Araci 2019; Yang et al.\ 2020), BloombergGPT (Wu et al.\ 2023), FinGPT (Liu et al.\ 2023)) capturam contexto, negação e semântica de domínio acima do teto lexical.
+    \item Atenção escalonada: $\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Notícias, sentimento e eventos geopolíticos}
+  \begin{itemize}
+    \item Notícias de mercado podem conter informação preditiva não totalmente refletida em preços passados.
+    \item Sentimento ao nível do artigo aproxima tom, incerteza e pressão direcional nas narrativas de mercado.
+    \item \emph{Features} de risco geopolítico e eventos macroeconômicos representam contexto que afeta moedas sem um único artigo decisivo.
+    \item \textbf{GDELT 2.0} (Leetaru \& Schrodt 2013): eventos discretos via taxonomia CAMEO, atualização a cada 15 min.
+    \item \textbf{Índice GPR} (Caldara \& Iacoviello 2022): regime de risco contínuo via análise textual de jornais.
+    \item Restrição central: evitar \emph{look-ahead bias}, com cada \emph{feature} disponível \emph{antes} da decisão que influencia.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Posicionamento vs \emph{prior art} mais próximo}
+  Trabalho mais próximo: \textbf{Zhang (2025)}: GDELT $\to$ FinBERT $\to$ XGBoost em EUR/USD, USD/JPY e 10y UST, 2017--2025.
+  \vspace{0.2cm}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lll}
+      \toprule
+      Eixo & Zhang (2025) & Este trabalho \\
+      \midrule
+      Validação & 5-fold \emph{expanding} & Combinatorial purged k-fold + embargo \\
+      Resolução & Diária & Intraday (1 min, agregação configurável) \\
+      Camada \emph{pattern/candle} & Ausente & Presente \\
+      Execução & 1 \emph{threshold} $\to$ direção & \emph{Late fusion} + meta-learner \\
+      Sharpe reportado & 5,87 (EUR/USD); 4,65 (JPY) & A reportar sob protocolo mais rigoroso \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.1cm}
+  \begin{itemize}
+    \item Sobreposição de \emph{fontes/scorer/pares} é alta, propositalmente.
+    \item Divergência fica no \alert{protocolo de validação} (López de Prado) e na camada de execução.
+  \end{itemize}
+\end{frame}
+
+% =========================================================================
+% 3. METODOLOGIA -- 5 slides
+% =========================================================================
+
+\section{Metodologia}
+
+\begin{frame}{Visão geral metodológica: \emph{pipeline} do sistema}
+  \centering
+  \resizebox{0.97\textwidth}{!}{\input{img/fig-pipeline-tikz}}
+
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item Suite modular \texttt{algo-*}: \emph{download} $\to$ \emph{transform} $\to$ \emph{score} $\to$ \emph{backtest} $\to$ \emph{analyze}, comunicando por contrato Parquet em disco.
+    \item \alert{\emph{Agentic perception, deterministic execution}}: LLM atua só na percepção (\emph{cache} Parquet); execução é regra determinística sobre o LEAN $\to$ \emph{backtest} reproduzível.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Arquitetura de dados}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lll}
+      \toprule
+      Camada & Fontes principais & Papel \\
+      \midrule
+      Preço & Dukascopy (\emph{fallback} yfinance) & OHLC 1 min, \emph{grid} de trading \\
+      Notícias & GDELT 2.0, FNSPID, CC-News & Evidência textual nível artigo \\
+      Eventos & Índice GPR, calendários, bancos centrais & Contexto diário e macro \\
+      Canônico & Parquet + DuckDB & Fonte da verdade (análise, \emph{joins}, portabilidade) \\
+      Execução & \texttt{lean-data/} (nativo LEAN) & Materializado \emph{uma vez}, reusado em todo o \emph{sweep} \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \vspace{0.2cm}
+  \begin{itemize}
+    \item \alert{Armazenamento dividido}: Parquet = fonte da verdade; \texttt{lean-data/} \emph{derivado}, construído uma vez, reusado no \emph{sweep} (nunca reconvertido por execução).
+    \item Um único motor de \emph{features} (\emph{batch} ou \emph{stream}) atrás de um \emph{read-through cache}: cada barra computada \alert{exatamente uma vez}; idêntico em \emph{backtest} e produção (sem \emph{train/serve skew}).
+    \item Fontes seguem padrão \emph{adapter} auto-registrável; \emph{features} de artigo \emph{bucketed} pelo \emph{timestamp} de publicação no \emph{grid} de preço.
+    \item Janela de treino definida por uma \emph{coverage rule} (maior span com cobertura de corpus suficiente), não por \emph{cutoff} arbitrário.
+    \item \alert{Twitter/X não ingerido}: custo da API de histórico e ToS pós-2023 o tiram de um orçamento acadêmico; o sinal social vem do Reddit (e StockTwits).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Pipeline de dados de preço (implementado)}
+  \centering
+  \resizebox{0.95\textwidth}{!}{\input{img/fig-data-pipeline-tikz}}
+
+  \vspace{0.25cm}
+  \begin{itemize}
+    \item \alert{Já executável}: \texttt{download} (\texttt{.bi5} bruto da Dukascopy via HTTP puro, sem credenciais) e \texttt{transform} (decode $\to$ \emph{resample} $\to$ \texttt{QuoteBar} Parquet canônico) implementados e no \emph{gate}, test-first.
+    \item \alert{Timeframe selecionável}: conjunto Forex padrão (M1, M5, M15, M30, H1, H4, D1). A estratégia é \emph{multi-timeframe} -- cada filtro lê o seu timeframe, escolhido empiricamente na simulação; a transform pré-materializa cada um.
+    \item \emph{Fail-fast}: o mês é escrito \emph{apenas} quando todas as horas brutas existem e decodificam (senão \texttt{INCOMPLETE}/\texttt{CORRUPT}, nada escrito, sem partição truncada).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Camada de \emph{features}}
+  \begin{columns}[T]
+    \column{0.5\textwidth}
+    \textbf{Derivadas de preço}
+    \begin{itemize}
+      \item Retornos e volatilidade
+      \item Indicadores técnicos
+      \item Sinais de \emph{candlestick} e padrões gráficos
+      \item Descritores de regime e tendência
+    \end{itemize}
+
+    \column{0.5\textwidth}
+    \textbf{Derivadas de texto/eventos}
+    \begin{itemize}
+      \item Sentimento Loughran-McDonald
+      \item Escores de sentimento FinBERT
+      \item Agregados geopolíticos e macroeconômicos (GDELT, GPR)
+    \end{itemize}
+  \end{columns}
+  \vspace{0.2cm}
+  \footnotesize
+  \textbf{5ª família, atividade de mercado:} força relativa por moeda via \emph{tick-volume} (\emph{proxy} de atividade; a moeda dominante do dia indica direção). \textbf{Sentimento atribuído por moeda} (EUR/USD/JPY) e combinado no diferencial do par: notícia macro de USD (ex.\ FOMC) alimenta os dois pares.
+\end{frame}
+
+\begin{frame}{Variáveis do experimento}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{p{2.6cm}p{9.5cm}}
+      \toprule
+      Tipo & Variáveis \\
+      \midrule
+      Independentes (manipuladas) & 4 famílias de \emph{features} (TA-structural, indicadores, padrões, news); hiperparâmetros LightGBM em grade restrita; \emph{thresholds} $\theta_{high}, \theta_{low}$; \textbf{\emph{news sub-model} ligado/desligado} (manipulação chave: baseline vs híbrido) \\
+      Dependentes (medidas) & Sharpe, max \emph{drawdown}, \emph{hit rate}, \emph{holding time}, \emph{turnover} \\
+      Controladas (fixadas) & \emph{Cost model} empírico, \emph{split} temporal, \emph{seeds}, versões das bibliotecas pinadas \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.15cm}
+  \footnotesize\textbf{Tipo de relação investigada:} \emph{comparação controlada} (ablation), não causalidade estrita. O trabalho mede se o conteúdo preditivo marginal dos sinais textuais se traduz em retorno ajustado a risco após custos; não afirma que textos \emph{causam} movimentos de câmbio.
+\end{frame}
+
+\begin{frame}{Fusão e execução determinística}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \begin{block}{Percepção via \emph{late fusion}}
+      \begin{itemize}
+        \item Sub-modelos separados representam famílias de \emph{features}.
+        \item Um meta-learner combina suas probabilidades.
+        \item \emph{Ablations} por família de \emph{feature} ficam diretas.
+      \end{itemize}
+    \end{block}
+
+    \column{0.48\textwidth}
+    \begin{block}{Cadeia de filtros de execução}
+      \begin{itemize}
+        \item Converte probabilidades em decisões de \emph{trade}.
+        \item Aplica \emph{guards} de \emph{spread}, risco, \emph{timing} e capital.
+        \item Registra decisões aceitas e rejeitadas para auditoria.
+      \end{itemize}
+    \end{block}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Cadeia de execução determinística}
+  \centering
+  \resizebox{0.95\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
+
+  \vspace{0.25cm}
+  \footnotesize Filtros de contexto acumulam evidência; \emph{gates} duros com poder de veto curto-circuitam para HOLD; a regra terminal emite BUY/SELL/HOLD. Cada execução grava \emph{trades.parquet} (ledger) e \emph{decisions.parquet} (auditoria filtro a filtro, ligada por \texttt{trade\_id}).
+\end{frame}
+
+\begin{frame}{Protocolo de \emph{backtesting} e avaliação}
+  \begin{itemize}
+    \item Comparar estratégia híbrida vs \emph{baseline} \textit{price-only} sob mesmas premissas.
+    \item \emph{Walk-forward} preserva ordenação cronológica.
+    \item \emph{Combinatorial purged k-fold} + \emph{embargo} mitiga vazamento em séries temporais.
+    \item \emph{Split} temporal: \emph{train} 2015--2022, \emph{val} 2023, \emph{test} 2024 (passada única no \emph{test}, sem iteração).
+    \item Métricas: Sharpe, max \emph{drawdown}, \emph{hit rate}, \emph{holding time}, \emph{turnover}; sensibilidade a custos.
+    \item \emph{Baselines}: \textit{price-only} (mesmo \emph{harness}), dicionário Loughran-McDonald, Zhang (2025).
+    \item Modelos não determinísticos reportam \alert{média $\pm$ desvio padrão} sobre os \emph{folds} CV.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Experimentos numerados}
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{p{0.5cm}p{4.4cm}p{3.6cm}p{2.8cm}}
+      \toprule
+      \# & Alvo & Variável independente chave & Métrica primária \\
+      \midrule
+      1 & Calibrar baseline \textit{price-only} em EUR/USD & Hiperparâmetros LightGBM dos 3 sub-modelos de preço & Sharpe, max \emph{drawdown} \\
+      2 & Híbrido completo vs baseline em EUR/USD & Presença/ausência do \emph{news sub-model} & Sharpe, \emph{drawdown}, \emph{hit} \\
+      3 & Replicar em USD/JPY & Par (EUR/USD vs USD/JPY) & Mesmas + teste estatístico \\
+      4 & \emph{Ablation}: price / +sent / +events / full & Sub-família \emph{news} ativada & Mesmas \\
+      5 & Comparação direta vs Zhang (2025) & Protocolo de validação & Sharpe \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.15cm}
+  \footnotesize Cada experimento $\to$ uma seção do Capítulo 4. Entrega em \emph{tiers} (MVP em camadas): Inner (dados + baseline) $\to$ Middle (híbrido EUR/USD) $\to$ Outer (USD/JPY + \emph{ablation} + Zhang).
+\end{frame}
+
+% =========================================================================
+% 4. FECHAMENTO -- 2 slides, total: 16 slides
+% =========================================================================
+
+\section{Resultados Esperados e Conclusão}
+
+\begin{frame}{Contribuições esperadas e critério de aceitação}
+  \textbf{Contribuições metodológicas:}
+  \begin{enumerate}
+    \item Arquitetura reprodutível para alinhar preços intradiários de Forex com \emph{features} de notícias e eventos geopolíticos.
+    \item Camada híbrida de percepção combinando indicadores técnicos, sentimento lexical, sentimento \emph{transformer} e agregados de eventos.
+    \item Camada de execução determinística auditável adequada para \emph{backtest}, \emph{paper trading} e futura \emph{live deployment}.
+    \item Protocolo de avaliação endereçando explicitamente vazamento, custos de transação e mudança de regime.
+  \end{enumerate}
+  \vspace{0.1cm}
+  \begin{block}{Critério de aceitação da hipótese}
+    \small Hipótese \alert{aceita} se Sharpe$_{hybrid}$ $>$ Sharpe$_{baseline} + \Delta$ \emph{ou} drawdown$_{hybrid}$ $<$ drawdown$_{baseline} - \Delta$ em $\geq 3/5$ experimentos, com significância estatística. \textbf{Resultado nulo também é resultado:} se híbrido não bate baseline, análise das condições em que falha é a contribuição.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Conclusão e próximos passos}
+  \begin{itemize}
+    \item O TCC endereça limitação prática de estratégias \textit{price-only} em Forex: ignoram informação textual.
+    \item Solução proposta: sistema em camadas com fronteiras explícitas entre percepção, fusão e execução.
+    \item Entrega intermediária (metodologia/proposta) \alert{concluída}; submissão final \alert{2026-09-01}, com \emph{freeze} de escopo no fim de agosto (Full vs Medium).
+    \item Arquitetura \alert{asset-class agnóstica} (vocabulário alinhado ao LEAN): escopo do TCC é Forex, mas o mesmo \emph{engine} adapta-se a ações, ETFs, \emph{futures}, \emph{bonds} e cripto trocando \emph{adapter} e configuração.
+    \item \emph{Future work}: NLP multi-agente, RL na execução, modelos LLM maiores, expansão multi-asset, \emph{paper} e \emph{live trading} (OANDA via LEAN).
+  \end{itemize}
+
+  \vspace{0.4cm}
+  \centering
+  {\Large Obrigado! Perguntas?}\\
+  \vspace{0.3cm}
+  \footnotesize \texttt{wbsouza.work@gmail.com}
+\end{frame}
+
+\end{document}

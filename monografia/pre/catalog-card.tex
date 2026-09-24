@@ -1,0 +1,40 @@
+%% pre/catalog-card.tex
+%% Cataloging-card page (ficha catalogr\'afica) aligned with the layout of
+%% Bruna Magrini da Cruz's 2025 ICMC-USP MBA TCC. Layout: PT header (sans,
+%% centered, 3 lines), box centered below in typewriter font, ICMC
+%% librarian credit at the bottom-left in sans-serif. The "I AUTHORIZE"
+%% statement is intentionally omitted from this page (it does not appear
+%% on Bruna's ficha catalogr\'afica; if the institution later requires it
+%% on this page, restore the \imprimirnotaautorizacao line at the top).
+\begin{fichacatalografica}
+
+\begin{center}
+  {\sffamily\small\imprimirnotabib}
+\end{center}
+
+\vspace*{0.6cm}
+
+\begin{center}
+  \begin{tabular}{|p{0.9cm} p{8.7cm}|}
+    \hline
+    \multicolumn{2}{|l|}{\scriptsize\ttfamily~} \\
+                            & \scriptsize\ttfamily\imprimirautorficha \\
+    \scriptsize\ttfamily\imprimircutter &
+        \scriptsize\ttfamily\hspace{0.4cm}\imprimirtitulo~/~\imprimirautor~;~\imprimirorientadorcorpoficha. --~\imprimirlocal, \imprimirdata. \\
+                            & \scriptsize\ttfamily\hspace{0.4cm}\pageref{LastPage}~p. \\
+    \multicolumn{2}{|l|}{\scriptsize\ttfamily~} \\
+                            & \scriptsize\ttfamily\hspace{0.4cm}Trabalho de conclus\~ao de curso (MBA em Intelig\^encia Artificial e Big Data)~--~Instituto de Ci\^encias Matem\'aticas e de Computa\c{c}\~ao, Universidade de S\~ao Paulo, \imprimirdata. \\
+    \multicolumn{2}{|l|}{\scriptsize\ttfamily~} \\
+                            & \scriptsize\ttfamily\hspace{0.4cm}1.~Algorithmic trading.~2.~Foreign exchange (forex).~3.~Natural language processing.~4.~Sentiment analysis.~5.~Geopolitical events.~6.~Financial machine learning.~I.~\imprimirorientadorficha.~II.~T\'itulo. \\
+    \multicolumn{2}{|l|}{\scriptsize\ttfamily~} \\
+    \hline
+  \end{tabular}
+\end{center}
+
+% Librarian credit (e.g.\ "Bibliotec\'arios respons\'aveis ...") is
+% intentionally omitted at this stage. The ICMC Library generates the
+% official ficha catalogr\'afica with the librarian credit after the
+% manuscript is deposited; at that point replace this entire file with
+% \includepdf{pre/catalog-card.pdf} from the main.tex pre-textual block.
+
+\end{fichacatalografica}

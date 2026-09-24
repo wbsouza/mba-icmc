@@ -1,0 +1,30 @@
+Tooling blocker, not a spec ambiguity: swarm_handoff.sh rejects the git_handoff
+for "Task 3 — algo-score LM lexicon scorer..." with
+"Header 'task' must be no longer than 80 characters; got 104." — and this is
+unfixable from the draft file. Read swarmforge/scripts/swarm_handoff.bb: when
+type=git_handoff and current-in-process-task-id is set (it is — Task 3's
+handoff is still in_process/), with-in-process-task (line 217) unconditionally
+overwrites whatever "task:" I write with (current-in-process-task), the full
+board-card name. Validation (line 727) then checks that resolved name's
+length, not my draft's. So no draft content can pass while this board card's
+name is 104 chars.
+
+The offending name (.swarmforge/board/tasks.tsv row 1, col 1):
+"Task 3 — algo-score LM lexicon scorer (build against a text fixture now,
+integrate with real text later)"
+
+The commit is ready and self-audited (76eb2d6 on algo-score-event-features,
+covering scorers/base.py+lexicon.py+bucket.py+attribution Gherkin + QA suite);
+only the handoff header validation is blocking.
+
+Options:
+  (a) shorten that tasks.tsv row's name column to <=80 chars (e.g. "Task 3 —
+      algo-score LM lexicon scorer"), keeping its task_id column (the long
+      slug) untouched — lowest blast radius, tasks.tsv is project/master
+      state I was told not to edit directly.
+  (b) patch swarm_handoff.bb's validation or override logic — out of
+      specifier's authorized scope (shared tooling, not this task's spec).
+  (c) something else you'd prefer.
+
+Recommend (a). Can you rename that board card's display name, or tell me to
+do it myself?
