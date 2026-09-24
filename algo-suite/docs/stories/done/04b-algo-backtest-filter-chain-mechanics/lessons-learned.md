@@ -1,7 +1,7 @@
 # Lessons learned — Spec 04b: algo-backtest filter-chain mechanics
 
 **Sourced from the coder → hardener pipeline commits on
-`feat/04b-filter-chain-mechanics`** (`2bdc3bd`, `3053266`).
+`feat/04b-filter-chain-mechanics`** (`2bdc3bd`, `3053266`, `3863df5`).
 
 **A test double that ignores its own argument hides real mutants.** The
 hardener pass (`3053266`) found 3 of 13 mutants survived — all three were
@@ -39,6 +39,42 @@ tool (`algo-score`, `algo-download`, `algo-analyze`) already carries one from
 their own first pass. Adding it is expected boilerplate on a tool's first
 mutation-testing story, not scope creep — future hardener passes on this
 tool won't need to repeat it.
+
+**Two independent reviewers, two disjoint finding sets — both were right.**
+Post-merge review of PR #4 by two separate sessions caught non-overlapping
+gaps: one flagged a false sense of `ChainOutcome(frozen=True)` immutability
+and an untested veto-with-enrichment ordering; the other flagged that
+`FilterResult.confidence` and `ExecutionState.timestamp` had no invariant
+enforcement at all despite being the future `decisions.parquet` audit-trail
+contract (`specs.md` §11.3.4). `3863df5` fixed the concrete, checkable ones
+(confidence range, UTC timestamp, veto-enrichment survival) via
+`__post_init__` fail-fast validation + new Gherkin coverage; the
+frozen-but-aliased `ChainOutcome.state` issue was left as-is per the first
+reviewer's own recommendation (no live caller yet to trigger the risk —
+fixing it speculatively would guess at Wave 2's actual needs). Lesson: a
+single review pass has a detection ceiling even when thorough; a second,
+independently-reasoning pass over the same diff finds a different slice of
+real issues, not just noise or duplicate findings.
+
+**Boundary-condition mutants need boundary-value tests, not just
+out-of-range ones.** Testing `confidence` rejection with `1.5`/`-0.1` alone
+left 3 mutants alive that shifted the `<=`/`<` operators at the `0.0`/`1.0`
+edges (e.g. `0.0 <= x <= 1.0` → `0.0 <= x < 1.0`) — those mutants still
+correctly rejected `1.5`/`-0.1`, they only misbehaved exactly at the
+boundary. Killed by adding a `Scenario Outline` asserting `0.0` and `1.0`
+are *accepted*. A closed-interval spec (`[0, 1]`) needs both an
+outside-the-range negative test and an on-the-boundary positive test to
+pin down the operator, not just the former.
+
+**Message-text mutants are a known, accepted debt class (TD-34), not a bug
+to chase per-instance.** The UTC-timestamp error message had 3 surviving
+mutants purely from string-wrapping/casing, because the `Then` step does a
+substring check (`"UTC" in str(error)`) that the mutated text still
+satisfies. Rather than rewrite that one assertion to exact-match (a
+one-off fix out of step with every other substring-based `Then` in the
+suite), logged as TD-36 alongside the pre-existing TD-34 — consistent
+handling of the same failure class beats a piecemeal fix on whichever file
+happens to hit it next.
 
 **Note (unrelated, flagged not fixed):** `algo-suite/uv.lock` was already
 missing an `algo-analyze` entry on disk before this story started (that
