@@ -7,9 +7,9 @@ Read this file first; then read only the spec file(s) for the part you are
 assigned.
 
 **Sources of truth this plan summarizes (do not duplicate, go read them):**
-`PRD.md` (product/roadmap), `algo-suite/docs/experiments.md` (experiment → command
-→ Chapter 4 artifact), `algo-suite/docs/ch04-deliverables.md` (Ch04 section →
-tool → status), `algo-suite/docs/technical-debt.md` (deferred items), each tool's
+[`PRD.md`](../../PRD.md) (product/roadmap), [`algo-suite/docs/experiments.md`](../experiments.md) (experiment → command
+→ Chapter 4 artifact), [`algo-suite/docs/ch04-deliverables.md`](../ch04-deliverables.md) (Ch04 section →
+tool → status), [`algo-suite/docs/technical-debt.md`](../technical-debt.md) (deferred items), each tool's
 `algo-suite/algo-<tool>/SPEC.md` (the technical contract — these specs govern;
 this plan and the numbered specs below do not override them).
 
@@ -46,7 +46,7 @@ public GDELT product — not the Events table) plus the open-source `gdeltnews`
 reconstruction package recovers near-full-text (~95% similarity, Fronzetti
 Colladon & Vestrelli 2026) with no scraping/paywall/VPN needed. **This is a new
 required `algo-download` unit kind, not yet in Spec 01's scope** — Spec 01 is
-already past specifier (at hardender). Flagged in `technical-debt.md`; the
+already past specifier (at hardender). Flagged in [`technical-debt.md`](../technical-debt.md); the
 user decides whether to interrupt Spec 01's in-flight pipeline to add it or
 queue a fast-follow spec. Compressed Spec 03 (LM lexicon only, per above) can
 run on GoldsteinScale/AvgTone event-derived proxies without this if it isn't
@@ -57,7 +57,7 @@ and must be labeled as such, never as "FinBERT sentiment."
 
 ~~**HARD DEADLINE UPDATE (2026-09-22): monografia deposit is 2026-09-29 — 7
 calendar days from today, and that 7 days must also fit the advisor's review
-pass, not just the build.** This supersedes `PRD.md`'s 2026-09-01/2026-08-24
+pass, not just the build.** This supersedes [`PRD.md`](../../PRD.md)'s 2026-09-01/2026-08-24
 dates, which are stale (see `project_deadline_pressure` memory). At 7 days
 *including* review time, **Full scope is not achievable** — spec 03
 (`algo-score`) alone is budgeted 16 days, and specs 02→03→04 are strictly
@@ -115,14 +115,14 @@ endangering the deposit date.
 Parquet, `algo-backtest` LEAN integration + two price-only strategies
 (`baseline_ma`, `baseline_meanrev`) + the experiment runner, `algo-analyze`
 summary table. First real numbers exist: EUR/USD 2024-06, both price-only
-baselines lose (expected — see `algo-suite/docs/first-baseline-results.md`).
+baselines lose (expected — see [`algo-suite/docs/first-baseline-results.md`](../first-baseline-results.md)).
 **The entire price-only side is complete on real data.**
 
 **Correction (2026-09-22, confirmed by user):** the full 10-year Dukascopy
 bulk download (EUR/USD + USD/JPY, 2015-01..2024-12) is **done**, on the NAS
-data root (`/media/nas/wellington/mba/algo-suite/data`, per `conf/algo.yaml`
+data root (`/media/nas/wellington/mba/algo-suite/data`, per [`conf/algo.yaml`](../../conf/algo.yaml)
 — not mounted in this sandbox, verify file counts on the user's machine).
-`scripts/download-prices.sh` is the resumable puller used for this. GDELT/GPR
+[`scripts/download-prices.sh`](../../scripts/download-prices.sh) is the resumable puller used for this. GDELT/GPR
 are confirmed still missing: the Gherkin acceptance specs already exist
 (`algo-download/tests/features/{gdelt,gpr}{,_network}.feature`, commit
 `837399e`) but `algo_download/adapters/` has no `gdelt/`/`gpr/` code yet —
@@ -147,12 +147,12 @@ everything past a price-only baseline:
   hybrid strategy — only price-only strategies exist today
 - `algo-analyze`: deflated Sharpe, Monte-Carlo Permutation Test, ablation
   tables, figures — only the summary table exists today
-- `monografia/chapters/04-experimental-evaluation.tex`: currently a
+- [`monografia/chapters/04-experimental-evaluation.tex`](../../../monografia/chapters/04-experimental-evaluation.tex): currently a
   "work in progress" skeleton with every results section a placeholder
 
 **Why this order.** It is a strict pipeline
 (`algo-download → algo-transform → algo-score → algo-backtest → algo-analyze`,
-`PRD.md` §5) and each stage's canonical Parquet contract is the next stage's
+[`PRD.md`](../../PRD.md) §5) and each stage's canonical Parquet contract is the next stage's
 input. There is no way to build `algo-score` before news Parquet exists, no way
 to build the hybrid strategy before `algo-score` emits sentiment/event features,
 and no way to write Chapter 4 numbers before a run exists. **Spec 05

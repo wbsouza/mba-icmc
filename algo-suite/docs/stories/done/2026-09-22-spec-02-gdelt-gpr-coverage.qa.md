@@ -1,1 +1,0 @@
-../../../algo-transform/tests/qa/spec-02-gdelt-gpr-coverage.qa.md

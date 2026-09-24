@@ -1,1 +1,0 @@
-../../../algo-score/tests/qa/spec-algo-score-lm-scorer.qa.md
