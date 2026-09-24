@@ -90,11 +90,14 @@ algo_backtest/
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
-│   ├── risk_math.py        # fixed-fractional lot sizing
-│   ├── strategy_math.py    # target ladder, trail-stop, stop-level stretch
-│   ├── trail_stop.py       # trailing-stop trigger/destination
-│   ├── close_portion.py    # partial-close laddering
-│   └── risk_guard.py       # portfolio caps, drawdown breakers, leverage cap
+│   ├── risk_math.py        # IMPLEMENTED — fixed-fractional lot sizing (Spec 04d)
+│   ├── strategy_math.py    # stop-level stretch (target ladder + trail-stop landed in
+│   │                       #   trail_stop.py, Spec 04d)
+│   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
+│   │                       #   level math (Spec 04d)
+│   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)
+│   └── risk_guard.py       # IMPLEMENTED — portfolio caps, drawdown breakers, leverage cap;
+│                           #   config-driven via five `risk_guard.*` caps (Spec 04d)
 ├── config/
 │   ├── generator.py        # interactive CLI (typer)
 │   └── (schema/loader live in algo-core)
