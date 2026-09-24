@@ -27,8 +27,12 @@ algo-core = { workspace = true }
 [tool.mutmut]
 source_paths = ["src"]
 # Hardener passes for this package, scoped to each story's differential file(s):
-# Spec 04b (filter-chain mechanics), Spec 04f (decisions.parquet audit trail).
+# Spec 04b (filter-chain mechanics), Spec 04c (F1-F3 price filters),
+# Spec 04f (decisions.parquet audit trail).
 only_mutate = [
     "src/algo_backtest/chain/model.py",
+    "src/algo_backtest/chain/filters/f1_trend.py",
+    "src/algo_backtest/chain/filters/f2_indicator.py",
+    "src/algo_backtest/chain/filters/f3_pattern.py",
     "src/algo_backtest/chain/audit.py",
 ]
