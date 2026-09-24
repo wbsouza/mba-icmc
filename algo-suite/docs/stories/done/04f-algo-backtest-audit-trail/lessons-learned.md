@@ -16,9 +16,10 @@ Cannot write struct type 'enrichment' with no child field`). Both are pre-existi
 (out of this story's `chain/audit.py`-only boundary) — worked around by giving every
 `FilterResult` in the test suite a non-empty, identically-shaped `enrichment`/
 `metadata`. A future filter (F1-F7) that legitimately emits no enrichment, or filters
-with differently-shaped enrichment dicts in the same batch, will hit this for real;
-not logged as a new TD entry only because no real filter exists yet to hit it — Wave 2
-filter work should watch for it.
+with differently-shaped enrichment dicts in the same batch, will hit this for real.
+Logged as **TD-44** during review — a future Wave 2 filter is a concrete-enough trigger
+that this belongs in the searchable ledger, not left as a paragraph someone has to
+remember to search for.
 
 **`features_hash`'s determinism needed its own dedicated scenarios, not just an
 equality check against the same code path.** The first-draft `Then` step asserted
@@ -51,3 +52,31 @@ separate pre-chain snapshot to hash instead. Documented in the conversion
 function's docstring rather than worked around, since a caller needing a pre-chain
 snapshot would need to capture one itself before calling `FilterChain.run()` — not
 something `chain/audit.py` can retroactively reconstruct.
+
+## Post-review fixes (PR #6)
+
+An independent review found that `trade_id: str` (required, non-nullable) contradicted
+`algo-backtest/SPEC.md` §6.2 — the tool's own colocated, already-merged spec, not the
+thesis-level `specs.md` §11.3.4 this story's original docstrings cited. §6.2 gives
+`trade_id: string | null`, explicitly "`null` for `NO_TRADE`"; the original vetoed-outcome
+scenario even passed `trade_id "trade-002"` for a NO_TRADE row, which would have made a
+stand-aside row look joinable to a trade that should not exist.
+
+Fixed: `DecisionRow.trade_id: str | None`; `decision_row_from_outcome` now forces
+`trade_id` to `None` whenever `outcome.decision is Decision.NO_TRADE`, regardless of what
+the caller passes — an enforced invariant, not a documentation note the caller has to
+honor correctly. Added 3 scenarios: the existing vetoed-outcome scenario now asserts
+`trade_id` is absent; a new scenario proves a non-vetoed NO_TRADE row (no veto, just no
+entry criterion met) still forces `trade_id` to null even when the caller supplies one;
+and a new Parquet round-trip scenario proves the null actually survives a real write+read,
+not just the in-memory conversion. Also corrected `DecisionRow`'s docstring, which had
+cited only `specs.md` §11.3.4 (a conceptual, `trade_id`-less description) as if it were
+the authoritative column contract — when a tool's own colocated `SPEC.md` and the
+thesis-level `specs.md` disagree on a data contract's nullability, the tool's own spec
+wins, same lesson Spec 04b's `ChainOutcome`-vs-tuple decision already established.
+
+The reviewer's other suggestion — promoting the enrichment/metadata Arrow-serde landmine
+from unlogged lessons-learned prose to a numbered ledger entry — is captured above as
+**TD-44**.
+
+Re-ran the full gate: 80 passed (was 78), ruff/mypy clean.

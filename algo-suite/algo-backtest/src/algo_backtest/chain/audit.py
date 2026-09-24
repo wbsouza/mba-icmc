@@ -15,7 +15,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from algo_backtest.chain.model import ChainOutcome, FilterResult
+from algo_backtest.chain.model import ChainOutcome, Decision, FilterResult
 from algo_core.repository.parquet import ParquetRepository
 from pydantic import BaseModel
 
@@ -33,15 +33,17 @@ class FilterResultRow(BaseModel):
 
 
 class DecisionRow(BaseModel):
-    """One audit-trail row (specs.md §11.3.4): a single chain invocation.
+    """One audit-trail row: a single chain invocation.
 
-    `trade_id` is not part of the original §11.3.4 column table; it is added here
-    because Spec 04h (hybrid integration) and Spec 05c (ablation) join this table
-    against the future `trades.parquet` by trade, and §11.3.4 assumes that join key
-    without naming a column for it.
+    Column set and nullability follow `algo-backtest/SPEC.md` §6.2 (the tool's own
+    colocated, already-merged spec) rather than the thesis-level `specs.md` §11.3.4,
+    which describes the same table at a conceptual level but omits `trade_id`
+    entirely. SPEC.md §6.2 gives `trade_id` explicitly as `string | null`, `null`
+    for `NO_TRADE` — the foreign key to the future `trades.parquet`, populated for
+    every other decision (`BUY`/`SELL` opens a trade, `HOLD` manages one).
     """
 
-    trade_id: str
+    trade_id: str | None
     timestamp: datetime
     pair: str
     features_hash: str
@@ -73,7 +75,7 @@ def _filter_result_row(result: FilterResult) -> FilterResultRow:
     )
 
 
-def decision_row_from_outcome(outcome: ChainOutcome, trade_id: str) -> DecisionRow:
+def decision_row_from_outcome(outcome: ChainOutcome, trade_id: str | None) -> DecisionRow:
     """Convert a `ChainOutcome` into a `DecisionRow` ready for the audit-trail Parquet file.
 
     Hashes `outcome.state.features` as it stands at chain completion — the accumulated
@@ -82,13 +84,19 @@ def decision_row_from_outcome(outcome: ChainOutcome, trade_id: str) -> DecisionR
     `chain/model.py`). `vetoed_by` names the first `FilterResult` with `veto=True` in
     `outcome.state.filter_results`, or `None` when the chain reached its terminal
     decision-maker without a veto.
+
+    `trade_id` is forced to `None` for a `NO_TRADE` decision regardless of what the
+    caller passes, per `algo-backtest/SPEC.md` §6.2's "`null` for `NO_TRADE`" contract
+    — a stand-aside/veto row has no trade to be a foreign key to, so a caller-supplied
+    value here would be fabricated data, not a real `trades.parquet` join target.
     """
     vetoed_by = next(
         (result.filter_name for result in outcome.state.filter_results if result.veto),
         None,
     )
+    row_trade_id = None if outcome.decision is Decision.NO_TRADE else trade_id
     return DecisionRow(
-        trade_id=trade_id,
+        trade_id=row_trade_id,
         timestamp=outcome.state.timestamp,
         pair=outcome.state.pair,
         features_hash=_hash_features(outcome.state.features),

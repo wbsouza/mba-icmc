@@ -119,6 +119,12 @@ def _row_trade_id(audit_ctx: _AuditCtx, trade_id: str) -> None:
     assert audit_ctx.row.trade_id == trade_id
 
 
+@then("the decision row's trade_id is absent")
+def _row_trade_id_absent(audit_ctx: _AuditCtx) -> None:
+    assert audit_ctx.row is not None
+    assert audit_ctx.row.trade_id is None
+
+
 @then(parsers.parse('the decision row\'s timestamp is "{timestamp}"'))
 def _row_timestamp(audit_ctx: _AuditCtx, timestamp: str) -> None:
     assert audit_ctx.row is not None
@@ -201,6 +207,32 @@ def _two_decision_rows(audit_ctx: _AuditCtx, first: str, second: str) -> None:
         audit_ctx.rows.append(decision_row_from_outcome(outcome, trade_id=trade_id))
 
 
+@given("a single NO_TRADE decision row")
+def _single_no_trade_row(audit_ctx: _AuditCtx) -> None:
+    """One NO_TRADE row, proving a null `trade_id` round-trips through real Parquet.
+
+    Non-empty `enrichment`/`metadata` (same reasoning as `_two_decision_rows`): an empty
+    dict would infer a childless struct type pyarrow's writer rejects.
+    """
+    state = ExecutionState(
+        timestamp=datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
+        pair="EURUSD",
+        features={"trend_ok": False},
+        filter_results=[
+            FilterResult(
+                filter_name="risk_guard",
+                recommendation=Recommendation.HOLD,
+                reason="breach",
+                veto=True,
+                enrichment={"trend_ok": False},
+                metadata={"source": "test"},
+            )
+        ],
+    )
+    outcome = ChainOutcome(decision=Decision.NO_TRADE, state=state)
+    audit_ctx.rows.append(decision_row_from_outcome(outcome, trade_id="trade-fabricated"))
+
+
 @when(parsers.parse('the decision rows are written to "{filename}"'))
 def _write_rows(audit_ctx: _AuditCtx, tmp_path: Path, filename: str) -> None:
     audit_ctx.path = tmp_path / filename
@@ -221,6 +253,12 @@ def _read_back_matches(audit_ctx: _AuditCtx) -> None:
     assert sorted(audit_ctx.read_back, key=lambda r: r.trade_id) == sorted(
         audit_ctx.rows, key=lambda r: r.trade_id
     )
+
+
+@then("the read-back row's trade_id is absent")
+def _read_back_trade_id_absent(audit_ctx: _AuditCtx) -> None:
+    assert len(audit_ctx.read_back) == 1
+    assert audit_ctx.read_back[0].trade_id is None
 
 
 @then("each decision row's trade_id matches the trade_id it was built with")

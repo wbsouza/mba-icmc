@@ -38,6 +38,20 @@ Feature: decisions.parquet audit trail
       When the outcome is converted to a decision row with trade_id "trade-002"
       Then the decision row's vetoed_by is "risk_guard"
       And the decision row's final_decision is "NO_TRADE"
+      And the decision row's trade_id is absent
+
+  Rule: A NO_TRADE decision row's trade_id is always null, even if the caller supplies one
+
+    Scenario: A NO_TRADE row with no veto still forces trade_id to null
+      Given a chain outcome for pair "EURUSD" at "2024-01-01T00:00:00+00:00" with filter results:
+        | filter_name | recommendation | reason      | veto  | confidence |
+        | trend       | NEUTRAL        | no signal   | false |            |
+      And the accumulated features are:
+        | key      | value |
+        | trend_ok | false |
+      And the chain decision is "NO_TRADE"
+      When the outcome is converted to a decision row with trade_id "trade-fabricated"
+      Then the decision row's trade_id is absent
 
   Rule: A batch of decision rows persists to and round-trips from decisions.parquet
 
@@ -46,6 +60,13 @@ Feature: decisions.parquet audit trail
       When the decision rows are written to "decisions.parquet"
       Then the Parquet file exists on disk
       And reading it back yields the same decision rows
+
+    Scenario: A NO_TRADE row's null trade_id round-trips through decisions.parquet
+      Given a single NO_TRADE decision row
+      When the decision rows are written to "decisions.parquet"
+      Then the Parquet file exists on disk
+      And reading it back yields the same decision rows
+      And the read-back row's trade_id is absent
 
   Rule: Every decision row carries a trade_id, making the table join-ready by trade_id
 
