@@ -28,6 +28,14 @@ algo-core = { workspace = true }
 source_paths = ["src"]
 # First Hardener pass for this package (filter-chain mechanics, Spec 04b);
 # scoped to this story's differential file only.
+# Spec 04d (risk & capital-management filters F5/F6) extends the scope with its own
+# six differential files.
 only_mutate = [
     "src/algo_backtest/chain/model.py",
+    "src/algo_backtest/rules/risk_math.py",
+    "src/algo_backtest/rules/trail_stop.py",
+    "src/algo_backtest/rules/close_portion.py",
+    "src/algo_backtest/rules/risk_guard.py",
+    "src/algo_backtest/chain/filters/f5_risk_guard.py",
+    "src/algo_backtest/chain/filters/f6_capital_mgmt.py",
 ]

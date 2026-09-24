@@ -1,0 +1,64 @@
+"""Partial-close ladder (specs.md §14.5, ported from fx-manager's
+`ClosePortionOrderFacadeBean` rule logic): an ordered sequence of rungs, each closing a
+fraction ("portion") of the *original* lot size. Strategy A05's specific two-rung ladder
+(50% intermediate close, 50% final-target close — specs.md §14.7) is a caller-supplied
+list of portions, never hardcoded here; this module only proves the general laddering
+mechanic and its running-remainder bookkeeping.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+_OVER_CLOSE_TOLERANCE = 1e-9
+
+
+@dataclass(frozen=True)
+class CloseRung:
+    """One ladder rung: how much of the original lot it closes, and what remains after."""
+
+    level: int
+    lot_to_close: float
+    lot_remaining: float
+
+
+@dataclass(frozen=True)
+class CloseLadder:
+    """The single return value of `build_close_ladder()`: its rungs, in order."""
+
+    rungs: tuple[CloseRung, ...]
+
+
+def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> CloseLadder:
+    """Build a partial-close ladder from ordered rung portions of `original_lot_size`.
+
+    Raises:
+        ValueError: if `original_lot_size` is not positive, any portion is outside
+            `(0, 1]`, or the portions' cumulative sum exceeds 1.0 (closing more than the
+            position ever held).
+    """
+    if original_lot_size <= 0:
+        raise ValueError(
+            f"close_portion.build_close_ladder: original_lot_size must be positive, "
+            f"got {original_lot_size!r}"
+        )
+    rungs: list[CloseRung] = []
+    remaining = original_lot_size
+    cumulative_portion = 0.0
+    for level, portion in enumerate(portions, start=1):
+        if not 0.0 < portion <= 1.0:
+            raise ValueError(
+                f"close_portion.build_close_ladder: rung {level} portion must be in "
+                f"(0, 1], got {portion!r}"
+            )
+        cumulative_portion += portion
+        if cumulative_portion > 1.0 + _OVER_CLOSE_TOLERANCE:
+            raise ValueError(
+                "close_portion.build_close_ladder: over-close — cumulative portion "
+                f"{cumulative_portion!r} exceeds 1.0 by rung {level}"
+            )
+        lot_to_close = original_lot_size * portion
+        remaining -= lot_to_close
+        rungs.append(CloseRung(level=level, lot_to_close=lot_to_close, lot_remaining=remaining))
+    return CloseLadder(rungs=tuple(rungs))

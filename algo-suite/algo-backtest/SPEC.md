@@ -89,11 +89,13 @@ algo_backtest/
 │   ├── filters/            # F1..Fn filter classes (one file each)
 │   └── audit.py            # decisions.parquet writer
 ├── rules/
-│   ├── risk_math.py        # fixed-fractional lot sizing
+│   ├── risk_math.py        # IMPLEMENTED — fixed-fractional lot sizing (Spec 04d)
 │   ├── strategy_math.py    # target ladder, trail-stop, stop-level stretch
-│   ├── trail_stop.py       # trailing-stop trigger/destination
-│   ├── close_portion.py    # partial-close laddering
-│   └── risk_guard.py       # portfolio caps, drawdown breakers, leverage cap
+│   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
+│   │                       #   level math (Spec 04d)
+│   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)
+│   └── risk_guard.py       # IMPLEMENTED — portfolio caps, drawdown breakers, leverage cap;
+│                           #   config-driven via five `risk_guard.*` caps (Spec 04d)
 ├── config/
 │   ├── generator.py        # interactive CLI (typer)
 │   └── (schema/loader live in algo-core)
