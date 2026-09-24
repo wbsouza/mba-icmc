@@ -31,12 +31,12 @@ def build_ablation_table(run_dirs: Sequence[Path], *, baseline: str) -> list[Abl
     """Load run metrics and compare each run's total return with ``baseline``.
 
     Args:
-        run_dirs: Completed run directories. Each directory must contain ``metrics.json``;
-            ``run.json`` is optional metadata and defaults to the directory name when absent.
+        run_dirs: Completed run directories. Each directory must contain ``metrics.json``
+            and a complete ``run.json`` manifest.
         baseline: Run identifier to compare against. The identifier is the run directory name.
 
     Raises:
-        FileNotFoundError: a run directory or metrics artifact is missing.
+        FileNotFoundError: a run directory, run manifest, or metrics artifact is missing.
         ValueError: the baseline identifier is absent or a run manifest is malformed.
     """
     rows = [_load_run(run_dir) for run_dir in run_dirs]
@@ -96,17 +96,29 @@ def _load_run(run_dir: Path) -> _RunRow:
 
 
 def _load_manifest(run_dir: Path) -> dict[str, Any]:
-    """Load optional run metadata from ``run.json`` and reject malformed JSON."""
+    """Load required run metadata from ``run.json`` and reject malformed manifests."""
     path = run_dir / "run.json"
-    if not path.exists():
-        return {}
+    if not path.is_file():
+        raise FileNotFoundError(f"run {run_dir.name!r} has no run manifest: {path}")
     try:
         document = json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         raise ValueError(f"run {run_dir.name!r} has an invalid run manifest: {path}") from exc
     if not isinstance(document, dict):
         raise ValueError(f"run {run_dir.name!r} has a non-object run manifest: {path}")
+    _require_manifest_fields(run_dir, document)
     return document
+
+
+def _require_manifest_fields(run_dir: Path, document: dict[str, Any]) -> None:
+    """Require the metadata emitted by ``algo_backtest.artifacts.RunManifest``."""
+    for name in ("strategy", "symbol", "start", "end"):
+        value = document.get(name)
+        if not isinstance(value, str) or not value:
+            manifest_path = run_dir / "run.json"
+            raise ValueError(
+                f"run {run_dir.name!r} manifest has no {name!r}: {manifest_path}"
+            )
 
 
 def _baseline_row(rows: list[_RunRow], baseline: str) -> _RunRow:

@@ -29,3 +29,13 @@ Feature: Build an ablation table from completed run metrics
       Given a missing run "baseline-ma"
       When I build the ablation table with baseline "baseline-ma" expecting failure
       Then ablation fails with FileNotFoundError naming "baseline-ma"
+
+    Scenario: a run has no manifest artifact
+      Given a run "baseline-ma" with metrics but no manifest
+      When I build the ablation table with baseline "baseline-ma" expecting failure
+      Then ablation fails with FileNotFoundError naming "run manifest"
+
+    Scenario: a run manifest is missing thesis metadata
+      Given a run "baseline-ma" with metrics and incomplete manifest
+      When I build the ablation table with baseline "baseline-ma" expecting failure
+      Then ablation fails with ValueError naming "symbol"

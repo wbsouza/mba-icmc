@@ -8,6 +8,8 @@ from typing import Any
 
 import pytest
 from algo_analyze.ablation import AblationRow, build_ablation_table
+from algo_backtest.artifacts import RunManifest, write_run_artifacts
+from algo_backtest.metrics import Metrics
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/ablation.feature")
@@ -23,20 +25,25 @@ def actx(tmp_path: Path) -> dict[str, Any]:
 def _completed_run(actx: dict[str, Any], run_id: str, total_return: float) -> None:
     """Create a completed run directory with run and metrics artifacts."""
     run_dir = _run_dir(actx, run_id)
-    (run_dir / "run.json").write_text(
-        json.dumps(
-            {
-                "strategy": run_id,
-                "symbol": "EURUSD",
-                "start": "2014-05-07",
-                "end": "2014-05-09",
-                "params": {},
-                "success": True,
-                "closed_trades": 2,
-            }
-        )
+    write_run_artifacts(
+        run_dir,
+        RunManifest(
+            strategy=run_id,
+            symbol="EURUSD",
+            start="2014-05-07",
+            end="2014-05-09",
+            params={},
+            success=True,
+            closed_trades=2,
+        ),
+        closed_trades=[{"return": 0.01}, {"return": 0.02}],
+        metrics=Metrics(
+            total_return=total_return,
+            sharpe=1.25,
+            max_drawdown=-0.2,
+            hit_rate=0.5,
+        ),
     )
-    _write_metrics(run_dir, total_return)
     actx["run_dirs"].append(run_dir)
 
 
@@ -44,7 +51,24 @@ def _completed_run(actx: dict[str, Any], run_id: str, total_return: float) -> No
 def _run_without_metrics(actx: dict[str, Any], run_id: str) -> None:
     """Create a run directory that intentionally lacks metrics.json."""
     run_dir = _run_dir(actx, run_id)
+    _write_manifest(run_dir, run_id)
+    actx["run_dirs"].append(run_dir)
+
+
+@given(parsers.parse('a run "{run_id}" with metrics but no manifest'))
+def _run_without_manifest(actx: dict[str, Any], run_id: str) -> None:
+    """Create a run directory that intentionally lacks run.json."""
+    run_dir = _run_dir(actx, run_id)
+    _write_metrics(run_dir, 10.0)
+    actx["run_dirs"].append(run_dir)
+
+
+@given(parsers.parse('a run "{run_id}" with metrics and incomplete manifest'))
+def _run_with_incomplete_manifest(actx: dict[str, Any], run_id: str) -> None:
+    """Create a run directory whose manifest lacks required metadata."""
+    run_dir = _run_dir(actx, run_id)
     (run_dir / "run.json").write_text(json.dumps({"strategy": run_id}))
+    _write_metrics(run_dir, 10.0)
     actx["run_dirs"].append(run_dir)
 
 
@@ -119,6 +143,23 @@ def _write_metrics(run_dir: Path, total_return: float) -> None:
                 "sharpe": 1.25,
                 "max_drawdown": -0.2,
                 "hit_rate": 0.5,
+            }
+        )
+    )
+
+
+def _write_manifest(run_dir: Path, run_id: str) -> None:
+    """Write a complete run manifest fixture."""
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "strategy": run_id,
+                "symbol": "EURUSD",
+                "start": "2014-05-07",
+                "end": "2014-05-09",
+                "params": {},
+                "success": True,
+                "closed_trades": 2,
             }
         )
     )
