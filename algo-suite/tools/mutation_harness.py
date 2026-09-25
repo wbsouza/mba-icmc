@@ -418,8 +418,10 @@ def run_campaign(tool: str, extra_paths, max_mutants, timeout: int) -> MutationR
             m.file.write_text(original)
             _PENDING_REVERT = None
         report.mutants.append(m)
+        rel_file = m.file.relative_to(tool_dir)
         print(
-            f"  [{i}/{len(all_mutants)}] {m.file.relative_to(tool_dir)} :: {m.description} -> {m.verdict}",
+            f"  [{i}/{len(all_mutants)}] {rel_file} :: "
+            f"{m.description} -> {m.verdict}",
             flush=True,
         )
 
@@ -429,7 +431,10 @@ def run_campaign(tool: str, extra_paths, max_mutants, timeout: int) -> MutationR
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("tool", help="uv workspace member, e.g. algo-download")
-    ap.add_argument("--paths", help="comma-separated paths (relative to the tool dir) to scope mutation to")
+    ap.add_argument(
+        "--paths",
+        help="comma-separated paths (relative to the tool dir) to scope mutation to",
+    )
     ap.add_argument("--max", type=int, default=None, help="cap number of mutants (debugging)")
     ap.add_argument("--timeout", type=int, default=900)
     ap.add_argument("--report", default=None, help="write JSON report to this path")
