@@ -111,10 +111,27 @@ class OrderExecutor:
         """Liquidate the open position in ``symbol`` (an exit, not one of the
         four Decisions — shared here so both baseline algos stop duplicating
         their own ``self.liquidate(...)`` order-placement code).
+
+        The ``FillRecord.decision`` field is ``HOLD`` here for lack of a dedicated
+        "closed" value (spec.md Sec 11.3.1.1 only defines the four order-placement
+        decisions); the caller must read ``status`` (``FILLED``/``REJECTED``), not
+        ``decision``, to tell a close from a true no-op (``_NO_OP``, ``status=NONE``).
+
+        Raises:
+            ValueError: if ``liquidate`` returns more than one ticket — every caller
+                today (both baseline algos) opens at most one position per symbol, so
+                multiple tickets means a multi-lot position this method was never
+                designed to normalize; fail fast rather than silently reporting only
+                the first ticket's fill and dropping the rest.
         """
         tickets = self._algorithm.liquidate(symbol)
         if not tickets:
             return _NO_OP
+        if len(tickets) > 1:
+            raise ValueError(
+                f"liquidate({symbol!r}) returned {len(tickets)} tickets; "
+                "OrderExecutor.close only normalizes a single-ticket liquidation."
+            )
         ticket = tickets[0]
         event = self._pending.pop(ticket.order_id, None)
         return self._normalize(Decision.HOLD, ticket.order_id, SizingContext(size=0.0), event)

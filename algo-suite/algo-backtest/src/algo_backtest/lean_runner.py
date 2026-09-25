@@ -208,7 +208,9 @@ def run_lean(
         shutil.rmtree(work, ignore_errors=True)  # engine writes __pycache__ as root
         shutil.rmtree(cfg_dir, ignore_errors=True)
 
-    if wrapped.attrs.get("State", {}).get("OOMKilled"):
+    # `.get("State") or {}`, not `.get("State", {})` — Docker can report `State: null`
+    # rather than omitting the key, and `{}.get(...)` on that `None` would raise.
+    if (wrapped.attrs.get("State") or {}).get("OOMKilled"):
         raise RuntimeError(
             f"LEAN container was OOM-killed (memory cap {_LEAN_MEM_LIMIT}); the pinned "
             f"engine needs more than that for this run. Raise LEAN_CONTAINER_MEM_LIMIT "

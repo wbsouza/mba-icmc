@@ -45,15 +45,18 @@
 threads `SizingContext.stop_loss`/`take_profit` through into the `FillRecord` as data,
 but never submits a real LEAN protective order (`StopMarketOrder`/bracket) for them —
 scenario 05's "carries a stop-loss" is proven at the `FillRecord` level, not by an
-enforced LEAN order. Logged as `technical-debt.md` TD-36 (deferred until Wave 2's F6
+enforced LEAN order. Logged as `technical-debt.md` TD-46 (deferred until Wave 2's F6
 capital-management filter is the first real caller needing an enforced stop).
 
 - [x] QA pass (2026-09-24): merged hardener's `4ca4aae`, then independently verified.
       `make check` (78/78 non-integration) and the real-container
       `order_execution.feature` (9/9) both green. Corrected
       `tests/qa/spec-algo-backtest-order-execution.qa.md`, which asserted against a
-      `trades.parquet` artifact that was never built (SPEC.md documents it as later
-      work — see `technical-debt.md` TD-37); today's real ledger is `trades.json`.
+      `trades.parquet` artifact that was never built; today's real ledger is
+      `trades.json`, and it should stay that way — a trades ledger is an ongoing,
+      updated-over-the-run record, not the fixed/immutable data Parquet is for
+      (see `technical-debt.md` TD-47, which also corrects `SPEC.md` §6.1's
+      `trades.parquet` plan).
       Authored the missing `tests/qa/run_order_execution_qa.py` against `trades.json`,
       driven through the `algo-backtest` CLI only; found and fixed two real bugs along
       the way: the unknown-brokerage-adapter path failed inside the LEAN run (exit 1,

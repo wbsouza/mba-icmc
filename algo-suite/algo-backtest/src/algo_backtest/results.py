@@ -42,7 +42,9 @@ def parse_results(results_dir: Path, *, success: bool) -> RunResult:
     result_json = find_result_json(results_dir)
     data = json.loads(result_json.read_text())
     closed_trades = len(data["totalPerformance"]["closedTrades"])
-    error = data.get("state", {}).get("RuntimeError") or None
+    # `.get("state") or {}`, not `.get("state", {})` — LEAN can emit `"state": null`
+    # rather than omitting the key, and `{}.get(...)` on that `None` would raise.
+    error = (data.get("state") or {}).get("RuntimeError") or None
     return RunResult(
         success=success, closed_trades=closed_trades, raw_results_path=result_json, error=error
     )

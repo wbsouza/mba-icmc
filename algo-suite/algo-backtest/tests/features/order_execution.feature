@@ -43,10 +43,12 @@ Feature: Order execution through the LEAN engine
     And the rejection is recorded in the run's audit trail
 
   # order_execution-05
-  Scenario Outline: Stop-loss and take-profit levels are attached at order placement
+  # Data-level only: OrderExecutor records stop-loss/take-profit on the FillRecord but
+  # does not submit a real LEAN protective order for them yet (technical-debt.md TD-46).
+  Scenario Outline: Stop-loss and take-profit levels are recorded on the fill at order placement
     Given a strategy that emits <decision> with a computed stop distance
     When the backtest runs through the order-execution engine
-    Then the resulting order carries a stop-loss at the computed level
+    Then the recorded fill carries a stop-loss at the computed level
     And the recorded fill's risk parameters match the computed stop distance
 
     Examples:

@@ -26,6 +26,13 @@ Feature: Parse a LEAN /Results directory into a minimal RunResult
       Then the run is reported unsuccessful
       And it reports 0 closed trades
 
+    Scenario: a null state does not raise when extracting the error
+      Given a LEAN results directory reporting 0 closed trades
+      And its result JSON has a null "state" field
+      When I parse it as a failed run
+      Then the run is reported unsuccessful
+      And no error is reported
+
   Rule: An absent or ambiguous result fails fast
 
     Scenario: two competing primary result files are ambiguous and fail fast

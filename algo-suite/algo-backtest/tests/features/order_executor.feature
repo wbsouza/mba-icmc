@@ -48,3 +48,8 @@ Feature: OrderExecutor translates a Decision into a LEAN order and a normalized 
     Given a fake algorithm with no open position
     When OrderExecutor closes the position
     Then the fill record status is NONE
+
+  Scenario: Closing a position that liquidates into multiple tickets fails fast
+    Given a fake algorithm whose liquidation returns multiple tickets
+    When OrderExecutor closes the position
+    Then closing fails with a multi-ticket error

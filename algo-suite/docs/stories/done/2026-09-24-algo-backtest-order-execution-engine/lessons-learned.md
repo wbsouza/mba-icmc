@@ -17,7 +17,11 @@ honest that today's real ledger is the deliberately-minimal `trades.json`
 written at different times, pointed QA at an artifact that doesn't exist.
 The fix wasn't picking a side — it was finding both truths and updating the
 QA doc to match current reality while logging the gap explicitly
-([`technical-debt.md`](../../../technical-debt.md) TD-37) so the eventual parquet-ledger work isn't lost.
+([`technical-debt.md`](../../../technical-debt.md) TD-47). That entry also
+corrects course on `SPEC.md`'s `trades.parquet` plan itself: a trades ledger
+is an ongoing, updated-over-the-run record, not the fixed/write-once data
+Parquet is for — if it ever needs to be a persistent, queryable, updatable
+store, that's Postgres, not Parquet.
 
 **Writing the QA script instead of just reading the doc surfaces real bugs.**
 Converting `spec-algo-backtest-order-execution.qa.md` into an executable
