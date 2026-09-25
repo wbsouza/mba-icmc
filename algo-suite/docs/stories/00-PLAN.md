@@ -134,19 +134,28 @@ underlying price data for the full 10 years is now actually on disk; widening
 the baseline window is a nice-to-have if the compressed schedule has slack,
 never a blocker for the hybrid work above.
 
-**Not started (0% implementation, specs exist):** everything news/sentiment and
-everything past a price-only baseline:
+**Stale note (below list superseded piece-by-piece since 2026-09-22 — see
+inline updates):** most of "everything past a price-only baseline" has since
+landed; what's actually still not started is narrower than this list once
+implied. Kept for history, corrected in place:
 - `algo-download`: GDELT + GPR raw adapters (spec calls them "slice 2/3") —
-  Gherkin feature files exist, adapter code implemented on branch
-  `spec-01-algo-download-gdelt-gpr` (not yet merged to master)
+  **merged** (`algo_download/adapters/{gdelt,gpr}/` are real on `main`, not
+  stuck on an unmerged branch).
 - `algo-transform`: GDELT/GPR raw → canonical event Parquet, coverage matrix
   ("slice 3") — **built 2026-09-23** (Spec 02); currency-strength stays
   deferred (TD-29, no consumer)
-- `algo-score`: the entire tool (only a CLI stub exists)
-- `algo-backtest`: the filter chain (F1–F7), the LightGBM meta-learner, the
-  hybrid strategy — only price-only strategies exist today
-- `algo-analyze`: deflated Sharpe, Monte-Carlo Permutation Test, ablation
-  tables, figures — only the summary table exists today
+- `algo-score`: **built** — `scoring.py`, `storage.py`, `attribution.py`,
+  `scorers/`, `events/*` are all real (not a CLI stub). Never yet *run*
+  against real data, though — the NAS data root has no sentiment/event
+  Parquet materialized, only `forex/` — that's the actual remaining blocker
+  for Spec 04e, not missing code.
+- `algo-backtest`: F1 (trend), F2 (indicator), F3 (pattern), F5 (risk-guard),
+  F6 (capital-mgmt), the order executor, and the `decisions.parquet` audit
+  trail (Spec 04f) are all **built**. Still missing: F4 (news-context filter,
+  blocked on the `algo-score` data-materialization gap above), F7 (the
+  LightGBM meta-learner), and the hybrid strategy that wires them together.
+- `algo-analyze`: **built** (Spec 05, PR #21, merged 2026-09-25) — see the
+  "Correction (2026-09-25)" note above for detail.
 - [`monografia/chapters/04-experimental-evaluation.tex`](../../../monografia/chapters/04-experimental-evaluation.tex): currently a
   "work in progress" skeleton with every results section a placeholder
 
@@ -195,14 +204,19 @@ blocked on Spec 06.
 
 ## 2. Spec map
 
-| # | Spec file | Tool | Depends on | Can start now? |
+**Status as of 2026-09-25** (table below is the original 2026-09-22 plan,
+kept for the dependency ordering it still correctly describes — but 01, 02,
+03 and 05 are now done, and 04 is landed except F4/F7/hybrid, which are
+blocked on running 03's pipeline against real data, not on missing code):
+
+| # | Spec file | Tool | Depends on | Status |
 |---|---|---|---|---|
-| 01 | `01-algo-download-news-sources.md` | `algo-download` | nothing (parallel to 05) | yes |
-| 02 | `02-algo-transform-news-events.md` | `algo-transform` | 01 output on disk | after 01 |
-| 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | after 02 |
-| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | after 03 |
-| 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **yes, now** |
-| 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | after 05 (and 04) |
+| 01 | `01-algo-download-news-sources.md` | `algo-download` | nothing (parallel to 05) | **done** — GDELT+GPR adapters merged |
+| 02 | `02-algo-transform-news-events.md` | `algo-transform` | 01 output on disk | **done** (2026-09-23) |
+| 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code); never run against real NAS data — that's the actual 04e blocker |
+| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **partial** — F1/F2/F3/F5/F6 + order executor + audit trail done; F4/F7/hybrid blocked on 03's real-data gap above |
+| 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25) |
+| 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | blocked on 04's F4/F7/hybrid |
 
 ```mermaid
 flowchart LR

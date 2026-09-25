@@ -48,7 +48,8 @@ uv run algo-backtest metrics --run <results-dir>
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
 # windows materialized + Docker; re-running replaces the whole experiment tree):
 uv run algo-backtest experiment run --spec experiments/baseline-smoke.yaml
-# planned: result aggregation (algo-analyze, Stage F2); hybrid strategy (F3); --cv cpcv|walkforward
+# result aggregation is now built: `uv run algo-analyze summary` (Stage F2, Spec 05)
+# planned: hybrid strategy (F3); --cv cpcv|walkforward
 ```
 
 Experiment specs (the reproducible contract) live in `../experiments/*.yaml`: a named set
