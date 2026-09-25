@@ -2,6 +2,7 @@
 
 .idea
 .coverage
+build/
 
 .venv/
 __pycache__/

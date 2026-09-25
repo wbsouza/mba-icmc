@@ -1,5 +1,0 @@
-\babel@toc {brazil}{}\relax 
-\babel@toc {english}{}\relax 
-\contentsline {figure}{\numberline {1}{\ignorespaces System pipeline.}}{46}{figure.3.1}%
-\contentsline {figure}{\numberline {2}{\ignorespaces Forex price data pipeline: raw Dukascopy bytes (\texttt {algo-download}) decoded and resampled into canonical minute QuoteBar Parquet (\texttt {algo-transform}).}}{50}{figure.3.2}%
-\contentsline {figure}{\numberline {3}{\ignorespaces Deterministic execution chain.}}{59}{figure.3.3}%
