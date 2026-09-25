@@ -36,3 +36,8 @@ Feature: Persist raw artifacts from a backtest run
       When I write its run artifacts
       Then trades.json trade 0 has no normalized return field
       And trades.json trade 0 still reports a non-finite raw profitLoss
+
+    Scenario: a pre-existing raw return field is never trusted over the computed one
+      Given a finished run with a closed trade priced at entry 1.1000, quantity 10000, profit 55.0 and a bogus raw return of 999.0
+      When I write its run artifacts
+      Then trades.json trade 0 has a normalized return of 0.005

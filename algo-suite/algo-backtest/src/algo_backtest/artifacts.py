@@ -98,13 +98,13 @@ def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:
 
     Computes `profitLoss / abs(entryPrice * quantity)` when `entryPrice`, `quantity`
     and `profitLoss` are all present and numeric, the cost basis is non-zero, and the
-    result is finite. Otherwise the trade is returned unchanged: we never guess a
-    return from an absolute PnL value alone, so a trade shape we can't normalize is
-    left exactly as LEAN reported it and downstream consumers fail fast on the
-    missing field instead of trusting a fabricated one.
+    result is finite — always from those raw fields, even when the trade already
+    carries a `return` key, since `return` is this module's own normalized output and
+    must never be trusted as pre-computed input. Otherwise the trade is returned
+    unchanged: we never guess a return from an absolute PnL value alone, so a trade
+    shape we can't normalize is left exactly as LEAN reported it and downstream
+    consumers fail fast on the missing field instead of trusting a fabricated one.
     """
-    if "return" in trade:
-        return dict(trade)
     try:
         entry_price = float(trade["entryPrice"])
         quantity = float(trade["quantity"])

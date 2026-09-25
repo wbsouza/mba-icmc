@@ -112,6 +112,23 @@ def _finished_run_infinite_profit_trade(
     art_ctx["manifest"] = _baseline_manifest(1)
 
 
+@given(
+    parsers.parse(
+        "a finished run with a closed trade priced at entry {entry:g}, "
+        "quantity {quantity:g}, profit {profit:g} and a bogus raw return of {bogus:g}"
+    )
+)
+def _finished_run_trade_with_bogus_return(
+    art_ctx: dict[str, Any], entry: float, quantity: float, profit: float, bogus: float
+) -> None:
+    """A closed trade carrying a pre-existing `return` that must not be trusted as-is."""
+    art_ctx["closed_trades"] = [
+        {"entryPrice": entry, "quantity": quantity, "profitLoss": profit, "return": bogus}
+    ]
+    art_ctx["metrics"] = Metrics(total_return=0.0, sharpe=0.0, max_drawdown=0.0, hit_rate=0.0)
+    art_ctx["manifest"] = _baseline_manifest(1)
+
+
 @then(parsers.parse("trades.json trade {index:d} has a normalized return of {value:g}"))
 def _trade_has_return(art_ctx: dict[str, Any], index: int, value: float) -> None:
     trades = json.loads(art_ctx["artifacts"].trades_json.read_text())
