@@ -39,11 +39,11 @@ section). "Cmd" lists the producing commands; "Artifact" is the Chapter 4 output
 |---|---|---|---|---|
 | 0 | **Engine sanity checks** (validate the backtester itself before trusting any signal) | known-answer strategies | `algo-backtest run --strategy {buyhold,random,perfect_foresight} --symbol EURUSD` → `algo-analyze metrics` | **Table** sanity bounds: buy-and-hold Sharpe ≈ 0 (FX no drift); random ≈ 0 with ~50% hit rate; perfect-foresight very high Sharpe, ≈ 0 drawdown. A baseline Sharpe is only trusted once these land where expected. |
 | 1 | Calibrate price-only **baseline** on EUR/USD | LightGBM hyperparameters | `algo-backtest run --strategy baseline --symbol EURUSD` → `algo-analyze metrics --run <id>` | **Table** baseline metrics (Sharpe, max drawdown) + **equity-curve figure** |
-| 2 | Evaluate **full hybrid vs baseline** on EUR/USD | presence/absence of news | `algo-backtest run --strategy hybrid --symbol EURUSD` → `algo-analyze ablation --runs baseline hybrid` | **Table** hybrid-vs-baseline (Sharpe, drawdown, hit rate) + overlaid equity curves |
-| 3 | **Replicate Exp 2 on USD/JPY** | currency pair | `algo-backtest run --strategy hybrid --symbol USDJPY` → `algo-analyze ablation --runs baseline_jpy hybrid_jpy` + `significance` | **Table** USD/JPY metrics + statistical-test result |
-| 4 | **Ablation: feature-family contributions** | news sub-family activated | `algo-backtest run --strategy hybrid_{ta,ind,pat,news}` → `algo-analyze ablation --runs ...` | **Table** marginal contribution per feature family |
+| 2 | Evaluate **full hybrid vs baseline** on EUR/USD | presence/absence of news | `algo-backtest run --strategy hybrid --symbol EURUSD` → `algo-analyze ablation --runs baseline --runs hybrid` | **Table** hybrid-vs-baseline (Sharpe, drawdown, hit rate) + overlaid equity curves |
+| 3 | **Replicate Exp 2 on USD/JPY** | currency pair | `algo-backtest run --strategy hybrid --symbol USDJPY` → `algo-analyze ablation --runs baseline_jpy --runs hybrid_jpy` + `significance --runs baseline_jpy --runs hybrid_jpy` | **Table** USD/JPY metrics + statistical-test result |
+| 4 | **Ablation: feature-family contributions** | news sub-family activated | `algo-backtest run --strategy hybrid_{ta,ind,pat,news}` → `algo-analyze ablation --runs ...` (repeat `--runs` per run) | **Table** marginal contribution per feature family |
 | 5 | **Compare vs Zhang (2025)** | validation protocol | `algo-analyze metrics --run hybrid` (deflated Sharpe) | **Table** this-work vs Zhang (cost-adjusted + deflated Sharpe) |
-| 6 | **Filter ablation: Core vs A/B/C/D** | extended filter set F8–F14 | `algo-backtest run --strategy {core,A,B,C,D}` → `algo-analyze ablation --runs core A B C D` | **Table** Core vs variants (Sharpe, drawdown, turnover) + **bar figure** |
+| 6 | **Filter ablation: Core vs A/B/C/D** | extended filter set F8–F14 | `algo-backtest run --strategy {core,A,B,C,D}` → `algo-analyze ablation --runs core --runs A --runs B --runs C --runs D` | **Table** Core vs variants (Sharpe, drawdown, turnover) + **bar figure** |
 | 7 | **F9 sensitivity** | `k_ATR`, `alpha_ADF` | `algo-backtest run --strategy f9_sweep_*` → `algo-analyze metrics` | **Table/figure** trades-per-year, win-rate vs F9 params |
 | 8 | **F10/F11 threshold sweep** | `theta_conf`, `theta_mag` | `algo-backtest run --strategy f1011_sweep_*` → `algo-analyze metrics` | **Figure** news-contribution vs threshold |
 | 9 | **F12 consensus test** | `m ∈ {2,3,4}` | `algo-backtest run --strategy f12_m{2,3,4}` → `algo-analyze metrics` | **Table** false-positive rate vs consensus `m` |
@@ -55,8 +55,8 @@ section). "Cmd" lists the producing commands; "Artifact" is the Chapter 4 output
 | Data-coverage matrix | `algo-transform` | `algo-transform coverage` → matrix figure |
 | Equity curve (per run) | `algo-analyze` | `algo-analyze figures --run <id>` |
 | Drawdown curve (per run) | `algo-analyze` | `algo-analyze figures --run <id>` |
-| Ablation bars (Core vs A/B/C/D) | `algo-analyze` | `algo-analyze ablation --runs core A B C D --figure` |
-| Threshold/sensitivity sweeps (Exp 7–8) | `algo-analyze` | `algo-analyze figures --runs <sweep ids>` |
+| Ablation bars (Core vs A/B/C/D) | `algo-analyze` | `algo-analyze ablation --runs core --runs A --runs B --runs C --runs D --figure` |
+| Threshold/sensitivity sweeps (Exp 7–8) | `algo-analyze` | not yet built — `figures` currently renders one run's equity/drawdown curves (`--run <id>`) or an ablation bar chart; a multi-run sweep figure is future work |
 
 All figures render as vector PDF for LaTeX `\includegraphics`; the figure style
 pack is shared with the thesis (fonts/sizes/palette) so they drop in cleanly.

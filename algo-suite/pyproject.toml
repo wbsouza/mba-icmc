@@ -101,3 +101,9 @@ exclude = [
 [[tool.mypy.overrides]]
 module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
 ignore_missing_imports = true
+
+# matplotlib ships no py.typed marker at the pinned version; algo-analyze's figure
+# renderers (_style.py) import it directly.
+[[tool.mypy.overrides]]
+module = ["matplotlib.*"]
+ignore_missing_imports = true
