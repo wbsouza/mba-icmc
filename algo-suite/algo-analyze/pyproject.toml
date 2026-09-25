@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "algo-backtest",
     "algo-core",
+    "matplotlib>=3.8",
     "typer>=0.12",
     "structlog>=24",
 ]
