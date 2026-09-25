@@ -68,14 +68,16 @@ The preferred shape is:
 ```json
 [
   {
-    "...": "original LEAN trade fields preserved",
+    "...": "original LEAN trade fields preserved, except any raw return key",
     "return": 0.0123
   }
 ]
 ```
 
 Where `return` is a finite fractional per-trade return suitable for equity and
-drawdown curves.
+drawdown curves. The key is reserved for this normalized value; if a raw trade
+payload already contains `return`, the producer must recompute and overwrite it
+when possible, or strip it when the normalized value cannot be computed.
 
 **Relationship to `metrics.json`'s `total_return`:** these are deliberately different
 numbers, not two computations of the same thing. `return` is one trade's profit/loss
@@ -91,7 +93,7 @@ trade-sequence visualization, not an alternative path to the citable headline
 Preferred option:
 
 1. Add a small normalization layer in `algo-backtest` at artifact write time.
-2. Preserve the raw LEAN trade payload.
+2. Preserve the raw LEAN trade payload, except for the reserved `return` key.
 3. Add a normalized finite fractional `return` field when enough data exists.
 4. Fail fast, or record an explicit unsupported shape, when the trade object
    lacks enough data to compute a truthful return.
@@ -114,7 +116,8 @@ Avoid:
 - `write_run_artifacts()` or an adjacent producer function emits `trades.json`
   entries with a finite fractional `return` field for the completed runs used by
   thesis figures.
-- Existing raw LEAN trade information remains available for audit/debugging.
+- Existing raw LEAN trade information remains available for audit/debugging, except
+  a pre-existing raw `return` key that was not produced by this normalization step.
 - A BDD test proves the producer writes normalized returns from representative
   LEAN closed-trade payloads.
 - A BDD test proves `algo_analyze.figures` can render from a run directory

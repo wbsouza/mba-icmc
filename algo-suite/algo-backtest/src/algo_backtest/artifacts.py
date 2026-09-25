@@ -19,11 +19,11 @@ Normalized return contract (Spec 05f): consumers such as `algo_analyze.figures` 
 finite fractional per-trade return, not LEAN's raw dollar `profitLoss`. When a closed
 trade carries `entryPrice`, `quantity` and `profitLoss`, this module adds a `return`
 field computed as `profitLoss / abs(entryPrice * quantity)` — the trade's profit or loss
-against its own cost basis. The raw LEAN fields are preserved unchanged alongside it.
-When a trade lacks enough data (or the computed value is not finite), no `return` field
-is added rather than guessing — the trade is left exactly as LEAN reported it, and
-downstream consumers fail fast on the missing field instead of silently trusting an
-absolute PnL value as if it were a return.
+against its own cost basis. The other raw LEAN fields are preserved unchanged alongside
+it. If a trade lacks enough data (or the computed value is not finite), the reserved
+`return` field is omitted rather than guessed, even when the raw payload carried a
+stray `return`; downstream consumers fail fast on the missing field instead of silently
+trusting an absolute PnL value or an unverified raw value as if it were normalized here.
 
 This per-trade `return` is deliberately a different figure from `metrics.json`'s
 `total_return` (LEAN's portfolio-level `totalNetProfit`, see `metrics.py`): `return` is
