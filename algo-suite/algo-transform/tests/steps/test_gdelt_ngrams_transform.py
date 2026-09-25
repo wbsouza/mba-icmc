@@ -126,6 +126,16 @@ def _zero_rows(context: dict[str, object]) -> None:
     assert table.num_rows == 0
 
 
+@then("it has the id, text, and publish_ts columns")
+def _has_article_schema(context: dict[str, object]) -> None:
+    # `news_path` is a single file (per `_partition_exists` above); pyarrow still infers
+    # hive `year=`/`month=` partition columns from its ancestor directories on read, so
+    # this checks the real article columns are present, not that the column list is
+    # exactly these three.
+    table = pq.read_table(news_path(_root(context), 2020, 1))
+    assert {"id", "text", "publish_ts"} <= set(table.column_names), table.column_names
+
+
 @then("the run exits 0")
 def _exit_zero(context: dict[str, object]) -> None:
     assert context["result"].exit_code == 0  # type: ignore[attr-defined]

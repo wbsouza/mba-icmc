@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pyarrow as pa
 from algo_core.bars import QuoteBar, Timeframe
 from algo_core.instrument import Instrument
 from algo_core.layout import price_path_for
@@ -22,6 +23,18 @@ from algo_transform.readers import gdelt, gdelt_ngrams, gpr
 from algo_transform.readers.dukascopy import is_month_complete, load_ticks
 from algo_transform.resample import resample
 from algo_transform.result import TransformReport, TransformStatus
+
+# Matches GdeltNewsArticle's fields exactly. Passed explicitly to ParquetRepository.put
+# so an all-MISSING month (empty `loaded.articles`) still writes a valid, empty-but-typed
+# NewsArticle partition -- pyarrow's from_pylist can't infer column types from zero rows,
+# so without this an empty write would silently produce a partition with no columns at all.
+_GDELT_NEWS_SCHEMA = pa.schema(
+    [
+        ("id", pa.string()),
+        ("text", pa.string()),
+        ("publish_ts", pa.timestamp("us")),
+    ]
+)
 
 
 def transform_month(
@@ -125,7 +138,7 @@ def transform_gdelt_ngrams_month(
             quarantined=len(loaded.quarantined),
             paths=tuple(str(path) for path in loaded.quarantined),
         )
-    repo.put(loaded.articles)
+    repo.put(loaded.articles, schema=_GDELT_NEWS_SCHEMA)
     return report(TransformStatus.WRITTEN, articles=len(loaded.articles))
 
 

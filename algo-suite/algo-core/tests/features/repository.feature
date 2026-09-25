@@ -19,3 +19,9 @@ Feature: Repository data-access pattern
   Scenario: an unwritten repository reports it does not exist
     Given a "parquet" repository for bars in the data directory
     Then the repository reports it does not exist
+
+  Scenario: writing an empty batch with an explicit schema keeps the real columns
+    Given a "parquet" repository for bars in the data directory
+    When I put 0 bars with the bar schema
+    Then the written file has the ts and close columns
+    And it has 0 rows
