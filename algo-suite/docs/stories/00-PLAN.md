@@ -178,6 +178,21 @@ the hybrid strategy and its runs don't exist yet (still blocked on Spec 04).
 Spec 06 (Chapter 4) is unblocked on the *tooling* side; it still needs real
 runs to point the tool at.
 
+**Spec 07 §2 (build-hygiene pass) done, 2026-09-25.** `make pt-scan` clean
+(hits are ABNT NBR 6023-required original-language bibliography entries and
+`resumo.tex`, not leaked Portuguese prose — the thesis body itself is pure
+English); `make verify` clean (86 pages, 0 undefined citations/references);
+`make rebuild` succeeds from a clean `build/`; `\includepdf` for
+catalog-card/approval-sheet confirmed still correctly commented out. Two real
+build blockers fixed along the way: `monografia/main.tex` never loaded
+`amsmath` despite Chapter 3 using its `equation*` environment, and loaded a
+dead `chemmacros` import (unused chemical-notation package) that isn't
+installed on this machine — removed. Two system LaTeX packages installed:
+`texlive-publishers` (`abntex2cite.sty`, the ABNT bibliography engine) and
+`texlive-lang-portuguese` (babel's `brazil` language file, needed by
+`resumo.tex`). Spec 07 §1 (content fixes to Ch.1/Ch.3 hedge-notes) remains
+blocked on Spec 06.
+
 ## 2. Spec map
 
 | # | Spec file | Tool | Depends on | Can start now? |
