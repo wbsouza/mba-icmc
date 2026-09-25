@@ -109,6 +109,7 @@ class StrategyRunner(Protocol):
         params: Mapping[str, str],
         results_dir: Path,
         timeout: int,
+        broker_adapter: str,
     ) -> RunResult: ...
 
 
@@ -187,6 +188,7 @@ def run_experiment(
     *,
     data_root: Path,
     timeout: int,
+    broker_adapter: str,
     runner: StrategyRunner = run_strategy,
 ) -> ExperimentResult:
     """Run every run in order; write the manifest, or abort + error on first failure.
@@ -212,7 +214,9 @@ def run_experiment(
             "run_start", experiment=experiment.name, run=run.run_id, index=index, total=total
         )
         try:
-            outcomes.append(_execute_run(run, experiment.name, data_root, timeout, runner))
+            outcomes.append(
+                _execute_run(run, experiment.name, data_root, timeout, broker_adapter, runner)
+            )
         except (ValueError, RuntimeError) as exc:
             _write_experiment_error(experiment, run, outcomes, data_root, exc)
             raise
@@ -225,6 +229,7 @@ def _execute_run(
     experiment_name: str,
     data_root: Path,
     timeout: int,
+    broker_adapter: str,
     runner: StrategyRunner,
 ) -> RunOutcome:
     """Validate, execute, and persist one run's artifacts; return its outcome."""
@@ -240,7 +245,7 @@ def _execute_run(
     result = runner(
         run.strategy, data_root=data_root, instrument=instrument,
         start=run.start, end=run.end, params=run.params,
-        results_dir=results_dir, timeout=timeout,
+        results_dir=results_dir, timeout=timeout, broker_adapter=broker_adapter,
     )
     if not result.success:
         raise RuntimeError(f"run {run.run_id!r}: the engine run failed; see {results_dir}")

@@ -66,3 +66,9 @@ def _provenance_data_root(cfg_ctx: dict[str, Any]) -> None:
 def _fails_tz(cfg_ctx: dict[str, Any]) -> None:
     assert isinstance(cfg_ctx["error"], ValueError)
     assert "timezone" in str(cfg_ctx["error"]).lower()
+
+
+@then("loading fails naming the missing broker.adapter parameter")
+def _fails_missing_broker_adapter(cfg_ctx: dict[str, Any]) -> None:
+    error = str(cfg_ctx["error"])
+    assert "adapter" in error and "broker" in error, error

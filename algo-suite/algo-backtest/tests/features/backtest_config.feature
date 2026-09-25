@@ -7,6 +7,7 @@ Feature: algo-backtest configuration
 
   Scenario: zero-config resolves the OANDA data timezone to UTC
     Given no config files and no ALGO_ overrides
+    And the environment sets "ALGO_BROKER__ADAPTER" to "oanda"
     When I load the algo-backtest config
     Then the OANDA data timezone is "UTC"
     And it is a ZoneInfo instance
@@ -14,11 +15,18 @@ Feature: algo-backtest configuration
 
   Scenario: the data timezone is overridable via the environment
     Given the environment sets "ALGO_MARKETS__OANDA__DATA_TZ" to "America/New_York"
+    And the environment sets "ALGO_BROKER__ADAPTER" to "oanda"
     When I load the algo-backtest config
     Then the OANDA data timezone is "America/New_York"
     And it is a ZoneInfo instance
 
   Scenario: an unknown timezone fails fast
     Given the environment sets "ALGO_MARKETS__OANDA__DATA_TZ" to "Mars/Phobos"
+    And the environment sets "ALGO_BROKER__ADAPTER" to "oanda"
     When I load the algo-backtest config
     Then loading fails with a timezone error
+
+  Scenario: a missing broker adapter fails fast (Spec 04a)
+    Given no config files and no ALGO_ overrides
+    When I load the algo-backtest config
+    Then loading fails naming the missing broker.adapter parameter

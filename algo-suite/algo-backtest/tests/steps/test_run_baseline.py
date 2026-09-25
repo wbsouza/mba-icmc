@@ -33,6 +33,7 @@ def bctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     data_root = tmp_path / "data"
     monkeypatch.setenv("ALGO_DATA_ROOT", str(data_root))
     monkeypatch.setenv("ALGO_CONF_DIR", str(tmp_path / "conf"))
+    monkeypatch.setenv("ALGO_BROKER__ADAPTER", "oanda")
     return {"data_root": data_root}
 
 
@@ -149,6 +150,12 @@ def _fast_positive(bctx: dict[str, Any]) -> None:
 @then("the error tells me to run materialize first")
 def _materialize_hint(bctx: dict[str, Any]) -> None:
     assert "materialize" in bctx["cli"].output
+
+
+@then("the error says the param must be key=value")
+def _param_key_value(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    assert "--param must be key=value" in out
 
 
 def _closed_trades(output: str) -> int:

@@ -190,6 +190,7 @@ def run(
     result = run_strategy(
         strategy, data_root=config.data_root, instrument=instrument, start=start, end=end,
         params=params, results_dir=results_dir, timeout=timeout,
+        broker_adapter=config.broker_adapter,
     )
     typer.echo(
         f"run[{strategy}]: success={result.success} closed_trades={result.closed_trades} "
@@ -198,6 +199,8 @@ def run(
     # A flat strategy (no crossover in the window) is a valid result, not an error;
     # only a failed engine run is non-zero.
     if not result.success:
+        if result.error:
+            typer.echo(f"error: {result.error}", err=True)
         raise typer.Exit(1)
 
     # Parse LEAN's (large) result JSON once; derive both the ledger and the metrics from
@@ -279,7 +282,10 @@ def experiment_run(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
     try:
-        result = run_experiment(experiment, data_root=config.data_root, timeout=timeout)
+        result = run_experiment(
+            experiment, data_root=config.data_root, timeout=timeout,
+            broker_adapter=config.broker_adapter,
+        )
     except ValueError as exc:  # invalid run / window not materialized
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc

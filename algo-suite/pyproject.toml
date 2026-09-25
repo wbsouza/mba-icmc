@@ -79,11 +79,25 @@ strict = true
 # spikes/ is throwaway exploration (LEAN spike + its generated ws/); not type-checked.
 # Tests are run by pytest; mypy checks src only to avoid duplicate module names.
 # mutants/ is mutmut's regenerated mutated-source scratch copy; not type-checked.
-exclude = ["(^|/)spikes/", "(^|/)algos/", "(^|/)tests/", "(^|/)mutants/"]
+# algo_backtest/engine/algorithm.py does `from AlgorithmImports import *` and subclasses
+# QCAlgorithm from it — a wildcard import from an unresolvable-outside-the-LEAN-container
+# module leaves those names undefined to mypy; same container-only boundary as algos/, not
+# type-checked. engine/brokerage/oanda.py imports AlgorithmImports too but only by name
+# (not `*`), so the ignore_missing_imports override below is enough for it.
+exclude = [
+    "(^|/)spikes/",
+    "(^|/)algos/",
+    "(^|/)tests/",
+    "(^|/)mutants/",
+    "(^|/)algo_backtest/engine/algorithm\\.py$",
+]
 
 # testcontainers (+ its docker-py) ship no py.typed; algo-backtest's production run path
 # imports them. gdeltnews (TD-28's article-text reconstruction) ships no py.typed either.
-# Ignore their missing stubs rather than litter inline type: ignores.
+# AlgorithmImports is LEAN's injected namespace, real only inside the LEAN container;
+# order_executor.py imports one name from it lazily (function-local, not at module scope)
+# to normalize a fill's OrderStatus. Ignore their missing stubs rather than litter inline
+# type: ignores.
 [[tool.mypy.overrides]]
-module = ["testcontainers.*", "docker.*", "gdeltnews.*"]
+module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
 ignore_missing_imports = true
