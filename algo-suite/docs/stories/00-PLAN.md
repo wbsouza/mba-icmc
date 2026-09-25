@@ -187,6 +187,37 @@ the hybrid strategy and its runs don't exist yet (still blocked on Spec 04).
 Spec 06 (Chapter 4) is unblocked on the *tooling* side; it still needs real
 runs to point the tool at.
 
+**Correction (2026-09-25, Specs 04e/04g/04h):** lines 152–156 above are now
+stale. F4 (news-context filter) and F7 (LightGBM sub-models + logistic
+meta-learner) are **built and tested against real Spec 03 output** —
+`algo-score events --kind gdelt` was run for real (pilot month 2020-01,
+44640 rows), and F4's veto path reads that real Parquet through the same
+`ParquetRepository` writer/model round-trip Spec 03 uses. F4's per-symbol
+*sentiment* half remains best-effort (ABSTAIN-safe), not blocked-and-missing:
+full-month real article-text ingestion turned out to cost ~500 GB / ~90
+hours at the current `gdelt_ngrams` adapter's throughput (TD-48), an
+order-of-magnitude discovery, not a code gap. `chain/terminal.py`'s
+`F7TerminalDecision` closes the loop from F7's own `FilterResult` to
+`chain.model.Decision`, proven end-to-end against the real F1-F7 chain in
+pure Python (`tests/features/filter_chain_mechanics.feature`). `algo-backtest/
+strategies/{baseline,hybrid}/config.yaml` + the `extends:` composition loader
+(`algo_backtest/strategies.py`) are real. `algos/experiment_zero/
+{buyhold,random,perfect_foresight}/main.py` are written (same proven pattern
+as `baseline_ma`/`baseline_meanrev`) and registered in `run.py`. **Not done:**
+`algos/baseline/main.py` / `algos/hybrid/main.py` — the LEAN-container
+wiring that reads a strategy's `config.yaml`, populates `ExecutionState.
+features` each bar from live LEAN-native indicators (F1-F3) + `self.
+portfolio` (F5/F6) + the real news Parquet (F4) + a persisted meta-learner
+artifact (F7), and calls `OrderExecutor` — this is genuinely the largest
+remaining piece and was not attempted this pass (resource/scope reasons: the
+~10 GB pinned LEAN image, uncertain pip-package availability inside it for
+`pyarrow`/`lightgbm`/`scikit-learn`, and avoiding NAS I/O contention with the
+concurrent 10-year FX price backfill running in the original working tree).
+See `docs/technical-debt.md`'s Spec 04h entry for the itemized remaining
+scope. `04-algo-backtest-filter-chain-hybrid` therefore stays in
+`docs/stories/planned/`, not moved to `done/` — its real Definition of Done
+(a LEAN-container hybrid run) is not met.
+
 **Spec 07 §2 (build-hygiene pass) done, 2026-09-25.** `make pt-scan` clean
 (hits are ABNT NBR 6023-required original-language bibliography entries and
 `resumo.tex`, not leaked Portuguese prose — the thesis body itself is pure
@@ -214,7 +245,7 @@ blocked on running 03's pipeline against real data, not on missing code):
 | 01 | `01-algo-download-news-sources.md` | `algo-download` | nothing (parallel to 05) | **done** — GDELT+GPR adapters merged |
 | 02 | `02-algo-transform-news-events.md` | `algo-transform` | 01 output on disk | **done** (2026-09-23) |
 | 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code); never run against real NAS data — that's the actual 04e blocker |
-| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **partial** — F1/F2/F3/F5/F6 + order executor + audit trail done; F4/F7/hybrid blocked on 03's real-data gap above |
+| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **partial** — F1-F7 (incl. F4/F7, Specs 04e/04g), order executor, audit trail, `chain/terminal.py`, `strategies/{baseline,hybrid}` config + `extends:` loader (Spec 04h) all done and tested; the real LEAN-container wiring (`algos/{baseline,hybrid}/main.py`) is the one remaining piece |
 | 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25) |
 | 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | blocked on 04's F4/F7/hybrid |
 

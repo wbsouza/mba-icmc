@@ -388,11 +388,23 @@ brokerage changes only the market, and LEAN supplies the tradable increment.
 ## 8. Test scenarios (Gherkin)
 
 The scenarios below describe the target-state chain with the real F1-F7 filters
-(§11.3.2 of `specs.md`). F1, F2, F3, F5, F6 are now real (`chain/filters/`); F4
-(news-context) and F7 (meta-learner) are not yet built, blocked on real
-sentiment/event data (see §3 module tree above and `docs/stories/00-PLAN.md`
-§1). `tests/features/filter_chain_mechanics.feature` is the executable proof
-of the accumulate / veto-short-circuit / abstain-does-not-veto mechanics.
+(§11.3.2 of `specs.md`). **All seven are now real** (`chain/filters/`), including
+F4 (news-context, Spec 04e — reads real Spec 03 GDELT event-feature Parquet as
+its mandatory veto input, per-symbol sentiment best-effort pending TD-48) and F7
+(meta-learner, Spec 04g — LightGBM sub-models per feature family + a logistic
+combiner into `p̂_t`). `chain/terminal.py`'s `F7TerminalDecision` (Spec 04h)
+closes the loop: it runs as `FilterChain`'s `TerminalDecision`, reading F7's own
+`FilterResult` back out and mapping it onto `chain.model.Decision`.
+`tests/features/filter_chain_mechanics.feature` is the executable proof of the
+accumulate / veto-short-circuit / abstain-does-not-veto mechanics **and** (its
+newest Rule) of the full real F1-F7 chain reaching a decision end-to-end in
+pure Python. What remains (see `docs/technical-debt.md`'s Spec 04h entry) is
+wiring this chain into a real LEAN algorithm — `algos/{baseline,hybrid}/
+main.py` do not exist yet, so `run.py`'s `STRATEGIES` registry has no
+`"baseline"`/`"hybrid"` entry. `src/algo_backtest/strategies/{baseline,hybrid}/
+config.yaml` (composed via `algo_backtest/strategies.py`'s single-level
+`extends:` loader, `docs/experiments.md` §1) declare the intended chains
+already.
 
 ```gherkin
 Feature: Deterministic filter chain

@@ -1,0 +1,26 @@
+# Strategy "hybrid" (Spec 04, Experiment 2 — docs/experiments.md #2): baseline + news.
+# extends: baseline adds F4 (news-context) between F3 and F5, per specs.md §11.3.3's
+# reference chain diagram, and adds the "news" feature family to the meta-learner
+# (PRD.md §1: "hybrid adds the news family" — the two variants "share an identical
+# meta-learner specification; the only difference is whether the news-family
+# probability enters", monografia §"late-fusion"). filters: is written out in full
+# (this module's own merge policy does not diff/insert lists) so the complete chain is
+# auditable here without cross-referencing baseline/config.yaml.
+schema_version: 1
+extends: baseline
+
+filters:
+  - f1_trend
+  - f2_indicator
+  - f3_pattern
+  - f4_news_context
+  - f5_risk_guard
+  - f6_capital_mgmt
+  - f7_meta_learner
+
+meta_learner:
+  families:
+    - trend
+    - indicator
+    - pattern
+    - news

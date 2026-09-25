@@ -71,3 +71,52 @@ Feature: Filter-chain mechanics with stub filters
       Then the filter "capital" was called
       And state.filter_results holds a result with recommendation "ABSTAIN" and no veto
       And the chain outcome decision is "HOLD"
+
+  Rule: The real F1-F7 chain reaches a decision via F7TerminalDecision (Spec 04h)
+
+    Scenario: A clean, aligned bullish bar reaches BUY through every real filter
+      Given the real F1..F7 chain terminated by F7TerminalDecision
+      And a bullish bar: F1/F2/F3 aligned bullish, no high-risk news, ample margin, meta-learner p_hat 0.8
+      When the real chain runs
+      Then the real chain outcome decision is "BUY"
+      And every real filter ran in order "F1_trend, F2_indicator, F3_pattern, f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner"
+      And the real chain did not veto
+
+    Scenario: A risk-guard breach vetoes before F7 ever runs
+      Given the real F1..F7 chain terminated by F7TerminalDecision
+      And a bullish bar: F1/F2/F3 aligned bullish, no high-risk news, ample margin, meta-learner p_hat 0.8
+      And the account portfolio-at-risk breaches its configured cap
+      When the real chain runs
+      Then the real chain outcome decision is "NO_TRADE"
+      And the filter "f7_meta_learner" was never called
+
+    Scenario: An active high-risk news event vetoes before F5/F6/F7 run
+      Given the real F1..F7 chain terminated by F7TerminalDecision
+      And a bullish bar: F1/F2/F3 aligned bullish, no high-risk news, ample margin, meta-learner p_hat 0.8
+      And an active high-risk news event at this bar
+      When the real chain runs
+      Then the real chain outcome decision is "NO_TRADE"
+      And the filter "f5_risk_guard" was never called
+
+    Scenario: F7TerminalDecision fails fast if F7 did not run last
+      Given a chain of a PASS filter "trend" only, terminated by F7TerminalDecision
+      When the real chain runs expecting failure
+      Then the real chain fails naming "f7_meta_learner"
+
+    Scenario: F7TerminalDecision fails fast on an empty chain (no filters at all)
+      Given an empty chain terminated by F7TerminalDecision
+      When the real chain runs expecting failure
+      Then the real chain fails naming "state.filter_results is empty"
+
+  Rule: decision_to_order_action classifies every chain Decision (Spec 04h)
+
+    Scenario Outline: a Decision maps to the right order action
+      When chain Decision "<decision>" is classified
+      Then the order action is "<action>"
+
+      Examples:
+        | decision | action      |
+        | BUY      | execute     |
+        | SELL     | execute     |
+        | HOLD     | manage      |
+        | NO_TRADE | stand_aside |

@@ -52,4 +52,7 @@ only_mutate = [
     "src/algo_backtest/chain/filters/f4_news_context.py",
     # Spec 04g (F7 meta-learner)
     "src/algo_backtest/chain/filters/f7_meta_learner.py",
+    # Spec 04h (terminal decision + strategy config extends composition)
+    "src/algo_backtest/chain/terminal.py",
+    "src/algo_backtest/strategies.py",
 ]

@@ -1,0 +1,116 @@
+"""Strategy-chain config loading (Spec 04h): `src/algo_backtest/strategies/<name>/
+config.yaml`, bundled alongside `algos/` (same `Path(__file__).parent`-relative,
+packaging-independent pattern `run.py` already uses for `algos/`).
+
+Config, not code, decides which filters a strategy runs and in what order (specs.md
+§11.3.1: "Adding, removing or reordering a filter requires editing config.yaml, not the
+engine code"). `baseline` and `hybrid` are the two Spec 04 variants
+(`docs/experiments.md` §1: "hybrid extends baseline adding F4"), composed via a single
+level of ``extends:`` — deliberately **not** the general cycle-detecting inheritance
+`technical-debt.md` TD-8 defers ("a flat, non-cyclic two-level extends does not need that
+machinery"): a strategy's base may not itself declare ``extends:`` — that's a hard stop
+here, not a chain to walk.
+
+Merge policy mirrors `algo_core.config.resolution._deep_merge` (the same policy this
+workspace already uses for `conf/algo.yaml` < `conf/<tool>.yaml` layering): the child's
+top-level keys — including ``filters:`` — replace the base's wholesale; nested mappings
+(e.g. ``meta_learner:``) merge key-by-key, child wins. A strategy's ``filters:`` list is
+always written out in full (not a diff/insert against the base) — an explicit complete
+list is easier to audit in a review (and in the Mermaid diagram it drives) than a
+positional "insert F4 after F3" DSL would be.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+@dataclass(frozen=True)
+class StrategyChainConfig:
+    """One strategy's resolved filter chain + meta-learner feature families.
+
+    ``raw`` is the fully-merged config dict (post-`extends:` composition) — every key,
+    not just the two this module interprets — so a future filter (e.g. F5/F6's own
+    per-strategy threshold overrides) can read its own section without this module
+    needing to know its schema in advance.
+    """
+
+    name: str
+    filters: tuple[str, ...]
+    meta_learner_families: tuple[str, ...]
+    extends: str | None
+    raw: Mapping[str, Any]
+
+
+def strategies_root() -> Path:
+    """The bundled `strategies/` directory, alongside `algos/` (same reliable
+    `Path(__file__).parent`-relative pattern `run.py` already uses to locate `algos/`,
+    so both survive being run from any working directory or packaging layout)."""
+    return Path(__file__).parent / "strategies"
+
+
+def _config_path(root: Path, name: str) -> Path:
+    return root / name / "config.yaml"
+
+
+def _read_yaml(root: Path, name: str) -> dict[str, Any]:
+    """Read and parse one strategy's `config.yaml`, failing fast if it's missing/malformed."""
+    path = _config_path(root, name)
+    if not path.is_file():
+        raise ValueError(
+            f"unknown strategy {name!r}: no config at {path} — create "
+            f"strategies/{name}/config.yaml first"
+        )
+    parsed = yaml.safe_load(path.read_text())
+    if not isinstance(parsed, dict):
+        raise ValueError(f"strategy config {path} must contain a YAML mapping")
+    return parsed
+
+
+def _deep_merge(base: dict[str, Any], over: Mapping[str, Any]) -> dict[str, Any]:
+    """Recursively merge `over` onto a copy of `base` (`over` wins on scalar/list conflict)."""
+    merged = dict(base)
+    for key, value in over.items():
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, Mapping):
+            merged[key] = _deep_merge(existing, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_strategy_chain_config(name: str, *, root: Path | None = None) -> StrategyChainConfig:
+    """Resolve one strategy's chain config, composing a single `extends:` level if present.
+
+    Raises:
+        ValueError: the strategy (or its base) has no `config.yaml`, the base itself
+            declares `extends:` (only one level is supported), or `filters:` resolves
+            empty (a chain with no filters can never reach a terminal decision).
+    """
+    resolved_root = root if root is not None else strategies_root()
+    raw = _read_yaml(resolved_root, name)
+    base_name = raw.get("extends")
+    if base_name is not None:
+        base_raw = _read_yaml(resolved_root, base_name)
+        if "extends" in base_raw:
+            raise ValueError(
+                f"strategy {base_name!r} (the base of {name!r}) itself declares 'extends' "
+                "— only one level of extends is supported (technical-debt.md TD-8)"
+            )
+        merged = _deep_merge(base_raw, {k: v for k, v in raw.items() if k != "extends"})
+    else:
+        merged = raw
+
+    filters = tuple(merged.get("filters", ()))
+    if not filters:
+        raise ValueError(f"strategy {name!r} resolves an empty filters list — check its config")
+    meta_learner = merged.get("meta_learner", {})
+    families = tuple(meta_learner.get("families", ())) if isinstance(meta_learner, dict) else ()
+    return StrategyChainConfig(
+        name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged
+    )

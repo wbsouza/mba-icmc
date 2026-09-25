@@ -62,3 +62,8 @@ def _band(vctx: dict[str, Any]) -> None:
 @then("validation fails saying the window must be at least 2")
 def _window(vctx: dict[str, Any]) -> None:
     assert "window" in vctx["error"] and "at least 2" in vctx["error"]
+
+
+@then(parsers.parse('validation fails naming "{word}"'))
+def _fails_naming(vctx: dict[str, Any], word: str) -> None:
+    assert word in vctx["error"]
