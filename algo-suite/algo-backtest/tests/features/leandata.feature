@@ -74,3 +74,16 @@ Feature: Materialize canonical QuoteBars into LEAN-native minute files
         | 2014-11-02T06:30:00 |
       When I compute the lean-data rows in timezone "America/New_York"
       Then it fails with "duplicate lean-data slot"
+
+  Rule: Concurrent writers to the same day never crash (regression: PID-scoped tmp file)
+
+    Scenario: Two real processes writing the same day at once both succeed with correct content
+      Given QuoteBars starting at:
+        | utc_start           |
+        | 2014-05-07T00:00:00 |
+        | 2014-05-07T00:01:00 |
+      When two processes concurrently write lean-data minute files in timezone "UTC"
+      Then both writers succeed
+      And one file "20140507_quote.zip" is written
+      And it contains the CSV "20140507_eurusd_minute_quote.csv"
+      And the CSV row ms values are "0,60000"

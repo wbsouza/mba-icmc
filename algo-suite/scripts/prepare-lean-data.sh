@@ -78,11 +78,24 @@ export ALGO_DATA_ROOT=${ALGO_DATA_ROOT:-"$HERE/data"}
 # for network filesystems; a local disk has no cross-host concern to begin
 # with.
 _check_lock_reliable() {
-  local path="$1" mnt fstype opts
+  local path="$1" mnt fstype opts tool
+  for tool in df findmnt; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      echo "prepare-lean-data: cannot verify flock() reliability on $path — '$tool' is not installed, so whether the concurrent-write race this lock exists to prevent could reoccur silently is unknown. Install util-linux/coreutils's '$tool', or set ALGO_DATA_ROOT to a mount you have independently verified supports real locking." >&2
+      exit 1
+    fi
+  done
   mnt=$(df --output=target "$path" 2>/dev/null | tail -1)
-  [ -n "$mnt" ] || return 0
-  fstype=$(findmnt -no FSTYPE "$mnt" 2>/dev/null) || return 0
-  opts=$(findmnt -no OPTIONS "$mnt" 2>/dev/null) || return 0
+  if [ -z "$mnt" ]; then
+    echo "prepare-lean-data: cannot verify flock() reliability on $path — 'df --output=target' produced no output for it. Confirm $path exists and sits on a mounted filesystem." >&2
+    exit 1
+  fi
+  fstype=$(findmnt -no FSTYPE "$mnt" 2>/dev/null)
+  if [ -z "$fstype" ]; then
+    echo "prepare-lean-data: cannot verify flock() reliability on $path (mount $mnt) — 'findmnt -no FSTYPE' produced no output. Confirm $mnt is a real mount point." >&2
+    exit 1
+  fi
+  opts=$(findmnt -no OPTIONS "$mnt" 2>/dev/null)
   case "$fstype" in
     cifs|smb3)
       if printf '%s\n' "$opts" | grep -qw nobrl; then
