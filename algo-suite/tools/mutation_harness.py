@@ -40,18 +40,41 @@ from __future__ import annotations
 import argparse
 import ast
 import atexit
+import contextlib
 import json
 import os
+import resource
+import shutil
 import signal
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+
+# A mutated test suite is untrusted: a broken loop-termination mutant (e.g. an
+# arith flip in a date-range rollover) can turn a bounded loop unbounded and
+# drive the pytest child's RSS toward all of host RAM. Uncapped, that reaches
+# the kernel OOM-killer -- and on this host each tmux pane is its own systemd
+# --scope unit, so an OOM kill of the pytest child (not the shell) still gets
+# the *whole scope* torn down ~90s later on "Stopping timed out. Killing.",
+# SIGKILLing the pane's shell as collateral and silently closing the tmux
+# window mid-run (observed 3x: 2026-09-24 dmesg/journalctl show oom-kill of
+# `pytest` in `tmux-spawn-*.scope`, followed by a scope-stop-timeout SIGKILL
+# of the pane's zsh). Override via MUTATION_HARNESS_CHILD_MEM_MB if a tool's
+# suite legitimately needs more.
+_CHILD_MEM_CAP_MB = int(os.environ.get("MUTATION_HARNESS_CHILD_MEM_MB", "4096"))
 
 # Tracks the file/content currently mutated on disk, so a killed process (SIGTERM from
 # an operator, a task-manager timeout, anything short of SIGKILL) still restores the
 # real source instead of leaving a mutant applied in the working tree.
 _PENDING_REVERT: tuple[Path, str] | None = None
+
+# Tracks the pgid of a live `uv run pytest` subprocess group, so a harness
+# process killed mid-test (operator SIGTERM/SIGINT, tmux window closed) still
+# reaps the whole tree instead of leaving an orphaned, full-CPU pytest running
+# — the same failure mode the timeout branch in run_tool_tests guards against.
+_PENDING_PROC_GROUP: int | None = None
 
 
 def _revert_pending() -> None:
@@ -62,12 +85,22 @@ def _revert_pending() -> None:
         _PENDING_REVERT = None
 
 
+def _kill_pending_proc_group() -> None:
+    global _PENDING_PROC_GROUP
+    if _PENDING_PROC_GROUP is not None:
+        with contextlib.suppress(ProcessLookupError):  # already exited between check and kill
+            os.killpg(_PENDING_PROC_GROUP, signal.SIGKILL)
+        _PENDING_PROC_GROUP = None
+
+
 def _handle_termination(signum, frame):  # noqa: ANN001 - signal handler signature
+    _kill_pending_proc_group()
     _revert_pending()
     sys.exit(128 + signum)
 
 
 atexit.register(_revert_pending)
+atexit.register(_kill_pending_proc_group)
 signal.signal(signal.SIGTERM, _handle_termination)
 signal.signal(signal.SIGINT, _handle_termination)
 
@@ -267,6 +300,38 @@ def iter_target_files(tool: str, extra_paths: list[str] | None = None) -> list[P
     ]
 
 
+def _memory_capped_preexec() -> None:
+    """Apply the RLIMIT_AS fallback memory cap in the child before exec (no systemd-run)."""
+    resource.setrlimit(
+        resource.RLIMIT_AS, (_CHILD_MEM_CAP_MB * 1024 * 1024, resource.RLIM_INFINITY)
+    )
+
+
+def _cap_memory(cmd: list[str]) -> tuple[list[str], Callable[[], None] | None]:
+    """Wraps cmd to enforce _CHILD_MEM_CAP_MB, isolated in its own cgroup scope when possible.
+
+    Prefers `systemd-run --scope -p MemoryMax=...`: a mutant that runs away in memory
+    then gets OOM-killed inside its OWN transient scope, not the caller's (e.g. the tmux
+    pane's) scope -- avoiding the collateral scope-stop-timeout kill described above.
+    Falls back to an RLIMIT_AS preexec_fn (same host cap, no scope isolation) when
+    systemd-run isn't on PATH.
+    """
+    if shutil.which("systemd-run"):
+        wrapped = [
+            "systemd-run",
+            "--user",
+            "--scope",
+            "--collect",
+            "--quiet",
+            "-p",
+            f"MemoryMax={_CHILD_MEM_CAP_MB}M",
+            "--",
+            *cmd,
+        ]
+        return wrapped, None
+    return cmd, _memory_capped_preexec
+
+
 def run_tool_tests(tool: str, timeout: int = 900) -> tuple[bool, str]:
     """True = suite passed (mutant survived); False = suite failed (mutant killed)."""
     tool_dir = REPO_ROOT / tool
@@ -282,14 +347,36 @@ def run_tool_tests(tool: str, timeout: int = 900) -> tuple[bool, str]:
         "--color=no",
         f"--confcutdir={confcutdir}",
     ]
+    cmd, preexec_fn = _cap_memory(cmd)
+    global _PENDING_PROC_GROUP
+    proc_handle = subprocess.Popen(
+        cmd,
+        cwd=str(tool_dir),
+        env=dict(os.environ),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+        preexec_fn=preexec_fn,
+    )
+    # `uv run pytest` forks pytest as a real child (not an exec-replace), so
+    # killing proc_handle alone leaves pytest (and anything it spawned) orphaned
+    # and running at full CPU indefinitely — the actual cause of prior host
+    # freezes. start_new_session=True puts the whole tree in its own process
+    # group; killpg reaches all of it. _PENDING_PROC_GROUP lets a harness kill
+    # (SIGTERM/SIGINT/atexit) reap it too, not just the timeout path below.
+    _PENDING_PROC_GROUP = proc_handle.pid
     try:
-        proc = subprocess.run(
-            cmd, cwd=str(tool_dir), env=dict(os.environ), capture_output=True, text=True, timeout=timeout
-        )
+        out, _ = proc_handle.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):  # already exited between timeout and kill
+            os.killpg(proc_handle.pid, signal.SIGKILL)
+        proc_handle.communicate()
         return True, "TIMEOUT (treated as survived — inconclusive, needs manual replay)"
-    passed = proc.returncode == 0
-    tail = "\n".join((proc.stdout + proc.stderr).splitlines()[-25:])
+    finally:
+        _PENDING_PROC_GROUP = None
+    passed = proc_handle.returncode == 0
+    tail = "\n".join(out.splitlines()[-25:])
     return passed, tail
 
 
