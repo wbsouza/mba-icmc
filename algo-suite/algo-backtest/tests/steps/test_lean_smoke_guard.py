@@ -21,6 +21,7 @@ def guard_ctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("ALGO_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("ALGO_CONF_DIR", str(tmp_path / "conf"))
+    monkeypatch.setenv("ALGO_BROKER__ADAPTER", "oanda")
     return {}
 
 

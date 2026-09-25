@@ -22,13 +22,18 @@ class RunResult:
     success: bool
     closed_trades: int
     raw_results_path: Path
+    error: str | None = None
 
 
 def parse_results(results_dir: Path, *, success: bool) -> RunResult:
     """Parse the LEAN result JSON in `results_dir` into a RunResult.
 
     `success` is the run-level outcome (the engine's exit status), supplied by the
-    runner. The closed-trade count comes from `totalPerformance.closedTrades`.
+    runner. The closed-trade count comes from `totalPerformance.closedTrades`. `error`
+    surfaces LEAN's own `state.RuntimeError` (e.g. an algorithm-initialization failure
+    such as an unknown brokerage adapter) so a CLI caller sees *why* a run failed
+    without opening the raw result JSON themselves — previously only `success=False`
+    was visible at the CLI, with the reason buried in `raw_results_path`.
 
     Raises:
         FileNotFoundError: if no result JSON exposing `totalPerformance.closedTrades`
@@ -37,7 +42,10 @@ def parse_results(results_dir: Path, *, success: bool) -> RunResult:
     result_json = find_result_json(results_dir)
     data = json.loads(result_json.read_text())
     closed_trades = len(data["totalPerformance"]["closedTrades"])
-    return RunResult(success=success, closed_trades=closed_trades, raw_results_path=result_json)
+    error = data.get("state", {}).get("RuntimeError") or None
+    return RunResult(
+        success=success, closed_trades=closed_trades, raw_results_path=result_json, error=error
+    )
 
 
 def _has_closed_trades(path: Path) -> bool:

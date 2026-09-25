@@ -45,6 +45,15 @@ Two distinct artifacts, by design: **`trades.parquet`** is the trade ledger
 
 - **LEAN** runs in Docker on the pinned image `quantconnect/lean:17748`; Python
   `QCAlgorithm` (CPython 3.11 in the LEAN container — drives the workspace 3.11 pin).
+  Each `run_lean()` call gets its own container (no shared mutable state, so
+  concurrent runs never corrupt each other's results), but is memory/CPU-capped
+  (`LEAN_CONTAINER_MEM_LIMIT`, default `6g`; `LEAN_CONTAINER_CPUS`, default `2`)
+  and gated behind a cross-process slot limiter (`LEAN_MAX_CONCURRENT`, default
+  `2`) so parallel test workers or overlapping `algo-backtest run` invocations
+  can't collectively start more containers than the host can run at once — the
+  desktop-freeze root cause class identified 2026-09-24 (unbounded concurrent
+  heavy processes), applied here to containers. An OOM-killed run raises with
+  the cap and the env var to raise it, never a silent/confusing failure.
   Automated backtests are driven via **testcontainers** (no `lean` CLI, no QC account;
   see `tests/integration/`); the `lean` CLI remains an option for manual runs.
 - **TA-Lib** (C lib + wrapper) for `CDL*` candlestick recognition; LEAN-native
@@ -83,7 +92,19 @@ algo_backtest/
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json
 │                           #   manifest; fail-fast → experiment-error.json (Stage F1)
 ├── engine/
-│   └── algorithm.py        # QCAlgorithm: Initialize / OnData / OnOrderEvent (planned)
+│   ├── algorithm.py        # IMPLEMENTED (Spec 04a) — ExecutionAlgorithm(QCAlgorithm): init_execution
+│   │                       #   (brokerage-adapter selection + OrderExecutor wiring), on_order_event.
+│   │                       #   Container-only (imports AlgorithmImports); excluded from ruff/mypy like
+│   │                       #   algos/, proven via tests/features/order_execution.feature (real LEAN).
+│   ├── order_executor.py   # IMPLEMENTED (Spec 04a) — Decision/SizingContext/FillRecord + OrderExecutor:
+│   │                       #   Decision + sizing in, places the order (calculate_order_quantity →
+│   │                       #   market_order), consumes OnOrderEvent, returns a normalized fill.
+│   │                       #   Unit-tested against a fake algorithm double (LEAN types imported lazily).
+│   └── brokerage/          # IMPLEMENTED (Spec 04a) — BrokerageAdapter ABC + REGISTRY/build_brokerage_
+│                           #   adapter (mirrors algo_download's adapter registry); oanda.py the first
+│                           #   concrete adapter (LEAN's OANDA margin brokerage model). Config-selected
+│                           #   via config.py's broker.adapter (Impact.TRADING, no default — a missing/
+│                           #   unknown adapter is a hard stop before the first bar).
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
 │   ├── filters/            # f1_trend.py, f2_indicator.py, f3_pattern.py (one file each); F4..Fn planned

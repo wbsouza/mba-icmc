@@ -50,6 +50,7 @@ def mat_ctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     data_root = tmp_path / "data"
     monkeypatch.setenv("ALGO_DATA_ROOT", str(data_root))
     monkeypatch.setenv("ALGO_CONF_DIR", str(tmp_path / "conf"))
+    monkeypatch.setenv("ALGO_BROKER__ADAPTER", "oanda")
     return {"data_root": data_root, "monkeypatch": monkeypatch}
 
 
