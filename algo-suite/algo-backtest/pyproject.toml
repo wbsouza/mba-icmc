@@ -5,10 +5,15 @@ description = "Materialize Parquet into the durable lean-data store; LightGBM me
 requires-python = ">=3.11"
 dependencies = [
     "algo-core",
+    "algo-score",
     "typer>=0.12",
     "testcontainers>=4.14.0",
     "pyyaml>=6",
     "structlog>=24",
+    "pyarrow>=16",
+    "lightgbm>=4.5",
+    "scikit-learn>=1.5",
+    "numpy>=1.26",
 ]
 
 [project.scripts]
@@ -23,6 +28,7 @@ packages = ["src/algo_backtest"]
 
 [tool.uv.sources]
 algo-core = { workspace = true }
+algo-score = { workspace = true }
 
 [tool.mutmut]
 source_paths = ["src"]
@@ -42,4 +48,8 @@ only_mutate = [
     "src/algo_backtest/chain/filters/f5_risk_guard.py",
     "src/algo_backtest/chain/filters/f6_capital_mgmt.py",
     "src/algo_backtest/chain/audit.py",
+    # Spec 04e (news-context filter F4)
+    "src/algo_backtest/chain/filters/f4_news_context.py",
+    # Spec 04g (F7 meta-learner)
+    "src/algo_backtest/chain/filters/f7_meta_learner.py",
 ]
