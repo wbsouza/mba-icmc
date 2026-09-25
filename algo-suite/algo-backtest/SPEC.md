@@ -111,7 +111,11 @@ algo_backtest/
 │                           #   unknown adapter is a hard stop before the first bar).
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
-│   ├── filters/            # f1_trend.py, f2_indicator.py, f3_pattern.py (one file each); F4..Fn planned
+│   ├── filters/            # IMPLEMENTED — f1_trend.py, f2_indicator.py, f3_pattern.py,
+│   │                       #   f5_risk_guard.py, f6_capital_mgmt.py (one file each). F4
+│   │                       #   (news-context) and F7 (meta-learner) not yet built — blocked
+│   │                       #   on algo-score's pipeline being run against real NAS data,
+│   │                       #   not on missing code (see docs/stories/00-PLAN.md §1).
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
@@ -384,9 +388,11 @@ brokerage changes only the market, and LEAN supplies the tradable increment.
 ## 8. Test scenarios (Gherkin)
 
 The scenarios below describe the target-state chain with the real F1-F7 filters
-(§11.3.2 of `specs.md`), which do not exist yet. `tests/features/filter_chain_mechanics.feature`
-is the executable proof of the same accumulate / veto-short-circuit / abstain-does-not-veto
-mechanics today, using trivial stub filters ahead of F1-F7 (Spec 04b).
+(§11.3.2 of `specs.md`). F1, F2, F3, F5, F6 are now real (`chain/filters/`); F4
+(news-context) and F7 (meta-learner) are not yet built, blocked on real
+sentiment/event data (see §3 module tree above and `docs/stories/00-PLAN.md`
+§1). `tests/features/filter_chain_mechanics.feature` is the executable proof
+of the accumulate / veto-short-circuit / abstain-does-not-veto mechanics.
 
 ```gherkin
 Feature: Deterministic filter chain

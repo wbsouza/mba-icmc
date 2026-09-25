@@ -198,6 +198,19 @@ rules paying the spread); see `algo-suite/docs/first-baseline-results.md`. So th
 now news ingestion (GDELT/GPR) → `algo-score` (sentiment/features) → the real news-aware
 hybrid strategy (Stage G). No price-only result is labelled "hybrid".
 
+**Correction (2026-09-25).** Phase 5 (`algo-analyze`) is now fully built and
+tested (metrics + deflated Sharpe + MCP significance + ablation + figures +
+summary, PR #21, 73/73 tests green), not just the F2 summary table. Phase 2
+(`algo-score`) and the GDELT/GPR side of Phase 1 are also built (code-level,
+tested on fixtures) — `algo_download/adapters/{gdelt,gpr}/` and the full
+`algo_score` module set are real, not stubs. Phase 4 (`algo-backtest` filter
+chain) is landed for F1/F2/F3/F5/F6 + the order executor + audit trail; only
+F4 (news-context) and F7 (meta-learner) remain. **The critical path is now a
+data-materialization run, not more tool-building**: `algo-download` →
+`algo-transform` → `algo-score` have never been run against the real NAS data
+root (only `forex/` price data exists there), which is what blocks F4/F7 and
+therefore the hybrid strategy. See `docs/stories/00-PLAN.md` §1 for detail.
+
 ```mermaid
 %%{init: {'themeVariables': {'doneTaskBkgColor':'#2563eb','doneTaskBorderColor':'#93c5fd','activeTaskBkgColor':'#f59e0b','activeTaskBorderColor':'#fcd34d'}}}%%
 gantt
