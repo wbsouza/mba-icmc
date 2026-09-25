@@ -2,10 +2,16 @@
 
 **Parent context:** Spec 05 (`algo-analyze` metrics/significance) and Spec 05d
 (`algo-analyze` thesis figures).
-**Status:** backlog / planned.
+**Status:** done — implemented in PR #11 alongside Spec 05d, after review found the
+figures lane needed a real producer contract rather than a separate follow-up PR.
 **Created from:** PR #11 review of Spec 05d.
-**Blocks:** merging Spec 05d figures for real completed-run use, unless 05d is
-explicitly re-scoped to future normalized ledgers only.
+**Implementation:** `algo_backtest.artifacts._normalize_trade` (see
+`algo-suite/algo-backtest/src/algo_backtest/artifacts.py`) adds a `return` field to
+each closed trade when `entryPrice`, `quantity` and `profitLoss` are present and the
+cost basis is non-zero; otherwise the raw LEAN trade is left unchanged. BDD coverage:
+`algo-backtest/tests/features/artifacts.feature` ("trade ledger normalizes a
+fractional return" rule) and `algo-analyze/tests/features/figures.feature`
+("a run produced by write_run_artifacts renders an equity/drawdown curve PDF").
 
 ## Problem
 
@@ -109,6 +115,41 @@ Avoid:
   are not silently interpreted as returns.
 - `make -C algo-backtest check` and `make -C algo-analyze check` pass for the
   touched branches.
+
+## Data Flow
+
+Producer-side normalization at artifact write time, so `algo-analyze` never has to
+guess a trade's fractional return from LEAN's raw payload:
+
+```mermaid
+flowchart TD
+    A["closed_trades: list of raw LEAN\ntotalPerformance.closedTrades dicts"] --> B{"has entryPrice,\nquantity, profitLoss?"}
+    B -- no --> F["leave trade unchanged\n(raw LEAN fields only)"]
+    B -- yes --> C{"cost basis =\n|entryPrice * quantity| != 0?"}
+    C -- no --> F
+    C -- yes --> D["return = profitLoss / cost_basis"]
+    D --> E{"isfinite(return)?"}
+    E -- no --> F
+    E -- yes --> G["trade + return field"]
+    F --> H["trades.json"]
+    G --> H
+```
+
+End-to-end sequence proved by BDD (no hand-written `trades.json` fixture):
+
+```mermaid
+sequenceDiagram
+    participant BT as algo_backtest
+    participant FS as trades.json
+    participant AN as algo_analyze.figures
+
+    BT->>BT: write_run_artifacts(manifest, closed_trades, metrics)
+    BT->>BT: _normalize_trade(trade) for each closed trade
+    BT->>FS: write normalized trades.json
+    AN->>FS: read run_dir / "trades.json"
+    AN->>AN: _trade_return() reads the "return" field
+    AN->>AN: equity_curve_figure() / drawdown_curve_figure()
+```
 
 ## Links
 

@@ -40,6 +40,41 @@ Feature: Render thesis figures from analysis artifacts
       When I render the equity curve figure expecting failure
       Then figure rendering fails with ValueError naming "null"
 
+    Scenario: a trade ledger with malformed JSON fails fast
+      Given a run directory with malformed trades JSON
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "not valid JSON"
+
+    Scenario: a trade ledger that is a JSON object instead of a list fails fast
+      Given a run directory whose trades ledger is a JSON object
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "list of closed trades"
+
+    Scenario: a trade ledger with a non-object trade element fails fast
+      Given a run directory with a non-object trade element
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "is not an object"
+
+    Scenario: a trade ledger with a non-finite return fails fast
+      Given a run directory with a non-finite trade return
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "not finite"
+
+    Scenario: a trade ledger with a return below -100% fails fast
+      Given a run directory with a trade return of -1.5
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "below -100%"
+
+    Scenario: a run produced by write_run_artifacts renders an equity curve PDF
+      Given a completed run written through write_run_artifacts with priced closed trades
+      When I render the equity curve figure
+      Then the figure PDF is valid and non-empty
+
+    Scenario: a run produced by write_run_artifacts renders a drawdown curve PDF
+      Given a completed run written through write_run_artifacts with priced closed trades
+      When I render the drawdown curve figure
+      Then the figure PDF is valid and non-empty
+
   Rule: Cross-run ablation summaries render as valid vector PDFs
 
     Scenario: ablation rows render a bars PDF
@@ -50,3 +85,8 @@ Feature: Render thesis figures from analysis artifacts
         | hybrid-full  | 0.07               |
       When I render the ablation bars figure
       Then the figure PDF is valid and non-empty
+
+    Scenario: empty ablation rows fail fast
+      Given no ablation rows
+      When I render the ablation bars figure expecting failure
+      Then figure rendering fails with ValueError naming "at least one ablation row"

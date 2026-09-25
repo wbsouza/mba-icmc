@@ -7,11 +7,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from algo_analyze.ablation import AblationRow
 from algo_analyze.figures import (
     ablation_bars_figure,
     drawdown_curve_figure,
     equity_curve_figure,
 )
+from algo_backtest.artifacts import RunManifest, write_run_artifacts
+from algo_backtest.metrics import Metrics
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/figures.feature")
@@ -57,17 +60,78 @@ def _run_with_null_trade_return(fctx: dict[str, Any]) -> None:
     (fctx["run_dir"] / "trades.json").write_text(json.dumps([{"return": None}]))
 
 
+@given("a run directory with malformed trades JSON")
+def _run_with_malformed_json(fctx: dict[str, Any]) -> None:
+    """Create a trades.json that is not valid JSON at all."""
+    (fctx["run_dir"] / "trades.json").write_text("{ not valid json")
+
+
+@given("a run directory whose trades ledger is a JSON object")
+def _run_with_object_ledger(fctx: dict[str, Any]) -> None:
+    """Create a trades.json holding a JSON object instead of a list."""
+    (fctx["run_dir"] / "trades.json").write_text(json.dumps({"return": 0.01}))
+
+
+@given("a run directory with a non-object trade element")
+def _run_with_non_object_trade(fctx: dict[str, Any]) -> None:
+    """Create a trades.json whose list contains a non-object element."""
+    (fctx["run_dir"] / "trades.json").write_text(json.dumps([0.01]))
+
+
+@given("a run directory with a non-finite trade return")
+def _run_with_non_finite_return(fctx: dict[str, Any]) -> None:
+    """Create a ledger whose return is not a finite number."""
+    (fctx["run_dir"] / "trades.json").write_text(json.dumps([{"return": float("nan")}]))
+
+
+@given(parsers.parse("a run directory with a trade return of {value:g}"))
+def _run_with_return_value(fctx: dict[str, Any], value: float) -> None:
+    """Create a ledger with a single trade at the given fractional return."""
+    _write_trades(fctx["run_dir"], [value])
+
+
+@given("a completed run written through write_run_artifacts with priced closed trades")
+def _run_from_write_run_artifacts(fctx: dict[str, Any]) -> None:
+    """Build a real completed-run directory via the producer, not a hand-written fixture."""
+    write_run_artifacts(
+        fctx["run_dir"],
+        RunManifest(
+            strategy="baseline-ma", symbol="EURUSD", start="2014-05-07", end="2014-05-09",
+            params={}, success=True, closed_trades=2,
+        ),
+        closed_trades=[
+            {"entryPrice": 1.1000, "quantity": 10000, "profitLoss": 55.0},
+            {"entryPrice": 1.1050, "quantity": 10000, "profitLoss": -22.0},
+        ],
+        metrics=Metrics(total_return=0.003, sharpe=1.1, max_drawdown=-0.02, hit_rate=0.5),
+    )
+
+
 @given("ablation rows:")
 def _ablation_rows(fctx: dict[str, Any], datatable: list[list[str]]) -> None:
-    """Load ablation rows from a Gherkin data table."""
+    """Load ablation rows from a Gherkin data table as real AblationRow instances."""
     header = datatable[0]
     fctx["rows"] = [
-        {
-            "run_id": row[header.index("run_id")],
-            "delta_total_return": float(row[header.index("delta_total_return")]),
-        }
+        AblationRow(
+            run_id=row[header.index("run_id")],
+            strategy="baseline-ma",
+            symbol="EURUSD",
+            start="2014-05-07",
+            end="2014-05-09",
+            total_return=0.0,
+            sharpe=0.0,
+            max_drawdown=0.0,
+            hit_rate=0.0,
+            delta_total_return=float(row[header.index("delta_total_return")]),
+        )
         for row in datatable[1:]
     ]
+
+
+@given("no ablation rows")
+def _no_ablation_rows(fctx: dict[str, Any]) -> None:
+    """An empty ablation row sequence."""
+    fctx["rows"] = []
 
 
 @when("I render the equity curve figure")
@@ -97,6 +161,17 @@ def _render_drawdown(fctx: dict[str, Any]) -> None:
 def _render_ablation(fctx: dict[str, Any]) -> None:
     """Render the ablation bars figure."""
     fctx["figure"] = ablation_bars_figure(fctx["rows"], fctx["out"])
+
+
+@when("I render the ablation bars figure expecting failure")
+def _render_ablation_failing(fctx: dict[str, Any]) -> None:
+    """Capture an expected ablation rendering failure."""
+    try:
+        ablation_bars_figure(fctx["rows"], fctx["out"])
+    except (FileNotFoundError, ValueError) as exc:
+        fctx["error"] = exc
+    else:
+        pytest.fail("ablation_bars_figure unexpectedly succeeded")
 
 
 @then("the figure PDF is valid and non-empty")

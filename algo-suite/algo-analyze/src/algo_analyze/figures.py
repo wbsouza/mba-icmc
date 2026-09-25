@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from algo_analyze._style import ACCENT, DANGER, FIGURE_SIZE, PRIMARY, plt, thesis_style
+from algo_analyze.ablation import AblationRow
 
-_RETURN_COLUMNS = ("return", "returns", "trade_return", "realized_return")
+_RETURN_FIELD = "return"
 
 
 def equity_curve_figure(run_dir: Path, out: Path) -> Path:
@@ -50,7 +51,7 @@ def drawdown_curve_figure(run_dir: Path, out: Path) -> Path:
     return out
 
 
-def ablation_bars_figure(rows: Iterable[Any], out: Path) -> Path:
+def ablation_bars_figure(rows: Sequence[AblationRow], out: Path) -> Path:
     """Render a vector PDF bar chart from ablation rows."""
     labels, deltas = _ablation_values(rows)
 
@@ -70,8 +71,10 @@ def ablation_bars_figure(rows: Iterable[Any], out: Path) -> Path:
 def _save_pdf(fig: Any, out: Path) -> None:
     """Persist ``fig`` as a vector PDF and close it promptly."""
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, format="pdf")
-    plt.close(fig)
+    try:
+        fig.savefig(out, format="pdf")
+    finally:
+        plt.close(fig)
 
 
 def _trade_returns(run_dir: Path) -> list[float]:
@@ -94,19 +97,23 @@ def _trade_return(path: Path, index: int, trade: Any) -> float:
     """Extract one finite fractional return from a closed-trade mapping."""
     if not isinstance(trade, Mapping):
         raise ValueError(f"{path} trade {index} is not an object")
-    for name in _RETURN_COLUMNS:
-        if name in trade:
-            value = trade[name]
-            if value is None:
-                raise ValueError(f"{path} trade {index} return {name!r} is null")
-            number = float(value)
-            if not math.isfinite(number):
-                raise ValueError(f"{path} trade {index} return {name!r} is not finite")
-            return number
-    known = ", ".join(str(key) for key in trade)
-    raise ValueError(
-        f"{path} trade {index} has no fractional return field; known fields: {known}"
-    )
+    if _RETURN_FIELD not in trade:
+        known = ", ".join(str(key) for key in trade)
+        raise ValueError(
+            f"{path} trade {index} has no fractional return field; known fields: {known}"
+        )
+    value = trade[_RETURN_FIELD]
+    if value is None:
+        raise ValueError(f"{path} trade {index} return {_RETURN_FIELD!r} is null")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{path} trade {index} return {_RETURN_FIELD!r} is not finite")
+    if number < -1.0:
+        raise ValueError(
+            f"{path} trade {index} return {_RETURN_FIELD!r} is below -100% ({number}), "
+            "which is not a valid trade return"
+        )
+    return number
 
 
 def _equity_curve(returns: Sequence[float]) -> list[float]:
@@ -120,32 +127,29 @@ def _equity_curve(returns: Sequence[float]) -> list[float]:
 
 
 def _drawdown_curve(equity: Sequence[float]) -> list[float]:
-    """Convert an equity curve into fractional drawdown from the running peak."""
+    """Convert an equity curve into fractional drawdown from the running peak.
+
+    ``peak`` starts at ``equity[0]`` (1.0 for a non-empty curve, since
+    ``_equity_curve`` always seeds it there) and only ever grows via ``max``, so it is
+    never zero for a non-empty curve; the division below is always safe.
+    """
     peak = equity[0] if equity else 1.0
     drawdown: list[float] = []
     for value in equity:
         peak = max(peak, value)
-        drawdown.append((value / peak) - 1.0 if peak else 0.0)
+        drawdown.append((value / peak) - 1.0)
     return drawdown
 
 
-def _ablation_values(rows: Iterable[Any]) -> tuple[list[str], list[float]]:
-    """Extract labels and total-return deltas from row objects or mappings."""
+def _ablation_values(rows: Sequence[AblationRow]) -> tuple[list[str], list[float]]:
+    """Extract labels and total-return deltas from ablation rows."""
     labels: list[str] = []
     deltas: list[float] = []
     for row in rows:
-        labels.append(str(_field(row, "run_id")))
-        delta = float(_field(row, "delta_total_return"))
-        if not math.isfinite(delta):
+        labels.append(row.run_id)
+        if not math.isfinite(row.delta_total_return):
             raise ValueError("ablation delta_total_return values must be finite")
-        deltas.append(delta)
+        deltas.append(row.delta_total_return)
     if not labels:
         raise ValueError("at least one ablation row is required")
     return labels, deltas
-
-
-def _field(row: Any, name: str) -> Any:
-    """Read ``name`` from a dataclass-like row or mapping."""
-    if isinstance(row, Mapping):
-        return row[name]
-    return getattr(row, name)
