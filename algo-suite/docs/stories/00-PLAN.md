@@ -161,6 +161,23 @@ machinery can be built and tested now against the *existing* price-only runs
 (Experiment 0/1 already produce `trades.parquet`), in parallel with specs
 01–04, and simply pointed at the hybrid runs once they exist.
 
+**Correction (2026-09-25):** line 148–149 above is now stale. Spec 05
+(`algo-analyze`) is fully built and wired: `metrics` (headline + deflated
+Sharpe, per-`docs/experiments.md`-§7.1 plausibility flag), `significance`
+(Monte-Carlo Permutation Test), `ablation` (cross-run contribution table,
+`--figure`), `figures` (equity/drawdown curves), and `summary` (F2
+aggregation) all exist as real CLI commands (`algo-analyze <command>`),
+tested end to end (73/73 `make check` scenarios green, `make audit` clean).
+This closes the story at `docs/stories/in-progress/05-algo-analyze-metrics-significance/`
+(see its `progress.md` and `docs/stories/planned/05e-integration/progress.md`
+for what landed and why some of it — `deflated.py` specifically — required
+recovering real but previously-unmerged work rather than fresh building).
+What this does **not** change: the machinery is proven against synthetic/
+fixture runs in tests, not yet run against real hybrid-strategy data, because
+the hybrid strategy and its runs don't exist yet (still blocked on Spec 04).
+Spec 06 (Chapter 4) is unblocked on the *tooling* side; it still needs real
+runs to point the tool at.
+
 ## 2. Spec map
 
 | # | Spec file | Tool | Depends on | Can start now? |

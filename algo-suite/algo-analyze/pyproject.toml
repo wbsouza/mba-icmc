@@ -11,6 +11,9 @@ dependencies = [
     "structlog>=24",
 ]
 
+[project.scripts]
+algo-analyze = "algo_analyze.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
