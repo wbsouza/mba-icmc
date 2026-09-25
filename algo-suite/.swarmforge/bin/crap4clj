@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec bb --config '/home/wellington/workspace/algo-suite/.swarmforge/tools/crap4clj/bb.edn' crap4clj "$@"

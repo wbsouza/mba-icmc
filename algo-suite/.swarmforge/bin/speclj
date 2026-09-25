@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec clojure -Sdeps '{:paths ["src" "spec" "test"] :deps {speclj/speclj {:mvn/version "3.13.0"}}}' -M -m speclj.main -c spec "$@"
