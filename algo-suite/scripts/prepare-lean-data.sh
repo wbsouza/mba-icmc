@@ -105,8 +105,13 @@ for sym in $SYMBOLS; do
   if [ "$VERIFY_ONLY" != "1" ]; then
     # Range-native: one call covers the whole window, one line per month,
     # skips any month whose data.parquet still exists (i.e. passed verify above).
-    out=$(uv run algo-transform run --source dukascopy --symbol "$sym" --from "$FROM" --to "$TO") || true
-    echo "$out"
+    # Streamed via tee (not `out=$(...)`) so each month's line is visible live
+    # instead of buffering silently for the whole multi-year call.
+    echo "[$sym] starting range $FROM..$TO ($(date -Is))"
+    tmp_out=$(mktemp)
+    uv run algo-transform run --source dukascopy --symbol "$sym" --from "$FROM" --to "$TO" 2>&1 | tee "$tmp_out" || true
+    out=$(cat "$tmp_out")
+    rm -f "$tmp_out"
     w=$(printf '%s\n' "$out" | grep -c ': written ') || true
     s=$(printf '%s\n' "$out" | grep -c ': skipped ') || true
     f=$(printf '%s\n' "$out" | grep -cE ': (missing|incomplete|corrupt) ') || true
