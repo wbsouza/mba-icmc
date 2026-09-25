@@ -3,6 +3,7 @@
 .idea
 .coverage
 build/
+*.log
 
 .venv/
 __pycache__/
