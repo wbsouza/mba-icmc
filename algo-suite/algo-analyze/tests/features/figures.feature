@@ -65,6 +65,11 @@ Feature: Render thesis figures from analysis artifacts
       When I render the equity curve figure expecting failure
       Then figure rendering fails with ValueError naming "below -100%"
 
+    Scenario: a trade ledger with a non-numeric return fails fast
+      Given a run directory with a non-numeric trade return
+      When I render the equity curve figure expecting failure
+      Then figure rendering fails with ValueError naming "is not a number"
+
     Scenario: a run produced by write_run_artifacts renders an equity curve PDF
       Given a completed run written through write_run_artifacts with priced closed trades
       When I render the equity curve figure

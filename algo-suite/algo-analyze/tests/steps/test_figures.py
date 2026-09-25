@@ -90,6 +90,12 @@ def _run_with_return_value(fctx: dict[str, Any], value: float) -> None:
     _write_trades(fctx["run_dir"], [value])
 
 
+@given("a run directory with a non-numeric trade return")
+def _run_with_non_numeric_return(fctx: dict[str, Any]) -> None:
+    """Create a ledger whose return is a non-numeric JSON value (not a string or number)."""
+    (fctx["run_dir"] / "trades.json").write_text(json.dumps([{"return": [1, 2]}]))
+
+
 @given("a completed run written through write_run_artifacts with priced closed trades")
 def _run_from_write_run_artifacts(fctx: dict[str, Any]) -> None:
     """Build a real completed-run directory via the producer, not a hand-written fixture."""

@@ -119,7 +119,12 @@ def _trade_return(path: Path, index: int, trade: Any) -> float:
     value = trade[_RETURN_FIELD]
     if value is None:
         raise ValueError(f"{path} trade {index} return {_RETURN_FIELD!r} is null")
-    number = float(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{path} trade {index} return {_RETURN_FIELD!r} is not a number: {value!r}"
+        ) from exc
     if not math.isfinite(number):
         raise ValueError(f"{path} trade {index} return {_RETURN_FIELD!r} is not finite")
     if number < -1.0:
