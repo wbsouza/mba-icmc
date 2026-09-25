@@ -14,9 +14,11 @@ import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 import pyarrow.parquet as pq
+from algo_score.storage import read_articles
 
 
 @dataclass(frozen=True)
@@ -118,6 +120,8 @@ def run_score_consumer_contract(root: Path) -> None:
     names = set(table.column_names)
     for column in ("id", "text", "publish_ts"):
         require(column in names, f"algo-score contract column missing: {column}")
+    articles = read_articles(root, "gdelt", date(2020, 1, 1), date(2020, 1, 31))
+    require(len(articles) == 3, f"Expected 3 algo-score-readable articles, got {len(articles)}")
 
 
 def run_unsupported_source(root: Path) -> None:

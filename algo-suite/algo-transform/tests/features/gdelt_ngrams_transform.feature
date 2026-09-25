@@ -17,6 +17,7 @@ Feature: Transform a GDELT NGrams month into a canonical news Parquet partition
     When I transform "gdelt_ngrams" for "2020-01"
     Then a news Parquet partition exists at parquet/news/gdelt for 2020-01
     And it contains at least one news row
+    And its rows validate as algo-score NewsArticle records
     And the run exits 0
 
   # gdelt-ngrams-transform-02

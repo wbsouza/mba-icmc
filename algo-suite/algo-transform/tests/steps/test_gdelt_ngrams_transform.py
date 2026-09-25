@@ -9,6 +9,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from algo_score.scorers.models import NewsArticle
 from algo_transform.cli import app
 from algo_transform.readers.gdelt_ngrams import (
     GdeltNgramsMinute,
@@ -118,6 +119,13 @@ def _partition_exists(context: dict[str, object]) -> None:
 def _has_row(context: dict[str, object]) -> None:
     table = pq.read_table(news_path(_root(context), 2020, 1))
     assert table.num_rows >= 1
+
+
+@then("its rows validate as algo-score NewsArticle records")
+def _news_article_contract(context: dict[str, object]) -> None:
+    table = pq.read_table(news_path(_root(context), 2020, 1))
+    for row in table.to_pylist():
+        NewsArticle.model_validate(row)
 
 
 @then("it contains zero news rows")

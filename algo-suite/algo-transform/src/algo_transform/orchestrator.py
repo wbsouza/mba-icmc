@@ -32,7 +32,7 @@ _GDELT_NEWS_SCHEMA = pa.schema(
     [
         ("id", pa.string()),
         ("text", pa.string()),
-        ("publish_ts", pa.timestamp("us")),
+        ("publish_ts", pa.timestamp("us", tz="UTC")),
     ]
 )
 
