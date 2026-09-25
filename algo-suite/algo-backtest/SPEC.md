@@ -74,7 +74,11 @@ algo_backtest/
 ├── algos/baseline_meanrev/ # IMPLEMENTED — SMA mean-reversion (counter-trend), long-only, fixed sizing
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
 │                           #   (manifest) + trades.json (ledger) + metrics.json; metrics.json last
-│                           #   as the completeness marker (Slices E1+E2)
+│                           #   as the completeness marker (Slices E1+E2). Each trades.json entry
+│                           #   gains a normalized fractional `return` field (profitLoss / abs(
+│                           #   entryPrice * quantity)) when those raw LEAN fields are present and
+│                           #   the cost basis is non-zero; otherwise the trade is left unchanged
+│                           #   (Spec 05f) — see algo-analyze's figures.py, the consumer contract.
 ├── metrics.py              # IMPLEMENTED — metrics_from_results()/extract_metrics(): the four
 │                           #   Chapter-4 metrics (total return, Sharpe, max drawdown, hit rate) from
 │                           #   LEAN portfolioStatistics; fail-fast on incomplete results (E2)
