@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import NoReturn
 
@@ -16,7 +17,13 @@ from algo_transform.coverage_artifacts import (
     scan_gdelt_coverage,
     write_coverage_artifacts,
 )
-from algo_transform.orchestrator import transform_gdelt_month, transform_gpr, transform_month
+from algo_transform.orchestrator import (
+    transform_gdelt_month,
+    transform_gdelt_ngrams_month,
+    transform_gpr,
+    transform_month,
+)
+from algo_transform.result import TransformReport
 
 app = typer.Typer(
     name="algo-transform",
@@ -28,8 +35,9 @@ app = typer.Typer(
 _USAGE_ERROR = 2
 _DUKASCOPY = "dukascopy"
 _GDELT = "gdelt"
+_GDELT_NGRAMS = "gdelt_ngrams"
 _GPR = "gpr"
-_SOURCES = (_DUKASCOPY, _GDELT, _GPR)
+_SOURCES = (_DUKASCOPY, _GDELT, _GDELT_NGRAMS, _GPR)
 # Module-level so the non-literal enum default is not a call in an argument default (ruff B008).
 _TIMEFRAME_OPTION = typer.Option(
     Timeframe.M1, "--timeframe", help="Bar timeframe: m1, m5, m15, m30, h1, h4 or d1."
@@ -66,7 +74,24 @@ def run(
     if source == _GPR:
         raise typer.Exit(_run_gpr(data_root, symbol, month, from_, to, rebuild))
     if source == _GDELT:
-        raise typer.Exit(_run_gdelt(data_root, symbol, month, from_, to, rebuild))
+        raise typer.Exit(
+            _run_global_monthly(
+                _GDELT, transform_gdelt_month, data_root, symbol, month, from_, to, rebuild
+            )
+        )
+    if source == _GDELT_NGRAMS:
+        raise typer.Exit(
+            _run_global_monthly(
+                _GDELT_NGRAMS,
+                transform_gdelt_ngrams_month,
+                data_root,
+                symbol,
+                month,
+                from_,
+                to,
+                rebuild,
+            )
+        )
     raise typer.Exit(_run_dukascopy(data_root, symbol, month, from_, to, timeframe, rebuild))
 
 
@@ -90,7 +115,9 @@ def _run_gpr(
     return report.exit_code
 
 
-def _run_gdelt(
+def _run_global_monthly(
+    source_label: str,
+    transform_fn: Callable[..., TransformReport],
     data_root: Path,
     symbol: str | None,
     month: str | None,
@@ -98,12 +125,12 @@ def _run_gdelt(
     to: str | None,
     rebuild: bool,
 ) -> int:
-    """Run GDELT month transforms after source-specific flag checks."""
+    """Run a global (non-symbol) monthly transform after source-specific flag checks."""
     if symbol is not None:
-        _fail("gdelt is global; do not pass --symbol.")
+        _fail(f"{source_label} is global; do not pass --symbol.")
     exit_code = 0
     for year, month_num in _months(month, from_, to):
-        report = transform_gdelt_month(data_root, year, month_num, rebuild=rebuild)
+        report = transform_fn(data_root, year, month_num, rebuild=rebuild)
         typer.echo(report.render())
         exit_code = max(exit_code, report.exit_code)
     return exit_code

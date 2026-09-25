@@ -20,7 +20,9 @@ class TransformStatus(StrEnum):
 class TransformReport(BaseModel):
     """Per-month transform result."""
 
-    model_config = ConfigDict(frozen=True)
+    # extra="forbid": an orchestrator passing an undeclared count kwarg (e.g. `articles=`
+    # before this field existed) must raise, not silently drop the count (fail-fast, CLAUDE.md).
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     symbol: str
     year: int
@@ -29,6 +31,7 @@ class TransformReport(BaseModel):
     ticks: int = 0
     bars: int = 0
     events: int = 0
+    articles: int = 0
     quarantined: int = 0
     paths: tuple[str, ...] = ()
 
@@ -48,5 +51,5 @@ class TransformReport(BaseModel):
         return (
             f"{self.symbol} {self.year:04d}-{self.month:02d}: {self.status.value} "
             f"(ticks={self.ticks} bars={self.bars} events={self.events} "
-            f"quarantined={self.quarantined}{paths})"
+            f"articles={self.articles} quarantined={self.quarantined}{paths})"
         )

@@ -1,0 +1,1 @@
+../../../../../algo-transform/tests/qa/spec-td28-gdelt-ngrams-article-text.qa.md

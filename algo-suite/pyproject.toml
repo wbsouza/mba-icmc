@@ -93,10 +93,11 @@ exclude = [
 ]
 
 # testcontainers (+ its docker-py) ship no py.typed; algo-backtest's production run path
-# imports them. AlgorithmImports is LEAN's injected namespace, real only inside the LEAN
-# container; order_executor.py imports one name from it lazily (function-local, not at
-# module scope) to normalize a fill's OrderStatus. Ignore their missing stubs rather than
-# litter inline type: ignores.
+# imports them. gdeltnews (TD-28's article-text reconstruction) ships no py.typed either.
+# AlgorithmImports is LEAN's injected namespace, real only inside the LEAN container;
+# order_executor.py imports one name from it lazily (function-local, not at module scope)
+# to normalize a fill's OrderStatus. Ignore their missing stubs rather than litter inline
+# type: ignores.
 [[tool.mypy.overrides]]
-module = ["testcontainers.*", "docker.*", "AlgorithmImports"]
+module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
 ignore_missing_imports = true

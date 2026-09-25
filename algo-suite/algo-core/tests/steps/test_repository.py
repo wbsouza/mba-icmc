@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from algo_core.repository import DuckDBRepository, ParquetRepository, Repository
 from pydantic import BaseModel
@@ -20,6 +22,7 @@ class _Bar(BaseModel):
 
 
 _BARS = [_Bar(ts=1, close=1.1), _Bar(ts=2, close=2.2)]
+_BAR_SCHEMA = pa.schema([("ts", pa.int64()), ("close", pa.float64())])
 
 
 @pytest.fixture
@@ -41,6 +44,7 @@ def _make_repo(state: dict[str, object], backend: str, tmp_path: Path) -> None:
         "duckdb": DuckDBRepository(_Bar, path),
     }
     state["repo"] = repos[backend]
+    state["path"] = path
 
 
 @when("I put 2 bars")
@@ -66,3 +70,26 @@ def _exists(state: dict[str, object]) -> None:
 @then("the repository reports it does not exist")
 def _not_exists(state: dict[str, object]) -> None:
     assert _repo(state).exists() is False
+
+
+@when("I put 0 bars with the bar schema")
+def _put_empty_with_schema(state: dict[str, object]) -> None:
+    repo = state["repo"]
+    assert isinstance(repo, ParquetRepository)
+    repo.put([], schema=_BAR_SCHEMA)
+
+
+@then("the written file has the ts and close columns")
+def _written_columns(state: dict[str, object]) -> None:
+    path = state["path"]
+    assert isinstance(path, Path)
+    table = pq.read_table(path)
+    assert table.column_names == ["ts", "close"]
+
+
+@then("it has 0 rows")
+def _zero_rows(state: dict[str, object]) -> None:
+    path = state["path"]
+    assert isinstance(path, Path)
+    table = pq.read_table(path)
+    assert table.num_rows == 0

@@ -17,9 +17,15 @@ from pydantic import BaseModel
 M = TypeVar("M", bound=BaseModel)
 
 
-def to_table(items: Sequence[BaseModel]) -> pa.Table:
-    """Convert value objects to an Arrow table via their dict representation."""
-    return pa.Table.from_pylist([item.model_dump() for item in items])
+def to_table(items: Sequence[BaseModel], schema: pa.Schema | None = None) -> pa.Table:
+    """Convert value objects to an Arrow table via their dict representation.
+
+    Pass ``schema`` explicitly whenever ``items`` may be empty: pyarrow cannot
+    infer column types from zero rows, so an empty ``items`` without a schema
+    silently produces a table (and then a Parquet file) with no columns at all
+    rather than the model's real, empty-but-typed column set.
+    """
+    return pa.Table.from_pylist([item.model_dump() for item in items], schema=schema)
 
 
 def write_table(path: Path, table: pa.Table) -> None:
