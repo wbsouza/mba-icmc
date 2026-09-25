@@ -40,14 +40,18 @@ not built until a filter actually reads it (`specs.md` §11.3.2 has no
 | In | raw payloads | `raw/{source}/...` (`.bi5`, `.csv.zip`, `.xls`) |
 | Out (slice 2) | minute QuoteBars | `parquet/forex/<pair>/.../minute/year=/month=/data.parquet` |
 | Out (slice 2) | ticks (slippage) | `parquet/forex/<pair>/.../tick/year=/month=/data.parquet` |
-| Out (slice 3) | GDELT event dataset | `parquet/events/gdelt/year=/month=/data.parquet` (one row per event, verbatim from the Events table — **no article-text column**; `algo-download`'s confirmed GDELT scope, SPEC §7a.1, is Events-table-only. `algo-score`'s FinBERT/LM text-sentiment path has no populated source until `technical-debt.md` TD-28 — GDELT Web News NGrams 3.0 — lands; see that entry before assuming `parquet/news/gdelt/...` exists) |
+| Out (slice 3) | GDELT event dataset | `parquet/events/gdelt/year=/month=/data.parquet` (one row per event, verbatim from the Events table — **no article-text column**; `algo-download`'s confirmed GDELT scope, SPEC §7a.1, is Events-table-only) |
+| Out (TD-28) | GDELT NGrams news dataset | `parquet/news/gdelt/year=/month=/data.parquet` (one row per reconstructed article — `id`/`text`/`publish_ts`, matching `algo_score.scorers.models.NewsArticle` exactly. Reconstructed via `gdeltnews` from `algo-download`'s `raw/gdelt_ngrams/...` — see §9b) |
 | Out (slice 3) | GPR event dataset | `parquet/events/gpr/data.parquet` (whole-window, one row per period, no forward-fill — `algo-score/SPEC.md` §6.2 owns forward-fill) |
 | Out (slice 3) | coverage matrix | `parquet/_meta/coverage.parquet` + a thesis figure |
 
-**No `parquet/news/{source}/...` is written by this tool for GDELT.** The raw
-GDELT payload this tool decodes (per `algo-download` §7a.1) carries no article
-text, only event metadata + `SOURCEURL`; writing an empty/fabricated `news/`
-partition would violate the fail-fast, no-fabricated-data rule. `sentiment/`
+**`parquet/news/{source}/...` is written only for `gdelt_ngrams` (TD-28), not
+`gdelt`.** The raw GDELT Events payload (`--source gdelt`, per `algo-download`
+§7a.1) carries no article text, only event metadata + `SOURCEURL`; writing an
+empty/fabricated `news/` partition from it would violate the fail-fast,
+no-fabricated-data rule. The separate `gdelt_ngrams` source (Web News NGrams
+3.0, §7a.3) is the actual text source, reconstructed by `gdeltnews` into real
+article text — that is what populates `parquet/news/gdelt/...`. `sentiment/`
 remains `algo-score`'s output, not this tool's, unchanged from the prior
 contract.
 
@@ -139,6 +143,7 @@ algo_transform/
 algo-transform run --source dukascopy --symbol EURUSD --month 2020-01
              [--from --to] [--timeframe m1|m5|m15|m30|h1|h4|d1] [--rebuild]
 algo-transform run --source gdelt --month 2020-01 [--from --to] [--rebuild]
+algo-transform run --source gdelt_ngrams --month 2020-01 [--from --to] [--rebuild]
 algo-transform run --source gpr [--rebuild]
 algo-transform coverage
 ```
@@ -149,6 +154,7 @@ algo-transform coverage
 |---|---|---|---|
 | `dukascopy` | required | one of them required | per-instrument, date-partitioned |
 | `gdelt` | **rejected** | one of them required | global feed, date-partitioned (§6.4) |
+| `gdelt_ngrams` | **rejected** | one of them required | global feed, date-partitioned (TD-28), same contract as `gdelt` |
 | `gpr` | **rejected** | **rejected** | whole-window, single output file (§6.5) |
 
 `gdelt`/`gpr` rejecting `--symbol` and `gpr` rejecting the date flags fail
@@ -373,6 +379,23 @@ Feature: Decode Dukascopy .bi5 into validated ticks
   selected training window (traceable to a command + run, `experiments.md` §5),
   writing both `parquet/_meta/coverage.parquet` and a vector-PDF figure.
 - Currency-strength stays unbuilt (§6.3, TD-29) — no filter consumes it yet.
+
+## 9b. Acceptance criteria (TD-28 — GDELT NGrams article text)
+
+- `algo-transform run --source gdelt_ngrams --month ...` produces
+  `parquet/news/gdelt/year=/month=/data.parquet` with real reconstructed article
+  text (`id`/`text`/`publish_ts`, matching `algo_score.scorers.models.NewsArticle`
+  exactly) — not `parquet/events/gdelt/...` (Spec 02's separate dataset).
+- Reconstruction is `gdeltnews`'s job (n-gram-based text recovery over the raw
+  `.webngrams.json.gz` bytes `algo-download` already fetched); this tool only
+  adapts its file-in/file-out API to the project's in-memory decoder contract.
+- The three-state contract (data / MISSING / corrupt) is handled per UTC minute,
+  mirroring the other sources' per-slot/per-hour contract. Verified against the
+  real library, not assumed: only a payload that is not valid gzip is a decode
+  error; a malformed JSON line or a line missing a required field is silently
+  skipped by `gdeltnews` itself, yielding zero rows for that minute, not an error.
+- A month where every minute is a durable MISSING marker still writes an
+  empty-but-valid partition (complete information, not an error).
 - BDD tests for every scenario above; ruff + mypy-strict + coverage gate green.
 
 ## 10. Open items

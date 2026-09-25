@@ -17,8 +17,8 @@ from algo_core.layout import price_path_for
 from algo_core.repository.parquet import ParquetRepository
 
 from algo_transform.decoders.bi5 import DecodeError
-from algo_transform.events import GdeltEvent, GprEvent
-from algo_transform.readers import gdelt, gpr
+from algo_transform.events import GdeltEvent, GdeltNewsArticle, GprEvent
+from algo_transform.readers import gdelt, gdelt_ngrams, gpr
 from algo_transform.readers.dukascopy import is_month_complete, load_ticks
 from algo_transform.resample import resample
 from algo_transform.result import TransformReport, TransformStatus
@@ -91,6 +91,42 @@ def transform_gdelt_month(
         )
     repo.put(loaded.events)
     return report(TransformStatus.WRITTEN, events=len(loaded.events))
+
+
+def transform_gdelt_ngrams_month(
+    data_root: Path, year: int, month: int, *, rebuild: bool = False
+) -> TransformReport:
+    """Decode and write one complete GDELT NGrams month as reconstructed article text.
+
+    Output lands at parquet/news/gdelt/... (TD-28) -- not parquet/events/gdelt/...
+    (Spec 02's separate GDELT-events dataset). A month where every minute is a
+    durable MISSING marker is still WRITTEN, as an empty-but-valid partition (the
+    provider published nothing, which is complete information, not an error).
+    """
+    repo: ParquetRepository[GdeltNewsArticle] = ParquetRepository(
+        GdeltNewsArticle, gdelt_ngrams.news_path(data_root, year, month)
+    )
+
+    def report(
+        status: TransformStatus, paths: tuple[str, ...] = (), **counts: int
+    ) -> TransformReport:
+        return TransformReport(
+            symbol="gdelt_ngrams", year=year, month=month, status=status, paths=paths, **counts
+        )
+
+    if repo.exists() and not rebuild:
+        return report(TransformStatus.SKIPPED)
+    if not gdelt_ngrams.is_month_complete(data_root, year, month):
+        return report(TransformStatus.INCOMPLETE)
+    loaded = gdelt_ngrams.load_articles(data_root, year, month)
+    if loaded.quarantined:
+        return report(
+            TransformStatus.CORRUPT,
+            quarantined=len(loaded.quarantined),
+            paths=tuple(str(path) for path in loaded.quarantined),
+        )
+    repo.put(loaded.articles)
+    return report(TransformStatus.WRITTEN, articles=len(loaded.articles))
 
 
 def transform_gpr(data_root: Path, *, rebuild: bool = False) -> TransformReport:

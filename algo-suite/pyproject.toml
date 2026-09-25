@@ -82,7 +82,8 @@ strict = true
 exclude = ["(^|/)spikes/", "(^|/)algos/", "(^|/)tests/", "(^|/)mutants/"]
 
 # testcontainers (+ its docker-py) ship no py.typed; algo-backtest's production run path
-# imports them. Ignore their missing stubs rather than litter inline type: ignores.
+# imports them. gdeltnews (TD-28's article-text reconstruction) ships no py.typed either.
+# Ignore their missing stubs rather than litter inline type: ignores.
 [[tool.mypy.overrides]]
-module = ["testcontainers.*", "docker.*"]
+module = ["testcontainers.*", "docker.*", "gdeltnews.*"]
 ignore_missing_imports = true

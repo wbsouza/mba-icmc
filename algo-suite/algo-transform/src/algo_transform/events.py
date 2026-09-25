@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,3 +32,18 @@ class GprEvent(BaseModel):
 
     period: date
     gpr: float
+
+
+class GdeltNewsArticle(BaseModel):
+    """One article reconstructed from GDELT Web News NGrams 3.0 (TD-28).
+
+    Field set matches ``algo_score.scorers.models.NewsArticle`` exactly (``id``,
+    ``text``, ``publish_ts``) -- that contract is already fixed; this is the
+    dataset it reads. ``id`` is the article's URL, GDELT's natural unique key.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    text: str
+    publish_ts: datetime

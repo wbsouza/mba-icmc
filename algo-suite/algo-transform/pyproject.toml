@@ -5,6 +5,7 @@ description = "Transform raw payloads into canonical Parquet (year=YYYY/month=MM
 requires-python = ">=3.11"
 dependencies = [
     "algo-core",
+    "gdeltnews>=1.1.0",
     "pyarrow>=16",
     "typer>=0.12",
     "xlrd>=2",
