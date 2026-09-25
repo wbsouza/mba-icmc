@@ -63,6 +63,15 @@ def _empty_results(rr_ctx: dict[str, Any]) -> None:
     pass  # the fixture already made an empty dir
 
 
+@given(parsers.parse('its result JSON has a null "{field}" field'))
+def _null_field(rr_ctx: dict[str, Any], field: str) -> None:
+    """Overwrite `main.json`, setting `field` to JSON `null` (not merely absent)."""
+    path = rr_ctx["results"] / "main.json"
+    doc = json.loads(path.read_text())
+    doc[field] = None
+    path.write_text(json.dumps(doc))
+
+
 @when("I parse it as a successful run")
 def _parse_ok(rr_ctx: dict[str, Any]) -> None:
     rr_ctx["result"] = rr_ctx["error"] = None
@@ -100,6 +109,11 @@ def _closed(rr_ctx: dict[str, Any], n: int) -> None:
 @then("the raw results path points at the result JSON")
 def _raw_path(rr_ctx: dict[str, Any]) -> None:
     assert rr_ctx["result"].raw_results_path == rr_ctx["results"] / "main.json"
+
+
+@then("no error is reported")
+def _no_error(rr_ctx: dict[str, Any]) -> None:
+    assert rr_ctx["result"].error is None
 
 
 @then("parsing fails with a missing-result error")

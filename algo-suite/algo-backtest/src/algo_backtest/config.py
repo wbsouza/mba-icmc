@@ -21,6 +21,9 @@ from algo_core.layout import ENV_DATA_ROOT
 
 SCHEMA = (
     ParameterSpec(name="markets.oanda.data_tz", impact=Impact.OPERATIONAL, default="UTC"),
+    # Trading-impactful (Spec 04a): the brokerage fill/fee/spread model changes realized
+    # PnL, so a missing value is a hard stop, never a silent default — see engine/brokerage.
+    ParameterSpec(name="broker.adapter", impact=Impact.TRADING),
 )
 SCHEMA_VERSION = 1
 
@@ -31,6 +34,7 @@ class BacktestConfig:
 
     data_root: Path
     oanda_data_tz: ZoneInfo
+    broker_adapter: str
     provenance: tuple[str, ...]
 
 
@@ -53,4 +57,10 @@ def load_backtest_config() -> BacktestConfig:
     data_root = layout.data_root()
     source = ENV_DATA_ROOT if os.environ.get(ENV_DATA_ROOT) else "convention"
     provenance = (*result.provenance, f"DATA ROOT: data_root={data_root} (from {source})")
-    return BacktestConfig(data_root=data_root, oanda_data_tz=data_tz, provenance=provenance)
+    broker_adapter = str(result.values["broker.adapter"])
+    return BacktestConfig(
+        data_root=data_root,
+        oanda_data_tz=data_tz,
+        broker_adapter=broker_adapter,
+        provenance=provenance,
+    )

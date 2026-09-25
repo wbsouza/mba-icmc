@@ -111,7 +111,8 @@ def _experiment_no_data(rctx: dict[str, Any]) -> None:
 @when("I run the experiment")
 def _run(rctx: dict[str, Any]) -> None:
     rctx["result"] = run_experiment(
-        rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"]
+        rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"],
+        broker_adapter="oanda",
     )
 
 
@@ -119,7 +120,8 @@ def _run(rctx: dict[str, Any]) -> None:
 def _run_again(rctx: dict[str, Any]) -> None:
     rctx["dirs_first"] = [o.run_dir for o in rctx["result"].outcomes]
     rctx["result2"] = run_experiment(
-        rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"]
+        rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"],
+        broker_adapter="oanda",
     )
 
 
@@ -129,7 +131,8 @@ def _rerun_shrunk(rctx: dict[str, Any]) -> None:
     shrunk = Experiment(name=full.name, runs=full.runs[:1])
     rctx["experiment"] = shrunk
     rctx["result"] = run_experiment(
-        shrunk, data_root=rctx["data_root"], timeout=1, runner=rctx["runner"]
+        shrunk, data_root=rctx["data_root"], timeout=1, runner=rctx["runner"],
+        broker_adapter="oanda",
     )
 
 
@@ -137,7 +140,8 @@ def _rerun_shrunk(rctx: dict[str, Any]) -> None:
 def _run_failing(rctx: dict[str, Any]) -> None:
     with pytest.raises((ValueError, RuntimeError)) as exc_info:
         run_experiment(
-            rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"]
+            rctx["experiment"], data_root=rctx["data_root"], timeout=1, runner=rctx["runner"],
+            broker_adapter="oanda",
         )
     rctx["error"] = str(exc_info.value)
 
@@ -269,7 +273,8 @@ def _meanrev_experiment(rctx: dict[str, Any]) -> None:
 def _run_engine(rctx: dict[str, Any], require_docker: None) -> None:
     timeout = int(os.environ.get("LEAN_TEST_TIMEOUT", "600"))
     rctx["result"] = run_experiment(
-        rctx["experiment"], data_root=rctx["data_root"], timeout=timeout
+        rctx["experiment"], data_root=rctx["data_root"], timeout=timeout,
+        broker_adapter="oanda",
     )
 
 

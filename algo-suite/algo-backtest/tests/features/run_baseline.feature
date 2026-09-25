@@ -36,6 +36,11 @@ Feature: Run a single strategy via the run CLI
       Then the run command exits with code 2
       And the error says from must not be after to
 
+    Scenario: a --param without an "=" is rejected
+      When I run "algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param fast3"
+      Then the run command exits with code 2
+      And the error says the param must be key=value
+
   Rule: A run requires materialized data covering its window
 
     Scenario: no materialized data fails fast before launching the engine

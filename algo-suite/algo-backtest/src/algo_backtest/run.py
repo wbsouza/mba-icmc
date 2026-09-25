@@ -157,12 +157,15 @@ def run_strategy(
     params: Params,
     results_dir: Path,
     timeout: int,
+    broker_adapter: str,
 ) -> RunResult:
     """Run the named strategy's bundled algorithm over a window and parse its result.
 
     Mounts the instrument's materialized minute lean-data and passes the window plus the
     strategy's own parameters to the algorithm as backtest parameters. `strategy` must be a
-    key of STRATEGIES (callers validate via `validate_run_inputs`).
+    key of STRATEGIES (callers validate via `validate_run_inputs`). `broker_adapter` is the
+    config-resolved brokerage-adapter name (Spec 04a) the algorithm applies via
+    `ExecutionAlgorithm.init_execution` before the first bar.
     """
     algo_dir = Path(algo_backtest.__file__).parent / "algos" / STRATEGIES[strategy].algo_dir
     symbol_dir = lean_data_dir_for(data_root, instrument, "minute")
@@ -171,6 +174,7 @@ def run_strategy(
         "symbol": instrument.symbol,
         "start": start.strftime("%Y%m%d"),
         "end": end.strftime("%Y%m%d"),
+        "broker_adapter": broker_adapter,
         **params,
     }
     run = run_lean(
