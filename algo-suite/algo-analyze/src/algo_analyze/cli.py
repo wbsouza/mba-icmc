@@ -105,7 +105,7 @@ def metrics(
     undeflated with an explicit caveat rather than failing — empirical skew/kurtosis
     estimation from the trade series is a later refinement (see SPEC.md open items).
     """
-    from algo_backtest.metrics import metrics_from_artifact  # type: ignore[import-untyped]
+    from algo_backtest.metrics import metrics_from_artifact
 
     config = _configured("analyze")
     run_dir = config.data_root / "runs" / run
