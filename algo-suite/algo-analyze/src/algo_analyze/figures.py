@@ -1,4 +1,18 @@
-"""Render vector PDF figures from algo-analyze run artifacts."""
+"""Render vector PDF figures from algo-analyze run artifacts.
+
+Return convention: the equity/drawdown curves compound each trade's *per-trade
+notional* return (`trades.json`'s `return`, added by
+`algo_backtest.artifacts._normalize_trade` as `profitLoss / abs(entryPrice *
+quantity)`). This is deliberately **not** the same figure as `Metrics.total_return`
+(LEAN's portfolio-level `totalNetProfit`, used by `algo_analyze.metrics`/`ablation`):
+`total_return` reflects the run's actual account-level compounding, including
+position sizing that varies with risk/capital-management state (see
+`algo-backtest/SPEC.md`), while these curves assume a fixed per-trade notional base
+so the shape of consecutive wins/losses is visible independent of sizing decisions.
+The two are not expected to reconcile numerically; `total_return` remains the
+citable headline metric, and these curves are a trade-sequence visualization, not
+an alternative computation of it.
+"""
 
 from __future__ import annotations
 

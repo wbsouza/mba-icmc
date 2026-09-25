@@ -97,6 +97,21 @@ def _finished_run_pnl_only_trade(art_ctx: dict[str, Any], profit: float) -> None
 
 @given(
     parsers.parse(
+        "a finished run with a closed trade reporting only profitLoss {profit:g} "
+        "and a bogus raw return of {bogus:g}"
+    )
+)
+def _finished_run_pnl_only_trade_with_bogus_return(
+    art_ctx: dict[str, Any], profit: float, bogus: float
+) -> None:
+    """A closed trade that can't be normalized but still carries a stray return key."""
+    art_ctx["closed_trades"] = [{"profitLoss": profit, "return": bogus}]
+    art_ctx["metrics"] = Metrics(total_return=0.0, sharpe=0.0, max_drawdown=0.0, hit_rate=0.0)
+    art_ctx["manifest"] = _baseline_manifest(1)
+
+
+@given(
+    parsers.parse(
         "a finished run with a closed trade priced at entry {entry:g}, "
         "quantity {quantity:g} and an infinite profit"
     )

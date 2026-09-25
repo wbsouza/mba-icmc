@@ -77,6 +77,15 @@ The preferred shape is:
 Where `return` is a finite fractional per-trade return suitable for equity and
 drawdown curves.
 
+**Relationship to `metrics.json`'s `total_return`:** these are deliberately different
+numbers, not two computations of the same thing. `return` is one trade's profit/loss
+against its own cost basis (`profitLoss / abs(entryPrice * quantity)`); `total_return`
+is LEAN's portfolio-level `totalNetProfit`, reflecting the run's actual account-level
+compounding and position sizing (which varies with risk/capital-management state, see
+`algo-backtest/SPEC.md`). The equity/drawdown curves built from `return` are a
+trade-sequence visualization, not an alternative path to the citable headline
+`total_return` metric, and the two are not expected to reconcile numerically.
+
 ## Implementation Options
 
 Preferred option:

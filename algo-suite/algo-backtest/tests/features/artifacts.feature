@@ -26,6 +26,12 @@ Feature: Persist raw artifacts from a backtest run
       Then trades.json trade 0 has no normalized return field
       And trades.json trade 0 still reports its raw profitLoss of 40.0
 
+    Scenario: a bogus raw return field is stripped when normalization cannot be computed
+      Given a finished run with a closed trade reporting only profitLoss 40.0 and a bogus raw return of 999.0
+      When I write its run artifacts
+      Then trades.json trade 0 has no normalized return field
+      And trades.json trade 0 still reports its raw profitLoss of 40.0
+
     Scenario: a closed trade with zero cost basis is left unsupported
       Given a finished run with a closed trade priced at entry 1.1000, quantity 0 and profit 0.0
       When I write its run artifacts

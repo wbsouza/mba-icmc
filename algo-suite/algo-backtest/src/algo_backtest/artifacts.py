@@ -25,6 +25,14 @@ is added rather than guessing — the trade is left exactly as LEAN reported it,
 downstream consumers fail fast on the missing field instead of silently trusting an
 absolute PnL value as if it were a return.
 
+This per-trade `return` is deliberately a different figure from `metrics.json`'s
+`total_return` (LEAN's portfolio-level `totalNetProfit`, see `metrics.py`): `return` is
+each trade's profit/loss against its own cost basis, while `total_return` reflects the
+run's actual account-level compounding and position sizing. The two are not expected to
+reconcile numerically — `total_return` is the citable headline metric; `return` exists
+for trade-sequence visualization (see `algo_analyze.figures`), not as an alternative
+computation of it.
+
 Completeness convention: `metrics.json` is written last, so its presence marks a finished
 run whose metrics are citable. Each file is written atomically (`write_text_atomic`), so no
 individual artifact is ever half-written; a killed run leaves an obviously-incomplete dir
@@ -100,21 +108,24 @@ def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:
     and `profitLoss` are all present and numeric, the cost basis is non-zero, and the
     result is finite — always from those raw fields, even when the trade already
     carries a `return` key, since `return` is this module's own normalized output and
-    must never be trusted as pre-computed input. Otherwise the trade is returned
-    unchanged: we never guess a return from an absolute PnL value alone, so a trade
-    shape we can't normalize is left exactly as LEAN reported it and downstream
-    consumers fail fast on the missing field instead of trusting a fabricated one.
+    must never be trusted as pre-computed input. Otherwise the trade is returned with
+    any pre-existing `return` key stripped rather than guessed: we never fabricate a
+    return from an absolute PnL value alone, so a trade shape we can't normalize is
+    left as LEAN reported it (minus a stray `return` we can't vouch for) and
+    downstream consumers fail fast on the missing field instead of trusting one that
+    was never actually computed here.
     """
+    without_return = {key: value for key, value in trade.items() if key != "return"}
     try:
         entry_price = float(trade["entryPrice"])
         quantity = float(trade["quantity"])
         profit_loss = float(trade["profitLoss"])
     except (KeyError, TypeError, ValueError):
-        return dict(trade)
+        return without_return
     cost_basis = abs(entry_price * quantity)
     if cost_basis == 0.0:
-        return dict(trade)
+        return without_return
     fractional_return = profit_loss / cost_basis
     if not math.isfinite(fractional_return):
-        return dict(trade)
-    return {**trade, "return": fractional_return}
+        return without_return
+    return {**without_return, "return": fractional_return}
