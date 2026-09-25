@@ -38,12 +38,12 @@ lessons-learned for why the split didn't hold.
 
 ```mermaid
 flowchart LR
-    A["run_dir/trades.json\n(written by write_run_artifacts,\neach trade has a normalized\nreturn field — Spec 05f)"] --> B["_trade_returns()"]
+    A["run_dir/trades.json<br/>(written by write_run_artifacts,<br/>each trade has a normalized<br/>return field — Spec 05f)"] --> B["_trade_returns()"]
     B --> C["_equity_curve()"]
     C --> D["equity_curve_figure()"]
     C --> E["_drawdown_curve()"]
     E --> F["drawdown_curve_figure()"]
-    G["AblationRow rows\n(algo_analyze.ablation)"] --> H["_ablation_values()"]
+    G["AblationRow rows<br/>(algo_analyze.ablation)"] --> H["_ablation_values()"]
     H --> I["ablation_bars_figure()"]
     D --> J["vector PDF"]
     F --> J

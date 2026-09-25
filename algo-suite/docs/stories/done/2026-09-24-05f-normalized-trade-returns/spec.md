@@ -135,9 +135,9 @@ guess a trade's fractional return from LEAN's raw payload:
 
 ```mermaid
 flowchart TD
-    A["closed_trades: list of raw LEAN\ntotalPerformance.closedTrades dicts"] --> B{"has entryPrice,\nquantity, profitLoss?"}
-    B -- no --> F["leave trade unchanged\n(raw LEAN fields only)"]
-    B -- yes --> C{"cost basis =\n|entryPrice * quantity| != 0?"}
+    A["closed_trades: list of raw LEAN<br/>totalPerformance.closedTrades dicts"] --> B{"has entryPrice,<br/>quantity, profitLoss?"}
+    B -- no --> F["leave trade unchanged<br/>(raw LEAN fields only)"]
+    B -- yes --> C{"cost basis =<br/>|entryPrice * quantity| != 0?"}
     C -- no --> F
     C -- yes --> D["return = profitLoss / cost_basis"]
     D --> E{"isfinite(return)?"}
