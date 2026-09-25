@@ -2,10 +2,16 @@
 
 **Parent context:** Spec 05 (`algo-analyze` metrics/significance) and Spec 05d
 (`algo-analyze` thesis figures).
-**Status:** backlog / planned.
+**Status:** done — implemented in PR #11 alongside Spec 05d, after review found the
+figures lane needed a real producer contract rather than a separate follow-up PR.
 **Created from:** PR #11 review of Spec 05d.
-**Blocks:** merging Spec 05d figures for real completed-run use, unless 05d is
-explicitly re-scoped to future normalized ledgers only.
+**Implementation:** `algo_backtest.artifacts._normalize_trade` (see
+`algo-suite/algo-backtest/src/algo_backtest/artifacts.py`) adds a `return` field to
+each closed trade when `entryPrice`, `quantity` and `profitLoss` are present and the
+cost basis is non-zero; otherwise the raw LEAN trade is left unchanged. BDD coverage:
+`algo-backtest/tests/features/artifacts.feature` ("trade ledger normalizes a
+fractional return" rule) and `algo-analyze/tests/features/figures.feature`
+("a run produced by write_run_artifacts renders an equity/drawdown curve PDF").
 
 ## Problem
 
@@ -62,21 +68,32 @@ The preferred shape is:
 ```json
 [
   {
-    "...": "original LEAN trade fields preserved",
+    "...": "original LEAN trade fields preserved, except any raw return key",
     "return": 0.0123
   }
 ]
 ```
 
 Where `return` is a finite fractional per-trade return suitable for equity and
-drawdown curves.
+drawdown curves. The key is reserved for this normalized value; if a raw trade
+payload already contains `return`, the producer must recompute and overwrite it
+when possible, or strip it when the normalized value cannot be computed.
+
+**Relationship to `metrics.json`'s `total_return`:** these are deliberately different
+numbers, not two computations of the same thing. `return` is one trade's profit/loss
+against its own cost basis (`profitLoss / abs(entryPrice * quantity)`); `total_return`
+is LEAN's portfolio-level `totalNetProfit`, reflecting the run's actual account-level
+compounding and position sizing (which varies with risk/capital-management state, see
+`algo-backtest/SPEC.md`). The equity/drawdown curves built from `return` are a
+trade-sequence visualization, not an alternative path to the citable headline
+`total_return` metric, and the two are not expected to reconcile numerically.
 
 ## Implementation Options
 
 Preferred option:
 
 1. Add a small normalization layer in `algo-backtest` at artifact write time.
-2. Preserve the raw LEAN trade payload.
+2. Preserve the raw LEAN trade payload, except for the reserved `return` key.
 3. Add a normalized finite fractional `return` field when enough data exists.
 4. Fail fast, or record an explicit unsupported shape, when the trade object
    lacks enough data to compute a truthful return.
@@ -99,7 +116,8 @@ Avoid:
 - `write_run_artifacts()` or an adjacent producer function emits `trades.json`
   entries with a finite fractional `return` field for the completed runs used by
   thesis figures.
-- Existing raw LEAN trade information remains available for audit/debugging.
+- Existing raw LEAN trade information remains available for audit/debugging, except
+  a pre-existing raw `return` key that was not produced by this normalization step.
 - A BDD test proves the producer writes normalized returns from representative
   LEAN closed-trade payloads.
 - A BDD test proves `algo_analyze.figures` can render from a run directory
@@ -109,6 +127,41 @@ Avoid:
   are not silently interpreted as returns.
 - `make -C algo-backtest check` and `make -C algo-analyze check` pass for the
   touched branches.
+
+## Data Flow
+
+Producer-side normalization at artifact write time, so `algo-analyze` never has to
+guess a trade's fractional return from LEAN's raw payload:
+
+```mermaid
+flowchart TD
+    A["closed_trades: list of raw LEAN<br/>totalPerformance.closedTrades dicts"] --> B{"has entryPrice,<br/>quantity, profitLoss?"}
+    B -- no --> F["leave trade unchanged<br/>(raw LEAN fields only)"]
+    B -- yes --> C{"cost basis =<br/>|entryPrice * quantity| != 0?"}
+    C -- no --> F
+    C -- yes --> D["return = profitLoss / cost_basis"]
+    D --> E{"isfinite(return)?"}
+    E -- no --> F
+    E -- yes --> G["trade + return field"]
+    F --> H["trades.json"]
+    G --> H
+```
+
+End-to-end sequence proved by BDD (no hand-written `trades.json` fixture):
+
+```mermaid
+sequenceDiagram
+    participant BT as algo_backtest
+    participant FS as trades.json
+    participant AN as algo_analyze.figures
+
+    BT->>BT: write_run_artifacts(manifest, closed_trades, metrics)
+    BT->>BT: _normalize_trade(trade) for each closed trade
+    BT->>FS: write normalized trades.json
+    AN->>FS: read run_dir / "trades.json"
+    AN->>AN: _trade_return() reads the "return" field
+    AN->>AN: equity_curve_figure() / drawdown_curve_figure()
+```
 
 ## Links
 

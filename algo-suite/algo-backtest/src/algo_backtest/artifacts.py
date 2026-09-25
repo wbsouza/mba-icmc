@@ -5,7 +5,8 @@ persist three small, stable files so a result is self-describing and re-analyzab
 without re-running the engine:
 
   run.json     — the run manifest (strategy, symbol, window, params, success, trades)
-  trades.json  — the closed-trade ledger (LEAN's totalPerformance.closedTrades)
+  trades.json  — the closed-trade ledger (LEAN's totalPerformance.closedTrades), each
+                 trade augmented with a normalized fractional `return` field (Spec 05f)
   metrics.json — the four Chapter-4 metrics (see metrics.py)
 
 This layer is pure persistence: the caller parses LEAN's (large) result JSON once and
@@ -13,6 +14,24 @@ passes the derived ledger + metrics in, so a backtest sweep never re-reads it he
 
 Deliberately minimal local JSON — not the final trades.parquet schema (that, and richer
 analytics, are later work). The point is a durable, parseable record of one run.
+
+Normalized return contract (Spec 05f): consumers such as `algo_analyze.figures` need a
+finite fractional per-trade return, not LEAN's raw dollar `profitLoss`. When a closed
+trade carries `entryPrice`, `quantity` and `profitLoss`, this module adds a `return`
+field computed as `profitLoss / abs(entryPrice * quantity)` — the trade's profit or loss
+against its own cost basis. The other raw LEAN fields are preserved unchanged alongside
+it. If a trade lacks enough data (or the computed value is not finite), the reserved
+`return` field is omitted rather than guessed, even when the raw payload carried a
+stray `return`; downstream consumers fail fast on the missing field instead of silently
+trusting an absolute PnL value or an unverified raw value as if it were normalized here.
+
+This per-trade `return` is deliberately a different figure from `metrics.json`'s
+`total_return` (LEAN's portfolio-level `totalNetProfit`, see `metrics.py`): `return` is
+each trade's profit/loss against its own cost basis, while `total_return` reflects the
+run's actual account-level compounding and position sizing. The two are not expected to
+reconcile numerically — `total_return` is the citable headline metric; `return` exists
+for trade-sequence visualization (see `algo_analyze.figures`), not as an alternative
+computation of it.
 
 Completeness convention: `metrics.json` is written last, so its presence marks a finished
 run whose metrics are citable. Each file is written atomically (`write_text_atomic`), so no
@@ -23,6 +42,7 @@ rather than a corrupt one.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -64,15 +84,48 @@ def write_run_artifacts(
 
     Pure persistence: `closed_trades` (LEAN's `totalPerformance.closedTrades`) and
     `metrics` are derived by the caller from a single parse of the result JSON. metrics.json
-    is written last as the run's completeness marker (see module docstring).
+    is written last as the run's completeness marker (see module docstring). Each trade is
+    augmented with a normalized fractional `return` field where the raw payload supports
+    computing one (see `_normalize_trade`).
     """
     run_path = results_dir / "run.json"
     write_text_atomic(run_path, json.dumps(asdict(manifest), indent=2))
 
+    normalized_trades = [_normalize_trade(trade) for trade in closed_trades]
     trades_path = results_dir / "trades.json"
-    write_text_atomic(trades_path, json.dumps(closed_trades, indent=2))
+    write_text_atomic(trades_path, json.dumps(normalized_trades, indent=2))
 
     metrics_path = results_dir / "metrics.json"
     write_text_atomic(metrics_path, json.dumps(metrics.as_dict(), indent=2))
 
     return Artifacts(run_json=run_path, trades_json=trades_path, metrics_json=metrics_path)
+
+
+def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:
+    """Add a normalized fractional `return` field to one raw LEAN closed-trade dict.
+
+    Computes `profitLoss / abs(entryPrice * quantity)` when `entryPrice`, `quantity`
+    and `profitLoss` are all present and numeric, the cost basis is non-zero, and the
+    result is finite — always from those raw fields, even when the trade already
+    carries a `return` key, since `return` is this module's own normalized output and
+    must never be trusted as pre-computed input. Otherwise the trade is returned with
+    any pre-existing `return` key stripped rather than guessed: we never fabricate a
+    return from an absolute PnL value alone, so a trade shape we can't normalize is
+    left as LEAN reported it (minus a stray `return` we can't vouch for) and
+    downstream consumers fail fast on the missing field instead of trusting one that
+    was never actually computed here.
+    """
+    without_return = {key: value for key, value in trade.items() if key != "return"}
+    try:
+        entry_price = float(trade["entryPrice"])
+        quantity = float(trade["quantity"])
+        profit_loss = float(trade["profitLoss"])
+    except (KeyError, TypeError, ValueError):
+        return without_return
+    cost_basis = abs(entry_price * quantity)
+    if cost_basis == 0.0:
+        return without_return
+    fractional_return = profit_loss / cost_basis
+    if not math.isfinite(fractional_return):
+        return without_return
+    return {**without_return, "return": fractional_return}
