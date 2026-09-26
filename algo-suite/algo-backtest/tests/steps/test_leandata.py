@@ -7,6 +7,7 @@ encoding was confirmed empirically against the real engine in the timezone featu
 
 from __future__ import annotations
 
+import multiprocessing
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -66,6 +67,55 @@ def _compute_rows(ctx: dict[str, Any], data_tz: str) -> None:
 def _write_files(ctx: dict[str, Any], data_tz: str, tmp_path: Path) -> None:
     """Write day-zips under a tmp lean-data root."""
     ctx["written"] = write_lean_minute(tmp_path, _EURUSD, ctx["bars"], data_tz=ZoneInfo(data_tz))
+
+
+def _write_worker(
+    data_root: Path,
+    bars: list[QuoteBar],
+    data_tz: str,
+    result_queue: multiprocessing.Queue[tuple[str, list[str] | str]],
+) -> None:
+    """Subprocess entry point: call `write_lean_minute` and report outcome via `result_queue`.
+
+    Runs in a real OS process (distinct PID) so a regression of the tmp-filename
+    collision this scenario guards against would reproduce the original
+    `FileNotFoundError` race, not just be masked by same-process/same-PID reuse.
+    """
+    try:
+        written = write_lean_minute(data_root, _EURUSD, bars, data_tz=ZoneInfo(data_tz))
+        result_queue.put(("ok", [str(p) for p in written]))
+    except Exception as exc:  # noqa: BLE001 - must surface any subprocess failure, not swallow it
+        result_queue.put(("error", repr(exc)))
+
+
+@when(
+    parsers.parse(
+        'two processes concurrently write lean-data minute files in timezone "{data_tz}"'
+    )
+)
+def _write_files_concurrently(ctx: dict[str, Any], data_tz: str, tmp_path: Path) -> None:
+    """Race two real processes writing the same day to the same lean-data root."""
+    result_queue: multiprocessing.Queue[tuple[str, list[str] | str]] = multiprocessing.Queue()
+    procs = [
+        multiprocessing.Process(
+            target=_write_worker, args=(tmp_path, ctx["bars"], data_tz, result_queue)
+        )
+        for _ in range(2)
+    ]
+    for proc in procs:
+        proc.start()
+    for proc in procs:
+        proc.join(timeout=30)
+    results = [result_queue.get(timeout=5) for _ in procs]
+    ctx["concurrent_results"] = results
+    ok_paths = next(paths for status, paths in results if status == "ok")
+    ctx["written"] = [Path(p) for p in ok_paths]
+
+
+@then("both writers succeed")
+def _both_writers_succeed(ctx: dict[str, Any]) -> None:
+    results = ctx["concurrent_results"]
+    assert all(status == "ok" for status, _ in results), results
 
 
 def _only_day_lines(ctx: dict[str, Any]) -> list[str]:

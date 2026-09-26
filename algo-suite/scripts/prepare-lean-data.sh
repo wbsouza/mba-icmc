@@ -25,14 +25,19 @@
 #   Thesis-fixed 10y window:     TO=2024-12 scripts/prepare-lean-data.sh
 #   Single pair:                 SYMBOLS=EURUSD scripts/prepare-lean-data.sh
 #   Verify only, no writes:      VERIFY_ONLY=1 scripts/prepare-lean-data.sh
+#   Skip checksum sidecars:      CHECKSUM=0 scripts/prepare-lean-data.sh
 #
-# Overrides: SYMBOLS, FROM, TO (YYYY-MM or "today"), ALGO_DATA_ROOT, VERIFY_ONLY.
+# Overrides: SYMBOLS, FROM, TO (YYYY-MM or "today"), ALGO_DATA_ROOT, VERIFY_ONLY,
+# CHECKSUM (1 by default -- sha256-verifies every already-done file every run,
+# same integrity contract as the original design; set CHECKSUM=0 to skip it
+# when you specifically want a fast pass, e.g. a quick pilot-month check).
 set -euo pipefail
 
 SYMBOLS=${SYMBOLS:-"EURUSD USDJPY"}
 FROM=${FROM:-2015-01}
 TO=${TO:-today}
 VERIFY_ONLY=${VERIFY_ONLY:-0}
+CHECKSUM=${CHECKSUM:-1}
 
 _resolve_month() {
   case "$1" in
@@ -46,6 +51,75 @@ TO=$(_resolve_month "$TO")
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$HERE"
 export ALGO_DATA_ROOT=${ALGO_DATA_ROOT:-"$HERE/data"}
+
+# Serialize on data_root: two concurrent runs against the same ALGO_DATA_ROOT
+# race on the tmp-file-then-rename in algo_backtest.leandata.write_lean_minute
+# — the loser's tmp file has already been consumed by the winner's rename,
+# raising an unhandled FileNotFoundError and failing that whole month.
+#
+# Scope of this guarantee: flock() reliably coordinates processes on the
+# same host always. Cross-host (two different machines both mounting
+# ALGO_DATA_ROOT from the same NAS) depends entirely on the mount's
+# transport and options: verified against this workstation's actual mount
+# (//10.1.1.180/homes, CIFS vers=3.0, no `nobrl`) -- without `nobrl`,
+# cifs.ko forwards flock() as an SMB2/3 byte-range lock the server
+# arbitrates across clients, so cross-host locking DOES work here today.
+# It is fragile, not guaranteed: mount with `nobrl`, an older SMB dialect,
+# or NFSv3 without lockd, and flock silently degrades to client-local-only
+# locking with no error -- the exact race this fix targets would return
+# with no warning. The leandata.py PID-scoped tmp filename remains the real
+# safety net that holds regardless of mount options (see
+# write_lean_minute's docstring); this lock is a second, mount-dependent
+# layer on top of it, not a replacement.
+# Fail fast if the mount can't actually guarantee locking, rather than
+# silently trusting a lock that might not exclude anything (see the scope
+# note above) -- per this repo's own convention (CLAUDE.md: "Fail fast...
+# raise immediately with a clear message... how to fix it"). Only checked
+# for network filesystems; a local disk has no cross-host concern to begin
+# with.
+_check_lock_reliable() {
+  local path="$1" mnt fstype opts tool
+  for tool in df findmnt; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      echo "prepare-lean-data: cannot verify flock() reliability on $path — '$tool' is not installed, so whether the concurrent-write race this lock exists to prevent could reoccur silently is unknown. Install util-linux/coreutils's '$tool', or set ALGO_DATA_ROOT to a mount you have independently verified supports real locking." >&2
+      exit 1
+    fi
+  done
+  mnt=$(df --output=target "$path" 2>/dev/null | tail -1)
+  if [ -z "$mnt" ]; then
+    echo "prepare-lean-data: cannot verify flock() reliability on $path — 'df --output=target' produced no output for it. Confirm $path exists and sits on a mounted filesystem." >&2
+    exit 1
+  fi
+  fstype=$(findmnt -no FSTYPE "$mnt" 2>/dev/null)
+  if [ -z "$fstype" ]; then
+    echo "prepare-lean-data: cannot verify flock() reliability on $path (mount $mnt) — 'findmnt -no FSTYPE' produced no output. Confirm $mnt is a real mount point." >&2
+    exit 1
+  fi
+  opts=$(findmnt -no OPTIONS "$mnt" 2>/dev/null)
+  case "$fstype" in
+    cifs|smb3)
+      if printf '%s\n' "$opts" | grep -qw nobrl; then
+        echo "prepare-lean-data: ALGO_DATA_ROOT ($path) is mounted with locking disabled (nobrl) — flock() cannot coordinate across hosts on this mount, so the concurrent-write race this lock exists to prevent can reoccur silently. Remount without nobrl, or point ALGO_DATA_ROOT at a mount that supports real byte-range locking." >&2
+        exit 1
+      fi
+      ;;
+    nfs|nfs4)
+      if printf '%s\n' "$opts" | grep -qwE 'nolock|local_lock'; then
+        echo "prepare-lean-data: ALGO_DATA_ROOT ($path) is mounted with NFS locking disabled (nolock/local_lock) — flock() cannot coordinate across hosts on this mount, so the concurrent-write race this lock exists to prevent can reoccur silently. Remount with real NFS locking enabled, or point ALGO_DATA_ROOT at a mount that supports it." >&2
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+mkdir -p "$ALGO_DATA_ROOT"
+_check_lock_reliable "$ALGO_DATA_ROOT"
+LOCK_FILE="$ALGO_DATA_ROOT/.prepare-lean-data.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+  echo "prepare-lean-data: another instance holds the lock on $LOCK_FILE (data_root=$ALGO_DATA_ROOT) — waiting for it to finish..."
+  flock 9
+fi
 
 CHECKSUMMED=0
 CORRUPT=0
@@ -77,6 +151,29 @@ verify_or_checksum() {
   return 0
 }
 
+# _checksum_forex_range SYM FROM TO -- verify/checksum every month's data.parquet
+# in range. No-op unless CHECKSUM=1 (see header).
+_checksum_forex_range() {
+  [ "$CHECKSUM" = "1" ] || return 0
+  local sym="$1" cursor="$2-01" end="$3-01"
+  while [ "$(date -d "$cursor" +%Y%m)" -le "$(date -d "$end" +%Y%m)" ]; do
+    local y m; y=$(date -d "$cursor" +%Y); m=$(date -d "$cursor" +%m)
+    verify_or_checksum "$ALGO_DATA_ROOT/parquet/forex/$sym/m1/year=$y/month=$m/data.parquet" || true
+    cursor=$(date -d "$cursor +1 month" +%Y-%m-01)
+  done
+}
+
+# _checksum_lean_zips ZIP_DIR -- verify/checksum every day-zip in ZIP_DIR.
+# No-op unless CHECKSUM=1 (see header).
+_checksum_lean_zips() {
+  [ "$CHECKSUM" = "1" ] || return 0
+  local dir="$1"
+  [ -d "$dir" ] || return 0
+  while IFS= read -r -d '' zf; do
+    verify_or_checksum "$zf" || true
+  done < <(find "$dir" -name '*_quote.zip' -print0)
+}
+
 echo "prepare-lean-data: symbols=[$SYMBOLS] window=$FROM..$TO verify_only=$VERIFY_ONLY"
 echo "data_root=$ALGO_DATA_ROOT"
 echo "start: $(date -Is)"
@@ -91,16 +188,7 @@ STAGE2_FAILED=0
 echo
 echo "=== stage 1: dukascopy -> canonical parquet ($(date -Is)) ==="
 for sym in $SYMBOLS; do
-  # Pre-pass: verify every month's data.parquet already on disk against its
-  # sidecar; a mismatch deletes the file so the transform call below sees it
-  # as missing and regenerates it instead of trusting corrupt bytes.
-  cursor="$FROM-01"
-  end="$TO-01"
-  while [ "$(date -d "$cursor" +%Y%m)" -le "$(date -d "$end" +%Y%m)" ]; do
-    y=$(date -d "$cursor" +%Y); m=$(date -d "$cursor" +%m)
-    verify_or_checksum "$ALGO_DATA_ROOT/parquet/forex/$sym/m1/year=$y/month=$m/data.parquet" || true
-    cursor=$(date -d "$cursor +1 month" +%Y-%m-01)
-  done
+  _checksum_forex_range "$sym" "$FROM" "$TO"
 
   if [ "$VERIFY_ONLY" != "1" ]; then
     # Range-native: one call covers the whole window, one line per month,
@@ -119,14 +207,7 @@ for sym in $SYMBOLS; do
     STAGE1_SKIPPED=$((STAGE1_SKIPPED + s))
     STAGE1_FAILED=$((STAGE1_FAILED + f))
 
-    # Post-pass: checksum whatever the transform call just wrote (or
-    # regenerated after a corrupt-file removal above).
-    cursor="$FROM-01"
-    while [ "$(date -d "$cursor" +%Y%m)" -le "$(date -d "$end" +%Y%m)" ]; do
-      y=$(date -d "$cursor" +%Y); m=$(date -d "$cursor" +%m)
-      verify_or_checksum "$ALGO_DATA_ROOT/parquet/forex/$sym/m1/year=$y/month=$m/data.parquet" || true
-      cursor=$(date -d "$cursor +1 month" +%Y-%m-01)
-    done
+    _checksum_forex_range "$sym" "$FROM" "$TO"
   fi
 done
 echo "stage 1 total: written=$STAGE1_WRITTEN skipped=$STAGE1_SKIPPED missing/incomplete/corrupt=$STAGE1_FAILED"
@@ -137,13 +218,7 @@ for sym in $SYMBOLS; do
   sym_lc=$(printf '%s' "$sym" | tr '[:upper:]' '[:lower:]')
   zip_dir="$ALGO_DATA_ROOT/lean-data/forex/oanda/minute/$sym_lc"
 
-  # Pre-pass: verify every day-zip already on disk for this symbol; a
-  # mismatch deletes it so materialize below regenerates just that day.
-  if [ -d "$zip_dir" ]; then
-    while IFS= read -r -d '' zf; do
-      verify_or_checksum "$zf" || true
-    done < <(find "$zip_dir" -name '*_quote.zip' -print0)
-  fi
+  _checksum_lean_zips "$zip_dir"
 
   if [ "$VERIFY_ONLY" != "1" ]; then
     cursor="$FROM-01"
@@ -170,12 +245,7 @@ for sym in $SYMBOLS; do
       cursor=$(date -d "$cursor +1 month" +%Y-%m-01)
     done
 
-    # Post-pass: checksum whatever materialize just wrote (or regenerated).
-    if [ -d "$zip_dir" ]; then
-      while IFS= read -r -d '' zf; do
-        verify_or_checksum "$zf" || true
-      done < <(find "$zip_dir" -name '*_quote.zip' -print0)
-    fi
+    _checksum_lean_zips "$zip_dir"
   fi
 done
 echo "stage 2 total: written=$STAGE2_WRITTEN skipped=$STAGE2_SKIPPED failed=$STAGE2_FAILED"
