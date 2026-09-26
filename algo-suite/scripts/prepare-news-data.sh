@@ -6,19 +6,18 @@
 #
 #   Stage 1  bigquery_ctas_export_gdelt_events.py   BigQuery -> parquet/events/gdelt/.../year=Y/month=M/data.parquet
 #            (one-time full-window CREATE TABLE into our own BigQuery schema,
-#            reused unconditionally on every rerun; per-batch local Parquet +
-#            .done markers -- see the script's own module docstring)
-#   Stage 2  bigquery_ctas_export_gdelt_gkg.py       BigQuery -> gdelt_gkg/year=Y/month=M/data.parquet
-#            (exploratory, non-canonical -- real per-article quotes/themes,
-#            not consumed by algo-score; same one-time-table + .done-marker
-#            contract as stage 1)
-#   Stage 3  bigquery_join_gdelt_events_gkg.py       BigQuery -> gdelt_joined/year=Y/month=M/<date>.parquet
-#            (day-granularity join, events.SOURCEURL = gkg.DocumentIdentifier;
-#            exploratory evidence trail for the monograph, not consumed by
-#            algo-score; ledgered in gdelt_joined/.processed_dates, its own
-#            flock at gdelt_joined/.lock)
-#   Stage 4  algo-download / algo-transform --source gpr   raw -> parquet/gpr/.../year=Y/month=M/data.parquet
-#   Stage 5  algo-score events --kind {gdelt,gpr}     canonical -> parquet/events/{gdelt,gpr}/...
+#            reused unconditionally on every rerun; per-DATE local Parquet
+#            write + .done markers -- see the script's own module docstring)
+#   Stage 2  algo-download / algo-transform --source gpr   raw -> parquet/gpr/.../year=Y/month=M/data.parquet
+#   Stage 3  algo-score events --kind {gdelt,gpr}     canonical -> parquet/events/{gdelt,gpr}/...
+#
+# GKG (bigquery_ctas_export_gdelt_gkg.py) and the events⋈gkg day-join
+# (bigquery_join_gdelt_events_gkg.py) are ON HOLD FOR V2 (2026-09-26, operator
+# decision -- not enough time before the deadline to produce the GKG
+# artifacts and still run the backtest experiments on top of them). Both
+# scripts exist, code-reviewed, and are not invoked by this script. See
+# docs/stories/in-progress/08-news-event-data-materialization/spec.md's Out
+# of Scope table and docs/technical-debt.md.
 #
 # GDELT's original HTTP-per-15-minute-slot path (algo-download/algo-transform
 # --source gdelt, ~19.4h throttle floor) and the LM-lexicon sentiment pass on
@@ -46,22 +45,17 @@
 #      prepare-lean-data.sh's fix this session) -- two overlapping runs
 #      against the same data_root is the exact bug class that cost hours
 #      today; this script refuses to repeat it.
-#   2. GDELT stages 1-3: each BigQuery script is independently idempotent by
-#      design (built/hardened this session) --
+#   2. GDELT stage 1: the BigQuery events script is idempotent by design
+#      (built/hardened this session) --
 #        - the one-time full-table CTAS is skipped entirely once the table
-#          exists (`_ensure_full_table` / the join script's tables already
-#          being present), so a rerun never re-scans/re-bills the public
-#          source;
-#        - each batch/day is only counted done via a `.done` marker or the
-#          `.processed_dates` ledger, written only AFTER its Parquet write
-#          fully succeeds -- a kill mid-write is never silently trusted;
-#        - each batch's GCS export shards are self-cleaned before re-export,
-#          so a retried batch can't mix stale shards from a killed attempt
-#          with fresh ones into duplicated rows;
-#        - the join script holds its own flock independent of this
-#          wrapper's, so it's safe even if invoked directly, not just
-#          through this script.
-#   3. GPR (stage 4) and event features (stage 5): each underlying CLI
+#          exists (`_ensure_full_table`), so a rerun never re-scans/re-bills
+#          the public source;
+#        - each month is only counted done via a `.done` marker, written
+#          only AFTER its Parquet write fully succeeds -- a kill mid-write
+#          is never silently trusted; the file itself is rewritten after
+#          every day within the month, so partial progress is always on
+#          disk and inspectable, never only at month-end.
+#   3. GPR (stage 2) and event features (stage 3): each underlying CLI
 #      already skips a unit/month whose output file exists (atomic
 #      write-then-rename at the Python layer per each tool's own SPEC.md).
 #      No sha256-sidecar layer here (unlike prepare-lean-data.sh): exact raw
@@ -74,18 +68,16 @@
 #   Full run, backgrounded:       nohup scripts/prepare-news-data.sh > prepare-news-data.log 2>&1 &
 #   GDELT only:                   SOURCES=gdelt scripts/prepare-news-data.sh
 #   GPR only:                     SOURCES=gpr scripts/prepare-news-data.sh
-#   Tighter/looser GDELT batches: BATCH_MONTHS=6 scripts/prepare-news-data.sh
 #
 # Overrides: SOURCES ("gdelt gpr" by default), FROM, TO (YYYY-MM or "today"),
-# PROJECT (BigQuery project ID, default mba-ai-509708), BATCH_MONTHS (default
-# 12), ALGO_DATA_ROOT, GOOGLE_APPLICATION_CREDENTIALS.
+# PROJECT (BigQuery project ID, default mba-ai-509708), ALGO_DATA_ROOT,
+# GOOGLE_APPLICATION_CREDENTIALS.
 set -euo pipefail
 
 SOURCES=${SOURCES:-"gdelt gpr"}
 FROM=${FROM:-2015-02}
 TO=${TO:-today}
 PROJECT=${PROJECT:-mba-ai-509708}
-BATCH_MONTHS=${BATCH_MONTHS:-12}
 export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-"$HOME/.config/gcloud/mba-ai-gdelt-key.json"}
 
 _resolve_month() {
@@ -114,7 +106,7 @@ if ! flock -n 9; then
   flock 9
 fi
 
-echo "prepare-news-data: sources=[$SOURCES] window=$FROM..$TO project=$PROJECT batch_months=$BATCH_MONTHS"
+echo "prepare-news-data: sources=[$SOURCES] window=$FROM..$TO project=$PROJECT"
 echo "data_root=$ALGO_DATA_ROOT"
 echo "start: $(date -Is)"
 
@@ -142,32 +134,19 @@ _run_ranged() {
 }
 
 echo
-echo "=== stage 1-3: GDELT via BigQuery (Events, GKG, day-join) ($(date -Is)) ==="
+echo "=== stage 1: GDELT Events via BigQuery ($(date -Is)) ==="
+echo "(GKG ingestion + events/gkg join on hold for V2 -- see spec.md's Out of Scope table)"
 if printf '%s\n' "$SOURCES" | grep -qw gdelt; then
   echo "[gdelt] events: ensure full table + per-date local materialize ($FROM..$TO)"
   uv run --with google-cloud-bigquery \
     python scripts/bigquery_ctas_export_gdelt_events.py \
     --project "$PROJECT" --from "$FROM" --to "$TO"
-
-  echo "[gdelt] gkg: ensure full table + per-batch local materialize ($FROM..$TO)"
-  uv run --with google-cloud-bigquery --with google-cloud-storage --with pyarrow \
-    python scripts/bigquery_ctas_export_gdelt_gkg.py \
-    --project "$PROJECT" --from "$FROM" --to "$TO" --batch-months "$BATCH_MONTHS"
-
-  # The join script is day-granular; expand the month window to its first/last
-  # calendar day.
-  JOIN_FROM="${FROM}-01"
-  JOIN_TO=$(date -d "${TO}-01 +1 month -1 day" +%Y-%m-%d)
-  echo "[gdelt] join events+gkg, one query per day ($JOIN_FROM..$JOIN_TO)"
-  uv run --with google-cloud-bigquery \
-    python scripts/bigquery_join_gdelt_events_gkg.py \
-    --project "$PROJECT" --from "$JOIN_FROM" --to "$JOIN_TO"
 else
   echo "gdelt not in SOURCES, skipping"
 fi
 
 echo
-echo "=== stage 4: GPR raw -> canonical Parquet ($(date -Is)) ==="
+echo "=== stage 2: GPR raw -> canonical Parquet ($(date -Is)) ==="
 if printf '%s\n' "$SOURCES" | grep -qw gpr; then
   echo "[gpr] whole-window (no date range)"
   _run_ranged DL_WRITTEN DL_SKIPPED DL_FAILED \
@@ -177,11 +156,11 @@ if printf '%s\n' "$SOURCES" | grep -qw gpr; then
 else
   echo "gpr not in SOURCES, skipping"
 fi
-echo "stage 4 total: download written=$DL_WRITTEN skipped=$DL_SKIPPED missing/failed=$DL_FAILED"
-echo "stage 4 total: transform written=$TR_WRITTEN skipped=$TR_SKIPPED missing/failed=$TR_FAILED"
+echo "stage 2 total: download written=$DL_WRITTEN skipped=$DL_SKIPPED missing/failed=$DL_FAILED"
+echo "stage 2 total: transform written=$TR_WRITTEN skipped=$TR_SKIPPED missing/failed=$TR_FAILED"
 
 echo
-echo "=== stage 5: event features ($(date -Is)) ==="
+echo "=== stage 3: event features ($(date -Is)) ==="
 for src in $SOURCES; do
   case "$src" in
     gdelt)
@@ -203,7 +182,7 @@ for src in $SOURCES; do
       ;;
   esac
 done
-echo "stage 5 total: written=$EV_WRITTEN skipped=$EV_SKIPPED missing/failed=$EV_FAILED"
+echo "stage 3 total: written=$EV_WRITTEN skipped=$EV_SKIPPED missing/failed=$EV_FAILED"
 
 echo
 echo "done: $(date -Is)"

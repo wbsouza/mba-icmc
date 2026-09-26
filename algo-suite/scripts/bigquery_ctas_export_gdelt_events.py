@@ -54,6 +54,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 
@@ -67,6 +68,44 @@ _SOURCE_TABLE = "gdelt-bq.gdeltv2.events"
 _log = get_logger("bigquery_ctas_export")
 
 _SELECT_COLUMNS = "*"  # every Events column -- see _ensure_full_table's docstring
+_QUERY_RETRIES = 5
+_QUERY_BACKOFF_S = 5.0
+
+
+def _query_with_retries(
+    client: "bigquery.Client",  # noqa: F821
+    query: str,
+    retries: int = _QUERY_RETRIES,
+    backoff: float = _QUERY_BACKOFF_S,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list:
+    """Run a BigQuery query, retrying on transient API/connection errors (linear backoff).
+
+    An overnight ~1,800-day run hitting a single network blip or transient BigQuery
+    5xx with no retry would crash the whole script and never resume on its own --
+    exactly the silent-failure risk an unattended run can't afford. Mirrors the same
+    retry shape already used for HTTP downloads (`raw_http.get_with_retries`): a
+    non-transient error (e.g. a real query bug) still raises after the retry budget
+    is spent, so this never hides a real failure -- it only absorbs the transient kind.
+    """
+    from google.api_core.exceptions import GoogleAPICallError
+
+    for attempt in range(retries + 1):
+        try:
+            return list(client.query(query).result())
+        except (GoogleAPICallError, ConnectionError, TimeoutError) as exc:
+            if attempt == retries:
+                raise
+            wait = backoff * (attempt + 1)
+            _log.warning(
+                "query_retry",
+                attempt=attempt + 1,
+                of_attempts=retries + 1,
+                wait_s=wait,
+                error=repr(exc),
+            )
+            sleep(wait)
+    raise RuntimeError("unreachable: retry loop always returns or raises")
 
 
 def main() -> None:
@@ -142,8 +181,7 @@ def _query_month_by_date(
             SELECT * FROM `{full_table_ref}`
             WHERE event_date = DATE({year:04d}, {month:02d}, {day:02d})
         """
-        job = client.query(query)
-        rows = list(job.result())
+        rows = _query_with_retries(client, query)
         for row in rows:
             try:
                 events.append(_row_to_event(dict(row.items())))
