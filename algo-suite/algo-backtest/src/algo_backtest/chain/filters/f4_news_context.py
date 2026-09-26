@@ -35,7 +35,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
-from algo_backtest.months import months_between
+from algo_backtest.months import BAR_DURATION, months_between
 from algo_core.config import Impact, ParameterSpec, resolve
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
@@ -155,12 +155,11 @@ def load_news_context_index(
 # inclusive [start, end] days evaluates F4 at decision minutes start 00:01 ... (end + 1)
 # 00:00 UTC — one minute past the last requested day, possibly in the next month's
 # partition. This is the single coverage contract preflight, loading and remediation use.
-_BAR_DURATION = timedelta(minutes=1)
 
 
 def decision_window(start: date, end: date) -> tuple[datetime, datetime]:
     """First and last F4 decision minute of a run over the inclusive [start, end] days."""
-    first = datetime.combine(start, time(), UTC) + _BAR_DURATION
+    first = datetime.combine(start, time(), UTC) + BAR_DURATION
     last = datetime.combine(end + timedelta(days=1), time(), UTC)
     return first, last
 
@@ -175,10 +174,12 @@ def news_coverage_problems(data_root: Path, pair: str, start: date, end: date) -
     """Why the event features cannot serve a [start, end] run (empty when they can).
 
     Checks what F4 will actually look up, not just which files exist: every partition
-    the decision window touches must exist, and its first and last decision minutes
-    must carry an event_intensity (a partition built through `end` alone lacks the
-    final bar's `end + 1` 00:00 decision). Lets the `run` CLI reject the run on the host
-    before a LEAN container starts.
+    the decision window touches must exist, and *every* decision minute in the window —
+    first to last, interior included — must carry an event_intensity (a partition built
+    through `end` alone lacks the final bar's `end + 1` 00:00 decision; one built in
+    pieces can have interior gaps). The event grid covers every UTC minute, so this is
+    exact regardless of which minutes LEAN later delivers. Lets the `run` CLI reject the
+    run on the host before a LEAN container starts.
     """
     first, last = decision_window(start, end)
     missing = [
@@ -188,12 +189,22 @@ def news_coverage_problems(data_root: Path, pair: str, start: date, end: date) -
     ]
     if missing:
         return [f"missing GDELT event-feature partitions {missing}"]
-    index = load_news_context_window(data_root, pair, start, end)
+    covered = load_news_context_window(data_root, pair, start, end).event_intensity
+    uncovered = [minute for minute in _minutes(first, last) if minute not in covered]
+    if not uncovered:
+        return []
+    if len(uncovered) == 1:
+        return [f"no GDELT event_intensity at decision minute {uncovered[0].isoformat()}"]
     return [
-        f"no GDELT event_intensity at decision minute {minute.isoformat()}"
-        for minute in (first, last)
-        if minute not in index.event_intensity
+        f"no GDELT event_intensity at {len(uncovered)} decision minutes (first "
+        f"{uncovered[0].isoformat()}, last {uncovered[-1].isoformat()})"
     ]
+
+
+def _minutes(first: datetime, last: datetime) -> list[datetime]:
+    """Every minute from `first` through `last`, inclusive."""
+    count = int((last - first) / BAR_DURATION) + 1
+    return [first + BAR_DURATION * i for i in range(count)]
 
 
 def load_news_context_window(

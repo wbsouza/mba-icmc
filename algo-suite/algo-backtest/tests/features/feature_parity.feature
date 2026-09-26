@@ -21,3 +21,10 @@ Feature: Training features equal the live algorithm's features, numerically
       | with_gaps                                   |
       | with every minute present                   |
       | with minutes 06:00-06:04 and 12:30 missing  |
+
+  Scenario: F4's live news lookup equals the training row's news feature for every bar
+    Given a one-day EUR/USD minute sine cycle on 2014-05-07 with every minute present materialized to lean-data
+    And GDELT event features whose intensity differs every minute from 2014-05-07 through 2014-05-08T00:00
+    When the news-parity probe replays "20140507" in the LEAN container
+    Then the backtest exits successfully
+    And for every live decision bar F4 looked up exactly the training row's news_event_intensity

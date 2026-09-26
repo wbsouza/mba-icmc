@@ -1,8 +1,14 @@
-"""Calendar-month partition helpers for year=/month= Parquet layouts."""
+"""Calendar helpers shared by the backtest's time contracts: the minute-bar duration
+and the year=/month= Parquet partitions a window touches."""
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
+
+# One minute bar: its start + BAR_DURATION is its end, i.e. the decision time LEAN
+# evaluates it at (`self.time` in on_data) — shared by F4's decision window and F7
+# training's news keying so the two cannot drift apart.
+BAR_DURATION = timedelta(minutes=1)
 
 
 def months_between(start: date, end: date) -> list[tuple[int, int]]:

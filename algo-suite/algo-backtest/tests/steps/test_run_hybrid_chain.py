@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -260,3 +260,33 @@ def _june_intact(bctx: dict[str, Any]) -> None:
         datetime(2014, 6, 1, tzinfo=UTC),
         datetime(2014, 6, 30, 23, 59, tzinfo=UTC),
     )
+
+
+@then(
+    parsers.parse(
+        'the error names {count:d} uncovered decision minutes starting "{first}"'
+    )
+)
+def _interior_gap_error(bctx: dict[str, Any], count: int, first: str) -> None:
+    out = bctx["cli"].output
+    assert f"{count} decision minutes (first {first}" in out, out
+    assert "algo-score events --kind gdelt" in out, out
+
+
+@then(
+    parsers.parse(
+        "after the remediation command printed for a {start} to {end} run has been run, "
+        "the run has no news coverage problems"
+    )
+)
+def _remediation_closes_gap(bctx: dict[str, Any], start: str, end: str) -> None:
+    from algo_backtest.chain.filters.f4_news_context import (
+        news_build_command,
+        news_coverage_problems,
+    )
+    from algo_score.cli import app as score_app
+
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    result = CliRunner().invoke(score_app, news_build_command(first, last).split()[1:])
+    assert result.exit_code == 0, result.output
+    assert news_coverage_problems(bctx["data_root"], "EURUSD", first, last) == []

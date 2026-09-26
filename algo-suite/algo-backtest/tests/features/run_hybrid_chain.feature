@@ -44,6 +44,15 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
       Then the run command exits with code 2
       And the error names decision minute "2014-05-10T00:00:00+00:00" and the command building through "2014-05-10"
 
+    Scenario: an interior feature gap is rejected on the host and the printed remediation closes it
+      Given materialized EUR/USD minute data with a price swing in 2014-05
+      And raw GDELT events at goldstein 0.0 for every day from 2014-05-06 to 2014-05-10, built into features only from 2014-05-07 through 2014-05-07
+      And GDELT features are also built from 2014-05-09 through 2014-05-10
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param size=0.5"
+      Then the run command exits with code 2
+      And the error names 1440 uncovered decision minutes starting "2014-05-08T00:00:00+00:00"
+      And after the remediation command printed for a 2014-05-07 to 2014-05-09 run has been run, the run has no news coverage problems
+
     Scenario: the printed remediation command keeps an already-built following month intact
       Given raw GDELT events at goldstein 0.0 for every day from 2014-04-30 to 2014-07-01, built into features only from 2014-06-01 through 2014-06-30
       And the remediation command printed for a 2014-05-01 to 2014-05-31 run has been run

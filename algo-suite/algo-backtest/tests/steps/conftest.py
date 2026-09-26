@@ -345,3 +345,9 @@ def _remediation_run(bctx: dict[str, Any], start: str, end: str) -> None:
     command = news_build_command(date.fromisoformat(start), date.fromisoformat(end))
     bctx["remediation"] = command
     _algo_score(bctx, command)
+
+
+@given(parsers.parse("GDELT features are also built from {start} through {end}"))
+def _also_built(bctx: dict[str, Any], start: str, end: str) -> None:
+    """A second, separate feature build (partial builds merge into existing partitions)."""
+    _algo_score(bctx, f"algo-score events --kind gdelt --from {start} --to {end}")

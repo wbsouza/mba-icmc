@@ -119,6 +119,26 @@ def _partial_month(window_ctx: _WindowCtx, last: str) -> None:
     _write_grid(window_ctx.root, datetime(2020, 1, 1, tzinfo=UTC), after, 1.5)
 
 
+@given(
+    parsers.parse("GDELT event features for all of 2020-01 except {gap_first} through {gap_last}")
+)
+def _gapped_month(window_ctx: _WindowCtx, gap_first: str, gap_last: str) -> None:
+    def midnight(day: date) -> datetime:
+        return datetime.combine(day, datetime.min.time(), UTC)
+
+    gap_start = midnight(date.fromisoformat(gap_first))
+    gap_end = midnight(date.fromisoformat(gap_last) + timedelta(days=1))
+    rows = [
+        GdeltFeature(timestamp=minute, event_intensity=1.5)
+        for minute in (
+            datetime(2020, 1, 1, tzinfo=UTC) + timedelta(minutes=i) for i in range(31 * 1440)
+        )
+        if not gap_start <= minute < gap_end
+    ]
+    path = event_feature_path(window_ctx.root, "gdelt", 2020, 1)
+    ParquetRepository(GdeltFeature, path).put(rows)
+
+
 @when(parsers.parse("news coverage is checked for {start} to {end}"))
 def _check_coverage(window_ctx: _WindowCtx, start: str, end: str) -> None:
     window_ctx.start, window_ctx.end = date.fromisoformat(start), date.fromisoformat(end)
@@ -174,3 +194,14 @@ def _source_absent(window_ctx: _WindowCtx) -> None:
 @then("the window's sentiment source is present")
 def _source_present(window_ctx: _WindowCtx) -> None:
     assert window_ctx.index is not None and window_ctx.index.sentiment_source_present is True
+
+
+@then(
+    parsers.parse(
+        'the coverage problems name {count:d} decision minutes from "{first}" to "{last}"'
+    )
+)
+def _names_range(window_ctx: _WindowCtx, count: int, first: str, last: str) -> None:
+    assert window_ctx.problems == [
+        f"no GDELT event_intensity at {count} decision minutes (first {first}, last {last})"
+    ]

@@ -158,16 +158,24 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
         return {**market, **account_features(account, price)}
 
-    def on_data(self, data: Slice) -> None:  # noqa: F405
-        """Each bar: run the chain, act on its Decision, record one audit row."""
-        if not self._indicators_ready() or self._symbol not in data.quote_bars:
-            return
-        state = ExecutionState(
+    def _state(self) -> ExecutionState:
+        """This bar's chain input: decision time (the bar's end), pair, features.
+
+        The single place the live timestamp F4 keys its news lookup on is built — the
+        F7 training scripts key theirs on the same bar end (`training.py`), and
+        `feature_parity.feature` checks the two agree per bar in real LEAN.
+        """
+        return ExecutionState(
             timestamp=self.time.replace(tzinfo=UTC),
             pair=str(self._symbol),
             features=self._features(),
         )
-        outcome = self._chain.run(state)
+
+    def on_data(self, data: Slice) -> None:  # noqa: F405
+        """Each bar: run the chain, act on its Decision, record one audit row."""
+        if not self._indicators_ready() or self._symbol not in data.quote_bars:
+            return
+        outcome = self._chain.run(self._state())
         action = decision_to_order_action(outcome.decision)
         self.debug(f"{self.log_tag}_DECISION|decision={outcome.decision}|action={action}")
 

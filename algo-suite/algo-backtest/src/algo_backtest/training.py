@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from importlib import metadata
 from pathlib import Path
 
@@ -40,14 +40,13 @@ from algo_backtest.chain.wiring import (
     price_features,
 )
 from algo_backtest.market_hours import lean_delivers
-from algo_backtest.months import months_between
+from algo_backtest.months import BAR_DURATION, months_between
 
 HORIZON_MINUTES = 15
 # Bars before every LEAN indicator the features read is ready (EMA 60 needs 60 samples,
 # MACD 26/9 needs 34, Wilder RSI 14 needs 15): the live algorithm skips them, so
 # training does too — they would be rows the model is never asked to score.
 WARMUP_BARS = max(EMA_HTF_PERIOD, MACD_SLOW_PERIOD + MACD_SIGNAL_PERIOD - 1, RSI_PERIOD + 1) - 1
-BAR_DURATION = timedelta(minutes=1)
 _RSI_NEUTRAL = 50.0
 _MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow")
 

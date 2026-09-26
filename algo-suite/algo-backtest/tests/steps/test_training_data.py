@@ -16,7 +16,6 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     walk_forward_split,
 )
 from algo_backtest.chain.filters.f7_model_io import load_model, load_provenance
-from algo_backtest.chain.wiring import price_features
 from algo_backtest.training import (
     build_training_rows,
     lean_bar_stream,
@@ -33,9 +32,16 @@ from pytest_bdd import given, parsers, scenarios, then, when
 scenarios("../features/training_data.feature")
 
 _EURUSD = build_instrument("EURUSD")
-_LIVE_PRICE_KEYS = set(
-    price_features(price=1.0, ema_fast=1.0, ema_slow=1.0, ema_htf=1.0, rsi=50.0, macd_hist=0.0)
-)
+# The F1/F2/F3 features contract, written out literally (not derived from
+# `price_features`, the function under test) so a renamed/dropped/extra key fails.
+_LIVE_PRICE_KEYS = {
+    "trend_direction",
+    "trend_strength",
+    "higher_tf_trend_direction",
+    "rsi",
+    "macd_hist",
+    "candlestick_pattern",
+}
 
 
 @dataclass

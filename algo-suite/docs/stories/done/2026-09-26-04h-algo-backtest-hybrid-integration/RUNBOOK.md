@@ -188,8 +188,10 @@ news features are looked up at each bar's decision time (bar start +
 1 minute, LEAN's `self.time`). Training replays the exact bar stream LEAN delivers
 (its OANDA market hours — e.g. no bars in the daily 16:58-17:03 New York break — and
 fill-forward of missing open minutes) with LEAN's indicator seeding, and
-`feature_parity.feature` proves the price features equal the live algorithm's within
-1e-9 inside the real container.
+`feature_parity.feature` proves, inside the real container, that the price features
+equal the live algorithm's within 1e-9 and that the `news_event_intensity` production
+F4 looks up for each live bar equals the training row's value exactly (per-minute
+varying news; a one-minute keying shift fails it).
 
 ### 3. Run the backtest (out-of-sample months only)
 

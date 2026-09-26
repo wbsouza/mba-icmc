@@ -10,9 +10,17 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from algo_backtest.leandata import write_lean_minute
-from algo_backtest.training import HORIZON_MINUTES, build_training_rows, lean_bar_stream
+from algo_backtest.training import (
+    HORIZON_MINUTES,
+    build_training_rows,
+    lean_bar_stream,
+    load_event_intensity,
+)
 from algo_core.bars import QuoteBar
 from algo_core.instrument import build_instrument
+from algo_core.repository.parquet import ParquetRepository
+from algo_score.events.models import GdeltFeature
+from algo_score.events.paths import feature_path as event_feature_path
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/feature_parity.feature")
@@ -116,3 +124,59 @@ def _parity(ctx: dict[str, Any], tol: float) -> None:
             gap = abs(float(features[key]) - float(value))  # type: ignore[arg-type]
             worst[key] = max(worst.get(key, 0.0), gap)
     assert all(gap <= tol for gap in worst.values()), worst
+
+
+def _minute_intensity(i: int) -> float:
+    """A value unique to minute `i`, so a one-minute keying shift changes every lookup."""
+    return round(math.sin(i / 7.3) * 5.0 + i * 1e-4, 9)
+
+
+@given(
+    "GDELT event features whose intensity differs every minute from 2014-05-07 through "
+    "2014-05-08T00:00"
+)
+def _varying_news(ctx: dict[str, Any], tmp_path: Path) -> None:
+    root = tmp_path / "news-root"
+    rows = [
+        GdeltFeature(timestamp=_DAY + timedelta(minutes=i), event_intensity=_minute_intensity(i))
+        for i in range(24 * 60 + 1)
+    ]
+    ParquetRepository(GdeltFeature, event_feature_path(root, "gdelt", 2014, 5)).put(rows)
+    ctx["news_root"] = root
+
+
+@when(parsers.parse('the news-parity probe replays "{day}" in the LEAN container'))
+def _run_news_probe(ctx: dict[str, Any], lean_backtest: Any, tmp_path: Path, day: str) -> None:
+    from algo_backtest.container_paths import NEWS_DATA_ROOT
+    from algo_backtest.run import _news_mounts
+
+    results = tmp_path / "results"
+    results.mkdir(exist_ok=True)
+    ctx["run"] = lean_backtest(
+        algo_dir=_ALGOS / "news_parity",
+        results_dir=results,
+        data_mounts={_LEAN_SUBPATH: ctx["symbol_dir"], **_news_mounts(ctx["news_root"])},
+        parameters={"day": day, "news_data_root": str(NEWS_DATA_ROOT)},
+    )
+
+
+@then("for every live decision bar F4 looked up exactly the training row's news_event_intensity")
+def _news_parity(ctx: dict[str, Any]) -> None:
+    """Same bars, and bar for bar the same value — a one-minute keying drift fails here."""
+    live: dict[datetime, float] = {}
+    for line in ctx["run"].logs.splitlines():
+        if "NEWS|" in line:
+            when, value = line.split("NEWS|", 1)[1].split("|", 1)
+            decided = datetime.fromisoformat(when.strip()).replace(tzinfo=UTC)
+            live[decided - timedelta(minutes=1)] = float(value)
+    assert live, ctx["run"].logs[-3000:]
+    intensity = load_event_intensity(ctx["news_root"], _DAY.date(), _DAY.date())
+    rows = {r.timestamp: r.features for r in build_training_rows(ctx["bars"], intensity)}
+    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
+    assert set(live) - unlabeled == set(rows)
+    mismatched = [
+        (bar, live[bar], features["news_event_intensity"])
+        for bar, features in rows.items()
+        if live[bar] != features["news_event_intensity"]
+    ]
+    assert not mismatched, mismatched[:5]

@@ -32,6 +32,11 @@ Feature: F4 news-context coverage over a backtest's decision window
       When news coverage is checked for 2020-01-10 to 2020-01-15
       Then the coverage problems name decision minute "2020-01-16T00:00:00+00:00"
 
+    Scenario: An interior gap in a partition is reported on the host, not discovered in LEAN
+      Given GDELT event features for all of 2020-01 except 2020-01-06 through 2020-01-10
+      When news coverage is checked for 2020-01-01 to 2020-01-10
+      Then the coverage problems name 7200 decision minutes from "2020-01-06T00:00:00+00:00" to "2020-01-10T23:59:00+00:00"
+
     Scenario: Features covering the whole decision window have no problems
       Given GDELT event features for 2020-01 at intensity 1.5 only
       When news coverage is checked for 2020-01-10 to 2020-01-15
