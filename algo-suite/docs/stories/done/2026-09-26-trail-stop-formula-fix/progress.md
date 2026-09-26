@@ -14,8 +14,12 @@
 - [x] Root cause found: stale/corrupted shared `.venv` across parallel worktrees. Fixed by
       `rm -rf algo-suite/.venv && uv sync`. Confirmed 7/7 passing locally after the fix, and
       independently by two reviewers (Codex + a separate Claude session) in disposable worktrees.
-- [x] Note added to `algo-suite/docs/technical-debt.md` about the shared-venv failure mode.
-- [ ] `make check` green workspace-wide — blocked only by a pre-existing, unrelated Ruff failure in
-      `scripts/bigquery_*` (confirmed present on `main`, not touched by this PR). Focused gate for
-      the changed files is green.
+- [x] Note added to `algo-suite/docs/technical-debt.md` about the shared-venv failure mode (TD-54).
+- [x] `make check` green for `algo-backtest`'s own gate (ruff+mypy+pytest). Workspace-wide
+      `make check`'s pre-existing, unrelated `scripts/bigquery_*` Ruff failure (52 errors,
+      confirmed present on `main`) is registered as **TD-55** with a trigger, not left unchecked.
 - [x] `lessons-learned.md` written, story moved to `docs/stories/done/`.
+- [x] Follow-up (commit `94bee52`): `trail_stop_at_level` was also missing its `(factor+1)*spread`
+      term (found via the same real-source citation used above) — fixed, feature file extended
+      with BUY+SELL zero-spread/zero-factor scenarios (13/13 total now), mutation testing 18/18
+      killed on the whole file. See spec.md §4.

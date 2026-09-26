@@ -76,7 +76,7 @@ kind of trading-impactful silent-wrong-default this repo's fail-fast policy exis
 it just hadn't been caught yet because nothing calls `trail_stop_to_level` from production code
 yet (only the test file does; F6/order_executor don't wire trailing stops in yet, Spec 04j).
 
-**Fix applied (this worktree, uncommitted):**
+**Fix applied (committed `ec65548`; extended by `94bee52` — see §4):**
 - `rules/trail_stop.py::trail_stop_to_level` — removed `abs()`, unified with `target_level`'s
   `entry + sign*diff` shape, spread term now matches the confirmed source.
 - Module + function docstrings rewritten to state the confirmed formula and cite both
@@ -115,16 +115,40 @@ pattern is the identified cause, not a pytest-bdd defect and not this formula fi
 **Action for anyone hitting this again on a worktree sharing a long-lived `.venv`:** `rm -rf
 algo-suite/.venv && uv sync` before chasing a pytest-bdd-specific hypothesis.
 
+## 4. Follow-up (2026-09-26, commit `94bee52`): `trail_stop_at_level`'s own spread-term gap
+
+While validating this fix's citations against the real source directly (rather than trusting the
+prose summary), the same method (`MoneyManagementCalculator.setTrailStopLevels`, `atLevelDiff`)
+showed `trail_stop_at_level` — untouched by the original fix, pre-existing before this PR — is
+**also missing its `(factor + 1) * spread` term entirely**, unlike `target_level` and (now)
+`trail_stop_to_level`. Since only `tests/steps/test_trail_stop.py` calls this function (no
+production caller yet — same as `trail_stop_to_level` before Spec 04j wires it in), this was safe
+to fix directly rather than deferring as separate debt:
+
+- `rules/trail_stop.py::trail_stop_at_level` — added a `spread` parameter; formula is now
+  `entry + sign*(distance*factor + (factor+1)*spread)`, matching `target_level`'s shape and the
+  confirmed Java source exactly.
+- `tests/features/trail_stop.feature` — the two existing composite scenarios' arm-level values
+  changed (spread was silently dropped before: BUY `1.1025→1.1028`, SELL `1.0975→1.0972`); added
+  BUY+SELL zero-spread/zero-factor edge scenarios mirroring `trail_stop_to_level`'s own coverage.
+- `tests/steps/test_trail_stop.py` — passes `ts_ctx.spread` through to the new parameter.
+
+Verified: **13/13 BDD scenarios pass** (up from 9 after the SELL-mirror additions in §2/§3's
+close-out), `ruff`/`mypy` clean, **mutation testing 18/18 mutants killed (100%)** on the whole
+`trail_stop.py` file (not just the originally-touched function).
+
 ## Definition of done
 
 - [x] Root cause found and documented: stale/corrupted shared `.venv` across parallel worktrees,
   not a pytest-bdd defect — fixed by `rm -rf .venv && uv sync`.
-- [x] `tests/steps/test_trail_stop.py`'s full 7 scenarios pass, "Obtained" values hand-verified
-  against the confirmed formula.
+- [x] `tests/steps/test_trail_stop.py`'s full suite passes (13/13 as of `94bee52`; was 7/7 at the
+  original fix, 9/9 after the SELL-mirror close-out), "Obtained" values hand-verified against the
+  confirmed formula.
 - [x] One-line note added to `algo-suite/docs/technical-debt.md` about the shared-venv failure
-  mode, since it could silently affect any other suite's trustworthiness on this machine.
-- [ ] `make check` green (workspace-wide `make check` has a pre-existing, unrelated Ruff failure
-  in `scripts/bigquery_*` per reviewer confirmation — not caused by or blocking this PR; the
-  focused gate for the changed files is green).
+  mode (TD-54), since it could silently affect any other suite's trustworthiness on this machine.
+- [x] `make check` green for the focused/owned scope (`algo-backtest`'s own gate: ruff+mypy+pytest
+  all pass). Workspace-wide `make check`'s pre-existing, unrelated `scripts/bigquery_*` Ruff
+  failure (52 errors, confirmed present on `main`, outside any workspace member's `src/`) is now
+  registered as **TD-55** with an explicit trigger, rather than left as a bare unchecked box.
 - [x] Move this lane to `docs/stories/done/<YYYY-MM-DD>-trail-stop-formula-fix/` with a
   `lessons-learned.md`.
