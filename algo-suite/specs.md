@@ -1046,6 +1046,18 @@ risk-management rules any production trading system needs. Chapter 03
 §3.10 (Threats to Validity / Reproducibility) documents them as a
 methodology contribution rather than an inherited behaviour.
 
+**Amendment, 2026-09-26:** `spockfx-engine`'s `DefaultRiskProvider` (a
+later, Spring-based rewrite by the same author, also production-deployed)
+*did* implement a portfolio-level risk cap, risk-offset-aware (it sums the
+risk% of open trades, excluding any trade whose `riskOffset` flag is set
+by `TrailStopOrderProcessor` once a stop trails past breakeven, and
+refuses a new trade past a configured `riskLevel1`/`riskLimit1`). This gap
+was specific to fx-manager, not universal to the author's prior systems.
+`RiskGuard`'s `portfolio_at_risk_cap` remains a from-scratch Python
+implementation, not a port of `DefaultRiskProvider`'s Java (that source
+was read only after `RiskGuard` already existed) --- no code change
+follows from this correction, only the historical claim above.
+
 ### 14.9 Configuration: policy and the config-generator CLI
 
 **Principle.** No magic numbers in the Python code. Every threshold,

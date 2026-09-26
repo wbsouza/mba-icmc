@@ -69,6 +69,10 @@ this work) was closed without merging — superseded by everything below.
   duplicating rows. Fixed: self-clean the batch's GCS prefix before every
   export attempt.
 
+**TD-56 (2026-09-26):** operator decision — don't wait for the full 10-year backfill;
+`2015-02`→`2015-07` (~6 months) is judged sufficient to start real Chapter-4 experiments now,
+backfill continues in background. See `docs/technical-debt.md` TD-56.
+
 ## Next concrete steps (in order)
 
 1. Run `bigquery_ctas_export_gdelt_events.py` for the full window (or a

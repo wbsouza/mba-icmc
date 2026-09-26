@@ -66,6 +66,11 @@ directly inside the container as designed.
   `algo-score events --kind gpr`) has never been run at all — needed for the coverage
   rule's "≥2 corpora active" requirement, independent of the GDELT lane.
 
+**TD-56 (2026-09-26):** operator decision — don't wait for the full 10-year backfill to run
+Chapter-4 experiments; `2015-02`→`2015-07` (~6 months) is sufficient to start now. See
+`docs/technical-debt.md` TD-56. The plan below (steps 1-3) can target that 6-month window
+immediately instead of waiting on more months to land.
+
 ## Concrete next-session TODO (in dependency order)
 
 **Operator decision (2026-09-26): scope the first test small — one week of `2015-02`, not
