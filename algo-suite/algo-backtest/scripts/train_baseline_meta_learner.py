@@ -121,7 +121,7 @@ def build_training_rows(bars: list[QuoteBar]) -> list[TrainingRow]:
             trend_direction = -1.0
         else:
             trend_direction = 0.0
-        trend_strength = abs(ema_fast[i] - ema_slow[i]) / prices[i] * 10_000.0
+        trend_strength = min(abs(ema_fast[i] - ema_slow[i]) / prices[i] * 10_000.0, 100.0)
         higher_tf_trend_direction = (
             1.0 if prices[i] > ema_htf[i] else (-1.0 if prices[i] < ema_htf[i] else 0.0)
         )
@@ -131,6 +131,12 @@ def build_training_rows(bars: list[QuoteBar]) -> list[TrainingRow]:
             "higher_tf_trend_direction": higher_tf_trend_direction,
             "rsi": rsi[i],
             "macd_hist": macd_hist[i],
+            # No real candlestick detector -- always missing, same as main.py's live
+            # feature build. Included (not omitted) so the PATTERN family below sees the
+            # same all-NaN shape at train time it will at inference time (family_vector
+            # treats a missing key as NaN either way, but this keeps the two paths
+            # visibly, deliberately identical rather than one path omitting the key).
+            "candlestick_pattern": None,
         }
         label = 1 if prices[i + _HORIZON_MINUTES] > prices[i] else 0
         rows.append(TrainingRow(timestamp=ordered[i].timestamp, features=features, label=label))
@@ -159,7 +165,15 @@ def main() -> None:
         validation_end=date.fromisoformat(args.validation_end),
         test_end=date.fromisoformat(args.test_end),
     )
-    model = train_meta_learner(families=(FeatureFamily.TREND, FeatureFamily.INDICATOR), split=split)
+    # All three families config.yaml's meta_learner.families declares (trend, indicator,
+    # pattern) -- omitting PATTERN here silently drifted from that declared config
+    # (2026-09-26 PR #33 review). PATTERN's vector is all-NaN (no real detector), which
+    # LightGBM splits around same as any other missing feature; it does not need to be
+    # informative to keep training and the declared config in agreement.
+    model = train_meta_learner(
+        families=(FeatureFamily.TREND, FeatureFamily.INDICATOR, FeatureFamily.PATTERN),
+        split=split,
+    )
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

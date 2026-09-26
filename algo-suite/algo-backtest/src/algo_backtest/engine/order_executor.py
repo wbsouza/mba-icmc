@@ -101,7 +101,12 @@ class OrderExecutor:
         if decision in (Decision.HOLD, Decision.NO_TRADE):
             return FillRecord(decision=decision, status=FillStatus.NONE)
 
-        direction = 1 if decision is Decision.BUY else -1
+        # == not is: StrEnum members compare equal by string value even across two
+        # distinct Decision classes (this module's own vs. e.g. chain.model.Decision) --
+        # `is` silently fails cross-class and would misfire every direction as -1.
+        # Confirmed live (2026-09-26 PR #33 review): a caller passing chain.model.Decision
+        # straight into this method had every BUY execute as a SELL until this was fixed.
+        direction = 1 if decision == Decision.BUY else -1
         quantity = self._algorithm.calculate_order_quantity(symbol, direction * sizing.size)
         ticket = self._algorithm.market_order(symbol, quantity)
         event = self._pending.pop(ticket.order_id, None)
@@ -159,7 +164,7 @@ class OrderExecutor:
                 rejection_reason=str(event.message or event.status),
             )
         direction = (
-            "LONG" if decision is Decision.BUY else "SHORT" if decision is Decision.SELL else None
+            "LONG" if decision == Decision.BUY else "SHORT" if decision == Decision.SELL else None
         )
         return FillRecord(
             decision=decision,

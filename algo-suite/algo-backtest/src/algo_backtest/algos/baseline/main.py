@@ -22,6 +22,7 @@ from algo_backtest.rules.risk_guard import RiskGuardCaps  # noqa: E402
 from algo_backtest.strategies import load_strategy_chain_config  # noqa: E402
 from AlgorithmImports import *  # noqa: F403  (LEAN injects its API into this namespace)
 from engine.algorithm import ExecutionAlgorithm  # noqa: E402
+from engine.order_executor import Decision as OrderDecision  # noqa: E402
 from engine.order_executor import SizingContext  # noqa: E402
 
 # SMOKE-TEST placeholders (2026-09-26, docs/stories/planned/04h-.../progress.md and
@@ -153,7 +154,12 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         slow = self._ema_slow.current.value
         htf = self._ema_htf.current.value
         trend_direction = 1.0 if fast > slow else (-1.0 if fast < slow else 0.0)
-        trend_strength = abs(fast - slow) / price * 10_000.0 if price else 0.0
+        # F1TrendFilter hard-requires trend_strength in [0, 100] (an ADX-style reading)
+        # and raises ValueError outside that range -- an unclamped basis-point EMA gap
+        # can exceed 100 on a volatile bar and abort the whole backtest (2026-09-26 PR
+        # #33 review). Clamped here since this is a proxy metric, not real ADX, which is
+        # bounded [0, 100] by construction.
+        trend_strength = min(abs(fast - slow) / price * 10_000.0, 100.0) if price else 0.0
         higher_tf_trend_direction = 1.0 if price > htf else (-1.0 if price < htf else 0.0)
         macd_hist = self._macd.current.value - self._macd.signal.current.value
 
@@ -165,8 +171,13 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
             if invested and portfolio_value
             else 0.0
         )
+        # abs(): LEAN's total_holdings_value is signed (negative for a net-short
+        # portfolio), but RiskGuardFilter's cap check is `leverage > max_leverage` --
+        # an unsigned magnitude comparison. Leaving it signed made the leverage cap
+        # never trip for short positions (2026-09-26 PR #33 review: asymmetric risk-guard
+        # hole).
         leverage = (
-            self.portfolio.total_holdings_value / portfolio_value
+            abs(self.portfolio.total_holdings_value) / portfolio_value
             if portfolio_value
             else 0.0
         )
@@ -214,8 +225,14 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         self.debug(f"BASELINE_DECISION|decision={outcome.decision}|action={action}")  # noqa: F405
 
         if action == "execute":
+            # Explicit cross-boundary conversion (chain.model.Decision -> engine.order_
+            # executor.Decision), per chain/terminal.py's own docstring: they're separate
+            # StrEnum classes with the same values, and OrderExecutor.execute() -- fixed
+            # 2026-09-26, PR #33 review -- must receive its own class, not rely on == vs
+            # is alone to save every future caller from this exact bug.
             sizing = SizingContext(size=self._size)
-            self.order_executor.execute(self._symbol, outcome.decision, sizing)
+            order_decision = OrderDecision(outcome.decision.value)
+            self.order_executor.execute(self._symbol, order_decision, sizing)
         elif action == "stand_aside" and self.portfolio.invested:
             self.order_executor.close(self._symbol)
         # action == "manage" (HOLD): leave any open position alone.

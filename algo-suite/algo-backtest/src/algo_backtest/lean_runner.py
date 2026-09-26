@@ -194,7 +194,6 @@ def run_lean(
         Path(__file__).parent, work / "algo_backtest", dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("algos", "scripts", "__pycache__", "*.pyc"),
     )
-    (work / "algo_backtest" / "__init__.py").touch(exist_ok=True)
     # Resolve algo_core via its own installed __file__, not a monorepo-relative guess
     # (parents[N]/"algo-core"/"src" only holds for this exact checkout layout -- an
     # editable install, a built wheel, or a different workspace arrangement would

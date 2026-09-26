@@ -17,6 +17,25 @@ Feature: OrderExecutor translates a Decision into a LEAN order and a normalized 
     Then a market order for size -2.0 is placed
     And the fill record status is FILLED with direction SHORT
 
+  Rule: A caller's own Decision-shaped enum resolves by value, not by class identity
+    A real caller (algos/baseline/main.py) crosses this exact class boundary: the
+    filter chain's own chain.model.Decision is a separate StrEnum from this module's
+    Decision, same four string values. Comparing by `is` instead of `==` silently
+    treats every cross-class BUY as not-BUY (2026-09-26 PR #33 review: this fired
+    every real BUY as a SELL, undetected until then).
+
+    Scenario: A BUY from a different, value-identical Decision class still executes long
+      Given a fake algorithm that fills every order
+      When OrderExecutor executes a BUY decision from chain.model's own Decision class
+      Then a market order for size 1.0 is placed
+      And the fill record status is FILLED with direction LONG
+
+    Scenario: A SELL from a different, value-identical Decision class still executes short
+      Given a fake algorithm that fills every order
+      When OrderExecutor executes a SELL decision from chain.model's own Decision class
+      Then a market order for size -1.0 is placed
+      And the fill record status is FILLED with direction SHORT
+
   Scenario Outline: HOLD and NO_TRADE place no order
     Given a fake algorithm that fills every order
     When OrderExecutor executes a <decision> decision with size 1.0
