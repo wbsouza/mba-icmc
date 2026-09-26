@@ -22,6 +22,20 @@ a single pass with no surprises.
 
 ## What would be done differently
 
-Nothing — the spec's own two findings were independently verifiable (one against the
-existing `_OVER_CLOSE_TOLERANCE` guard's intent, one against `risk_guard.py`'s existing
-`portfolio_at_risk_cap`), so there was no ambiguity to resolve at implementation time.
+The spec's own two findings were independently verifiable (one against the existing
+`_OVER_CLOSE_TOLERANCE` guard's intent, one against `risk_guard.py`'s existing
+`portfolio_at_risk_cap`) — but the *implementation* of Finding 1 introduced a real
+regression the spec didn't anticipate: gating the remainder-override on "is this the last
+rung" (a positional check) instead of "does this ladder actually reach 1.0" (a semantic
+check) silently forced a full close on any ladder whose portions were declared to sum to
+*less* than 1.0 — a case the function's own pre-existing validation explicitly allows (only
+`>1.0` is rejected) and a legitimate real-world pattern (scaling out of most of a position
+while leaving a runner open). Caught in PR #37 review — three independent reviewers flagged
+the identical gap. Fixed by adding a `fully_closes = cumulative_portion >= 1.0 - tolerance`
+gate alongside the last-rung check, and adding the missing partial-ladder scenario
+(`0.3, 0.3, 0.2` → rungs close their own declared portions, `lot_remaining` reflects the
+still-open 0.2, not forced to zero). Next time: when a spec's fix only reasons about the
+full-close case, explicitly test the boundary the surrounding validation *already* allows
+(here, sums `< 1.0`) before calling the lane done — don't assume "spec's proposed fix,
+implemented verbatim" is sufficient self-review for a function whose contract is broader
+than the one case the spec walked through.

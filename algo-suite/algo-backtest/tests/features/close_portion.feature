@@ -36,6 +36,14 @@ Feature: Partial-close ladder
       Then rung 3 closes with exactly 0.0 remaining
       And the ladder's rungs sum to exactly the original lot size
 
+    Scenario: A ladder whose portions sum below 1.0 is a valid partial close
+      Given an original lot size of 1.0
+      And a close-portion ladder of 0.3, 0.3, 0.2
+      When I build the close ladder
+      Then rung 1 closes 0.3 lots with 0.7 remaining
+      And rung 2 closes 0.3 lots with 0.4 remaining
+      And rung 3 closes 0.2 lots with 0.2 remaining
+
   Rule: A ladder that would close more than the original position fails fast
 
     Scenario: rung portions summing past 1.0 are rejected
