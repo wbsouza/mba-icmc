@@ -28,3 +28,4 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       Then the strategy run exits successfully
       And a metrics summary is reported
       And the run artifacts are written under the data root
+      And the container log shows the F1-F7 chain actually evaluated a decision

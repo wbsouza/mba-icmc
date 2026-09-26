@@ -117,12 +117,20 @@ def _artifacts_written(bctx: dict[str, Any]) -> None:
     assert list(runs.glob("*/metrics.json")), f"no metrics.json under {runs}"
 
 
-@when("I run baseline over 2014-05-07 to 2014-05-09 with size 0.5")
-def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
-    bctx["cli"] = CliRunner().invoke(
-        app,
-        [
-            "run", "--strategy", "baseline", "--symbol", "EURUSD",
-            "--from", "2014-05-07", "--to", "2014-05-09", "--param", "size=0.5",
-        ],
+@then("the container log shows the F1-F7 chain actually evaluated a decision")
+def _chain_evaluated(bctx: dict[str, Any]) -> None:
+    """Prove FilterChain.run() executed inside LEAN, not just that the CLI exited 0.
+
+    CLI success + written artifacts can't distinguish "the chain ran" from "the chain
+    was silently skipped" -- main.py logs one BASELINE_DECISION|... line (LEAN's own
+    debug-message throttling collapses repeats, so at least one, not necessarily many)
+    every time `on_data` reaches `self._chain.run(state)`. LEAN persists its container
+    stdout as `log.txt` in the run's own results directory, so this reads that real
+    file rather than needing a second, CLI-bypassing `run_lean()` call.
+    """
+    runs = bctx["data_root"] / "runs" / "baseline"
+    logs = list(runs.glob("*/log.txt"))
+    assert logs, f"no log.txt under {runs}"
+    assert any("BASELINE_DECISION|" in log.read_text() for log in logs), (
+        f"no BASELINE_DECISION line in {[str(p) for p in logs]} -- the chain never ran"
     )

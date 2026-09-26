@@ -195,7 +195,14 @@ def run_lean(
         ignore=shutil.ignore_patterns("algos", "scripts", "__pycache__", "*.pyc"),
     )
     (work / "algo_backtest" / "__init__.py").touch(exist_ok=True)
-    algo_core_src = Path(__file__).resolve().parents[3] / "algo-core" / "src" / "algo_core"
+    # Resolve algo_core via its own installed __file__, not a monorepo-relative guess
+    # (parents[N]/"algo-core"/"src" only holds for this exact checkout layout -- an
+    # editable install, a built wheel, or a different workspace arrangement would
+    # silently point at nothing). algo_core is already an import-time dependency of
+    # algo_backtest, so it's guaranteed importable here regardless of how it's installed.
+    import algo_core  # noqa: PLC0415
+
+    algo_core_src = Path(algo_core.__file__).resolve().parent
     shutil.copytree(
         algo_core_src, work / "algo_core", dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
