@@ -144,10 +144,10 @@ _run_ranged() {
 echo
 echo "=== stage 1-3: GDELT via BigQuery (Events, GKG, day-join) ($(date -Is)) ==="
 if printf '%s\n' "$SOURCES" | grep -qw gdelt; then
-  echo "[gdelt] events: ensure full table + per-batch local materialize ($FROM..$TO)"
-  uv run --with google-cloud-bigquery --with google-cloud-storage --with pyarrow \
+  echo "[gdelt] events: ensure full table + per-date local materialize ($FROM..$TO)"
+  uv run --with google-cloud-bigquery \
     python scripts/bigquery_ctas_export_gdelt_events.py \
-    --project "$PROJECT" --from "$FROM" --to "$TO" --batch-months "$BATCH_MONTHS"
+    --project "$PROJECT" --from "$FROM" --to "$TO"
 
   echo "[gdelt] gkg: ensure full table + per-batch local materialize ($FROM..$TO)"
   uv run --with google-cloud-bigquery --with google-cloud-storage --with pyarrow \
