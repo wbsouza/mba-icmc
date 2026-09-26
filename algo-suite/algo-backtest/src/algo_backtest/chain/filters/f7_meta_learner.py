@@ -45,7 +45,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -125,11 +125,28 @@ def family_vector(family: FeatureFamily, features: Mapping[str, object]) -> list
 @dataclass(frozen=True)
 class TrainingRow:
     """One labeled training example: a timestamp, raw `state.features`-shaped readings,
-    and the ground-truth label (1 = price moved up at the model's horizon H, 0 = down)."""
+    and the ground-truth label (1 = price moved up at the model's horizon H, 0 = down).
+
+    ``label_time`` is when the label became knowable (the close of the horizon bar).
+    When set, `walk_forward_split` purges rows whose label is only knowable after their
+    own span ends — otherwise a train/validation row's label would be computed from
+    prices in the next, held-out span. ``None`` means the label is known at
+    ``timestamp`` (no horizon), which never crosses a boundary.
+    """
 
     timestamp: datetime
     features: Mapping[str, object]
     label: int
+    label_time: datetime | None = None
+
+    def known_by(self, boundary: date) -> bool:
+        """Whether this row's label is knowable no later than the end of `boundary`."""
+        known_at = self.label_time if self.label_time is not None else self.timestamp
+        # The span ends at 00:00 of the day after `boundary`; a label closing exactly
+        # then was known within the span.
+        return known_at <= datetime.combine(
+            boundary + timedelta(days=1), datetime.min.time(), tzinfo=known_at.tzinfo
+        )
 
 
 @dataclass(frozen=True)
@@ -139,6 +156,17 @@ class WalkForwardSplit:
     train: tuple[TrainingRow, ...]
     validation: tuple[TrainingRow, ...]
     test: tuple[TrainingRow, ...]
+
+
+def _span(rows: Sequence[TrainingRow], after: date | None, end: date) -> tuple[TrainingRow, ...]:
+    """Rows dated in (after, end] whose labels are knowable by the end of `end`."""
+    return tuple(
+        row
+        for row in rows
+        if (after is None or after < row.timestamp.date())
+        and row.timestamp.date() <= end
+        and row.known_by(end)
+    )
 
 
 def walk_forward_split(
@@ -151,6 +179,10 @@ def walk_forward_split(
     must be strictly increasing and every span must be non-empty — an empty span means
     the caller's window doesn't actually cover any data, which is a configuration
     mistake to fail fast on, not silently train on two-thirds of a walk-forward split.
+
+    Rows whose label only becomes knowable after their span's end (``TrainingRow.
+    label_time``) are purged, so no fitted row's label depends on a later span's prices
+    and changing held-out data cannot change what the models were fitted on.
     """
     if not train_end < validation_end < test_end:
         raise ValueError(
@@ -158,11 +190,9 @@ def walk_forward_split(
             f"train_end={train_end!r}, validation_end={validation_end!r}, "
             f"test_end={test_end!r}"
         )
-    train = tuple(row for row in rows if row.timestamp.date() <= train_end)
-    validation = tuple(
-        row for row in rows if train_end < row.timestamp.date() <= validation_end
-    )
-    test = tuple(row for row in rows if validation_end < row.timestamp.date() <= test_end)
+    train = _span(rows, None, train_end)
+    validation = _span(rows, train_end, validation_end)
+    test = _span(rows, validation_end, test_end)
     for name, span in (("train", train), ("validation", validation), ("test", test)):
         if not span:
             raise ValueError(

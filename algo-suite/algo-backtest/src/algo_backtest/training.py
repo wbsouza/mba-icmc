@@ -39,9 +39,14 @@ from algo_backtest.chain.wiring import (
     RSI_PERIOD,
     price_features,
 )
+from algo_backtest.market_hours import lean_delivers
 from algo_backtest.months import months_between
 
 HORIZON_MINUTES = 15
+# Bars before every LEAN indicator the features read is ready (EMA 60 needs 60 samples,
+# MACD 26/9 needs 34, Wilder RSI 14 needs 15): the live algorithm skips them, so
+# training does too — they would be rows the model is never asked to score.
+WARMUP_BARS = max(EMA_HTF_PERIOD, MACD_SLOW_PERIOD + MACD_SIGNAL_PERIOD - 1, RSI_PERIOD + 1) - 1
 BAR_DURATION = timedelta(minutes=1)
 _RSI_NEUTRAL = 50.0
 _MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow")
@@ -53,13 +58,21 @@ def mid(bar: QuoteBar) -> float:
 
 
 def ema_series(values: Sequence[float], period: int) -> list[float]:
-    """Standard exponential moving average, seeded on the first value."""
+    """LEAN's `ExponentialMovingAverage`: a running SMA until `period` samples, then EMA.
+
+    Seeding matters for train/serve parity: an EMA seeded on the first value instead
+    differs from LEAN's by ~1e-4 on the 60-period HTF EMA for hours, enough to flip
+    `higher_tf_trend_direction` (proven by `feature_parity.feature`).
+    """
     k = 2.0 / (period + 1)
     out: list[float] = []
-    prev = values[0]
-    for value in values:
-        prev = value * k + prev * (1 - k)
-        out.append(prev)
+    total = 0.0
+    for i, value in enumerate(values):
+        if i < period:
+            total += value
+            out.append(total / (i + 1))
+        else:
+            out.append(value * k + out[-1] * (1 - k))
     return out
 
 
@@ -87,12 +100,19 @@ def rsi_series(values: Sequence[float], period: int) -> list[float]:
 
 
 def macd_hist_series(values: Sequence[float]) -> list[float]:
-    """MACD histogram: (fast EMA - slow EMA) minus its own signal-line EMA."""
+    """LEAN's MACD histogram: (fast EMA - slow EMA) minus its signal-line EMA.
+
+    As in LEAN, the signal EMA only starts consuming the MACD line once the slow EMA is
+    ready (its `MACD_SLOW_PERIOD`-th sample); before that the histogram is 0.0 — those
+    bars are inside `WARMUP_BARS` and never become rows.
+    """
     fast = ema_series(values, MACD_FAST_PERIOD)
     slow = ema_series(values, MACD_SLOW_PERIOD)
     line = [f - s for f, s in zip(fast, slow, strict=True)]
-    signal = ema_series(line, MACD_SIGNAL_PERIOD)
-    return [m - s for m, s in zip(line, signal, strict=True)]
+    ready = MACD_SLOW_PERIOD - 1
+    signal = ema_series(line[ready:], MACD_SIGNAL_PERIOD)
+    histogram = [m - s for m, s in zip(line[ready:], signal, strict=True)]
+    return [0.0] * min(ready, len(line)) + histogram
 
 
 def price_partitions(data_root: Path, instrument: Instrument, start: date, end: date) -> list[Path]:
@@ -164,14 +184,58 @@ def _news_features(
     return {"news_event_intensity": intensity, "news_sentiment_score": None}
 
 
+def lean_bar_stream(bars: Sequence[QuoteBar]) -> list[QuoteBar]:
+    """The minute bars LEAN's `on_data` (and its indicators) would see for `bars`.
+
+    Time-ordered, only minutes the exchange is open (`market_hours.lean_delivers`),
+    and every open minute between the first and last bar present: a minute missing
+    from the data is filled forward from the previous bar's close, as LEAN does.
+    """
+    ordered = sorted(bars, key=lambda bar: bar.timestamp)
+    if not ordered:
+        return []
+    by_minute = {bar.timestamp: bar for bar in ordered}
+    stream: list[QuoteBar] = []
+    minute, last = ordered[0].timestamp, ordered[-1].timestamp
+    while minute <= last:
+        if lean_delivers(minute):
+            bar = by_minute.get(minute)
+            if bar is None and stream:
+                bar = _filled_forward(stream[-1], minute)
+            if bar is not None:
+                stream.append(bar)
+        minute += BAR_DURATION
+    return stream
+
+
+def _filled_forward(previous: QuoteBar, minute: datetime) -> QuoteBar:
+    """A flat bar at `minute` carrying `previous`'s closing quotes (LEAN fill-forward)."""
+    return QuoteBar(
+        timestamp=minute,
+        bid_open=previous.bid_close, bid_high=previous.bid_close,
+        bid_low=previous.bid_close, bid_close=previous.bid_close,
+        ask_open=previous.ask_close, ask_high=previous.ask_close,
+        ask_low=previous.ask_close, ask_close=previous.ask_close,
+        tick_count=0,
+    )
+
+
 def build_training_rows(
     bars: Sequence[QuoteBar], event_intensity: Mapping[datetime, float] | None = None
 ) -> list[TrainingRow]:
-    """Labeled `TrainingRow`s from time-ordered m1 bars (+ NEWS features when given).
+    """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
-    Label: 1 if the mid price is higher `HORIZON_MINUTES` later, else 0. The last
-    `HORIZON_MINUTES` bars have no label and are dropped.
+    Rows are built over `lean_bar_stream(bars)` — the exact bar sequence the live
+    algorithm's LEAN indicators consume — so indicator state, warm-up and the label
+    horizon (counted in delivered bars) match the backtest.
+
+    Label: 1 if the mid price is strictly higher `HORIZON_MINUTES` bars later, else 0
+    (flat is 0). `label_time` is the close of that horizon bar, so
+    `walk_forward_split` can purge rows whose label reaches into the next span. The
+    first `WARMUP_BARS` bars (the live algorithm never decides before its LEAN
+    indicators are ready) and the last `HORIZON_MINUTES` bars (no label) yield no row.
     """
+    bars = lean_bar_stream(bars)
     prices = [mid(bar) for bar in bars]
     fast = ema_series(prices, EMA_FAST_PERIOD)
     slow = ema_series(prices, EMA_SLOW_PERIOD)
@@ -179,7 +243,7 @@ def build_training_rows(
     rsi = rsi_series(prices, RSI_PERIOD)
     macd = macd_hist_series(prices)
     rows: list[TrainingRow] = []
-    for i in range(len(bars) - HORIZON_MINUTES):
+    for i in range(WARMUP_BARS, len(bars) - HORIZON_MINUTES):
         features = price_features(
             price=prices[i],
             ema_fast=fast[i],
@@ -190,8 +254,15 @@ def build_training_rows(
         )
         if event_intensity is not None:
             features |= _news_features(event_intensity, bars[i].timestamp + BAR_DURATION)
-        label = 1 if prices[i + HORIZON_MINUTES] > prices[i] else 0
-        rows.append(TrainingRow(timestamp=bars[i].timestamp, features=features, label=label))
+        horizon = i + HORIZON_MINUTES
+        rows.append(
+            TrainingRow(
+                timestamp=bars[i].timestamp,
+                features=features,
+                label=1 if prices[horizon] > prices[i] else 0,
+                label_time=bars[horizon].timestamp + BAR_DURATION,
+            )
+        )
     return rows
 
 

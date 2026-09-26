@@ -21,8 +21,10 @@ from algo_backtest.chain.filters.f7_model_io import (
     BoosterFamilyModel,
     LogisticCombiner,
     dump_model,
+    load_families,
     load_model,
     load_provenance,
+    require_families,
 )
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -151,3 +153,33 @@ def _provenance(io_ctx: _IoCtx, strategy: str) -> None:
 @then(parsers.parse('the model failure names "{fragment}"'))
 def _failure(io_ctx: _IoCtx, fragment: str) -> None:
     assert io_ctx.error is not None and fragment in str(io_ctx.error)
+
+
+@then(
+    "each F7-driven strategy's bundled model has exactly its config.yaml meta_learner families"
+)
+def _bundled_models_match() -> None:
+    """Guards the committed artifacts themselves, not just the runtime check."""
+    import algo_backtest
+    from algo_backtest.run import STRATEGIES
+    from algo_backtest.strategies import load_strategy_chain_config
+
+    algos = Path(algo_backtest.__file__).parent / "algos"
+    chain_strategies = {n: s for n, s in STRATEGIES.items() if s.model_file}
+    assert set(chain_strategies) == {"baseline", "hybrid"}
+    for name, spec in chain_strategies.items():
+        assert spec.model_file is not None
+        families = load_families(algos / spec.algo_dir / spec.model_file)
+        declared = load_strategy_chain_config(name).meta_learner_families
+        assert sorted(f.value for f in families) == sorted(declared), name
+
+
+@when(parsers.parse('families "{trained}" are required to match "{declared}"'))
+def _require_mismatch(io_ctx: _IoCtx, trained: str, declared: str) -> None:
+    with pytest.raises(ValueError) as excinfo:
+        require_families(
+            [FeatureFamily(f.strip()) for f in trained.split(",")],
+            [f.strip() for f in declared.split(",")],
+            where="fixture",
+        )
+    io_ctx.error = excinfo.value

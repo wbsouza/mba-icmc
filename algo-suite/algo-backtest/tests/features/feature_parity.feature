@@ -1,0 +1,23 @@
+@integration
+Feature: Training features equal the live algorithm's features, numerically
+  scripts/train_*_meta_learner.py computes F1/F2 features in plain Python
+  (algo_backtest.training) while the live algorithm reads LEAN's own EMA/RSI/MACD
+  (engine/chain_algorithm.py). Both go through chain.wiring.price_features, but that
+  only shares the formula — this proves the inputs agree too, bar by bar, from the
+  first bar the live algorithm decides on.
+
+  LEAN only delivers bars while the exchange is open (e.g. never in the daily
+  16:58-17:03 New York break) and fills a missing open minute forward from the
+  previous close; training mirrors both (training.lean_bar_stream).
+
+  Scenario Outline: On a sine-wave day <with_gaps> every live decision bar has a training row with the same price features
+    Given a one-day EUR/USD minute sine cycle on 2014-05-07 <with_gaps> materialized to lean-data
+    When the feature-parity probe replays "20140507" in the LEAN container
+    Then the backtest exits successfully
+    And the live algorithm's first decision bar is the first training row's bar
+    And every live decision bar's price features match its training row within 1e-9
+
+    Examples:
+      | with_gaps                                   |
+      | with every minute present                   |
+      | with minutes 06:00-06:04 and 12:30 missing  |

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import algo_backtest
 import pytest
 from algo_backtest.chain.audit import DecisionRow
 from algo_backtest.cli import app
@@ -23,7 +24,6 @@ from algo_core.bars import QuoteBar, Timeframe
 from algo_core.instrument import build_instrument
 from algo_core.layout import price_path_for
 from algo_core.repository.parquet import ParquetRepository
-from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
@@ -80,43 +80,6 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
     materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
 
 
-_RUN_WINDOW_START = datetime(2014, 5, 5, tzinfo=UTC)
-# 2014-05-05 through 2014-05-09 inclusive (the sine fixture's training + test span) plus
-# the first minute of 2014-05-10: the last bar's decision time (its end) lands there.
-_RUN_WINDOW_MINUTES = 5 * 24 * 60 + 1
-
-
-def _synthetic_event_feature_rows(event_intensity: float) -> list[GdeltFeature]:
-    """One GdeltFeature row per minute of the whole `--from`/`--to` run window, all at
-    `event_intensity` -- not just the 60-minute swing. LEAN delivers quote bars (holding
-    the last real quote) across the full requested CLI window, not only the swing's own
-    60 minutes, so F4's per-minute lookup must cover the same span the algorithm actually
-    runs over or it fails fast on the first uncovered bar (confirmed: it does, exactly at
-    the swing's last minute + 1)."""
-    return [
-        GdeltFeature(
-            timestamp=_RUN_WINDOW_START + timedelta(minutes=i), event_intensity=event_intensity
-        )
-        for i in range(_RUN_WINDOW_MINUTES)
-    ]
-
-
-@given("a synthetic GDELT event-feature Parquet for 2014-05 with no active high-risk event")
-def _synthetic_news_no_veto(bctx: dict[str, Any]) -> None:
-    """0.0 is well above the smoke test's -0.5 veto threshold -- F4 never vetoes."""
-    rows = _synthetic_event_feature_rows(0.0)
-    path = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
-    ParquetRepository(GdeltFeature, path).put(rows)
-
-
-@given("a synthetic GDELT event-feature Parquet for 2014-05 with an active high-risk event")
-def _synthetic_news_veto(bctx: dict[str, Any]) -> None:
-    """-10.0 is well below the smoke test's -0.5 veto threshold -- F4 vetoes every bar."""
-    rows = _synthetic_event_feature_rows(-10.0)
-    path = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
-    ParquetRepository(GdeltFeature, path).put(rows)
-
-
 @when(
     "I run hybrid over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
 )
@@ -131,13 +94,13 @@ def _run_hybrid_with_model(bctx: dict[str, Any], require_docker: None) -> None:
     )
 
 
-@when("I run hybrid over 2014-05-07 to 2014-05-09 with size 0.5")
-def _run_hybrid_chain(bctx: dict[str, Any], require_docker: None) -> None:
+@when(parsers.parse("I run hybrid over {first} to {last} with size 0.5"))
+def _run_hybrid_chain(bctx: dict[str, Any], require_docker: None, first: str, last: str) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
             "run", "--strategy", "hybrid", "--symbol", "EURUSD",
-            "--from", "2014-05-07", "--to", "2014-05-09", "--param", "size=0.5",
+            "--from", first, "--to", last, "--param", "size=0.5",
         ],
     )
 
@@ -209,35 +172,6 @@ def _decisions_parquet_written(bctx: dict[str, Any]) -> None:
     assert (_run_dir(bctx) / "decisions.parquet").exists()
 
 
-@then(
-    "every decisions.parquet row's trade_id is null, a real trades.json entry order id, "
-    "or the trade still open at the end"
-)
-def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
-    """Prove decisions.parquet's trade_id is a real foreign key into trades.json.
-
-    Same join proof as run_baseline_chain.feature's own scenario, run here against the
-    hybrid chain (which additionally exercises F4/news on the join path).
-    """
-    run_dir = _run_dir(bctx)
-    repo: ParquetRepository[DecisionRow] = ParquetRepository(
-        DecisionRow, run_dir / "decisions.parquet"
-    )
-    rows = repo.read_all()
-    trades = json.loads((run_dir / "trades.json").read_text())
-    entry_order_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
-    # A trade still open at the end has no trades.json entry; the algorithm logs its id.
-    marker = "HYBRID_OPEN_TRADE_AT_END="
-    for line in (run_dir / "log.txt").read_text().splitlines():
-        if marker in line and not line.rstrip().endswith("=None"):
-            entry_order_ids.add(line.split(marker, 1)[1].strip())
-    for row in rows:
-        assert row.trade_id is None or row.trade_id in entry_order_ids, (
-            f"decisions.parquet trade_id {row.trade_id!r} matches no trades.json "
-            f"entry order id in {sorted(entry_order_ids)}"
-        )
-
-
 @then("no trade was ever opened")
 def _no_trade_opened(bctx: dict[str, Any]) -> None:
     """trades.json holds closed trades only -- necessary, not sufficient (see next step)."""
@@ -275,3 +209,37 @@ def _missing_news_error(bctx: dict[str, Any]) -> None:
     out = bctx["cli"].output
     expected = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
     assert str(expected) in out and "algo-score events --kind gdelt" in out, out
+
+
+@when("I run hybrid with the bundled baseline model as --model")
+def _run_with_baseline_model(bctx: dict[str, Any]) -> None:
+    model = Path(algo_backtest.__file__).parent / "algos" / "baseline" / "f7_meta_learner.json"
+    bctx["cli"] = CliRunner().invoke(
+        app,
+        [
+            "run", "--strategy", "hybrid", "--symbol", "EURUSD", "--from", "2014-05-07",
+            "--to", "2014-05-09", "--param", "size=0.5", "--model", str(model),
+        ],
+    )
+
+
+@then("the error names the model's families and the strategy's declared families")
+def _families_error(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    assert "was trained on families" in out and "meta_learner.families" in out, out
+
+
+@then(
+    parsers.parse(
+        'the error names decision minute "{minute}" and the command building through "{day}"'
+    )
+)
+def _final_minute_error(bctx: dict[str, Any], minute: str, day: str) -> None:
+    out = bctx["cli"].output
+    assert minute in out and f"--to {day}" in out, out
+
+
+@then(parsers.parse('decisions.parquet has a row at "{ts}"'))
+def _row_at(bctx: dict[str, Any], ts: str) -> None:
+    rows = ParquetRepository(DecisionRow, _run_dir(bctx) / "decisions.parquet").read_all()
+    assert any(row.timestamp == datetime.fromisoformat(ts) for row in rows), rows[-3:]

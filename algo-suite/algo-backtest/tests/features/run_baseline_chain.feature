@@ -15,6 +15,11 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       Then the run command exits with code 2
       And the error says size must be in range
 
+    Scenario: a model trained for hybrid is rejected for baseline before any container starts
+      When I run baseline with the bundled hybrid model as --model
+      Then the run command exits with code 2
+      And the error names the model's families and the strategy's declared families
+
     Scenario: an unknown param is rejected
       When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param bogus=1"
       Then the run command exits with code 2
@@ -33,5 +38,5 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       And the run artifacts are written under the data root
       And the container log shows the F1-F7 chain actually evaluated a decision
       And decisions.parquet is written under the run's results directory
-      And every decisions.parquet row's trade_id is null, a real trades.json entry order id, or the trade still open at the end
+      And every decisions.parquet row's trade_id names the LEAN trade open at that row's instant
       And at least one decisions.parquet row is joined to a trades.json trade

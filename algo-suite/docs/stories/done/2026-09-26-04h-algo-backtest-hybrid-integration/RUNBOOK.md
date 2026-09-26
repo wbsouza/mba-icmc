@@ -175,11 +175,18 @@ The window (`--from` through `--test-end`) may span any number of months; every
 touched month's m1 price and GDELT event-feature partition must exist (missing ones
 fail fast). The example uses 6 in-sample months (Feb–Jun train, Jul validation for the
 stacker) and keeps Aug 2015–Jan 2016 as the 6 out-of-sample months — run the backtest
-in step 3 over that span only, never over the in-sample months.
+in step 3 over that span only, never over the in-sample months. Rows whose 15-minute
+label would be read from a later span (the last bars of June and July) are purged
+before fitting, so changing held-out prices cannot change the fitted model
+(`training_data.feature`).
 
 Writes `src/algo_backtest/algos/hybrid/f7_meta_learner.json` (same portable format);
 news features are looked up at each bar's decision time (bar start +
-1 minute, LEAN's `self.time`), the same as-of the live algorithm uses.
+1 minute, LEAN's `self.time`). Training replays the exact bar stream LEAN delivers
+(its OANDA market hours — e.g. no bars in the daily 16:58-17:03 New York break — and
+fill-forward of missing open minutes) with LEAN's indicator seeding, and
+`feature_parity.feature` proves the price features equal the live algorithm's within
+1e-9 inside the real container.
 
 ### 3. Run the backtest (out-of-sample months only)
 
@@ -200,6 +207,9 @@ Both `baseline` and `hybrid` now write `<results_dir>/decisions.parquet` at
 `on_end_of_algorithm()` (`chain/decision_recorder.py`). Every non-`NO_TRADE` row's
 `trade_id` is `None` (no trade open) or a string matching one of `trades.json`'s
 `orderIds[0]` values (LEAN's own entry order id) — a real, verifiable foreign key, not
-just two files that happen to coexist. The id follows LEAN's flat-to-flat grouping
-(`DecisionRecorder.on_fill`): a fill from flat or a reversal starts a new trade id, a
-same-side scale-in/out keeps it, only a filled close clears it.
+just two files that happen to coexist. `ChainAlgorithm` configures LEAN's ledger
+flat-to-flat (FIFO) — LEAN's default fill-to-fill grouping would split a scale-in or a
+partial exit into overlapping trades — and `DecisionRecorder.on_fill` follows the same
+policy: a fill from flat or a reversal starts a new trade id, a same-side scale-in/out
+keeps it, only a filled close clears it. `trade_grouping.feature` proves in real LEAN
+that each row's id is the trade open *at that instant*, not merely an existing id.

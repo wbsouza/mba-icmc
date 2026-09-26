@@ -10,7 +10,8 @@ import pytest
 from algo_backtest.chain.filters.f4_news_context import (
     NewsContextIndex,
     load_news_context_window,
-    missing_event_partitions,
+    news_build_command,
+    news_coverage_problems,
 )
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
@@ -29,7 +30,9 @@ class _WindowCtx:
     root: Path
     index: NewsContextIndex | None = None
     error: ValueError | None = None
-    missing: list[Path] | None = None
+    problems: list[str] | None = None
+    start: date | None = None
+    end: date | None = None
 
 
 @pytest.fixture
@@ -38,16 +41,22 @@ def window_ctx(tmp_path: Path) -> _WindowCtx:
     return _WindowCtx(root=tmp_path)
 
 
-def _write_month(root: Path, year: int, month: int, intensity: float) -> None:
-    """Every minute of one month at a constant event_intensity."""
-    first = datetime(year, month, 1, tzinfo=UTC)
-    after = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=UTC)
+def _write_grid(root: Path, first: datetime, after: datetime, intensity: float) -> None:
+    """Every minute in [first, after) at a constant event_intensity, in first's partition."""
     minutes = int((after - first).total_seconds() // 60)
     rows = [
         GdeltFeature(timestamp=first + timedelta(minutes=i), event_intensity=intensity)
         for i in range(minutes)
     ]
-    ParquetRepository(GdeltFeature, event_feature_path(root, "gdelt", year, month)).put(rows)
+    path = event_feature_path(root, "gdelt", first.year, first.month)
+    ParquetRepository(GdeltFeature, path).put(rows)
+
+
+def _write_month(root: Path, year: int, month: int, intensity: float) -> None:
+    """Every minute of one month at a constant event_intensity."""
+    first = datetime(year, month, 1, tzinfo=UTC)
+    after = datetime(year + month // 12, month % 12 + 1, 1, tzinfo=UTC)
+    _write_grid(root, first, after, intensity)
 
 
 def _write_sentiment(root: Path, year: int, month: int) -> None:
@@ -102,10 +111,19 @@ def _load_fails(window_ctx: _WindowCtx, start: str, end: str) -> None:
     window_ctx.error = excinfo.value
 
 
-@when(parsers.parse("the missing event partitions for {start} to {end} are listed"))
-def _list_missing(window_ctx: _WindowCtx, start: str, end: str) -> None:
-    window_ctx.missing = missing_event_partitions(
-        window_ctx.root, date.fromisoformat(start), date.fromisoformat(end)
+@given(
+    parsers.parse("GDELT event features for 2020-01 built only from 2020-01-01 through {last}")
+)
+def _partial_month(window_ctx: _WindowCtx, last: str) -> None:
+    after = datetime.combine(date.fromisoformat(last) + timedelta(days=1), datetime.min.time(), UTC)
+    _write_grid(window_ctx.root, datetime(2020, 1, 1, tzinfo=UTC), after, 1.5)
+
+
+@when(parsers.parse("news coverage is checked for {start} to {end}"))
+def _check_coverage(window_ctx: _WindowCtx, start: str, end: str) -> None:
+    window_ctx.start, window_ctx.end = date.fromisoformat(start), date.fromisoformat(end)
+    window_ctx.problems = news_coverage_problems(
+        window_ctx.root, "EURUSD", window_ctx.start, window_ctx.end
     )
 
 
@@ -126,14 +144,26 @@ def _failure_names(window_ctx: _WindowCtx, fragment: str) -> None:
     assert window_ctx.error is not None and fragment in str(window_ctx.error)
 
 
-@then(parsers.parse('the missing partitions are "{months}"'))
-def _missing_are(window_ctx: _WindowCtx, months: str) -> None:
-    assert window_ctx.missing is not None
-    expected = [
-        event_feature_path(window_ctx.root, "gdelt", int(ym[:4]), int(ym[5:7]))
-        for ym in (m.strip() for m in months.split(","))
-    ]
-    assert window_ctx.missing == expected
+@then("the coverage problems name the missing 2020-02 partition")
+def _names_missing_feb(window_ctx: _WindowCtx) -> None:
+    expected = str(event_feature_path(window_ctx.root, "gdelt", 2020, 2))
+    assert window_ctx.problems and any(expected in p for p in window_ctx.problems)
+
+
+@then(parsers.parse('the build command is "{command}"'))
+def _build_command(window_ctx: _WindowCtx, command: str) -> None:
+    assert window_ctx.start is not None and window_ctx.end is not None
+    assert news_build_command(window_ctx.start, window_ctx.end) == command
+
+
+@then(parsers.parse('the coverage problems name decision minute "{minute}"'))
+def _names_minute(window_ctx: _WindowCtx, minute: str) -> None:
+    assert window_ctx.problems == [f"no GDELT event_intensity at decision minute {minute}"]
+
+
+@then("there are no coverage problems")
+def _no_problems(window_ctx: _WindowCtx) -> None:
+    assert window_ctx.problems == []
 
 
 @then("the window's sentiment source is absent")

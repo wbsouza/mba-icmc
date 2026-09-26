@@ -25,10 +25,12 @@ from algo_core.instrument import Instrument
 from algo_core.layout import lean_data_dir_for
 
 import algo_backtest
-from algo_backtest.chain.filters.f4_news_context import missing_event_partitions
+from algo_backtest.chain.filters.f4_news_context import news_coverage_problems
+from algo_backtest.chain.filters.f7_model_io import load_families, require_families
 from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
 from algo_backtest.results import RunResult, parse_results
+from algo_backtest.strategies import load_strategy_chain_config
 
 Params = Mapping[str, str]
 
@@ -200,17 +202,34 @@ def validate_run_inputs(
     if start > end:
         raise ValueError(f"from date ({start}) must not be after the to date ({end})")
     STRATEGIES[strategy].validate(params)
-    if model is not None:
-        _validate_model_override(strategy, model)
+    _validate_model(strategy, model)
 
 
-def _validate_model_override(strategy: str, model: Path) -> None:
-    """A `--model` override needs an F7-driven strategy and an existing file."""
-    if STRATEGIES[strategy].model_file is None:
-        with_model = sorted(name for name, spec in STRATEGIES.items() if spec.model_file)
-        raise ValueError(f"--model only applies to F7-driven strategies {with_model}")
-    if not model.is_file():
-        raise ValueError(f"--model {model} is not a file")
+def _validate_model(strategy: str, model: Path | None) -> None:
+    """The F7 model a run would load must exist and match the strategy's families.
+
+    Checks the `--model` override, or the strategy's bundled model when none is given,
+    so a mismatch fails on the host before any container starts.
+    """
+    spec = STRATEGIES[strategy]
+    if spec.model_file is None:
+        if model is not None:
+            with_model = sorted(name for name, s in STRATEGIES.items() if s.model_file)
+            raise ValueError(f"--model only applies to F7-driven strategies {with_model}")
+        return
+    path = model if model is not None else _algos_root() / spec.algo_dir / spec.model_file
+    if not path.is_file():
+        raise ValueError(f"F7 model {path} is not a file")
+    require_families(
+        load_families(path),
+        load_strategy_chain_config(strategy).meta_learner_families,
+        where=str(path),
+    )
+
+
+def _algos_root() -> Path:
+    """The bundled algorithms directory inside the installed package."""
+    return Path(algo_backtest.__file__).parent / "algos"
 
 
 def lean_data_covers(data_root: Path, instrument: Instrument, start: date, end: date) -> bool:
@@ -233,16 +252,19 @@ def lean_data_covers(data_root: Path, instrument: Instrument, start: date, end: 
     return False
 
 
-def missing_news_partitions(strategy: str, data_root: Path, start: date, end: date) -> list[Path]:
-    """GDELT event-feature partitions a news-driven strategy's window needs but lacks.
+def news_coverage_errors(
+    strategy: str, data_root: Path, symbol: str, start: date, end: date
+) -> list[str]:
+    """Why the event features cannot serve a news-driven run (always empty otherwise).
 
-    Always empty for a strategy without `needs_news_data`. Checked on the host before
-    any container starts, so a missing month is a remediation-rich CLI error rather than
-    a failure buried in the LEAN container log.
+    Checked on the host before any container starts (see
+    `f4_news_context.news_coverage_problems`), so a coverage gap — including the final
+    bar's `end + 1` 00:00 decision — is a remediation-rich CLI error rather than a
+    failure buried in the LEAN container log.
     """
     if not STRATEGIES[strategy].needs_news_data:
         return []
-    return missing_event_partitions(data_root, start, end)
+    return news_coverage_problems(data_root, symbol, start, end)
 
 
 def _news_mounts(data_root: Path) -> dict[str, Path]:
@@ -289,7 +311,7 @@ def run_strategy(
     `validate_run_inputs`) replaces the strategy's bundled F7 model for this run only.
     """
     spec = STRATEGIES[strategy]
-    algo_dir = Path(algo_backtest.__file__).parent / "algos" / spec.algo_dir
+    algo_dir = _algos_root() / spec.algo_dir
     symbol_dir = lean_data_dir_for(data_root, instrument, "minute")
     subpath = symbol_dir.relative_to(data_root / "lean-data").as_posix()
     data_mounts = {subpath: symbol_dir}

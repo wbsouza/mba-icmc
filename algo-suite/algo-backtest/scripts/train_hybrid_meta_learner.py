@@ -2,9 +2,11 @@
 
 Trains and persists a `TrainedMetaLearner` for `algos/hybrid/main.py` as a portable JSON
 document (`chain/filters/f7_model_io.py`) embedding exactly what it was trained on.
-Feature building is shared with the live algorithm (`algo_backtest.training` over
-`chain.wiring`), so train and serve use one feature definition and the same as-of
-timestamps.
+Rows are built over the bar stream LEAN delivers, with LEAN's indicator seeding and the
+live algorithm's feature function (`algo_backtest.training` over `chain.wiring`), and
+news is keyed at decision time — numeric train/serve parity is proven in real LEAN by
+`tests/features/feature_parity.feature`. Rows whose label horizon crosses a split
+boundary are purged, so held-out data cannot influence the fitted model.
 
 Adds the NEWS family: `news_event_intensity` is the real GDELT event feature
 (one-day publication lag, algo-score SPEC.md 6.2), looked up at each bar's decision
@@ -13,7 +15,7 @@ time; `news_sentiment_score` is always missing pending TD-48, the same shape liv
 The window runs from `--from` through `--test-end` (inclusive) and may span any number
 of months, e.g. 6 in-sample months and the next 6 held out:
 
-    --from 2015-02-01 --train-end 2015-06-30 --validation-end 2015-07-31 --test-end 2016-01-31
+    --from 2015-02-02 --train-end 2015-06-30 --validation-end 2015-07-31 --test-end 2016-01-31
 
 `train` fits the per-family models, `validation` calibrates the logistic combiner, and
 `test` is never fit on -- backtest only over the test span to stay out of sample.

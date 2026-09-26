@@ -105,22 +105,20 @@ def _probe_count(ctx: dict[str, Any], probe_log: Any, n: int) -> None:
 # (HTF EMA 60, MACD 26+9) to warm up and for trends to form, turn, and conflict with the
 # higher timeframe, so a model trained on it through the real `algo_backtest.training`
 # pipeline makes the chain open, reverse and close real trades inside LEAN.
-_SINE_FIRST = datetime(2014, 5, 5, tzinfo=UTC)
-_SINE_MINUTES = 5 * 24 * 60
 _SINE_PERIOD_MINUTES = 240
 
 
-def _sine_bars() -> list[QuoteBar]:
-    """Every minute of 2014-05-05..09 on a 30-pip-amplitude four-hour sine cycle."""
+def _sine_bars(first: datetime, days: int) -> list[QuoteBar]:
+    """Every minute of `days` UTC days from `first` on a 30-pip four-hour sine cycle."""
     import math
 
     bars = []
-    for i in range(_SINE_MINUTES):
+    for i in range(days * 24 * 60):
         mid = 1.3800 + 0.0030 * math.sin(2 * math.pi * i / _SINE_PERIOD_MINUTES)
         bid, ask = round(mid, 5), round(mid + 0.0001, 5)
         bars.append(
             QuoteBar(
-                timestamp=_SINE_FIRST + timedelta(minutes=i),
+                timestamp=first + timedelta(minutes=i),
                 bid_open=bid, bid_high=bid, bid_low=bid, bid_close=bid,
                 ask_open=ask, ask_high=ask, ask_low=ask, ask_close=ask,
                 tick_count=1,
@@ -129,17 +127,109 @@ def _sine_bars() -> list[QuoteBar]:
     return bars
 
 
-@given("materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09")
-def _materialize_sine(bctx: dict[str, Any]) -> None:
-    """Canonical m1 Parquet + LEAN minute zips for the sine fixture."""
+@given(
+    parsers.parse(
+        "materialized EUR/USD minute data with a four-hour sine cycle over {first} to {last}"
+    )
+)
+def _materialize_sine(bctx: dict[str, Any], first: str, last: str) -> None:
+    """Canonical m1 Parquet + LEAN minute zips for the sine fixture, per touched month."""
+    from datetime import date
+
     from algo_backtest.materialize import materialize_month
     from algo_core.bars import Timeframe
     from algo_core.layout import price_path_for
     from algo_core.repository.parquet import ParquetRepository
 
-    path = price_path_for(bctx["data_root"], _EURUSD, Timeframe.M1.value, 2014, 5)
-    ParquetRepository(QuoteBar, path).put(_sine_bars())
-    materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
+    start, end = date.fromisoformat(first), date.fromisoformat(last)
+    bars = _sine_bars(datetime.combine(start, datetime.min.time(), UTC), (end - start).days + 1)
+    by_month: dict[tuple[int, int], list[QuoteBar]] = {}
+    for bar in bars:
+        by_month.setdefault((bar.timestamp.year, bar.timestamp.month), []).append(bar)
+    for (year, month), rows in by_month.items():
+        path = price_path_for(bctx["data_root"], _EURUSD, Timeframe.M1.value, year, month)
+        ParquetRepository(QuoteBar, path).put(rows)
+        materialize_month(bctx["data_root"], _EURUSD, year, month, ZoneInfo("UTC"))
+
+
+def _write_raw_gdelt(data_root: Path, first: str, last: str, goldstein: float) -> None:
+    """One canonical GDELT event per day in [first, last] at `goldstein`, per month partition."""
+    from datetime import date
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    start, end = date.fromisoformat(first), date.fromisoformat(last)
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    by_month: dict[tuple[int, int], list[date]] = {}
+    for day in days:
+        by_month.setdefault((day.year, day.month), []).append(day)
+    for (year, month), month_days in by_month.items():
+        path = (
+            data_root / "parquet" / "events" / "gdelt" / f"year={year:04d}" / f"month={month:02d}"
+            / "data.parquet"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        n = len(month_days)
+        pq.write_table(
+            pa.table(
+                {
+                    "global_event_id": list(range(1, n + 1)),
+                    "event_date": month_days,
+                    "event_code": ["042"] * n,
+                    "goldstein_scale": [goldstein] * n,
+                    "avg_tone": [0.0] * n,
+                    "actor1_code": ["USA"] * n,
+                    "actor2_code": ["EUR"] * n,
+                    "num_mentions": [1] * n,
+                    "num_sources": [1] * n,
+                    "num_articles": [1] * n,
+                    "source_url": ["https://example.test"] * n,
+                }
+            ),
+            path,
+        )
+
+
+def _algo_score(bctx: dict[str, Any], command: str) -> None:
+    """Run an `algo-score ...` command line through the real algo-score CLI."""
+    from algo_score.cli import app as score_app
+    from typer.testing import CliRunner
+
+    result = CliRunner().invoke(score_app, command.split()[1:])
+    assert result.exit_code == 0, result.output
+
+
+@given(
+    parsers.parse(
+        "raw GDELT events at goldstein {goldstein:g} for every day from {first} to {last}, "
+        "built into features by the remediation command for a {start} to {end} run"
+    )
+)
+def _raw_gdelt_remediated(
+    bctx: dict[str, Any], goldstein: float, first: str, last: str, start: str, end: str
+) -> None:
+    """Build features exactly as the run CLI tells the user to (production builder)."""
+    from datetime import date
+
+    from algo_backtest.chain.filters.f4_news_context import news_build_command
+
+    _write_raw_gdelt(bctx["data_root"], first, last, goldstein)
+    _algo_score(bctx, news_build_command(date.fromisoformat(start), date.fromisoformat(end)))
+
+
+@given(
+    parsers.parse(
+        "raw GDELT events at goldstein {goldstein:g} for every day from {first} to {last}, "
+        "built into features only from {start} through {end}"
+    )
+)
+def _raw_gdelt_through(
+    bctx: dict[str, Any], goldstein: float, first: str, last: str, start: str, end: str
+) -> None:
+    """Build features through the run's last day only (the pre-fix habit)."""
+    _write_raw_gdelt(bctx["data_root"], first, last, goldstein)
+    _algo_score(bctx, f"algo-score events --kind gdelt --from {start} --to {end}")
 
 
 @given(
@@ -194,3 +284,52 @@ def _fixture_model_logged(bctx: dict[str, Any]) -> None:
     digest = hashlib.sha256(bctx["model"].read_bytes()).hexdigest()
     logs = list(bctx["data_root"].glob("runs/*/*/log.txt"))
     assert any(f"_MODEL_SHA256={digest}" in log.read_text() for log in logs), logs
+
+
+def _lean_instant(raw: str) -> datetime:
+    """A LEAN result timestamp (ISO, `Z` or offset or naive-UTC) as an aware UTC datetime."""
+    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+
+
+@then("every decisions.parquet row's trade_id names the LEAN trade open at that row's instant")
+def _decisions_identify_open_trade(bctx: dict[str, Any]) -> None:
+    """Identity, not membership: each row's trade_id is the ledger trade open *then*.
+
+    A ledger trade (LEAN's `closedTrades`, flat-to-flat) is open at `t` when
+    `entryTime <= t < exitTime`; a row is recorded after that bar's fill, so an entry
+    row carries its new trade and a flattening row carries none. A trade still open at
+    the end has no ledger entry — the algorithm logs its id, open from its first row on.
+    NO_TRADE rows are always null (SPEC.md §6.2) and are skipped.
+    """
+    import json
+
+    from algo_backtest.chain.audit import DecisionRow
+    from algo_core.repository.parquet import ParquetRepository
+
+    (run_dir,) = list(bctx["data_root"].glob("runs/*/*/"))
+    rows = ParquetRepository(DecisionRow, run_dir / "decisions.parquet").read_all()
+    trades = json.loads((run_dir / "trades.json").read_text())
+    episodes = [
+        (str(t["orderIds"][0]), _lean_instant(t["entryTime"]), _lean_instant(t["exitTime"]))
+        for t in trades
+    ]
+    open_at_end = next(
+        (
+            line.split("_OPEN_TRADE_AT_END=", 1)[1].strip()
+            for line in (run_dir / "log.txt").read_text().splitlines()
+            if "_OPEN_TRADE_AT_END=" in line
+        ),
+        "None",
+    )
+    if open_at_end != "None":
+        first = min(r.timestamp for r in rows if r.trade_id == open_at_end)
+        episodes.append((open_at_end, first, datetime.max.replace(tzinfo=UTC)))
+    for row in rows:
+        if row.final_decision == "NO_TRADE":
+            assert row.trade_id is None, row
+            continue
+        open_now = [tid for tid, entry, exit_ in episodes if entry <= row.timestamp < exit_]
+        assert len(open_now) <= 1, (row.timestamp, open_now)
+        expected = open_now[0] if open_now else None
+        assert row.trade_id == expected, (row.timestamp, row.final_decision, row.trade_id, expected)

@@ -162,11 +162,12 @@ def run(
     from algo_core.instrument import build_instrument
 
     from algo_backtest.artifacts import RunManifest, write_run_artifacts
+    from algo_backtest.chain.filters.f4_news_context import news_build_command
     from algo_backtest.config import load_backtest_config
     from algo_backtest.metrics import metrics_from_results
     from algo_backtest.run import (
         lean_data_covers,
-        missing_news_partitions,
+        news_coverage_errors,
         run_strategy,
         validate_run_inputs,
     )
@@ -198,12 +199,11 @@ def run(
         )
         raise typer.Exit(2)
 
-    missing_news = missing_news_partitions(strategy, config.data_root, start, end)
-    if missing_news:
+    news_errors = news_coverage_errors(strategy, config.data_root, symbol, start, end)
+    if news_errors:
         typer.echo(
-            f"missing GDELT event-feature Parquet for {strategy} over {start}..{end}: "
-            f"{[str(p) for p in missing_news]}; build it first: "
-            f"`algo-score events --kind gdelt --from {start} --to {end}`",
+            f"GDELT event features cannot serve {strategy} over {start}..{end}: "
+            f"{'; '.join(news_errors)}; build them first: `{news_build_command(start, end)}`",
             err=True,
         )
         raise typer.Exit(2)

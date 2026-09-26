@@ -23,3 +23,12 @@ Feature: Portable, pickle-free F7 model persistence
       Given a JSON file claiming F7 format version 99
       When loading it as an F7 model fails
       Then the model failure names "train_"
+
+  Rule: A model only runs under a strategy whose declared families it was trained on
+
+    Scenario: Every bundled chain model matches its strategy's declared families
+      Then each F7-driven strategy's bundled model has exactly its config.yaml meta_learner families
+
+    Scenario: A family mismatch fails fast naming both family sets
+      When families "trend, indicator, pattern" are required to match "trend, indicator, pattern, news"
+      Then the model failure names "meta_learner.families"

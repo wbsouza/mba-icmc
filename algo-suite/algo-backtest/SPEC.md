@@ -91,8 +91,13 @@ algo_backtest/
 │                           #   paths shared by lean_runner/run.py (host) and algos (container)
 ├── months.py               # IMPLEMENTED — months_between(): year=/month= partitions of a window
 ├── training.py             # IMPLEMENTED — F7 training-data assembly for scripts/train_*: multi-
-│                           #   month loads, rows via chain.wiring.price_features (train = serve),
-│                           #   news keyed at decision time, save_model() (portable JSON)
+│                           #   month loads; rows over LEAN's delivered bar stream (market hours +
+│                           #   fill-forward, lean_bar_stream) with LEAN-identical EMA/RSI/MACD —
+│                           #   numeric parity proven in real LEAN by feature_parity.feature; news
+│                           #   keyed at decision time; labels carry label_time so walk_forward_split
+│                           #   purges rows whose horizon crosses a span boundary; save_model() (JSON)
+├── market_hours.py         # IMPLEMENTED — lean_delivers(): LEAN's Forex-oanda-[*] market hours
+│                           #   (lean_market_hours_forex_oanda.json, copied from the pinned image)
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
 │                           #   (manifest) + trades.json (ledger) + metrics.json; metrics.json last
 │                           #   as the completeness marker (Slices E1+E2). Each trades.json entry
@@ -135,7 +140,8 @@ algo_backtest/
 │   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision.
 │   ├── decision_recorder.py # IMPLEMENTED — DecisionRecorder (Spec 04h): per-run trade_id
 │   │                       #   bookkeeping from filled orders' position transitions (on_fill),
-│   │                       #   following LEAN's flat-to-flat trade grouping.
+│   │                       #   matching the flat-to-flat (FIFO) ledger ChainAlgorithm configures
+│   │                       #   (LEAN's default is fill-to-fill) — proven by trade_grouping.feature.
 │   ├── wiring.py           # IMPLEMENTED — LEAN-free chain wiring: build_filters(), price/account
 │   │                       #   features contract, PnlWindows, smoke-test placeholder economics.
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),

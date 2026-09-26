@@ -135,3 +135,31 @@ def load_provenance(path: Path) -> dict[str, object]:
     """The training provenance recorded in a model document."""
     provenance: dict[str, object] = json.loads(path.read_text())["provenance"]
     return provenance
+
+
+def load_families(path: Path) -> tuple[FeatureFamily, ...]:
+    """The feature families a model document was trained on, without building boosters."""
+    return tuple(FeatureFamily(name) for name in json.loads(path.read_text())["families"])
+
+
+def require_families(
+    model_families: Sequence[FeatureFamily], strategy_families: Sequence[str], where: str
+) -> None:
+    """Fail fast unless a model was trained on exactly the strategy's declared families.
+
+    A model's families decide which sub-model outputs its combiner weighs: a baseline
+    model (no NEWS) driving `hybrid` would silently ignore F4's enrichment, and a hybrid
+    model under `baseline` would read NEWS features nobody provides. Order-insensitive:
+    each model carries its own family order.
+
+    Raises:
+        ValueError: naming both family sets and `where` the model came from.
+    """
+    trained = sorted(family.value for family in model_families)
+    declared = sorted(strategy_families)
+    if trained != declared:
+        raise ValueError(
+            f"F7 model {where} was trained on families {trained}, but the strategy's "
+            f"config.yaml declares meta_learner.families {declared}; train it with the "
+            "matching scripts/train_*_meta_learner.py"
+        )

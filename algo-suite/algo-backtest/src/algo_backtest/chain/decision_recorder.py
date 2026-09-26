@@ -23,8 +23,9 @@ class DecisionRecorder:
 
     The caller reports every *filled* order via `on_fill` with the position quantity
     before and after it; `record` attaches whatever id is current to the row. The id
-    follows LEAN's own flat-to-flat trade grouping, so it stays a real foreign key into
-    `trades.json` (each trade's `orderIds[0]`):
+    follows flat-to-flat trade grouping — the policy `engine/chain_algorithm.py`
+    configures LEAN's ledger with (LEAN's default is fill-to-fill) — so it names the
+    `trades.json` trade (its `orderIds[0]`) open at the row's instant:
 
     - flat -> position, or a reversal (sign flip): LEAN opens a new trade whose first
       order is this one, so this order id becomes current;

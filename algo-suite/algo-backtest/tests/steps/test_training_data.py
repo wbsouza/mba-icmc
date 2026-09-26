@@ -11,12 +11,19 @@ import pytest
 from algo_backtest.chain.filters.f7_meta_learner import (
     FeatureFamily,
     TrainingRow,
+    WalkForwardSplit,
     train_meta_learner,
     walk_forward_split,
 )
 from algo_backtest.chain.filters.f7_model_io import load_model, load_provenance
 from algo_backtest.chain.wiring import price_features
-from algo_backtest.training import build_training_rows, load_m1_bars, save_model
+from algo_backtest.training import (
+    build_training_rows,
+    lean_bar_stream,
+    load_m1_bars,
+    mid,
+    save_model,
+)
 from algo_core.bars import QuoteBar
 from algo_core.instrument import build_instrument
 from algo_core.layout import price_path_for
@@ -42,6 +49,7 @@ class _TrainCtx:
     error: ValueError | None = None
     model_path: Path | None = None
     manifest: dict[str, object] = field(default_factory=dict)
+    splits: list[WalkForwardSplit] = field(default_factory=list)
 
 
 @pytest.fixture
@@ -178,6 +186,11 @@ def _price_keys(train_ctx: _TrainCtx) -> None:
     assert all(set(row.features) == _LIVE_PRICE_KEYS for row in train_ctx.rows)
 
 
+@then(parsers.parse('the first row is for the bar starting "{ts}"'))
+def _first_row(train_ctx: _TrainCtx, ts: str) -> None:
+    assert train_ctx.rows[0].timestamp == datetime.fromisoformat(ts)
+
+
 @then(parsers.parse("there are {count:d} rows"))
 def _row_count(train_ctx: _TrainCtx, count: int) -> None:
     assert len(train_ctx.rows) == count
@@ -215,3 +228,134 @@ def _strategy(train_ctx: _TrainCtx, strategy: str) -> None:
     assert train_ctx.manifest["horizon_minutes"] == 15
     packages = train_ctx.manifest["packages"]
     assert isinstance(packages, dict) and {"lightgbm", "scikit-learn"} <= set(packages)
+
+
+_SHAPE_STEP = {"rising": 0.0001, "falling": -0.0001, "flat": 0.0}
+
+
+def _quote(ts: datetime, mid: float) -> QuoteBar:
+    """One quote bar at `mid` (1-pip spread)."""
+    return QuoteBar(
+        timestamp=ts, bid_open=mid, bid_high=mid, bid_low=mid, bid_close=mid,
+        ask_open=mid + 1e-4, ask_high=mid + 1e-4, ask_low=mid + 1e-4, ask_close=mid + 1e-4,
+        tick_count=1,
+    )
+
+
+@given(
+    parsers.parse(
+        '{count:d} EUR/USD m1 bars from "{first}" on a {shape} price path'
+    )
+)
+def _shaped_bars(train_ctx: _TrainCtx, count: int, first: str, shape: str) -> None:
+    start = datetime.fromisoformat(first)
+    step = _SHAPE_STEP[shape]
+    train_ctx.bars = [
+        _quote(start + timedelta(minutes=i), 1.1000 + step * i) for i in range(count)
+    ]
+
+
+@when("training rows are built from those bars")
+def _rows_from_bars(train_ctx: _TrainCtx) -> None:
+    train_ctx.rows = build_training_rows(train_ctx.bars)
+
+
+@then(parsers.parse("every row's label is {label:d}"))
+def _every_label(train_ctx: _TrainCtx, label: int) -> None:
+    assert train_ctx.rows, "no rows built"
+    assert {row.label for row in train_ctx.rows} == {label}
+
+
+@then("every row's label time is the close of the bar 15 minutes after it")
+def _label_times(train_ctx: _TrainCtx) -> None:
+    for row in train_ctx.rows:
+        assert row.label_time == row.timestamp + timedelta(minutes=16)
+
+
+def _split(bars: list[QuoteBar]) -> WalkForwardSplit:
+    """The fixed three-day walk-forward split these scenarios use."""
+    return walk_forward_split(
+        build_training_rows(bars),
+        train_end=date(2015, 2, 23),
+        validation_end=date(2015, 2, 24),
+        test_end=date(2015, 2, 25),
+    )
+
+
+@when(
+    "the rows are split with train through 2015-02-23, validation 2015-02-24, test 2015-02-25"
+)
+def _split_rows(train_ctx: _TrainCtx) -> None:
+    train_ctx.splits.append(_split(train_ctx.bars))
+
+
+@when(
+    "the same window is rebuilt with every 2015-02-25 price shifted up 50 pips and split again"
+)
+def _split_shifted(train_ctx: _TrainCtx) -> None:
+    shifted = [
+        _quote(bar.timestamp, mid(bar) - 5e-5 + 0.0050)
+        if bar.timestamp.date() == date(2015, 2, 25)
+        else bar
+        for bar in train_ctx.bars
+    ]
+    train_ctx.splits.append(_split(shifted))
+
+
+@then("the train and validation rows, features and labels, are identical in both runs")
+def _fitting_spans_identical(train_ctx: _TrainCtx) -> None:
+    original, shifted = train_ctx.splits
+    assert original.test != shifted.test  # the held-out change is real
+    assert original.train == shifted.train
+    assert original.validation == shifted.validation
+
+
+@then(parsers.parse("every train row's label time is no later than {limit}"))
+def _train_label_times(train_ctx: _TrainCtx, limit: str) -> None:
+    (split,) = train_ctx.splits
+    assert all(
+        r.label_time is not None and r.label_time <= datetime.fromisoformat(limit)
+        for r in split.train
+    )
+
+
+@then(parsers.parse("every validation row's label time is no later than {limit}"))
+def _validation_label_times(train_ctx: _TrainCtx, limit: str) -> None:
+    (split,) = train_ctx.splits
+    assert all(
+        r.label_time is not None and r.label_time <= datetime.fromisoformat(limit)
+        for r in split.validation
+    )
+
+
+@given(parsers.parse('EUR/USD m1 bars from "{first}" to "{last}" without "{gap}"'))
+def _bars_with_gap(train_ctx: _TrainCtx, first: str, last: str, gap: str) -> None:
+    start, stop = datetime.fromisoformat(first), datetime.fromisoformat(last)
+    minutes = int((stop - start).total_seconds() // 60) + 1
+    train_ctx.bars = [
+        _quote(start + timedelta(minutes=i), 1.1000 + 0.0001 * i)
+        for i in range(minutes)
+        if start + timedelta(minutes=i) != datetime.fromisoformat(gap)
+    ]
+
+
+@when("the LEAN bar stream is built from those bars")
+def _stream(train_ctx: _TrainCtx) -> None:
+    train_ctx.bars = lean_bar_stream(train_ctx.bars)
+
+
+@then(parsers.parse('no streamed bar starts between "{first}" and "{last}"'))
+def _break_dropped(train_ctx: _TrainCtx, first: str, last: str) -> None:
+    lo, hi = datetime.fromisoformat(first), datetime.fromisoformat(last)
+    assert train_ctx.bars
+    assert not [bar for bar in train_ctx.bars if lo <= bar.timestamp <= hi]
+    assert any(bar.timestamp == hi + timedelta(minutes=1) for bar in train_ctx.bars)
+
+
+@then(parsers.parse('the bar starting "{ts}" is filled forward from the one before it'))
+def _filled(train_ctx: _TrainCtx, ts: str) -> None:
+    at = datetime.fromisoformat(ts)
+    stream = {bar.timestamp: bar for bar in train_ctx.bars}
+    previous, filled = stream[at - timedelta(minutes=1)], stream[at]
+    assert (filled.bid_close, filled.ask_close) == (previous.bid_close, previous.ask_close)
+    assert filled.tick_count == 0

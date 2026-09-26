@@ -10,8 +10,9 @@ supplies a ``NewsContextIndex`` via :meth:`_news_index`.
 Every bar: build ``ExecutionState`` (``self.time`` is the bar's *end*, the decision time
 the F7 training scripts also key their news lookups on), run the chain, map its
 ``Decision`` to execute/manage/stand-aside through ``self.order_executor``, and record one
-``decisions.parquet`` row whose ``trade_id`` follows LEAN's own trade grouping
-(``DecisionRecorder.on_fill``), written once at end of algorithm.
+``decisions.parquet`` row whose ``trade_id`` identifies the LEAN trade open at that
+moment — the ledger is explicitly configured flat-to-flat (``use_flat_to_flat_trades``)
+to match ``DecisionRecorder.on_fill`` — written once at end of algorithm.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from engine.order_executor import FillStatus, SizingContext  # noqa: E402
 
 from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
-from algo_backtest.chain.filters.f7_model_io import load_model
+from algo_backtest.chain.filters.f7_model_io import load_model, require_families
 from algo_backtest.chain.model import ExecutionState, FilterChain
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
 from algo_backtest.chain.wiring import (
@@ -47,6 +48,21 @@ from algo_backtest.chain.wiring import (
 )
 from algo_backtest.container_paths import DECISIONS_FILE
 from algo_backtest.strategies import load_strategy_chain_config
+
+
+def use_flat_to_flat_trades(algorithm: QCAlgorithm) -> None:  # noqa: F405
+    """Group fills into LEAN trades flat-to-flat (FIFO matching).
+
+    LEAN's default trade builder groups fill-to-fill, which splits a scale-in or a
+    partial exit into several overlapping "trades" (e.g. fills +10k, +5k, -10k, -5k ->
+    trades [1, 3] and [2, 4]). The audit trail's contract is one trade per flat-to-flat
+    position episode — ``DecisionRecorder.on_fill`` tracks exactly that — so the
+    ledger LEAN writes (``trades.json``) must use the same policy for
+    ``decisions.parquet.trade_id`` to identify the right trade at every timestamp.
+    """
+    algorithm.set_trade_builder(
+        TradeBuilder(FillGroupingMethod.FLAT_TO_FLAT, FillMatchingMethod.FIFO)  # noqa: F405
+    )
 
 
 class ChainAlgorithm(ExecutionAlgorithm):
@@ -71,6 +87,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
     def initialize(self) -> None:
         """Read backtest parameters, subscribe, build indicators + the filter chain."""
         self.set_time_zone(TimeZones.UTC)  # noqa: F405
+        use_flat_to_flat_trades(self)
         symbol = self._required("symbol")
         start = parse_yyyymmdd(self._required("start"))
         end = parse_yyyymmdd(self._required("end"))
@@ -84,8 +101,12 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
         meta_learner = load_model(self.model_path)
         self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
+        config = load_strategy_chain_config(self.strategy_name)
+        require_families(
+            meta_learner.families, config.meta_learner_families, where=str(self.model_path)
+        )
         filters = build_filters(
-            load_strategy_chain_config(self.strategy_name).filters,
+            config.filters,
             meta_learner=meta_learner,
             news_index=self._news_index(symbol, start, end),
         )
