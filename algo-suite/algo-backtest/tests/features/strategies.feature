@@ -96,3 +96,15 @@ Feature: Strategy-chain config loading (Spec 04h)
       And "hybrid" extends "baseline" overriding meta_learner with a scalar value
       When loading strategy "hybrid" fails
       Then the failure names "meta_learner"
+
+  Rule: A scalar meta_learner.families value fails fast instead of splitting into characters
+
+    Scenario: meta_learner.families as a bare string fails fast, not "tuple(str)" char-splat
+      Given a strategy config directory with "typo" filters "f1_trend" and meta_learner.families as the scalar "trend"
+      When loading strategy "typo" fails
+      Then the failure names "meta_learner.families"
+
+    Scenario: meta_learner.families as a mapping fails fast, not "list(dict)" silent key-splat
+      Given a strategy config directory with "oddmap" filters "f1_trend" and meta_learner.families as a mapping
+      When loading strategy "oddmap" fails
+      Then the failure names "meta_learner.families"

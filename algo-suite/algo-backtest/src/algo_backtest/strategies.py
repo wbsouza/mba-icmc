@@ -84,6 +84,22 @@ def _deep_merge(base: dict[str, Any], over: Mapping[str, Any]) -> dict[str, Any]
     return merged
 
 
+def _ensure_str_list(strategy_name: str, field: str, value: object) -> list[Any]:
+    """Reject a config value that `tuple()` would silently accept but isn't really a list.
+
+    A YAML scalar string (e.g. ``filters: f1_trend`` where a one-item list ``[f1_trend]``
+    was meant) is iterable, so `tuple("f1_trend")` would split it into individual
+    characters instead of raising — a config typo turning into a nonsensical filter chain
+    with no error at all. Reject anything that isn't a real list/tuple up front.
+    """
+    if isinstance(value, str) or not isinstance(value, list | tuple):
+        raise ValueError(
+            f"strategy {strategy_name!r}: {field!r} must be a list (got "
+            f"{type(value).__name__!r}: {value!r}) — check its config.yaml"
+        )
+    return list(value)
+
+
 def load_strategy_chain_config(name: str, *, root: Path | None = None) -> StrategyChainConfig:
     """Resolve one strategy's chain config, composing a single `extends:` level if present.
 
@@ -109,7 +125,7 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     else:
         merged = raw
 
-    filters = tuple(merged.get("filters", ()))
+    filters = tuple(_ensure_str_list(name, "filters", merged.get("filters", ())))
     if not filters:
         raise ValueError(f"strategy {name!r} resolves an empty filters list — check its config")
     meta_learner = merged.get("meta_learner", {})
@@ -118,7 +134,8 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
             f"strategy {name!r}: 'meta_learner' must be a mapping (got "
             f"{type(meta_learner).__name__!r}) — check its config.yaml"
         )
-    families = tuple(meta_learner.get("families", ()))
+    families_raw = meta_learner.get("families", ())
+    families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged
     )

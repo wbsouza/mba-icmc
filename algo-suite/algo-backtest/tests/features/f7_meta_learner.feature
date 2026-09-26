@@ -36,6 +36,13 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When the meta-learner is trained twice with random_state 42 on the trend and indicator families
       Then both trained meta-learners predict the same p_hat for the same held-out row
 
+  Rule: train_meta_learner calibrates the combiner on validation, not train (regression proof)
+
+    Scenario: a train/validation split with an inverted trend-label relationship proves validation is used
+      Given a walk-forward split where trend_direction predicts UP in train but the true label is DOWN, and the reverse in validation
+      When the meta-learner is trained on the trend family alone
+      Then a held-out UP-trend row's p_hat is below 0.5
+
   Rule: F7 applies the terminal BUY/SELL/HOLD rule from p_hat and the trend regime
 
     Scenario: p_hat above theta_high with a bull regime recommends BUY

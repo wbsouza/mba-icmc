@@ -142,6 +142,44 @@ def _empty_meta_learner_mapping_config(
     )
 
 
+@given(
+    parsers.parse(
+        'a strategy config directory with "{name}" filters "{filters}" and '
+        'meta_learner.families as the scalar "{scalar}"'
+    )
+)
+def _scalar_families_config(
+    strategies_ctx: _StrategiesCtx, name: str, filters: str, scalar: str
+) -> None:
+    _write_config(
+        strategies_ctx.root,
+        name,
+        {
+            "schema_version": 1,
+            "filters": list(_split(filters)),
+            "meta_learner": {"families": scalar},
+        },
+    )
+
+
+@given(
+    parsers.parse(
+        'a strategy config directory with "{name}" filters "{filters}" and '
+        "meta_learner.families as a mapping"
+    )
+)
+def _mapping_families_config(strategies_ctx: _StrategiesCtx, name: str, filters: str) -> None:
+    _write_config(
+        strategies_ctx.root,
+        name,
+        {
+            "schema_version": 1,
+            "filters": list(_split(filters)),
+            "meta_learner": {"families": {"a": 1}},
+        },
+    )
+
+
 @given(parsers.parse('"{name}" extends "{base}" overriding meta_learner with a scalar value'))
 def _extends_scalar_meta_learner(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
     _write_config(

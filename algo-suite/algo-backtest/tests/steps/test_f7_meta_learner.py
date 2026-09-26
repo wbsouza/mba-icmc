@@ -195,6 +195,64 @@ def _train_twice(f7_ctx: _F7Ctx, seed: int) -> None:
     f7_ctx.meta_learner_b = train_meta_learner(families, f7_ctx.split, random_state=seed)
 
 
+def _trend_row(day: int, trend_direction: float, label: int) -> TrainingRow:
+    """One TREND-only training row: a fixed trend_direction/label pair on a given day."""
+    return TrainingRow(
+        timestamp=datetime(2020, 1, day, tzinfo=UTC),
+        features={
+            "trend_direction": trend_direction,
+            "trend_strength": 50.0,
+            "higher_tf_trend_direction": trend_direction,
+        },
+        label=label,
+    )
+
+
+@given(
+    "a walk-forward split where trend_direction predicts UP in train but the true label "
+    "is DOWN, and the reverse in validation"
+)
+def _inverted_train_validation_split(f7_ctx: _F7Ctx) -> None:
+    """Build train/validation spans with an inverted trend_direction-to-label mapping.
+
+    Train: trend_direction=+1 rows are labeled UP, -1 rows labeled DOWN, so the TREND
+    family's LightGBM model (fit only on train) learns "high P(up) for +1". Validation
+    carries the identical feature pattern but the OPPOSITE label assignment (+1 rows
+    labeled DOWN, -1 rows labeled UP) -- since the family model's own prediction for a
+    +1 row is fixed regardless of validation labels, this makes the logistic combiner's
+    fitted coefficient sign depend entirely on whether it is calibrated against
+    split.train (positive) or split.validation (negative). A regression back to
+    split.train would flip the held-out prediction below.
+    """
+    train_rows = [_trend_row(d, 1.0, 1) for d in range(1, 6)] + [
+        _trend_row(d, -1.0, 0) for d in range(6, 11)
+    ]
+    validation_rows = [_trend_row(d, 1.0, 0) for d in range(11, 14)] + [
+        _trend_row(d, -1.0, 1) for d in range(14, 17)
+    ]
+    test_rows = [_trend_row(17, 1.0, 1), _trend_row(18, -1.0, 0)]
+    f7_ctx.split = WalkForwardSplit(
+        train=tuple(train_rows), validation=tuple(validation_rows), test=tuple(test_rows)
+    )
+
+
+@when("the meta-learner is trained on the trend family alone")
+def _train_trend_only(f7_ctx: _F7Ctx) -> None:
+    assert f7_ctx.split is not None
+    f7_ctx.meta_learner_a = train_meta_learner([FeatureFamily.TREND], f7_ctx.split)
+
+
+@then(parsers.parse("a held-out UP-trend row's p_hat is below {threshold:g}"))
+def _held_out_p_hat_below(f7_ctx: _F7Ctx, threshold: float) -> None:
+    assert f7_ctx.meta_learner_a is not None
+    held_out = {"trend_direction": 1.0, "trend_strength": 50.0, "higher_tf_trend_direction": 1.0}
+    p_hat = f7_ctx.meta_learner_a.predict(held_out)  # type: ignore[attr-defined]
+    assert p_hat < threshold, (
+        f"expected p_hat < {threshold}, got {p_hat} -- the combiner may be calibrated on "
+        "split.train instead of split.validation"
+    )
+
+
 @then("both trained meta-learners predict the same p_hat for the same held-out row")
 def _same_prediction(f7_ctx: _F7Ctx) -> None:
     assert f7_ctx.split is not None
