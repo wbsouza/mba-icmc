@@ -3,7 +3,8 @@
 
     target_level_N        = entry ± (|entry - SL| * target_factor_N
                                       + (target_factor_N + 1) * spread)
-    trail_stop_at_level_N = entry ± |entry - SL| * trail_stop_at_level_factor_N
+    trail_stop_at_level_N = entry ± (|entry - SL| * trail_stop_at_level_factor_N
+                                      + (trail_stop_at_level_factor_N + 1) * spread)
     trail_stop_to_level_N = entry ± (|entry - SL| * trail_stop_to_level_factor_N + spread)
 
 The legacy "±" is resolved by trade direction **the same way for all three formulas** —
@@ -22,6 +23,12 @@ An earlier version of this module took `abs(trail_stop_to_level_factor)` and
 hard-coded the loss-side subtraction before the real source was available in this
 checkout; that flipped the sign of the `spread` term relative to the legacy formula.
 Fixed here to match the confirmed source exactly.
+
+`trail_stop_at_level` was also missing its `(factor + 1) * spread` term entirely — the
+real source (`related-work/projects/spockfx-metatrader/spockfx-engine/src/main/java/
+spockfx/engine/MoneyManagementCalculator.java::setTrailStopLevels`, the `atLevelDiff`
+computation) carries the same `(ratio + 1) * spread` shape as `target_level`. Added here
+to match.
 """
 
 from __future__ import annotations
@@ -62,11 +69,19 @@ def target_level(
 
 
 def trail_stop_at_level(
-    entry: float, stop_loss: float, trail_stop_at_level_factor: float, direction: Direction
+    entry: float,
+    stop_loss: float,
+    trail_stop_at_level_factor: float,
+    spread: float,
+    direction: Direction,
 ) -> float:
-    """Price (in the profit direction) that must be reached to arm the trailing stop."""
+    """Price that must be reached to arm the trailing stop.
+
+    Same `entry + sign*(SL_distance*factor + (factor+1)*spread)` shape as `target_level`
+    (specs.md §14.9.4's `MoneyManagementCalculator.setTrailStopLevels`'s `atLevelDiff`).
+    """
     distance = _sl_distance(entry, stop_loss)
-    offset = distance * trail_stop_at_level_factor
+    offset = distance * trail_stop_at_level_factor + (trail_stop_at_level_factor + 1) * spread
     return entry + _profit_sign(direction) * offset
 
 

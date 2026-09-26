@@ -4,7 +4,7 @@ Feature: Target / trail-stop level math
   later Spring reimplementation in `spockfx-engine` agree on the formula):
 
     target_level_N        = entry + sign * (|entry - SL| * target_factor_N + (target_factor_N + 1) * spread)
-    trail_stop_at_level_N = entry + sign * (|entry - SL| * trail_stop_at_level_factor_N)
+    trail_stop_at_level_N = entry + sign * (|entry - SL| * trail_stop_at_level_factor_N + (trail_stop_at_level_factor_N + 1) * spread)
     trail_stop_to_level_N = entry + sign * (|entry - SL| * trail_stop_to_level_factor_N + spread)
 
   where `sign` is +1 for BUY, -1 for SELL — **the same rule for all three formulas**, no
@@ -19,6 +19,11 @@ Feature: Target / trail-stop level math
   which happened to match the loss-side case but flipped the sign of the `spread` term —
   wrong for every factor magnitude, not just positive ones.
 
+  `trail_stop_at_level` was also missing its `(factor + 1) * spread` term entirely (the
+  real Java source's `atLevelDiff` carries it, same shape as `target_level`) — added here,
+  which changes this file's two composite-scenario arm-level values below (spread was
+  previously silently dropped).
+
   Rule: BUY-direction levels move up for targets/arming; the trail destination's side depends on the factor's sign, not on direction
 
     Scenario: Strategy A05's target/arm/destination factors on a BUY at entry 1.1000, SL 1.0950
@@ -27,9 +32,21 @@ Feature: Target / trail-stop level math
       When I compute the target level for factor 2.0
       Then the target level is 1.1106
       When I compute the trail-stop arm level for factor 0.5
-      Then the trail-stop arm level is 1.1025
+      Then the trail-stop arm level is 1.1028
       When I compute the trail-stop destination level for factor -0.66
       Then the trail-stop destination level is 1.0969
+
+    Scenario: zero spread isolates the R-multiple term of the trail-stop arm level (BUY)
+      Given a BUY trade with entry 1.1000 and stop-loss 1.0950
+      And a spread of 0.0
+      When I compute the trail-stop arm level for factor 0.5
+      Then the trail-stop arm level is 1.1025
+
+    Scenario: a zero trail-stop arm factor is breakeven plus the spread cost (BUY)
+      Given a BUY trade with entry 1.1000 and stop-loss 1.0950
+      And a spread of 0.0002
+      When I compute the trail-stop arm level for factor 0.0
+      Then the trail-stop arm level is 1.1002
 
     Scenario: a positive trail-stop destination factor locks in profit instead of tightening the stop (BUY)
       Given a BUY trade with entry 1.1000 and stop-loss 1.0950
@@ -57,9 +74,21 @@ Feature: Target / trail-stop level math
       When I compute the target level for factor 2.0
       Then the target level is 1.0894
       When I compute the trail-stop arm level for factor 0.5
-      Then the trail-stop arm level is 1.0975
+      Then the trail-stop arm level is 1.0972
       When I compute the trail-stop destination level for factor -0.66
       Then the trail-stop destination level is 1.1031
+
+    Scenario: zero spread isolates the R-multiple term of the trail-stop arm level (SELL)
+      Given a SELL trade with entry 1.1000 and stop-loss 1.1050
+      And a spread of 0.0
+      When I compute the trail-stop arm level for factor 0.5
+      Then the trail-stop arm level is 1.0975
+
+    Scenario: a zero trail-stop arm factor is breakeven plus the spread cost (SELL)
+      Given a SELL trade with entry 1.1000 and stop-loss 1.1050
+      And a spread of 0.0002
+      When I compute the trail-stop arm level for factor 0.0
+      Then the trail-stop arm level is 1.0998
 
     Scenario: a positive trail-stop destination factor locks in profit instead of tightening the stop (SELL)
       Given a SELL trade with entry 1.1000 and stop-loss 1.1050
