@@ -1,11 +1,9 @@
-"""Steps for run_baseline_chain.feature — the F1-F7 "baseline" chain wiring smoke test.
+"""Steps for run_hybrid_chain.feature — the F1-F7 "hybrid" chain (with F4/news) wiring
+smoke test.
 
-pytest-bdd binds step text per module, not globally across collected files, so the
-handful of generic steps this feature shares with run_baseline.feature (CLI invocation,
-exit-code/error assertions, swing-data materialization, artifact checks) are
-self-contained here rather than cross-imported from test_run_baseline.py — same step
-text, same behavior, kept independently importable. Only "bctx" and "require_docker"
-are true fixtures (from conftest.py), not step functions, so no duplication there.
+Self-contained (own swing/materialization helpers), same rationale as
+test_run_baseline_chain.py's own docstring: pytest-bdd binds step text per module, so
+duplicating the handful of generic steps here keeps this file independently importable.
 """
 
 from __future__ import annotations
@@ -25,12 +23,16 @@ from algo_core.bars import QuoteBar, Timeframe
 from algo_core.instrument import build_instrument
 from algo_core.layout import price_path_for
 from algo_core.repository.parquet import ParquetRepository
+from algo_score.events.models import GdeltFeature
+from algo_score.events.paths import feature_path as event_feature_path
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
-scenarios("../features/run_baseline_chain.feature")
+scenarios("../features/run_hybrid_chain.feature")
 
 _EURUSD = build_instrument("EURUSD")
+_SWING_FIRST = datetime(2014, 5, 7, 13, 0, tzinfo=UTC)
+_SWING_COUNT = 60
 
 
 @pytest.fixture
@@ -46,7 +48,7 @@ def bctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 
 def _swing_bars(first: datetime, count: int = 60) -> list[QuoteBar]:
-    """Triangular price swing (up then down), same shape as run_baseline.feature's fixture."""
+    """Triangular price swing (up then down), same shape as run_baseline_chain's fixture."""
     bars = []
     for i in range(count):
         offset = min(i, count - 1 - i)
@@ -71,19 +73,54 @@ def _run_cli(bctx: dict[str, Any], command: str) -> None:
 
 @given("materialized EUR/USD minute data with a price swing in 2014-05")
 def _materialize_swing(bctx: dict[str, Any]) -> None:
-    bars = _swing_bars(datetime(2014, 5, 7, 13, 0, tzinfo=UTC))
+    bars = _swing_bars(_SWING_FIRST, _SWING_COUNT)
     ParquetRepository(
         QuoteBar, price_path_for(bctx["data_root"], _EURUSD, Timeframe.M1.value, 2014, 5)
     ).put(bars)
     materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
 
 
-@when("I run baseline over 2014-05-07 to 2014-05-09 with size 0.5")
-def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
+_RUN_WINDOW_START = datetime(2014, 5, 7, tzinfo=UTC)
+_RUN_WINDOW_MINUTES = 3 * 24 * 60  # 2014-05-07 through 2014-05-09 inclusive, plus margin
+
+
+def _synthetic_event_feature_rows(event_intensity: float) -> list[GdeltFeature]:
+    """One GdeltFeature row per minute of the whole `--from`/`--to` run window, all at
+    `event_intensity` -- not just the 60-minute swing. LEAN delivers quote bars (holding
+    the last real quote) across the full requested CLI window, not only the swing's own
+    60 minutes, so F4's per-minute lookup must cover the same span the algorithm actually
+    runs over or it fails fast on the first uncovered bar (confirmed: it does, exactly at
+    the swing's last minute + 1)."""
+    return [
+        GdeltFeature(
+            timestamp=_RUN_WINDOW_START + timedelta(minutes=i), event_intensity=event_intensity
+        )
+        for i in range(_RUN_WINDOW_MINUTES)
+    ]
+
+
+@given("a synthetic GDELT event-feature Parquet for 2014-05 with no active high-risk event")
+def _synthetic_news_no_veto(bctx: dict[str, Any]) -> None:
+    """0.0 is well above the smoke test's -0.5 veto threshold -- F4 never vetoes."""
+    rows = _synthetic_event_feature_rows(0.0)
+    path = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
+    ParquetRepository(GdeltFeature, path).put(rows)
+
+
+@given("a synthetic GDELT event-feature Parquet for 2014-05 with an active high-risk event")
+def _synthetic_news_veto(bctx: dict[str, Any]) -> None:
+    """-10.0 is well below the smoke test's -0.5 veto threshold -- F4 vetoes every bar."""
+    rows = _synthetic_event_feature_rows(-10.0)
+    path = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
+    ParquetRepository(GdeltFeature, path).put(rows)
+
+
+@when("I run hybrid over 2014-05-07 to 2014-05-09 with size 0.5")
+def _run_hybrid_chain(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
-            "run", "--strategy", "baseline", "--symbol", "EURUSD",
+            "run", "--strategy", "hybrid", "--symbol", "EURUSD",
             "--from", "2014-05-07", "--to", "2014-05-09", "--param", "size=0.5",
         ],
     )
@@ -122,36 +159,32 @@ def _metrics_reported(bctx: dict[str, Any]) -> None:
 
 @then("the run artifacts are written under the data root")
 def _artifacts_written(bctx: dict[str, Any]) -> None:
-    runs = bctx["data_root"] / "runs" / "baseline"
+    runs = bctx["data_root"] / "runs" / "hybrid"
     assert list(runs.glob("*/run.json")), f"no run.json under {runs}"
     assert list(runs.glob("*/trades.json")), f"no trades.json under {runs}"
     assert list(runs.glob("*/metrics.json")), f"no metrics.json under {runs}"
 
 
-@then("the container log shows the F1-F7 chain actually evaluated a decision")
+@then("the container log shows the F1-F7 hybrid chain actually evaluated a decision")
 def _chain_evaluated(bctx: dict[str, Any]) -> None:
-    """Prove FilterChain.run() executed inside LEAN, not just that the CLI exited 0.
+    """Prove FilterChain.run() executed inside LEAN with F4 wired in, not just CLI success.
 
-    CLI success + written artifacts can't distinguish "the chain ran" from "the chain
-    was silently skipped" -- main.py logs one BASELINE_DECISION|... line (LEAN's own
-    debug-message throttling collapses repeats, so at least one, not necessarily many)
-    every time `on_data` reaches `self._chain.run(state)`. LEAN persists its container
-    stdout as `log.txt` in the run's own results directory, so this reads that real
-    file rather than needing a second, CLI-bypassing `run_lean()` call.
+    Mirrors run_baseline_chain.feature's own BASELINE_DECISION check, against `main.py`'s
+    HYBRID_DECISION| line instead.
     """
-    runs = bctx["data_root"] / "runs" / "baseline"
+    runs = bctx["data_root"] / "runs" / "hybrid"
     logs = list(runs.glob("*/log.txt"))
     assert logs, f"no log.txt under {runs}"
-    assert any("BASELINE_DECISION|" in log.read_text() for log in logs), (
-        f"no BASELINE_DECISION line in {[str(p) for p in logs]} -- the chain never ran"
+    assert any("HYBRID_DECISION|" in log.read_text() for log in logs), (
+        f"no HYBRID_DECISION line in {[str(p) for p in logs]} -- the chain never ran"
     )
 
 
 def _run_dir(bctx: dict[str, Any]) -> Path:
     """The single run directory this scenario's CLI invocation just created."""
     data_root: Path = bctx["data_root"]
-    runs = list((data_root / "runs" / "baseline").glob("*"))
-    assert len(runs) == 1, f"expected exactly one baseline run dir, found {runs}"
+    runs = list((data_root / "runs" / "hybrid").glob("*"))
+    assert len(runs) == 1, f"expected exactly one hybrid run dir, found {runs}"
     return runs[0]
 
 
@@ -164,9 +197,8 @@ def _decisions_parquet_written(bctx: dict[str, Any]) -> None:
 def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
     """Prove decisions.parquet's trade_id is a real foreign key into trades.json.
 
-    Every non-null `trade_id` must equal some closed trade's entry order id
-    (`orderIds[0]`, LEAN's own convention — confirmed against a real run's trades.json)
-    -- not just that both files happen to exist (Spec 04h's actual join requirement).
+    Same join proof as run_baseline_chain.feature's own scenario, run here against the
+    hybrid chain (which additionally exercises F4/news on the join path).
     """
     run_dir = _run_dir(bctx)
     repo: ParquetRepository[DecisionRow] = ParquetRepository(
@@ -180,3 +212,10 @@ def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
             f"decisions.parquet trade_id {row.trade_id!r} matches no trades.json "
             f"entry order id in {sorted(entry_order_ids)}"
         )
+
+
+@then("no trade was ever opened")
+def _no_trade_opened(bctx: dict[str, Any]) -> None:
+    """Every bar vetoed by F4's active high-risk event -> trades.json is empty."""
+    trades = json.loads((_run_dir(bctx) / "trades.json").read_text())
+    assert trades == [], f"expected no trades under an active-veto window, got {trades}"

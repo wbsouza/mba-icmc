@@ -218,6 +218,24 @@ scope. `04-algo-backtest-filter-chain-hybrid` therefore stays in
 `docs/stories/planned/`, not moved to `done/` — its real Definition of Done
 (a LEAN-container hybrid run) is not met.
 
+**Correction (2026-09-26, Spec 04h closure):** lines 206–219 above are now
+stale. `algos/baseline/main.py` and `algos/hybrid/main.py` are **built and
+run against the real pinned LEAN container** over real materialized 2015-02
+data — the ~10 GB image, `pyarrow`/`lightgbm`/`scikit-learn` availability,
+and NAS I/O contention concerns above all resolved without issue. Both are
+registered in `run.py`'s `STRATEGIES`. `decisions.parquet` (via a new shared
+`chain/decision_recorder.py`) provably joins `trades.json` by `trade_id`
+(LEAN's own entry `orderIds[0]`) — the last item in Spec 04h's own remaining
+scope. Two real, previously-unknown container-only gaps were found and fixed
+along the way: `algo_core.repository`'s eager `DuckDBRepository` import
+(the container has no `duckdb`; fixed via lazy `__getattr__`) and an
+all-empty `enrichment`/`metadata` batch making pyarrow infer an unwritable
+childless struct column (fixed by mapping empty dicts to `None` at the
+`FilterResultRow` boundary). Still a wiring smoke test, not a methodology
+result — F3's pattern detector, F5/F6's account-risk economics, and F7's
+training window are all still placeholders. `04-algo-backtest-filter-chain-
+hybrid` moves to `docs/stories/done/` alongside this closure.
+
 **Spec 07 §2 (build-hygiene pass) done, 2026-09-25.** `make pt-scan` clean
 (hits are ABNT NBR 6023-required original-language bibliography entries and
 `resumo.tex`, not leaked Portuguese prose — the thesis body itself is pure

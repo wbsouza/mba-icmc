@@ -18,6 +18,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
     Scenario: an unknown param is rejected
       When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param bogus=1"
       Then the run command exits with code 2
+      And the error says params must be exactly
 
   Rule: A validated run executes the full F1-F7 chain on the engine without crashing
 
@@ -29,3 +30,5 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       And a metrics summary is reported
       And the run artifacts are written under the data root
       And the container log shows the F1-F7 chain actually evaluated a decision
+      And decisions.parquet is written under the run's results directory
+      And every decisions.parquet row's trade_id is null or a real trades.json entry order id

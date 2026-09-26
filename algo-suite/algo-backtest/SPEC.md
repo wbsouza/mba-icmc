@@ -81,6 +81,9 @@ algo_backtest/
 ├── algos/smoke_trade/      # IMPLEMENTED — bundled one-shot algo (explicit entry+exit) for lean-smoke
 ├── algos/baseline_ma/      # IMPLEMENTED — fast/slow SMA crossover (trend), long-only, fixed sizing
 ├── algos/baseline_meanrev/ # IMPLEMENTED — SMA mean-reversion (counter-trend), long-only, fixed sizing
+├── algos/experiment_zero/  # IMPLEMENTED — buyhold/random/perfect_foresight known-answer algos (Spec 04h)
+├── algos/baseline/         # IMPLEMENTED — real F1+F2+F3+F5+F6+F7 chain (no F4/news), Spec 04h
+├── algos/hybrid/           # IMPLEMENTED — real F1-F7 chain incl. F4/news, Spec 04h
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
 │                           #   (manifest) + trades.json (ledger) + metrics.json; metrics.json last
 │                           #   as the completeness marker (Slices E1+E2). Each trades.json entry
@@ -111,11 +114,13 @@ algo_backtest/
 │                           #   unknown adapter is a hard stop before the first bar).
 ├── chain/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
-│   ├── filters/            # IMPLEMENTED — f1_trend.py, f2_indicator.py, f3_pattern.py,
-│   │                       #   f5_risk_guard.py, f6_capital_mgmt.py (one file each). F4
-│   │                       #   (news-context) and F7 (meta-learner) not yet built — blocked
-│   │                       #   on algo-score's pipeline being run against real NAS data,
-│   │                       #   not on missing code (see docs/stories/00-PLAN.md §1).
+│   ├── filters/            # IMPLEMENTED — all seven: f1_trend.py, f2_indicator.py,
+│   │                       #   f3_pattern.py, f4_news_context.py (Spec 04e), f5_risk_guard.py,
+│   │                       #   f6_capital_mgmt.py, f7_meta_learner.py (Spec 04g).
+│   ├── terminal.py         # IMPLEMENTED — F7TerminalDecision (Spec 04h): FilterChain's
+│   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision.
+│   ├── decision_recorder.py # IMPLEMENTED — DecisionRecorder (Spec 04h): per-run trade_id
+│   │                       #   bookkeeping shared by algos/{baseline,hybrid}/main.py.
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
@@ -403,13 +408,14 @@ closes the loop: it runs as `FilterChain`'s `TerminalDecision`, reading F7's own
 `tests/features/filter_chain_mechanics.feature` is the executable proof of the
 accumulate / veto-short-circuit / abstain-does-not-veto mechanics **and** (its
 newest Rule) of the full real F1-F7 chain reaching a decision end-to-end in
-pure Python. What remains (see `docs/technical-debt.md`'s Spec 04h entry) is
-wiring this chain into a real LEAN algorithm — `algos/{baseline,hybrid}/
-main.py` do not exist yet, so `run.py`'s `STRATEGIES` registry has no
-`"baseline"`/`"hybrid"` entry. `src/algo_backtest/strategies/{baseline,hybrid}/
-config.yaml` (composed via `algo_backtest/strategies.py`'s single-level
-`extends:` loader, `docs/experiments.md` §1) declare the intended chains
-already.
+pure Python. As of Spec 04h's closure, `algos/{baseline,hybrid}/main.py`
+wire this chain into a real LEAN algorithm and are registered in `run.py`'s
+`STRATEGIES`, verified against the real pinned LEAN container (`decisions.
+parquet` provably joins `trades.json` by `trade_id`). `src/algo_backtest/
+strategies/{baseline,hybrid}/config.yaml` (composed via `algo_backtest/
+strategies.py`'s single-level `extends:` loader, `docs/experiments.md` §1)
+declare the intended chains; both are still wiring smoke tests, not a
+methodology result — see `docs/technical-debt.md`'s TD-51 entry.
 
 ```gherkin
 Feature: Deterministic filter chain

@@ -130,8 +130,55 @@ stateDiagram-v2
 - F3's `candlestick_pattern` is always `None` — no real detector wired; F3 ABSTAINs every bar.
 - F5/F6's account-risk features (`account_portfolio_at_risk`, `pip_value`,
   `stop_loss_pips`, `margin_per_lot`, ...) use fixed placeholder constants in
-  `algos/baseline/main.py`, not a real ATR/margin model.
-- F7's meta-learner is fit on whatever short window `train_baseline_meta_learner.py` is
-  pointed at — mechanically valid, not statistically meaningful.
-- `hybrid` (F1-F7 + F4/news) has no `algos/hybrid/main.py` yet — this runbook covers
-  `baseline` only.
+  `algos/{baseline,hybrid}/main.py`, not a real ATR/margin model.
+- F7's meta-learner is fit on whatever short window `train_{baseline,hybrid}_meta_learner.py`
+  is pointed at — mechanically valid, not statistically meaningful.
+- F4's (hybrid only) per-symbol sentiment is best-effort/ABSTAIN pending TD-48 — only its
+  GDELT event-intensity veto input is real.
+
+## Running `hybrid` (F1-F7 + F4/news) — added 2026-09-26, Spec 04h closure
+
+Same shape as `baseline` above, plus a news-feature training step and mount.
+
+### 1. Build the GDELT event-feature Parquet for the target month (if not already built)
+
+```bash
+cd algo-suite
+uv run algo-score events --kind gdelt --from 2015-02-01 --to 2015-02-28
+```
+
+F4's per-minute lookup needs every minute of the run window covered — build the whole
+month, not just the backtest's own date range (a partial-month partition will fail fast
+with "no GDELT event_intensity for timestamp ...").
+
+### 2. Train and persist the F7 meta-learner (includes the NEWS family)
+
+```bash
+cd algo-suite/algo-backtest
+uv run python scripts/train_hybrid_meta_learner.py \
+    --symbol EURUSD --year 2015 --month 2 \
+    --train-end 2015-02-03 --validation-end 2015-02-05 --test-end 2015-02-06
+```
+
+Writes `src/algo_backtest/algos/hybrid/f7_meta_learner.joblib`.
+
+### 3. Run the backtest
+
+```bash
+cd algo-suite
+uv run algo-backtest run --strategy hybrid --symbol EURUSD \
+    --from 2015-02-02 --to 2015-02-06 --param size=0.5
+```
+
+`run.py`'s `StrategySpec.needs_news_data` flag makes `run_strategy()` additionally mount
+the real Spec 03 Parquet tree read-only at `news/parquet` under the container's data
+root, passing `news_data_root=/Lean/Data/news` as a backtest parameter — no manual mount
+step needed beyond having the event-feature Parquet built (step 1).
+
+### 4. decisions.parquet / trades.json join
+
+Both `baseline` and `hybrid` now write `<results_dir>/decisions.parquet` at
+`on_end_of_algorithm()` (`chain/decision_recorder.py`). Every non-`NO_TRADE` row's
+`trade_id` is `None` (no trade open) or a string matching one of `trades.json`'s
+`orderIds[0]` values (LEAN's own entry order id) — a real, verifiable foreign key, not
+just two files that happen to coexist.

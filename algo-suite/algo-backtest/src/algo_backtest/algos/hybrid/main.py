@@ -3,7 +3,7 @@
 # execute/close, plus a debug()/log() line per fill/close, so every fill is normalized
 # and every rejection recorded, and every decision is grep-able from container logs the
 # same way order_execution.feature already asserts on baseline_ma/main.py.
-from datetime import UTC  # noqa: E402
+from datetime import UTC, date  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import joblib  # noqa: E402
@@ -11,6 +11,12 @@ from algo_backtest.chain.decision_recorder import DecisionRecorder  # noqa: E402
 from algo_backtest.chain.filters.f1_trend import F1TrendFilter  # noqa: E402
 from algo_backtest.chain.filters.f2_indicator import F2IndicatorFilter  # noqa: E402
 from algo_backtest.chain.filters.f3_pattern import F3PatternFilter  # noqa: E402
+from algo_backtest.chain.filters.f4_news_context import (  # noqa: E402
+    F4NewsContextFilter,
+    NewsContextConfig,
+    NewsContextIndex,
+    load_news_context_index,
+)
 from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter  # noqa: E402
 from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtFilter  # noqa: E402
 from algo_backtest.chain.filters.f7_meta_learner import F7Config, F7MetaLearnerFilter  # noqa: E402
@@ -29,16 +35,12 @@ from engine.order_executor import FillStatus, SizingContext  # noqa: E402
 _DECISIONS_PATH = Path("/Results") / "decisions.parquet"  # matches lean_runner.py's _RESULTS_MNT
 
 # SMOKE-TEST placeholders (2026-09-26, docs/stories/planned/04h-.../progress.md and
-# technical-debt.md TD-51/TD-43) -- not real methodology values. `algo_core.config.resolve`
-# needs a `conf/backtest.yaml` file (or ALGO_* env vars) reachable from wherever it runs;
-# nothing mounts the host's conf/ tree into the LEAN container (only `broker_adapter` is
-# threaded in today, as an explicit runtime parameter resolved on the host in cli.py --
-# see run.py/run_strategy). Calling F5/F6/F7's own `load_*_config()` default factories
-# here would therefore fail fast *inside the container* with no config to find (TD-43:
-# each resolve() call's schema is isolated to its own caller, and no caller threads these
-# three schemas' values in as parameters the way broker_adapter already is). Constructing
-# them explicitly, mirroring conf/backtest.yaml's own placeholder values, sidesteps that
-# gap for this smoke test rather than deepening TD-43 with a second broken threading path.
+# technical-debt.md TD-51/TD-43) -- not real methodology values. Identical to
+# algos/baseline/main.py's own placeholders (see that module's docstring for the full
+# rationale): `algo_core.config.resolve` needs a `conf/backtest.yaml` reachable from
+# wherever it runs, and nothing mounts the host's conf/ tree into the LEAN container, so
+# every filter's own `load_*_config()` default factory would fail fast inside the
+# container. Constructing them explicitly sidesteps that gap for this smoke test.
 _RISK_GUARD_CAPS = RiskGuardCaps(
     portfolio_at_risk_cap=0.10,
     daily_drawdown_limit=0.05,
@@ -48,6 +50,12 @@ _RISK_GUARD_CAPS = RiskGuardCaps(
 )
 _RISK_PER_TRADE = 0.03  # specs.md Sec 14.5/14.7: 3% legacy reference value (Strategy A05)
 _F7_CONFIG = F7Config(theta_high=0.55, theta_low=0.45)  # f7_meta_learner.py's own test default
+# f4_news_context.py's own test defaults (tests/steps/test_f4_news_context.py) -- same
+# placeholder reasoning as F5/F6/F7 above, not a real methodology-calibrated threshold.
+_NEWS_CONTEXT_CONFIG = NewsContextConfig(
+    event_intensity_veto_threshold=-0.5,
+    sentiment_direction_threshold=0.15,
+)
 
 _FILTER_FACTORIES = {
     "f1_trend": F1TrendFilter,
@@ -66,21 +74,60 @@ _LOT_NOTIONAL_UNITS = 100_000.0
 _ASSUMED_LEVERAGE = 30.0  # matches _RISK_GUARD_CAPS.max_leverage above
 
 
+def _month_range(start: date, end: date) -> list[tuple[int, int]]:
+    """Every (year, month) the inclusive [start, end] window touches, in calendar order."""
+    months = []
+    year, month = start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        months.append((year, month))
+        month += 1
+        if month == 13:
+            month, year = 1, year + 1
+    return months
+
+
+def _merged_news_context_index(
+    data_root: Path, pair: str, start: date, end: date
+) -> NewsContextIndex:
+    """Merge each calendar month the run window touches into one `NewsContextIndex`.
+
+    F4's own loader (`load_news_context_index`) is scoped to a single (year, month)
+    partition; a backtest window may span a month boundary, so this merges every
+    touched month's real event/sentiment Parquet into the single index F4 needs for
+    the whole run. `sentiment_source_present` is true if *any* touched month had real
+    sentiment data materialized (an OR, not last-month-wins), matching F4's own
+    per-audit-row semantics of "was there ever a real sentiment source to consult".
+    """
+    event_intensity: dict[object, float] = {}
+    sentiment_polarity: dict[object, float] = {}
+    sentiment_source_present = False
+    for year, month in _month_range(start, end):
+        index = load_news_context_index(data_root, pair, year, month)
+        event_intensity.update(index.event_intensity)
+        sentiment_polarity.update(index.sentiment_polarity)
+        sentiment_source_present = sentiment_source_present or index.sentiment_source_present
+    return NewsContextIndex(
+        event_intensity=event_intensity,  # type: ignore[arg-type]
+        sentiment_polarity=sentiment_polarity,  # type: ignore[arg-type]
+        sentiment_source_present=sentiment_source_present,
+    )
+
+
 class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
-    """Runs the "baseline" F1+F2+F3+F5+F6+F7 chain (no F4/news) each bar.
+    """Runs the "hybrid" F1+F2+F3+F4+F5+F6+F7 chain (adds news) each bar.
 
     SMOKE TEST, not a methodology result (see this repo's technical-debt.md TD-51 and
-    docs/stories/planned/04h-algo-backtest-hybrid-integration/progress.md): F3's
-    candlestick pattern is never populated (no real detector wired -- ``f3_pattern.py``'s
-    own documented gap), F5/F6's account-risk features are computed from live portfolio
-    state using fixed placeholder economics (no real ATR/margin model wired), and F7's
-    meta-learner is whatever ``scripts/train_baseline_meta_learner.py`` persisted --
-    trained on a short window, not a statistically meaningful model. This class exists to
-    prove the F1-F7 chain, the terminal decision, and the order executor are wired
-    correctly end to end against the real pinned LEAN container, nothing more.
+    docs/stories/planned/04h-algo-backtest-hybrid-integration/progress.md) -- identical
+    caveats to ``algos/baseline/main.py`` (F3's candlestick pattern never populated,
+    F5/F6's account-risk features use fixed placeholder economics, F7's meta-learner
+    trained on a short window), plus F4's own documented gap: real GDELT event-intensity
+    veto input, but per-symbol sentiment is best-effort/ABSTAIN pending TD-48 (no real
+    sentiment Parquet materialized yet). This class exists to prove the full F1-F7 chain
+    *including* F4/news is wired correctly end to end against the real pinned LEAN
+    container, nothing more.
     """
 
-    strategy_name = "baseline"
+    strategy_name = "hybrid"
 
     def initialize(self) -> None:
         """Read backtest parameters, subscribe, build indicators + the filter chain."""
@@ -90,6 +137,7 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         end = self._required("end")
         self._size = float(self._required("size"))
         broker_adapter = self._required("broker_adapter")
+        news_data_root = self._required("news_data_root")
 
         self.set_start_date(int(start[:4]), int(start[4:6]), int(start[6:8]))
         self.set_end_date(int(end[:4]), int(end[4:6]), int(end[6:8]))
@@ -106,18 +154,28 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         )
 
         # joblib.load: safe here -- this file is a static asset shipped in this same
-        # directory, committed by us via scripts/train_baseline_meta_learner.py, never
+        # directory, committed by us via scripts/train_hybrid_meta_learner.py, never
         # user/network input, same trust boundary as importing this module's own code.
         model_path = Path(__file__).parent / "f7_meta_learner.joblib"
         meta_learner = joblib.load(model_path)
 
-        config = load_strategy_chain_config("baseline")
-        filters = [
-            F7MetaLearnerFilter(meta_learner=meta_learner, config=_F7_CONFIG)
-            if name == "f7_meta_learner"
-            else _FILTER_FACTORIES[name]()
-            for name in config.filters
-        ]
+        start_date = date(int(start[:4]), int(start[4:6]), int(start[6:8]))
+        end_date = date(int(end[:4]), int(end[4:6]), int(end[6:8]))
+        news_index = _merged_news_context_index(
+            Path(news_data_root), symbol, start_date, end_date
+        )
+
+        config = load_strategy_chain_config("hybrid")
+        filters = []
+        for name in config.filters:
+            if name == "f7_meta_learner":
+                filters.append(F7MetaLearnerFilter(meta_learner=meta_learner, config=_F7_CONFIG))
+            elif name == "f4_news_context":
+                filters.append(
+                    F4NewsContextFilter(index=news_index, config=_NEWS_CONTEXT_CONFIG)
+                )
+            else:
+                filters.append(_FILTER_FACTORIES[name]())
         self._chain = FilterChain(filters=filters, terminal=F7TerminalDecision())
         self._decisions = DecisionRecorder()
 
@@ -152,7 +210,14 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         return daily_fraction, weekly_fraction
 
     def _build_features(self) -> dict[str, object]:
-        """Compute this bar's full state.features contract for the F1+F2+F3+F5+F6+F7 chain."""
+        """Compute this bar's full state.features contract for the F1+F2+F3+F5+F6+F7 chain.
+
+        F4's own inputs (news_event_intensity/news_sentiment_score) are not part of this
+        dict -- F4NewsContextFilter reads its `NewsContextIndex` directly, keyed by
+        `state.timestamp`/`state.pair`, and enriches `state.features` itself during
+        `chain.run()` (see chain/model.py's accumulation contract), the same pattern F1-F3
+        already use for their own enrichment.
+        """
         price = self.securities[self._symbol].price
         fast = self._ema_fast.current.value
         slow = self._ema_slow.current.value
@@ -226,14 +291,13 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         )
         outcome = self._chain.run(state)
         action = decision_to_order_action(outcome.decision)
-        self.debug(f"BASELINE_DECISION|decision={outcome.decision}|action={action}")  # noqa: F405
+        self.debug(f"HYBRID_DECISION|decision={outcome.decision}|action={action}")  # noqa: F405
 
         if action == "execute":
             # Explicit cross-boundary conversion (chain.model.Decision -> engine.order_
             # executor.Decision), per chain/terminal.py's own docstring: they're separate
-            # StrEnum classes with the same values, and OrderExecutor.execute() -- fixed
-            # 2026-09-26, PR #33 review -- must receive its own class, not rely on == vs
-            # is alone to save every future caller from this exact bug.
+            # StrEnum classes with the same values, and OrderExecutor.execute() must
+            # receive its own class, not rely on == vs is alone (2026-09-26 PR #33 review).
             sizing = SizingContext(size=self._size)
             order_decision = OrderDecision(outcome.decision.value)
             fill = self.order_executor.execute(self._symbol, order_decision, sizing)
@@ -251,8 +315,7 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         self._decisions.record(outcome)
 
     def on_end_of_algorithm(self) -> None:
-        """Emit the closed-trade count for log-based assertions (mirrors baseline_ma);
-        persist the accumulated decisions.parquet audit trail."""
+        """Emit the closed-trade count for log-based assertions; persist decisions.parquet."""
         closed = sum(1 for trade in self.trade_builder.closed_trades)
-        self.debug(f"BASELINE_CLOSED_TRADES={closed}")  # noqa: F405
+        self.debug(f"HYBRID_CLOSED_TRADES={closed}")  # noqa: F405
         self._decisions.write(_DECISIONS_PATH)

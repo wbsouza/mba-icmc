@@ -206,6 +206,20 @@ def run_lean(
         algo_core_src, work / "algo_core", dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
+    # F4 (Spec 04e, chain/filters/f4_news_context.py) additionally imports algo_score's
+    # own value objects/paths (algo_score.events.models/paths, algo_score.paths) to read
+    # the real Spec 03 news Parquet -- needed by any algo using F4 (Spec 04h's `hybrid`),
+    # not by `baseline`, but copied unconditionally here, same reasoning as algo_core
+    # above: single source of truth, fresh copy per run, harmless for an algo that never
+    # imports it. algo_score's own declared deps (algo-core, pyarrow, typer) are already
+    # satisfied by what's copied/present, so this adds no new package requirement.
+    import algo_score  # noqa: PLC0415
+
+    algo_score_src = Path(algo_score.__file__).resolve().parent
+    shutil.copytree(
+        algo_score_src, work / "algo_score", dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
     cfg_dir = Path(tempfile.mkdtemp(prefix="lean-cfg-"))
     config_path = _write_config(cfg_dir, parameters)
     container = DockerContainer(LEAN_IMAGE)
