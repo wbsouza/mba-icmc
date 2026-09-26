@@ -95,6 +95,25 @@ def _validate_baseline_meanrev(params: Params) -> None:
         raise ValueError(f"band ({band}) must be positive")
 
 
+def _validate_buyhold(params: Params) -> None:
+    """buyhold params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size"}, "buyhold")
+    _validate_size(params, "buyhold")
+
+
+def _validate_random(params: Params) -> None:
+    """random params: size in (0, 1], seed any integer (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size", "seed"}, "random")
+    _validate_size(params, "random")
+    _int_param(params, "seed", "random")
+
+
+def _validate_perfect_foresight(params: Params) -> None:
+    """perfect_foresight params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size"}, "perfect_foresight")
+    _validate_size(params, "perfect_foresight")
+
+
 @dataclass(frozen=True)
 class StrategySpec:
     """A registered strategy: its bundled algorithm dir + its parameter validator."""
@@ -105,9 +124,23 @@ class StrategySpec:
 
 # The price-only strategies. Adding one is a registry entry + a bundled algorithm, no new
 # run path. (The news/sentiment hybrid is not here — it is gated on algo-score.)
+#
+# `buyhold`/`random`/`perfect_foresight` (Spec 04h, docs/experiments.md #0) are the
+# engine-sanity-check strategies: known-answer algorithms that validate the backtester
+# itself before any F1-F7 number is trusted. `baseline`/`hybrid` (the config.yaml-driven
+# F1-F7 filter chain, `algo_backtest/strategies.py`) are **not yet registered here** — see
+# docs/technical-debt.md's Spec 04h entry: the filter-chain-to-LEAN-native-indicator wiring
+# (F1-F3), the persisted meta-learner artifact load, and the news Parquet read all need to
+# happen *inside* the pinned LEAN container's `initialize()`/`on_data()`, which is real
+# remaining work this pass did not complete or verify.
 STRATEGIES: dict[str, StrategySpec] = {
     "baseline-ma": StrategySpec("baseline_ma", _validate_baseline_ma),
     "baseline-meanrev": StrategySpec("baseline_meanrev", _validate_baseline_meanrev),
+    "buyhold": StrategySpec("experiment_zero/buyhold", _validate_buyhold),
+    "random": StrategySpec("experiment_zero/random", _validate_random),
+    "perfect_foresight": StrategySpec(
+        "experiment_zero/perfect_foresight", _validate_perfect_foresight
+    ),
 }
 
 

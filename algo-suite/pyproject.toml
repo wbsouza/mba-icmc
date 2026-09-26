@@ -102,6 +102,12 @@ exclude = [
 module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
 ignore_missing_imports = true
 
+# lightgbm/scikit-learn (Spec 04g's meta-learner sub-models) ship no py.typed marker at
+# the pinned versions.
+[[tool.mypy.overrides]]
+module = ["lightgbm.*", "sklearn.*"]
+ignore_missing_imports = true
+
 # matplotlib ships no py.typed marker at the pinned version; algo-analyze's figure
 # renderers (_style.py) import it directly.
 [[tool.mypy.overrides]]

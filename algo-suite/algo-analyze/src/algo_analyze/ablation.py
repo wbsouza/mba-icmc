@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from algo_backtest.metrics import metrics_from_artifact  # type: ignore[import-untyped]
+from algo_backtest.metrics import metrics_from_artifact
 
 
 @dataclass(frozen=True)
