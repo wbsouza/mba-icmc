@@ -10,6 +10,30 @@ governing contract `specs.md` §14 (fx-manager port map).
 **Boundary:** `algo_backtest/rules/close_portion.py`, its tests, and `specs.md` §14.8 (a
 documentation correction, not code).
 
+## 0. Scope principle — port only what LEAN doesn't already provide
+
+Checked directly against `QuantConnect/Lean`: it has native `StopMarketOrder` and
+`TrailingStopOrder` order types, plus `CalculateOrderQuantity`/`SetHoldings` for sizing. **None of
+these replace the money-management formulas this lane and Spec 04i cover** — they're a different
+layer:
+
+- `TrailingStopOrder` trails by a fixed distance/percentage from the current market price,
+  continuously. fx-manager's model (`trail_stop_at_level`/`trail_stop_to_level`) is a *discrete*
+  rule — "once price reaches R-multiple X of the original stop distance, relocate the stop to
+  R-multiple Y of that same original distance" — computed once, from the entry trade's own risk
+  distance, not a continuous trail from current price. Not the same mechanism; `TrailingStopOrder`
+  does not make this formula unnecessary.
+- `CalculateOrderQuantity`/`SetHoldings` size by portfolio weight or buying-power fraction, not by
+  "risk a fixed % of balance against a specific stop-loss distance." `calculate_lot_size` has no
+  LEAN-native equivalent.
+
+So the genuinely missing piece — and the only thing worth porting — is the **formula/business-logic
+layer** (`risk_math.py`, `trail_stop.py`, `close_portion.py`'s level/size math). Once a level is
+computed, *placing or relocating the actual stop* should go through LEAN's native
+`StopMarketOrder` (create/update), not a hand-rolled order-management loop reproducing
+fx-manager's EJB state machine — that infrastructure is exactly what Spec 04's parent-spec §2
+already establishes LEAN replaces.
+
 ## 1. Background — how this was found
 
 Auditing `algo_backtest`'s already-ported money-management code (`rules/risk_math.py`,
