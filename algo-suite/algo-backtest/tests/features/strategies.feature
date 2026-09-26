@@ -108,3 +108,8 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "oddmap" filters "f1_trend" and meta_learner.families as a mapping
       When loading strategy "oddmap" fails
       Then the failure names "meta_learner.families"
+
+    Scenario: meta_learner.families with a non-string entry fails fast
+      Given a strategy config directory with "badfamily" filters "f1_trend" and meta_learner.families containing a non-string entry
+      When loading strategy "badfamily" fails
+      Then the failure names "meta_learner.families"

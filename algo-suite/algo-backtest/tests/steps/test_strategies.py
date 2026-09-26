@@ -180,6 +180,24 @@ def _mapping_families_config(strategies_ctx: _StrategiesCtx, name: str, filters:
     )
 
 
+@given(
+    parsers.parse(
+        'a strategy config directory with "{name}" filters "{filters}" and '
+        "meta_learner.families containing a non-string entry"
+    )
+)
+def _non_string_families_config(strategies_ctx: _StrategiesCtx, name: str, filters: str) -> None:
+    _write_config(
+        strategies_ctx.root,
+        name,
+        {
+            "schema_version": 1,
+            "filters": list(_split(filters)),
+            "meta_learner": {"families": ["trend", 7]},
+        },
+    )
+
+
 @given(parsers.parse('"{name}" extends "{base}" overriding meta_learner with a scalar value'))
 def _extends_scalar_meta_learner(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
     _write_config(

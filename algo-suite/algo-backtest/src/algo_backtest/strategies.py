@@ -84,7 +84,7 @@ def _deep_merge(base: dict[str, Any], over: Mapping[str, Any]) -> dict[str, Any]
     return merged
 
 
-def _ensure_str_list(strategy_name: str, field: str, value: object) -> list[Any]:
+def _ensure_str_list(strategy_name: str, field: str, value: object) -> list[str]:
     """Reject a config value that `tuple()` would silently accept but isn't really a list.
 
     A YAML scalar string (e.g. ``filters: f1_trend`` where a one-item list ``[f1_trend]``
@@ -96,6 +96,12 @@ def _ensure_str_list(strategy_name: str, field: str, value: object) -> list[Any]
         raise ValueError(
             f"strategy {strategy_name!r}: {field!r} must be a list (got "
             f"{type(value).__name__!r}: {value!r}) — check its config.yaml"
+        )
+    bad_items = [item for item in value if not isinstance(item, str)]
+    if bad_items:
+        raise ValueError(
+            f"strategy {strategy_name!r}: {field!r} must contain only strings "
+            f"(bad values={bad_items!r}) — check its config.yaml"
         )
     return list(value)
 
