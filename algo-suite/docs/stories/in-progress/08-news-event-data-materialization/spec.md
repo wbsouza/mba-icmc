@@ -115,6 +115,21 @@ for this data source only.
    retried batch never mixes stale shards from a killed attempt with fresh ones into
    duplicated rows.
 
+**Amendment (2026-09-26):** `bigquery_ctas_export_gdelt_events.py`'s AC#2/#8 (month-batch +
+GCS export/download/repartition, with stale-shard cleanup) is **superseded**, per explicit
+operator decision this session. The one-time full-table CTAS (AC#1) already partitions
+`{project}.{dataset}.events` by `event_date` -- paid for specifically so later reads could
+be cheap, partition-pruned queries. Per-batch GCS staging was built for the (now-replaced)
+unpartitioned-scan bottleneck, not for reading our own already-partitioned table. The
+script now queries that table **per calendar day** (`WHERE event_date = ...`,
+partition-pruned, cheap regardless of window width) directly via `job.result()`,
+accumulates a month's days, then writes the canonical monthly Parquet + `.done` marker
+exactly as before. No GCS bucket, export job, or shard cleanup exists in this path anymore
+-- AC#8 no longer applies to this script (`bigquery_ctas_export_gdelt_gkg.py` is
+unaffected by this amendment). Rationale: real-time per-date operator visibility instead
+of a silent up-to-12-month wait, at no added bytes-billed cost since partition pruning was
+already why the per-batch query was cheap.
+
 **Independent Test**: Run `bigquery_join_gdelt_events_gkg.py` alone against a single day first
 (`--from 2020-01-15 --to 2020-01-15`); confirm the day's Parquet exists (or is correctly
 recorded as empty) and `.processed_dates` contains that date exactly once.
