@@ -67,6 +67,18 @@ Feature: Target / trail-stop level math
       When I compute the trail-stop destination level for factor 0.1
       Then the trail-stop destination level is 1.0993
 
+    Scenario: a zero trail-stop destination factor is breakeven plus the spread cost (SELL)
+      Given a SELL trade with entry 1.1000 and stop-loss 1.1050
+      And a spread of 0.0002
+      When I compute the trail-stop destination level for factor 0.0
+      Then the trail-stop destination level is 1.0998
+
+    Scenario: zero spread isolates the R-multiple term of the trail-stop destination (SELL)
+      Given a SELL trade with entry 1.1000 and stop-loss 1.1050
+      And a spread of 0.0
+      When I compute the trail-stop destination level for factor -0.66
+      Then the trail-stop destination level is 1.1033
+
   Rule: An entry equal to its stop-loss fails fast (zero risk distance is meaningless)
 
     Scenario: a BUY with entry equal to stop-loss is rejected

@@ -56,6 +56,16 @@ Status: `deferred` (blocked) · `ready` (trigger met, do it now) · `resolved`.
 
 ## Resolved
 
+- **TD-54 (2026-09-26)** — A long-lived shared `.venv` at `algo-suite/.venv`, reused across
+  several parallel story worktrees on one machine, became stale/corrupted in a way that made
+  `uv run pytest` (and the venv's `pytest` binary called directly) return values that matched
+  neither the current nor a prior version of the code under test — reproduced while debugging
+  Spec 04i's `trail_stop_to_level` fix, cross-confirmed by two independent reviewers each getting
+  a clean 7/7 pass in a disposable worktree with a fresh `uv sync`. Fixed by `rm -rf
+  algo-suite/.venv && uv sync`; exact corruption mechanism not autopsied (venv was already deleted
+  before this was written). **If a test suite's failure output doesn't match hand-calculated
+  expected values or contradicts a fresh-worktree run, suspect this before a code-level cause** —
+  especially on a machine running multiple story worktrees off one shared venv.
 - **TD-28 (2026-09-24)** — `algo-transform` now consumes `raw/gdelt_ngrams/...`
   via the `gdeltnews` package's n-gram reconstruction and writes real article
   text to `parquet/news/gdelt/year=/month=/data.parquet` (`id`/`text`/
