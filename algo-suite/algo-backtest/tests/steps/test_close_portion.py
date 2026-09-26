@@ -72,3 +72,19 @@ def _assert_invalid_portion(ladder_ctx: _CloseLadderCtx) -> None:
 def _assert_non_positive_lot(ladder_ctx: _CloseLadderCtx) -> None:
     assert isinstance(ladder_ctx.error, ValueError)
     assert "original_lot_size" in str(ladder_ctx.error)
+
+
+@then(parsers.parse("rung {n:d} closes with exactly {remaining:g} remaining"))
+def _assert_rung_remaining_exact(ladder_ctx: _CloseLadderCtx, n: int, remaining: float) -> None:
+    assert ladder_ctx.error is None, f"unexpected error: {ladder_ctx.error}"
+    assert ladder_ctx.ladder is not None
+    rung = ladder_ctx.ladder.rungs[n - 1]
+    assert rung.lot_remaining == remaining
+
+
+@then("the ladder's rungs sum to exactly the original lot size")
+def _assert_sum_exact(ladder_ctx: _CloseLadderCtx) -> None:
+    assert ladder_ctx.error is None, f"unexpected error: {ladder_ctx.error}"
+    assert ladder_ctx.ladder is not None
+    total = sum(rung.lot_to_close for rung in ladder_ctx.ladder.rungs)
+    assert total == ladder_ctx.original_lot_size

@@ -29,6 +29,13 @@ Feature: Partial-close ladder
       When I build the close ladder
       Then rung 1 closes 1.0 lots with 0.0 remaining
 
+    Scenario: An uneven three-way split still fully closes with no rounding residue
+      Given an original lot size of 1.0
+      And a close-portion ladder of 0.33, 0.33, 0.34
+      When I build the close ladder
+      Then rung 3 closes with exactly 0.0 remaining
+      And the ladder's rungs sum to exactly the original lot size
+
   Rule: A ladder that would close more than the original position fails fast
 
     Scenario: rung portions summing past 1.0 are rejected

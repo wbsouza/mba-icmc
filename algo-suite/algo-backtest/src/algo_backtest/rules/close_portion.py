@@ -33,6 +33,13 @@ class CloseLadder:
 def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> CloseLadder:
     """Build a partial-close ladder from ordered rung portions of `original_lot_size`.
 
+    The last rung always closes exactly `original_lot_size - lot_closed_so_far` (the
+    running remainder), rather than trusting `original_lot_size * portion` — independent
+    per-rung percentages are not guaranteed to sum to exactly 1.0 after floating-point
+    rounding, so the last rung derives its size from what's actually left instead of
+    risking a residual under-close (spockfx-engine's `MoneyManagementCalculator
+    .setTargetLevels()`, specs.md §14.8 amendment 2026-09-26).
+
     Raises:
         ValueError: if `original_lot_size` is not positive, any portion is outside
             `(0, 1]`, or the portions' cumulative sum exceeds 1.0 (closing more than the
@@ -44,8 +51,9 @@ def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> C
             f"got {original_lot_size!r}"
         )
     rungs: list[CloseRung] = []
-    remaining = original_lot_size
     cumulative_portion = 0.0
+    lot_closed = 0.0
+    last_level = len(portions)
     for level, portion in enumerate(portions, start=1):
         if not 0.0 < portion <= 1.0:
             raise ValueError(
@@ -58,7 +66,14 @@ def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> C
                 "close_portion.build_close_ladder: over-close — cumulative portion "
                 f"{cumulative_portion!r} exceeds 1.0 by rung {level}"
             )
-        lot_to_close = original_lot_size * portion
-        remaining -= lot_to_close
-        rungs.append(CloseRung(level=level, lot_to_close=lot_to_close, lot_remaining=remaining))
+        if level == last_level:
+            lot_to_close = original_lot_size - lot_closed
+            lot_remaining = 0.0
+        else:
+            lot_to_close = original_lot_size * portion
+            lot_closed += lot_to_close
+            lot_remaining = original_lot_size - lot_closed
+        rungs.append(
+            CloseRung(level=level, lot_to_close=lot_to_close, lot_remaining=lot_remaining)
+        )
     return CloseLadder(rungs=tuple(rungs))
