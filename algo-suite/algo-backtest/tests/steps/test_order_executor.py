@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from algo_backtest.chain.model import Decision as ChainDecision
 from algo_backtest.engine.order_executor import (
     Decision,
     FillStatus,
@@ -142,6 +143,18 @@ def _multi_ticket_position(context: dict[str, Any]) -> None:
 def _execute(context: dict[str, Any], decision: str, size: float) -> None:
     executor: OrderExecutor = context["executor"]
     context["fill"] = executor.execute(_SYMBOL, Decision(decision), SizingContext(size=size))
+
+
+@when(
+    parsers.parse(
+        "OrderExecutor executes a {decision} decision from chain.model's own Decision class"
+    )
+)
+def _execute_cross_class(context: dict[str, Any], decision: str) -> None:
+    executor: OrderExecutor = context["executor"]
+    # Deliberately chain.model.Decision, NOT engine.order_executor.Decision.
+    cross_class_decision = ChainDecision(decision)
+    context["fill"] = executor.execute(_SYMBOL, cross_class_decision, SizingContext(size=1.0))
 
 
 @when("OrderExecutor executes a BUY decision with a stop distance")

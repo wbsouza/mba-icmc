@@ -182,6 +182,30 @@ def run_lean(
     # top-level `engine` package next to main.py — copied fresh each run from the
     # single source of truth (algo_backtest/engine/), never duplicated in an algo_dir.
     shutil.copytree(Path(__file__).parent / "engine", work / "engine", dirs_exist_ok=True)
+    # A filter-chain algorithm (2026-09-26, e.g. algos/baseline) additionally imports the
+    # F1-F7 chain itself: algo_backtest.chain.*, algo_backtest.rules.*, algo_backtest.strategies,
+    # and algo_core (their shared config/repository layer) -- none of which the pinned LEAN
+    # image ships. Copied in as real top-level packages (`algo_backtest/`, `algo_core/`) next
+    # to main.py, same reasoning as `engine/` above: single source of truth, fresh copy per
+    # run, never duplicated in an algo_dir. An algo that doesn't import any of this (e.g.
+    # baseline_ma) simply never touches the extra files; nothing about its own import path
+    # changes.
+    shutil.copytree(
+        Path(__file__).parent, work / "algo_backtest", dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("algos", "scripts", "__pycache__", "*.pyc"),
+    )
+    # Resolve algo_core via its own installed __file__, not a monorepo-relative guess
+    # (parents[N]/"algo-core"/"src" only holds for this exact checkout layout -- an
+    # editable install, a built wheel, or a different workspace arrangement would
+    # silently point at nothing). algo_core is already an import-time dependency of
+    # algo_backtest, so it's guaranteed importable here regardless of how it's installed.
+    import algo_core  # noqa: PLC0415
+
+    algo_core_src = Path(algo_core.__file__).resolve().parent
+    shutil.copytree(
+        algo_core_src, work / "algo_core", dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
     cfg_dir = Path(tempfile.mkdtemp(prefix="lean-cfg-"))
     config_path = _write_config(cfg_dir, parameters)
     container = DockerContainer(LEAN_IMAGE)
