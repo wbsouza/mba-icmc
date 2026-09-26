@@ -16,3 +16,4 @@
       `load_news_context_config()` coverage (closed 18 "no tests" outright). Remaining 4
       survivors are the pre-existing message-text-canary class (TD-34/TD-36/TD-40) — new row
       TD-49, deferred pending the project-wide exact-string-assertion decision.
+- [x] `lessons-learned.md` written, story moved to `docs/stories/done/`
