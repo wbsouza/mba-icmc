@@ -212,19 +212,30 @@ class TrainedMetaLearner:
 
 
 def train_meta_learner(
-    rows: Sequence[TrainingRow],
     families: Sequence[FeatureFamily],
     split: WalkForwardSplit,
     *,
     random_state: int = _DEFAULT_RANDOM_STATE,
 ) -> TrainedMetaLearner:
     """Fit one LightGBM sub-model per family on `split.train`, then a logistic meta-learner
-    combining the families' in-sample probabilities into p̂_t.
+    combining the families' out-of-sample probabilities (from `split.validation`) into p̂_t.
 
-    Deterministic given `rows`, `families`, `split` and `random_state`: every `Booster`
-    and the `LogisticRegression` pin the same seed, so two calls with identical inputs
-    produce bit-identical predictions (`f7_meta_learner.feature`'s reproducibility
-    scenario proves this).
+    The meta-learner is deliberately calibrated on `split.validation`, never on
+    `split.train`: fitting it on the same rows the family models were trained on would
+    let each family's in-sample overfit leak straight into the combiner, inflating and
+    miscalibrating p̂_t. `split.test` is reserved for evaluation only and is never
+    consumed here.
+
+    Deterministic given `families`, `split` and `random_state`: every `Booster` and the
+    `LogisticRegression` pin the same seed, so two calls with identical inputs produce
+    bit-identical predictions (`f7_meta_learner.feature`'s reproducibility scenario
+    proves this).
+
+    Raises:
+        ValueError: if `families` is empty, or if `split.validation` doesn't contain
+            both classes (a degenerate walk-forward window the logistic combiner
+            cannot be fit on) — fail fast rather than silently returning a
+            single-class-biased combiner.
     """
     if not families:
         raise ValueError(f"{_FILTER_NAME}: at least one feature family is required to train")
@@ -232,20 +243,36 @@ def train_meta_learner(
         family: _fit_family(family, split.train, random_state=random_state)
         for family in families
     }
-    meta_inputs = np.array(
+    meta_inputs = _family_predictions(family_models, families, split.validation)
+    labels = np.array([row.label for row in split.validation])
+    if len(set(labels.tolist())) < 2:
+        raise ValueError(
+            f"{_FILTER_NAME}: split.validation has only one label class "
+            f"({len(split.validation)} rows) — the logistic combiner cannot be calibrated "
+            "on a single-class validation span. Widen validation_end or the training "
+            "window so validation covers both classes."
+        )
+    meta_model = LogisticRegression(random_state=random_state, max_iter=1000)
+    meta_model.fit(meta_inputs, labels)
+    return TrainedMetaLearner(
+        families=tuple(families), family_models=family_models, meta_model=meta_model
+    )
+
+
+def _family_predictions(
+    family_models: Mapping[FeatureFamily, LightGBMFamilyModel],
+    families: Sequence[FeatureFamily],
+    rows: Sequence[TrainingRow],
+) -> np.ndarray:
+    """Each family model's `predict_proba_up` for every row, as a (rows, families) matrix."""
+    return np.array(
         [
             [
                 family_models[family].predict_proba_up(family_vector(family, row.features))
                 for family in families
             ]
-            for row in split.train
+            for row in rows
         ]
-    )
-    labels = np.array([row.label for row in split.train])
-    meta_model = LogisticRegression(random_state=random_state, max_iter=1000)
-    meta_model.fit(meta_inputs, labels)
-    return TrainedMetaLearner(
-        families=tuple(families), family_models=family_models, meta_model=meta_model
     )
 
 

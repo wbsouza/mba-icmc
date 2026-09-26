@@ -77,20 +77,22 @@ Feature: Strategy-chain config loading (Spec 04h)
       When loading strategy "nofilters" fails
       Then the failure names "empty filters list"
 
-  Rule: A non-mapping meta_learner section degrades to no feature families, not a crash
-
-    Scenario: a scalar meta_learner value resolves to no feature families
-      Given a strategy config directory with "odd" filters "f1_trend" and a scalar meta_learner
-      When strategy "odd" is loaded
-      Then the loaded strategy has no meta-learner families
+  Rule: An empty meta_learner mapping resolves to no feature families
 
     Scenario: a meta_learner dict with no families key resolves to no feature families
       Given a strategy config directory with "sparse" filters "f1_trend" and an empty meta_learner mapping
       When strategy "sparse" is loaded
       Then the loaded strategy has no meta-learner families
 
-    Scenario: a scalar meta_learner overriding a dict base does not crash the merge
+  Rule: A non-mapping meta_learner section fails fast rather than silently degrading
+
+    Scenario: a scalar meta_learner value fails fast
+      Given a strategy config directory with "odd" filters "f1_trend" and a scalar meta_learner
+      When loading strategy "odd" fails
+      Then the failure names "meta_learner"
+
+    Scenario: a scalar meta_learner overriding a dict base still fails fast
       Given a strategy config directory with "baseline" filters "f1_trend" and families "trend"
       And "hybrid" extends "baseline" overriding meta_learner with a scalar value
-      When strategy "hybrid" is loaded
-      Then the loaded strategy has no meta-learner families
+      When loading strategy "hybrid" fails
+      Then the failure names "meta_learner"

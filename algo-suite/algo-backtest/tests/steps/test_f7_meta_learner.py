@@ -191,12 +191,8 @@ def _synthetic_split(f7_ctx: _F7Ctx, n: int) -> None:
 def _train_twice(f7_ctx: _F7Ctx, seed: int) -> None:
     assert f7_ctx.split is not None
     families = [FeatureFamily.TREND, FeatureFamily.INDICATOR]
-    f7_ctx.meta_learner_a = train_meta_learner(
-        f7_ctx.split.train, families, f7_ctx.split, random_state=seed
-    )
-    f7_ctx.meta_learner_b = train_meta_learner(
-        f7_ctx.split.train, families, f7_ctx.split, random_state=seed
-    )
+    f7_ctx.meta_learner_a = train_meta_learner(families, f7_ctx.split, random_state=seed)
+    f7_ctx.meta_learner_b = train_meta_learner(families, f7_ctx.split, random_state=seed)
 
 
 @then("both trained meta-learners predict the same p_hat for the same held-out row")

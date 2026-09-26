@@ -170,8 +170,14 @@ def _is_high_risk(intensity: float, threshold: float | None) -> bool:
 def _sentiment_recommendation(
     polarity: float | None, threshold: float | None
 ) -> Recommendation | None:
-    """BUY/SELL by sentiment sign if it clears the direction threshold, else `None` (ABSTAIN)."""
-    if polarity is None or threshold is None or abs(polarity) < threshold:
+    """BUY/SELL by sentiment sign if it clears the direction threshold, else `None` (ABSTAIN).
+
+    Zero polarity is always no-signal, even when `threshold` is `0.0`: `abs(polarity) <
+    threshold` never rejects a zero polarity against a zero threshold (`0.0 < 0.0` is
+    `False`), which would otherwise fall through to `Recommendation.SELL` — silently
+    turning "no sentiment recorded" into a directional call.
+    """
+    if polarity is None or threshold is None or polarity == 0.0 or abs(polarity) < threshold:
         return None
     return Recommendation.BUY if polarity > 0.0 else Recommendation.SELL
 

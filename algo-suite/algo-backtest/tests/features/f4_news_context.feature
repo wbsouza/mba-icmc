@@ -85,12 +85,12 @@ Feature: F4 — News-context filter
       When F4 applies to timestamp "2020-01-15T00:05:00+00:00" for pair "EURUSD"
       Then F4's recommendation is "BUY"
 
-    Scenario: Zero polarity at a zero direction threshold recommends SELL, not BUY
+    Scenario: Zero polarity at a zero direction threshold ABSTAINs, never a directional guess
       Given the real January 2020 GDELT event-feature Parquet
       And a real SymbolSentimentFeature row for "EURUSD" at "2020-01-15T00:05:00+00:00" with polarity 0
       And a news-context veto threshold of -0.5 and sentiment threshold 0
       When F4 applies to timestamp "2020-01-15T00:05:00+00:00" for pair "EURUSD"
-      Then F4's recommendation is "SELL"
+      Then F4's recommendation is "ABSTAIN"
 
     Scenario: Sentiment below the direction threshold ABSTAINs rather than guess
       Given the real January 2020 GDELT event-feature Parquet

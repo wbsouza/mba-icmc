@@ -89,8 +89,11 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
 
     Raises:
         ValueError: the strategy (or its base) has no `config.yaml`, the base itself
-            declares `extends:` (only one level is supported), or `filters:` resolves
-            empty (a chain with no filters can never reach a terminal decision).
+            declares `extends:` (only one level is supported), `filters:` resolves
+            empty (a chain with no filters can never reach a terminal decision), or
+            `meta_learner:` is present but not a mapping (a malformed config type,
+            distinct from the section being absent entirely — that legitimately
+            resolves to no feature families).
     """
     resolved_root = root if root is not None else strategies_root()
     raw = _read_yaml(resolved_root, name)
@@ -110,7 +113,12 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     if not filters:
         raise ValueError(f"strategy {name!r} resolves an empty filters list — check its config")
     meta_learner = merged.get("meta_learner", {})
-    families = tuple(meta_learner.get("families", ())) if isinstance(meta_learner, dict) else ()
+    if not isinstance(meta_learner, dict):
+        raise ValueError(
+            f"strategy {name!r}: 'meta_learner' must be a mapping (got "
+            f"{type(meta_learner).__name__!r}) — check its config.yaml"
+        )
+    families = tuple(meta_learner.get("families", ()))
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged
     )
