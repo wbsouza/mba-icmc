@@ -123,7 +123,12 @@ algo_backtest/
 │   ├── strategy_math.py    # stop-level stretch (target ladder + trail-stop landed in
 │   │                       #   trail_stop.py, Spec 04d)
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
-│   │                       #   level math (Spec 04d)
+│   │                       #   level math (Spec 04d). Sign convention + `spread`-term formula
+│   │                       #   for all three functions confirmed against the real fx-manager/
+│   │                       #   spockfx-engine source in Spec 04i (docs/stories/done/2026-09-26-
+│   │                       #   trail-stop-formula-fix/spec.md §2/§4) — treat that story, not the
+│   │                       #   older ambiguous "±" wording in the archived root specs.md §14.5/
+│   │                       #   §14.7, as current for this module's formulas.
 │   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)
 │   └── risk_guard.py       # IMPLEMENTED — portfolio caps, drawdown breakers, leverage cap;
 │                           #   config-driven via five `risk_guard.*` caps (Spec 04d)

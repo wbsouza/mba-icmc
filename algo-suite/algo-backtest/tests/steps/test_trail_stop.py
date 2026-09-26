@@ -75,6 +75,7 @@ def _compute_arm(ts_ctx: _TrailStopCtx, factor: float) -> None:
             entry=ts_ctx.entry,
             stop_loss=ts_ctx.stop_loss,
             trail_stop_at_level_factor=factor,
+            spread=ts_ctx.spread,
             direction=ts_ctx.direction,
         )
     except ValueError as exc:
