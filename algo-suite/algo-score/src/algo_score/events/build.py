@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from algo_core.repository.parquet import ParquetRepository
 
-from algo_score.events.features import EventFeatureSpec, feature_rows, spec_for
+from algo_score.events.features import EventFeature, EventFeatureSpec, feature_rows, spec_for
 from algo_score.events.grid import PUBLICATION_LAG, partitioned_minutes
 from algo_score.events.models import DailyValue, EventFeatureReport
 from algo_score.events.paths import feature_path, feature_root
@@ -41,11 +41,30 @@ def _write_features(
     start: date,
     end: date,
 ) -> EventFeatureReport:
-    """Expand daily values to minutes and write one Parquet partition per month."""
+    """Expand daily values to minutes and merge them into one Parquet partition per month.
+
+    A partial-month build only replaces the minutes it was asked for: rows an existing
+    partition holds outside [start, end] are kept unchanged (e.g. building May 1 - June 1
+    must not truncate an already-complete June partition to June 1).
+    """
     output_root = feature_root(data_root, spec.kind)
     total = 0
     for year, month, minutes in partitioned_minutes(start, end):
-        path = feature_path(data_root, spec.kind, year, month)
-        ParquetRepository(spec.model, path).put(feature_rows(spec, daily_values, minutes))
+        repository = ParquetRepository(spec.model, feature_path(data_root, spec.kind, year, month))
+        rebuilt = feature_rows(spec, daily_values, minutes)
+        repository.put(_merge_outside(repository, rebuilt, minutes[0], minutes[-1]))
         total += len(minutes)
     return EventFeatureReport(kind=spec.kind, rows=total, output_root=output_root)
+
+
+def _merge_outside(
+    repository: ParquetRepository[EventFeature],
+    rebuilt: list[EventFeature],
+    first: datetime,
+    last: datetime,
+) -> list[EventFeature]:
+    """`rebuilt` plus the partition's existing rows outside [first, last], time-ordered."""
+    if not repository.exists():
+        return rebuilt
+    kept = [row for row in repository.read_all() if not first <= row.timestamp <= last]
+    return sorted([*kept, *rebuilt], key=lambda row: row.timestamp)

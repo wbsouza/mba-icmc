@@ -184,6 +184,11 @@ time, not forward-filled across empty minutes. Neither `gpr` nor
 `event_intensity` fabricates a value before its series' first observation —
 minutes before the first daily value are absent (null), not zero.
 
+A build over [from, to] rewrites only those days' minutes: each touched monthly
+partition keeps its existing rows outside the range (`events/build.py`
+`_merge_outside`), so a partial-month build — e.g. `algo-backtest run`'s remediation
+reaching one day into the next month — never truncates an already-built month.
+
 ## 7. Error handling
 
 - Empty / non-English / non-scorable text → **ABSTAIN** (no vote), not a crash.

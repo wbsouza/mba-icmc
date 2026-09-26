@@ -333,3 +333,15 @@ def _decisions_identify_open_trade(bctx: dict[str, Any]) -> None:
         assert len(open_now) <= 1, (row.timestamp, open_now)
         expected = open_now[0] if open_now else None
         assert row.trade_id == expected, (row.timestamp, row.final_decision, row.trade_id, expected)
+
+
+@given(parsers.parse("the remediation command printed for a {start} to {end} run has been run"))
+def _remediation_run(bctx: dict[str, Any], start: str, end: str) -> None:
+    """Execute exactly the `algo-score events ...` line the run CLI prints."""
+    from datetime import date
+
+    from algo_backtest.chain.filters.f4_news_context import news_build_command
+
+    command = news_build_command(date.fromisoformat(start), date.fromisoformat(end))
+    bctx["remediation"] = command
+    _algo_score(bctx, command)

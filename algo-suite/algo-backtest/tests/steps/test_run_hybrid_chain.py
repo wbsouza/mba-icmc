@@ -24,6 +24,7 @@ from algo_core.bars import QuoteBar, Timeframe
 from algo_core.instrument import build_instrument
 from algo_core.layout import price_path_for
 from algo_core.repository.parquet import ParquetRepository
+from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
@@ -243,3 +244,19 @@ def _final_minute_error(bctx: dict[str, Any], minute: str, day: str) -> None:
 def _row_at(bctx: dict[str, Any], ts: str) -> None:
     rows = ParquetRepository(DecisionRow, _run_dir(bctx) / "decisions.parquet").read_all()
     assert any(row.timestamp == datetime.fromisoformat(ts) for row in rows), rows[-3:]
+
+
+@then(parsers.parse('the remediation command built through "{day}"'))
+def _remediation_through(bctx: dict[str, Any], day: str) -> None:
+    assert bctx["remediation"].endswith(f"--to {day}"), bctx["remediation"]
+
+
+@then("the 2014-06 GDELT feature partition still covers every minute of June")
+def _june_intact(bctx: dict[str, Any]) -> None:
+    path = event_feature_path(bctx["data_root"], "gdelt", 2014, 6)
+    minutes = sorted(row.timestamp for row in ParquetRepository(GdeltFeature, path).read_all())
+    assert len(minutes) == 30 * 24 * 60
+    assert (minutes[0], minutes[-1]) == (
+        datetime(2014, 6, 1, tzinfo=UTC),
+        datetime(2014, 6, 30, 23, 59, tzinfo=UTC),
+    )

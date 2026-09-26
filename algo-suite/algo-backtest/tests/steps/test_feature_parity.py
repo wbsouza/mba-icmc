@@ -10,7 +10,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from algo_backtest.leandata import write_lean_minute
-from algo_backtest.training import build_training_rows
+from algo_backtest.training import HORIZON_MINUTES, build_training_rows, lean_bar_stream
 from algo_core.bars import QuoteBar
 from algo_core.instrument import build_instrument
 from pytest_bdd import given, parsers, scenarios, then, when
@@ -97,16 +97,22 @@ def _same_warmup(ctx: dict[str, Any]) -> None:
     )
 )
 def _parity(ctx: dict[str, Any], tol: float) -> None:
+    """Same decision bars on both sides (bar for bar), then the same feature values.
+
+    The only live bars without a training row are the final `HORIZON_MINUTES` delivered
+    bars (no label yet) — any other missing or extra timestamp is a failure.
+    """
     rows = {row.timestamp: row.features for row in build_training_rows(ctx["bars"])}
     live = _live(ctx)
-    compared = 0
+    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
+    assert set(live) - unlabeled == set(rows), (
+        sorted(set(live) - unlabeled - set(rows))[:5],
+        sorted(set(rows) - set(live))[:5],
+    )
+    assert unlabeled <= set(live)
     worst: dict[str, float] = {}
-    for bar_start, features in live.items():
-        if bar_start not in rows:  # last HORIZON bars have no training row
-            continue
-        compared += 1
-        for key, value in features.items():
-            gap = abs(float(rows[bar_start][key]) - float(value))  # type: ignore[arg-type]
+    for bar_start, features in rows.items():
+        for key, value in live[bar_start].items():
+            gap = abs(float(features[key]) - float(value))  # type: ignore[arg-type]
             worst[key] = max(worst.get(key, 0.0), gap)
-    assert compared > 1000, compared
     assert all(gap <= tol for gap in worst.values()), worst

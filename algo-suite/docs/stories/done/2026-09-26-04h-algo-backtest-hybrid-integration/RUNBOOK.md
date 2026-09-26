@@ -160,7 +160,10 @@ Build whole months: F4 and the training script need every minute of the window c
 every touched month's partition exists before starting a container. Each day's GDELT
 aggregate only becomes visible at 00:00 UTC the *next* day (no look-ahead; algo-score
 SPEC.md §6.2), so the first built day has no value — raw GDELT starts 2015-02-01, hence
-windows below start on 2015-02-02.
+windows below start on 2015-02-02. A build over a partial month only rewrites the
+requested days — existing rows elsewhere in that month's partition are kept — so the
+`--to <end+1>` command `algo-backtest run` prints is safe to run against a data root
+whose next month is already built.
 
 ### 2. Train and persist the F7 meta-learner (includes the NEWS family)
 

@@ -90,3 +90,12 @@ Feature: Event features
       | source | column          |
       | gpr    | gpr             |
       | gdelt  | event_intensity |
+
+  # event-features-08
+  Scenario: A partial rebuild keeps an existing partition's rows outside the requested days
+    Given raw GDELT events with a distinct goldstein_scale for every day from 2020-01-30 to 2020-03-01
+    And GDELT event features already built for all of 2020-02
+    When I build GDELT event features from 2020-01-31 to 2020-02-01
+    Then the 2020-02 partition still has every minute of February
+    And every 2020-02 minute from 2020-02-02 on is unchanged
+    And the 2020-02-01 minutes carry the 2020-01-31 value

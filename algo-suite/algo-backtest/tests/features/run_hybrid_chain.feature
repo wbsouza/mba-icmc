@@ -44,6 +44,12 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
       Then the run command exits with code 2
       And the error names decision minute "2014-05-10T00:00:00+00:00" and the command building through "2014-05-10"
 
+    Scenario: the printed remediation command keeps an already-built following month intact
+      Given raw GDELT events at goldstein 0.0 for every day from 2014-04-30 to 2014-07-01, built into features only from 2014-06-01 through 2014-06-30
+      And the remediation command printed for a 2014-05-01 to 2014-05-31 run has been run
+      Then the remediation command built through "2014-06-01"
+      And the 2014-06 GDELT feature partition still covers every minute of June
+
   Rule: A validated run executes the full F1-F7 chain, including F4/news, without crashing
 
     @integration
