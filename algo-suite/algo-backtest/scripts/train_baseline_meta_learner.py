@@ -46,12 +46,12 @@ _FAMILIES = (FeatureFamily.TREND, FeatureFamily.INDICATOR, FeatureFamily.PATTERN
 
 
 def _git_revision() -> str:
-    """HEAD's commit SHA, suffixed `-dirty` when the working tree has local changes."""
+    """HEAD's commit SHA, suffixed `-dirty` when tracked files have local changes."""
     sha = subprocess.run(
         ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()
     dirty = subprocess.run(
-        ["git", "status", "--porcelain"], check=True, capture_output=True, text=True
+        ["git", "status", "--porcelain", "--untracked-files=no"], check=True, capture_output=True, text=True
     ).stdout.strip()
     return f"{sha}-dirty" if dirty else sha
 
