@@ -206,9 +206,24 @@ def _ensure_full_table(
 
     fy, fm = (int(part) for part in from_month.split("-"))
     ty, tm = (int(part) for part in to_month.split("-"))
+    # PARTITION BY event_date (+ CLUSTER BY SQLDATE): the public source (verified this
+    # session: gdelt-bq.gdeltv2.events is 396GB, no partitioning, no clustering) can't
+    # prune a date-scoped query at all, so scanning it once here is unavoidable
+    # regardless of approach -- but without partitioning OUR OWN copy too, every later
+    # per-batch WHERE query against it would ALSO scan close to the full table
+    # (confirmed live: ~349GB billed for a single month before this fix, when the copy
+    # only had CLUSTER BY -- best-effort block skipping wasn't enough at this scale).
+    # SQLDATE is INT64 (YYYYMMDD), not BigQuery's native DATE type, so PARTITION BY
+    # can't reference it directly -- event_date is a computed DATE column derived from
+    # it purely so BigQuery can partition-prune on it. Partition pruning only
+    # activates when the WHERE clause filters the partitioning column itself, so
+    # `_extract_batch_table` below filters on event_date, not the original SQLDATE.
     query = f"""
-        CREATE TABLE `{table_ref}` AS
-        SELECT {_SELECT_COLUMNS}
+        CREATE TABLE `{table_ref}`
+        PARTITION BY event_date
+        CLUSTER BY SQLDATE
+        AS
+        SELECT {_SELECT_COLUMNS}, PARSE_DATE('%Y%m%d', CAST(SQLDATE AS STRING)) AS event_date
         FROM `{_SOURCE_TABLE}`
         WHERE SQLDATE BETWEEN {fy:04d}{fm:02d}01 AND {ty:04d}{tm:02d}{_last_day_of_month(ty, tm):02d}
     """
@@ -222,10 +237,14 @@ def _ensure_full_table(
 def _extract_batch_table(
     client: "bigquery.Client", project: str, dataset: str, full_table_ref: str, months: list[tuple[int, int]]
 ) -> str:  # noqa: F821
-    """Slice one batch's months out of the already-materialized full table (cheap, our own table)."""
+    """Slice one batch's months out of the already-materialized full table (cheap, our own table).
+
+    Filters on `event_date` (the partitioning column), not the original SQLDATE, so
+    BigQuery's partition pruning actually triggers -- see `_ensure_full_table`.
+    """
     table_ref = f"{project}.{dataset}.events_batch"
     ranges = " OR ".join(
-        f"SQLDATE BETWEEN {y:04d}{m:02d}01 AND {y:04d}{m:02d}{_last_day_of_month(y, m):02d}"
+        f"event_date BETWEEN DATE({y:04d}, {m:02d}, 1) AND DATE({y:04d}, {m:02d}, {_last_day_of_month(y, m)})"
         for y, m in months
     )
     query = f"""
@@ -306,11 +325,18 @@ def _repartition_to_canonical(local_files: list[Path], data_root: Path, rebuild:
     quarantined individually -- logged loudly and counted, not silently dropped --
     rather than aborting the whole multi-hundred-thousand-row batch on one bad record.
     """
+    total_rows = sum(pq.read_metadata(p).num_rows for p in local_files)
+    _log.info("repartition_start", shards=len(local_files), rows=total_rows)
     by_month: dict[tuple[int, int], list[GdeltEvent]] = {}
     quarantined = 0
+    processed = 0
+    start_time = time.monotonic()
+    last_date = ""
+    logged_date = ""
     for path in local_files:
         table = pq.read_table(path)
         for row in table.to_pylist():
+            processed += 1
             try:
                 event = _row_to_event(row)
             except ValueError as exc:
@@ -318,6 +344,22 @@ def _repartition_to_canonical(local_files: list[Path], data_root: Path, rebuild:
                 _log.warning("quarantined_row", error=str(exc))
                 continue
             by_month.setdefault((event.event_date.year, event.event_date.month), []).append(event)
+            last_date = event.event_date.isoformat()
+            # At least one line per distinct date seen (shards aren't
+            # necessarily date-ordered, so this isn't monotonic, but it
+            # guarantees visibility isn't gated purely on row-count volume --
+            # a sparse day can't go silent just because 250k rows haven't
+            # accumulated yet), plus the row-count threshold as a safety net
+            # for a single very dense date.
+            if last_date != logged_date or processed % 250_000 == 0 or processed == total_rows:
+                logged_date = last_date
+                _log.info(
+                    "repartition_progress",
+                    rows=processed,
+                    of_rows=total_rows,
+                    date=last_date,
+                    elapsed_s=round(time.monotonic() - start_time),
+                )
 
     if quarantined:
         _log.warning("quarantined_total", rows=quarantined)
