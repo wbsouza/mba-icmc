@@ -27,6 +27,7 @@ here); for OANDA forex the configured value is UTC, so the conversion is the ide
 
 from __future__ import annotations
 
+import os
 import zipfile
 from collections import defaultdict
 from datetime import date, datetime
@@ -125,8 +126,14 @@ def write_lean_minute(
         body = "\n".join(lines) + "\n"
         # Write to a temp file then atomically rename, so a present zip is always
         # complete — an interrupted run never leaves a truncated zip that a later
-        # idempotent skip would mistake for a finished day.
-        tmp_path = out_dir / f"{stamp}_quote.zip.tmp"
+        # idempotent skip would mistake for a finished day. The tmp name is
+        # PID-scoped so two processes racing on the same day (whatever
+        # invoked them — two script runs, a direct CLI call, a retry) never
+        # share a tmp file: each writes and renames its own, the loser's
+        # `.replace()` just overwrites the winner's identical output instead
+        # of raising FileNotFoundError on a tmp file the other process
+        # already consumed.
+        tmp_path = out_dir / f"{stamp}_quote.zip.{os.getpid()}.tmp"
         with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(f"{stamp}_{symbol}_minute_quote.csv", body)
         tmp_path.replace(zip_path)

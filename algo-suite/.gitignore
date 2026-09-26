@@ -31,6 +31,7 @@ runs/
 
 algo.yaml
 download.yaml
+backtest.yaml
 
 
 # Activated config overrides are tracked; only ignore local-only ones if needed.
