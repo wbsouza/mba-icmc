@@ -95,6 +95,12 @@ def _validate_baseline_meanrev(params: Params) -> None:
         raise ValueError(f"band ({band}) must be positive")
 
 
+def _validate_baseline(params: Params) -> None:
+    """baseline params: size in (0, 1] only (the F1+F2+F3+F5+F6+F7 config.yaml chain)."""
+    _check_keys(params, {"size"}, "baseline")
+    _validate_size(params, "baseline")
+
+
 def _validate_buyhold(params: Params) -> None:
     """buyhold params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
     _check_keys(params, {"size"}, "buyhold")
@@ -127,15 +133,21 @@ class StrategySpec:
 #
 # `buyhold`/`random`/`perfect_foresight` (Spec 04h, docs/experiments.md #0) are the
 # engine-sanity-check strategies: known-answer algorithms that validate the backtester
-# itself before any F1-F7 number is trusted. `baseline`/`hybrid` (the config.yaml-driven
-# F1-F7 filter chain, `algo_backtest/strategies.py`) are **not yet registered here** — see
-# docs/technical-debt.md's Spec 04h entry: the filter-chain-to-LEAN-native-indicator wiring
-# (F1-F3), the persisted meta-learner artifact load, and the news Parquet read all need to
-# happen *inside* the pinned LEAN container's `initialize()`/`on_data()`, which is real
-# remaining work this pass did not complete or verify.
+# itself before any F1-F7 number is trusted.
+#
+# `baseline` (2026-09-26, SMOKE TEST -- see technical-debt.md TD-51 and
+# docs/stories/planned/04h-.../progress.md): the config.yaml-driven F1+F2+F3+F5+F6+F7
+# chain (no F4/news), wired into a real LEAN algorithm for the first time. F3's
+# candlestick pattern is never populated (no real detector), F5/F6's account-risk
+# features use fixed placeholder economics (no real ATR/margin model), and F7's
+# meta-learner is trained on whatever short window `scripts/train_baseline_meta_learner.py`
+# was pointed at -- not a statistically meaningful model. This proves the chain wiring
+# and order-execution join point work end to end against the real container; it is not
+# a methodology result. `hybrid` (F1-F7 + F4/news) is not registered here yet.
 STRATEGIES: dict[str, StrategySpec] = {
     "baseline-ma": StrategySpec("baseline_ma", _validate_baseline_ma),
     "baseline-meanrev": StrategySpec("baseline_meanrev", _validate_baseline_meanrev),
+    "baseline": StrategySpec("baseline", _validate_baseline),
     "buyhold": StrategySpec("experiment_zero/buyhold", _validate_buyhold),
     "random": StrategySpec("experiment_zero/random", _validate_random),
     "perfect_foresight": StrategySpec(

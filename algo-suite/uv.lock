@@ -64,6 +64,7 @@ source = { editable = "algo-backtest" }
 dependencies = [
     { name = "algo-core" },
     { name = "algo-score" },
+    { name = "joblib" },
     { name = "lightgbm" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -79,6 +80,7 @@ dependencies = [
 requires-dist = [
     { name = "algo-core", editable = "algo-core" },
     { name = "algo-score", editable = "algo-score" },
+    { name = "joblib", specifier = ">=1.3" },
     { name = "lightgbm", specifier = ">=4.5" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pyarrow", specifier = ">=16" },
