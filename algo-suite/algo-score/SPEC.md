@@ -172,7 +172,14 @@ confidence**.
 | `event_intensity` | float | GDELT aggregate — the **unweighted mean of `goldstein_scale`** across all `GdeltEvent` rows sharing the same `event_date` (confirmed by the user 2026-09-22; `avg_tone` is not folded in, kept available for a possible future scorer-side use) |
 
 Daily-resolution event aggregates are **forward-filled** onto the minute grid
-(consistent with the methodology). Sentiment is bucketed by article publish
+(consistent with the methodology) with a **one-day publication lag**: day D's
+aggregate summarizes the whole UTC day, so it first appears at 00:00 UTC on D+1
+and every minute of D itself carries D-1's value (`events/grid.py`'s
+`PUBLICATION_LAG`). Exposing D's aggregate on D would leak up to 24h of future
+information into every backtest bar and F7 training label that reads it. Residual
+caveat: `event_date` is GDELT's `SQLDATE` (when the event happened), not
+`DATEADDED` (when it was reported); events reported more than a day late still
+land in an already-published day — see `docs/technical-debt.md` TD-59. Sentiment is bucketed by article publish
 time, not forward-filled across empty minutes. Neither `gpr` nor
 `event_intensity` fabricates a value before its series' first observation —
 minutes before the first daily value are absent (null), not zero.

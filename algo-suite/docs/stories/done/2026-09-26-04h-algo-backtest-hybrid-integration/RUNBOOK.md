@@ -10,12 +10,20 @@ for the full list of known simplifications before citing any number this produce
 ```bash
 cd algo-suite/algo-backtest
 uv run python scripts/train_baseline_meta_learner.py \
-    --symbol EURUSD --year 2015 --month 2 \
-    --train-end 2015-02-03 --validation-end 2015-02-05 --test-end 2015-02-06
+    --symbol EURUSD --from 2015-02-02 \
+    --train-end 2015-06-30 --validation-end 2015-07-31 --test-end 2016-01-31
 ```
 
-Writes `src/algo_backtest/algos/baseline/f7_meta_learner.joblib`, loaded by `main.py` at
-`initialize()`. Boundaries must fall on real trading days — FX markets are closed
+Same 6-month in-sample / 6-month out-of-sample split as `hybrid` below (Feb–Jun train,
+Jul validation, Aug 2015–Jan 2016 held out).
+
+Writes `src/algo_backtest/algos/baseline/f7_meta_learner.json`, loaded at `initialize()`:
+a portable, pickle-free model document (`chain/filters/f7_model_io.py` — the LEAN
+container's sklearn/LightGBM/numpy are older than the workspace's, so a pickled model
+does not load there) with its provenance embedded (window, split, row counts,
+input-partition SHA-256s, git revision, library versions). The algorithm logs
+`BASELINE_MODEL_SHA256=` at start so a run is traceable to the exact model it loaded;
+`algo-backtest run --model PATH` swaps in another model for one run. Boundaries must fall on real trading days — FX markets are closed
 weekends, so a span landing entirely on a Saturday/Sunday raises `ValueError` (empty
 walk-forward span).
 
@@ -24,7 +32,7 @@ walk-forward span).
 ```bash
 cd algo-suite
 uv run algo-backtest run --strategy baseline --symbol EURUSD \
-    --from 2015-02-02 --to 2015-02-06 --param size=0.5
+    --from 2015-08-01 --to 2016-01-31 --param size=0.5
 ```
 
 Prints `run[baseline]: success=... closed_trades=... results=<path>/main.json` plus a
@@ -61,7 +69,7 @@ sequenceDiagram
     Lean->>Lean: copy engine/, algo_backtest/, algo_core/ into work dir
     Lean->>Docker: mount work dir at /LeanCLI, start container
     Docker->>Algo: Initialize()
-    Algo->>Algo: load f7_meta_learner.joblib, build FilterChain
+    Algo->>Algo: load f7_meta_learner.json, build FilterChain
     loop every minute bar
         Docker->>Algo: OnData(slice)
         Algo->>Algo: build ExecutionState.features (live indicators + portfolio)
@@ -144,36 +152,47 @@ Same shape as `baseline` above, plus a news-feature training step and mount.
 
 ```bash
 cd algo-suite
-uv run algo-score events --kind gdelt --from 2015-02-01 --to 2015-02-28
+uv run algo-score events --kind gdelt --from 2015-02-01 --to 2016-01-31
 ```
 
-F4's per-minute lookup needs every minute of the run window covered — build the whole
-month, not just the backtest's own date range (a partial-month partition will fail fast
-with "no GDELT event_intensity for timestamp ...").
+Build whole months: F4 and the training script need every minute of the window covered
+(a gap fails fast with "no GDELT event_intensity ..."), and `algo-backtest run` checks
+every touched month's partition exists before starting a container. Each day's GDELT
+aggregate only becomes visible at 00:00 UTC the *next* day (no look-ahead; algo-score
+SPEC.md §6.2), so the first built day has no value — raw GDELT starts 2015-02-01, hence
+windows below start on 2015-02-02.
 
 ### 2. Train and persist the F7 meta-learner (includes the NEWS family)
 
 ```bash
 cd algo-suite/algo-backtest
 uv run python scripts/train_hybrid_meta_learner.py \
-    --symbol EURUSD --year 2015 --month 2 \
-    --train-end 2015-02-03 --validation-end 2015-02-05 --test-end 2015-02-06
+    --symbol EURUSD --from 2015-02-02 \
+    --train-end 2015-06-30 --validation-end 2015-07-31 --test-end 2016-01-31
 ```
 
-Writes `src/algo_backtest/algos/hybrid/f7_meta_learner.joblib`.
+The window (`--from` through `--test-end`) may span any number of months; every
+touched month's m1 price and GDELT event-feature partition must exist (missing ones
+fail fast). The example uses 6 in-sample months (Feb–Jun train, Jul validation for the
+stacker) and keeps Aug 2015–Jan 2016 as the 6 out-of-sample months — run the backtest
+in step 3 over that span only, never over the in-sample months.
 
-### 3. Run the backtest
+Writes `src/algo_backtest/algos/hybrid/f7_meta_learner.json` (same portable format);
+news features are looked up at each bar's decision time (bar start +
+1 minute, LEAN's `self.time`), the same as-of the live algorithm uses.
+
+### 3. Run the backtest (out-of-sample months only)
 
 ```bash
 cd algo-suite
 uv run algo-backtest run --strategy hybrid --symbol EURUSD \
-    --from 2015-02-02 --to 2015-02-06 --param size=0.5
+    --from 2015-08-01 --to 2016-01-31 --param size=0.5
 ```
 
 `run.py`'s `StrategySpec.needs_news_data` flag makes `run_strategy()` additionally mount
-the real Spec 03 Parquet tree read-only at `news/parquet` under the container's data
-root, passing `news_data_root=/Lean/Data/news` as a backtest parameter — no manual mount
-step needed beyond having the event-feature Parquet built (step 1).
+only `parquet/events/_features` (and `parquet/sentiment` when it exists) read-only under
+the container's `NEWS_DATA_ROOT` (`container_paths.py`), preserving the host layout so
+`algo_score`'s path builders resolve unchanged — no manual mount step beyond step 1.
 
 ### 4. decisions.parquet / trades.json join
 
@@ -181,4 +200,6 @@ Both `baseline` and `hybrid` now write `<results_dir>/decisions.parquet` at
 `on_end_of_algorithm()` (`chain/decision_recorder.py`). Every non-`NO_TRADE` row's
 `trade_id` is `None` (no trade open) or a string matching one of `trades.json`'s
 `orderIds[0]` values (LEAN's own entry order id) — a real, verifiable foreign key, not
-just two files that happen to coexist.
+just two files that happen to coexist. The id follows LEAN's flat-to-flat grouping
+(`DecisionRecorder.on_fill`): a fill from flat or a reversal starts a new trade id, a
+same-side scale-in/out keeps it, only a filled close clears it.

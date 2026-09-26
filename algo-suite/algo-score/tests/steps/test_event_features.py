@@ -237,9 +237,29 @@ def _build_through_source_helper(context: dict[str, object], source: str) -> Non
 def _forward_filled(context: dict[str, object], column: str) -> None:
     source = context["source"]
     assert isinstance(source, str)
-    assert _minute_value(context, source, column, datetime(2020, 1, 5, 0, 0, tzinfo=UTC)) == 10.0
-    assert _minute_value(context, source, column, datetime(2020, 1, 6, 12, 0, tzinfo=UTC)) == 20.0
-    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 30.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 6, 0, 0, tzinfo=UTC)) == 10.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 12, 0, tzinfo=UTC)) == 20.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 20.0
+
+
+@then(
+    parsers.re(
+        r"the last minute of 2020-01-06 still carries the 2020-01-05 (?P<column>[a-z_]+) value"
+    )
+)
+def _same_day_not_visible(context: dict[str, object], column: str) -> None:
+    source = context["source"]
+    assert isinstance(source, str)
+    assert _minute_value(context, source, column, datetime(2020, 1, 6, 23, 59, tzinfo=UTC)) == 10.0
+
+
+@then(
+    parsers.re(r"the first minute of 2020-01-07 carries the 2020-01-06 (?P<column>[a-z_]+) value")
+)
+def _next_day_visible(context: dict[str, object], column: str) -> None:
+    source = context["source"]
+    assert isinstance(source, str)
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 0, 0, tzinfo=UTC)) == 20.0
 
 
 @then(
@@ -256,7 +276,7 @@ def _not_interpolated(context: dict[str, object]) -> None:
     source = context["source"]
     assert isinstance(source, str)
     column = "gpr" if source == "gpr" else "event_intensity"
-    assert _minute_value(context, source, column, datetime(2020, 1, 6, 23, 59, tzinfo=UTC)) == 10.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 10.0
 
 
 @then(parsers.re(r"minutes before day 2 have no (?P<column>[a-z_]+) value"))
@@ -278,10 +298,11 @@ def _absence_not_zero(context: dict[str, object]) -> None:
     assert values == [None, None]
 
 
-@then(parsers.re(r"every minute of 2020-01-05 carries event_intensity (?P<expected>-?\d+\.\d+)"))
+@then(parsers.re(r"every minute of 2020-01-06 carries event_intensity (?P<expected>-?\d+\.\d+)"))
 def _golden_intensity(context: dict[str, object], expected: str) -> None:
+    """2020-01-05's aggregate, visible on 2020-01-06 under the one-day publication lag."""
     table = _read_output(context, "gdelt")
-    values = table.column("event_intensity").to_pylist()[: 24 * 60]
+    values = table.column("event_intensity").to_pylist()[24 * 60 : 2 * 24 * 60]
     assert set(values) == {float(expected)}
 
 

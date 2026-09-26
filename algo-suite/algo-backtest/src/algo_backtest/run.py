@@ -25,6 +25,8 @@ from algo_core.instrument import Instrument
 from algo_core.layout import lean_data_dir_for
 
 import algo_backtest
+from algo_backtest.chain.filters.f4_news_context import missing_event_partitions
+from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
 from algo_backtest.results import RunResult, parse_results
 
@@ -135,11 +137,15 @@ class StrategySpec:
     `needs_news_data`: whether `run_strategy` must also mount the real Spec 03
     (`algo-score`) news/event Parquet tree into the container — true only for
     `hybrid` (Spec 04h), whose algorithm reads it via F4NewsContextFilter.
+
+    `model_file`: the F7 model filename the bundled algorithm loads, for strategies that
+    run the meta-learner — the file a run's `--model` override replaces.
     """
 
     algo_dir: str
     validate: Callable[[Params], None]
     needs_news_data: bool = False
+    model_file: str | None = None
 
 
 # Adding a strategy is a registry entry + a bundled algorithm, no new run path.
@@ -160,11 +166,15 @@ class StrategySpec:
 # F4's own documented gap (real GDELT event-intensity veto, best-effort/ABSTAIN
 # sentiment pending TD-48). These prove the chain wiring and order-execution join
 # point work end to end against the real container; neither is a methodology result.
+_F7_MODEL_FILE = "f7_meta_learner.json"
+
 STRATEGIES: dict[str, StrategySpec] = {
     "baseline-ma": StrategySpec("baseline_ma", _validate_baseline_ma),
     "baseline-meanrev": StrategySpec("baseline_meanrev", _validate_baseline_meanrev),
-    "baseline": StrategySpec("baseline", _validate_baseline),
-    "hybrid": StrategySpec("hybrid", _validate_hybrid, needs_news_data=True),
+    "baseline": StrategySpec("baseline", _validate_baseline, model_file=_F7_MODEL_FILE),
+    "hybrid": StrategySpec(
+        "hybrid", _validate_hybrid, needs_news_data=True, model_file=_F7_MODEL_FILE
+    ),
     "buyhold": StrategySpec("experiment_zero/buyhold", _validate_buyhold),
     "random": StrategySpec("experiment_zero/random", _validate_random),
     "perfect_foresight": StrategySpec(
@@ -173,12 +183,15 @@ STRATEGIES: dict[str, StrategySpec] = {
 }
 
 
-def validate_run_inputs(strategy: str, params: Params, start: date, end: date) -> None:
+def validate_run_inputs(
+    strategy: str, params: Params, start: date, end: date, model: Path | None = None
+) -> None:
     """Validate a run's inputs, raising ValueError with remediation (fail fast).
 
     Raises:
-        ValueError: unknown strategy, a from-date after the to-date, or strategy-specific
-            parameter violations (wrong keys, non-numeric, out-of-range).
+        ValueError: unknown strategy, a from-date after the to-date, strategy-specific
+            parameter violations (wrong keys, non-numeric, out-of-range), or a `model`
+            override for a strategy without an F7 model / pointing at no file.
     """
     if strategy not in STRATEGIES:
         raise ValueError(
@@ -187,6 +200,17 @@ def validate_run_inputs(strategy: str, params: Params, start: date, end: date) -
     if start > end:
         raise ValueError(f"from date ({start}) must not be after the to date ({end})")
     STRATEGIES[strategy].validate(params)
+    if model is not None:
+        _validate_model_override(strategy, model)
+
+
+def _validate_model_override(strategy: str, model: Path) -> None:
+    """A `--model` override needs an F7-driven strategy and an existing file."""
+    if STRATEGIES[strategy].model_file is None:
+        with_model = sorted(name for name, spec in STRATEGIES.items() if spec.model_file)
+        raise ValueError(f"--model only applies to F7-driven strategies {with_model}")
+    if not model.is_file():
+        raise ValueError(f"--model {model} is not a file")
 
 
 def lean_data_covers(data_root: Path, instrument: Instrument, start: date, end: date) -> bool:
@@ -209,6 +233,35 @@ def lean_data_covers(data_root: Path, instrument: Instrument, start: date, end: 
     return False
 
 
+def missing_news_partitions(strategy: str, data_root: Path, start: date, end: date) -> list[Path]:
+    """GDELT event-feature partitions a news-driven strategy's window needs but lacks.
+
+    Always empty for a strategy without `needs_news_data`. Checked on the host before
+    any container starts, so a missing month is a remediation-rich CLI error rather than
+    a failure buried in the LEAN container log.
+    """
+    if not STRATEGIES[strategy].needs_news_data:
+        return []
+    return missing_event_partitions(data_root, start, end)
+
+
+def _news_mounts(data_root: Path) -> dict[str, Path]:
+    """Only the Spec 03 subtrees F4 reads — event features, plus sentiment when present.
+
+    Mounted beneath `NEWS_SUBPATH` with the host's own `parquet/...` layout preserved, so
+    `algo_score`'s path builders resolve unchanged against `NEWS_DATA_ROOT`. The
+    sentiment tree is optional (TD-48); a bind mount of a missing host dir would make
+    Docker create it, so it is only mounted when it exists.
+    """
+    mounts = {
+        f"{NEWS_SUBPATH}/parquet/events/_features": data_root / "parquet" / "events" / "_features"
+    }
+    sentiment = data_root / "parquet" / "sentiment"
+    if sentiment.is_dir():
+        mounts[f"{NEWS_SUBPATH}/parquet/sentiment"] = sentiment
+    return mounts
+
+
 def run_strategy(
     strategy: str,
     *,
@@ -220,6 +273,7 @@ def run_strategy(
     results_dir: Path,
     timeout: int,
     broker_adapter: str,
+    model: Path | None = None,
 ) -> RunResult:
     """Run the named strategy's bundled algorithm over a window and parse its result.
 
@@ -229,10 +283,10 @@ def run_strategy(
     config-resolved brokerage-adapter name (Spec 04a) the algorithm applies via
     `ExecutionAlgorithm.init_execution` before the first bar. When the strategy's
     `needs_news_data` is set (Spec 04h's `hybrid`), the real Spec 03 (`algo-score`)
-    Parquet tree is additionally mounted read-only at `news/parquet` under the
-    container's data root — preserving `data_root`'s own subtree layout so
-    `algo_score.events.paths`/`algo_score.paths`'s path builders work unchanged inside
-    the container against a `news_data_root` parameter of `/Lean/Data/news`.
+    event-feature (and, when present, sentiment) Parquet is additionally mounted
+    read-only under the container's `NEWS_DATA_ROOT` (see `_news_mounts`), passed to the
+    algorithm as its `news_data_root` parameter. `model` (validated by
+    `validate_run_inputs`) replaces the strategy's bundled F7 model for this run only.
     """
     spec = STRATEGIES[strategy]
     algo_dir = Path(algo_backtest.__file__).parent / "algos" / spec.algo_dir
@@ -247,10 +301,11 @@ def run_strategy(
         **params,
     }
     if spec.needs_news_data:
-        data_mounts["news/parquet"] = data_root / "parquet"
-        parameters["news_data_root"] = "/Lean/Data/news"
+        data_mounts.update(_news_mounts(data_root))
+        parameters["news_data_root"] = str(NEWS_DATA_ROOT)
+    algo_files = {spec.model_file: model} if model is not None and spec.model_file else {}
     run = run_lean(
         algo_dir, results_dir, data_mounts=data_mounts,
-        parameters=parameters, timeout=timeout,
+        parameters=parameters, timeout=timeout, algo_files=algo_files,
     )
     return parse_results(results_dir, success=run.exit_code == 0)

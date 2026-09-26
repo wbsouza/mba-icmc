@@ -40,7 +40,7 @@ algo-backtest run --strategy baseline --symbol EURUSD --from 2024-06-01 --to 202
 verified against the real pinned LEAN container (`algos/baseline/main.py`, PR #33) —
 **this is a wiring smoke test, not a methodology result**. F3's candlestick pattern is
 never populated (no real detector), F5/F6's account-risk features use fixed placeholder
-economics (no real ATR/margin model), and F7's meta-learner (`f7_meta_learner.joblib`,
+economics (no real ATR/margin model), and F7's meta-learner (`f7_meta_learner.json`,
 trained by `scripts/train_baseline_meta_learner.py`) is fit on a short window, not the
 full walk-forward split the methodology specifies. See `docs/technical-debt.md`'s TD-51
 and `docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/progress.md` for

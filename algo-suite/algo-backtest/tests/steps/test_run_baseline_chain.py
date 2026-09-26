@@ -78,13 +78,16 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
     materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
 
 
-@when("I run baseline over 2014-05-07 to 2014-05-09 with size 0.5")
+@when(
+    "I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
+)
 def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD",
-            "--from", "2014-05-07", "--to", "2014-05-09", "--param", "size=0.5",
+            "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--model", str(bctx["model"]),
         ],
     )
 
@@ -160,7 +163,10 @@ def _decisions_parquet_written(bctx: dict[str, Any]) -> None:
     assert (_run_dir(bctx) / "decisions.parquet").exists()
 
 
-@then("every decisions.parquet row's trade_id is null or a real trades.json entry order id")
+@then(
+    "every decisions.parquet row's trade_id is null, a real trades.json entry order id, "
+    "or the trade still open at the end"
+)
 def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
     """Prove decisions.parquet's trade_id is a real foreign key into trades.json.
 
@@ -175,8 +181,27 @@ def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
     rows = repo.read_all()
     trades = json.loads((run_dir / "trades.json").read_text())
     entry_order_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
+    # A trade still open at the end has no trades.json entry; the algorithm logs its id.
+    marker = "BASELINE_OPEN_TRADE_AT_END="
+    for line in (run_dir / "log.txt").read_text().splitlines():
+        if marker in line and not line.rstrip().endswith("=None"):
+            entry_order_ids.add(line.split(marker, 1)[1].strip())
     for row in rows:
         assert row.trade_id is None or row.trade_id in entry_order_ids, (
             f"decisions.parquet trade_id {row.trade_id!r} matches no trades.json "
             f"entry order id in {sorted(entry_order_ids)}"
         )
+
+
+@then("at least one decisions.parquet row is joined to a trades.json trade")
+def _decisions_join_nonempty(bctx: dict[str, Any]) -> None:
+    """Without this, the join proof above passes vacuously when no trade ever filled."""
+    run_dir = _run_dir(bctx)
+    rows = ParquetRepository(DecisionRow, run_dir / "decisions.parquet").read_all()
+    trades = json.loads((run_dir / "trades.json").read_text())
+    closed_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
+    joined = [row for row in rows if row.trade_id in closed_ids]
+    assert joined, (
+        f"no decisions.parquet row joins a closed trades.json trade ({len(rows)} rows, "
+        f"{len(trades)} closed trades) -- the join is unproven"
+    )

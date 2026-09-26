@@ -115,14 +115,19 @@ def _duckdb_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
     step's own reimport already replaces wholesale), so its stale attribute is cleared
     explicitly here.
     """
+    import algo_core
+
+    # The fresh imports in the When steps rebind `algo_core.repository` to a new module
+    # object; pin the original so teardown restores it and later tests never see two
+    # distinct `ParquetRepository` classes.
+    if hasattr(algo_core, "repository"):
+        monkeypatch.setattr(algo_core, "repository", algo_core.repository)
     for name in [
         m for m in sys.modules if m == "duckdb" or m.startswith("algo_core.repository")
         or m.startswith("algo_core.duck")
     ]:
         monkeypatch.delitem(sys.modules, name, raising=False)
     monkeypatch.setitem(sys.modules, "duckdb", None)
-    import algo_core
-
     monkeypatch.delattr(algo_core, "duck", raising=False)
 
 
@@ -134,8 +139,11 @@ def _import_parquet_module(state: dict[str, object]) -> None:
 @then("ParquetRepository is importable and duckdb was never imported")
 def _parquet_importable_without_duckdb(state: dict[str, object]) -> None:
     module = state["parquet_module"]
-    assert module.ParquetRepository is not None
-    assert sys.modules.get("duckdb") is None  # poisoned, never a real successful import
+    assert module.ParquetRepository.__name__ == "ParquetRepository"
+    # The package __init__ ran (it is the parent of .parquet) without pulling in the
+    # DuckDB adapter -- the eager import that used to fail in the LEAN container.
+    assert "algo_core.repository" in sys.modules
+    assert "algo_core.repository.duckdb" not in sys.modules
 
 
 @when("algo_core.repository is imported fresh")

@@ -2,7 +2,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
   `algo-backtest run --strategy baseline` wires the config.yaml-driven F1+F2+F3+F5+F6+F7
   chain (no F4/news) into a real LEAN algorithm for the first time (2026-09-26). This is
   a wiring smoke test, not a methodology result -- see technical-debt.md's TD-51 and
-  docs/stories/planned/04h-algo-backtest-hybrid-integration/progress.md: F3's
+  docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/progress.md: F3's
   candlestick-pattern feature is never populated (no real detector), F5/F6's
   account-risk features use fixed placeholder economics (no real ATR/margin model), and
   F7's meta-learner is trained on a short window by
@@ -23,12 +23,15 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
   Rule: A validated run executes the full F1-F7 chain on the engine without crashing
 
     @integration
-    Scenario: the baseline chain runs to completion against a price swing
-      Given materialized EUR/USD minute data with a price swing in 2014-05
-      When I run baseline over 2014-05-07 to 2014-05-09 with size 0.5
+    Scenario: the baseline chain trades a sine cycle and every decision joins its LEAN trade
+      Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09
+      And a baseline F7 model trained on it: train through 2014-05-06, validate on 2014-05-07, test 2014-05-08 to 2014-05-09
+      When I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model
       Then the strategy run exits successfully
+      And the container log shows the algorithm loaded the fixture model
       And a metrics summary is reported
       And the run artifacts are written under the data root
       And the container log shows the F1-F7 chain actually evaluated a decision
       And decisions.parquet is written under the run's results directory
-      And every decisions.parquet row's trade_id is null or a real trades.json entry order id
+      And every decisions.parquet row's trade_id is null, a real trades.json entry order id, or the trade still open at the end
+      And at least one decisions.parquet row is joined to a trades.json trade

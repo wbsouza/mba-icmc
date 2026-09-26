@@ -82,8 +82,17 @@ algo_backtest/
 ├── algos/baseline_ma/      # IMPLEMENTED — fast/slow SMA crossover (trend), long-only, fixed sizing
 ├── algos/baseline_meanrev/ # IMPLEMENTED — SMA mean-reversion (counter-trend), long-only, fixed sizing
 ├── algos/experiment_zero/  # IMPLEMENTED — buyhold/random/perfect_foresight known-answer algos (Spec 04h)
-├── algos/baseline/         # IMPLEMENTED — real F1+F2+F3+F5+F6+F7 chain (no F4/news), Spec 04h
-├── algos/hybrid/           # IMPLEMENTED — real F1-F7 chain incl. F4/news, Spec 04h
+├── algos/baseline/         # IMPLEMENTED — real F1+F2+F3+F5+F6+F7 chain (no F4/news), Spec 04h;
+│                           #   ~20-line subclass of engine/chain_algorithm.py + its F7 model
+│                           #   f7_meta_learner.json (portable, provenance embedded)
+├── algos/hybrid/           # IMPLEMENTED — real F1-F7 chain incl. F4/news, Spec 04h; same shape,
+│                           #   plus a multi-month NewsContextIndex (f4 load_news_context_window)
+├── container_paths.py      # IMPLEMENTED — /Lean/Data, /Results, news mount + decisions.parquet
+│                           #   paths shared by lean_runner/run.py (host) and algos (container)
+├── months.py               # IMPLEMENTED — months_between(): year=/month= partitions of a window
+├── training.py             # IMPLEMENTED — F7 training-data assembly for scripts/train_*: multi-
+│                           #   month loads, rows via chain.wiring.price_features (train = serve),
+│                           #   news keyed at decision time, save_model() (portable JSON)
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
 │                           #   (manifest) + trades.json (ledger) + metrics.json; metrics.json last
 │                           #   as the completeness marker (Slices E1+E2). Each trades.json entry
@@ -103,6 +112,11 @@ algo_backtest/
 │   │                       #   (brokerage-adapter selection + OrderExecutor wiring), on_order_event.
 │   │                       #   Container-only (imports AlgorithmImports); excluded from ruff/mypy like
 │   │                       #   algos/, proven via tests/features/order_execution.feature (real LEAN).
+│   ├── chain_algorithm.py  # IMPLEMENTED (Spec 04h) — ChainAlgorithm(ExecutionAlgorithm): the shared
+│   │                       #   per-bar LEAN glue for config.yaml-driven F1-F7 strategies (indicators,
+│   │                       #   features via chain/wiring.py, chain run, order routing, decisions
+│   │                       #   audit, <TAG>_MODEL_SHA256 log). Container-only like algorithm.py
+│   │                       #   (mypy-excluded); proven via run_{baseline,hybrid}_chain.feature.
 │   ├── order_executor.py   # IMPLEMENTED (Spec 04a) — Decision/SizingContext/FillRecord + OrderExecutor:
 │   │                       #   Decision + sizing in, places the order (calculate_order_quantity →
 │   │                       #   market_order), consumes OnOrderEvent, returns a normalized fill.
@@ -120,7 +134,10 @@ algo_backtest/
 │   ├── terminal.py         # IMPLEMENTED — F7TerminalDecision (Spec 04h): FilterChain's
 │   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision.
 │   ├── decision_recorder.py # IMPLEMENTED — DecisionRecorder (Spec 04h): per-run trade_id
-│   │                       #   bookkeeping shared by algos/{baseline,hybrid}/main.py.
+│   │                       #   bookkeeping from filled orders' position transitions (on_fill),
+│   │                       #   following LEAN's flat-to-flat trade grouping.
+│   ├── wiring.py           # IMPLEMENTED — LEAN-free chain wiring: build_filters(), price/account
+│   │                       #   features contract, PnlWindows, smoke-test placeholder economics.
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/

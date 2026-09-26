@@ -36,14 +36,14 @@ def _given_recorder(recorder_ctx: _RecorderCtx) -> None:
     """No-op: `recorder_ctx` already builds a fresh `DecisionRecorder`."""
 
 
-@when(parsers.parse('trade "{trade_id}" is opened'))
-def _open_trade(recorder_ctx: _RecorderCtx, trade_id: str) -> None:
-    recorder_ctx.recorder.open_trade(trade_id)
-
-
-@when(parsers.parse('trade "{trade_id}" is closed'))
-def _close_trade(recorder_ctx: _RecorderCtx, trade_id: str) -> None:
-    recorder_ctx.recorder.close_trade()
+@when(
+    parsers.parse(
+        'order "{order_id}" fills taking the position from {prior:g} to {new:g}'
+    )
+)
+def _order_fills(recorder_ctx: _RecorderCtx, order_id: str, prior: float, new: float) -> None:
+    """Report one filled order's position transition, as ChainAlgorithm.on_data does."""
+    recorder_ctx.recorder.on_fill(order_id, prior, new)
 
 
 @when(parsers.parse('a "{decision}" decision for pair "{pair}" is recorded'))
@@ -55,24 +55,14 @@ def _record_decision(recorder_ctx: _RecorderCtx, decision: str, pair: str) -> No
     recorder_ctx.recorder.record(outcome)
 
 
-@then(parsers.parse('the last recorded row\'s trade_id is "{trade_id}"'))
-def _last_row_trade_id(recorder_ctx: _RecorderCtx, trade_id: str) -> None:
-    assert recorder_ctx.recorder._rows[-1].trade_id == trade_id  # noqa: SLF001
-
-
-@then("the last recorded row's trade_id is absent")
-def _last_row_trade_id_absent(recorder_ctx: _RecorderCtx) -> None:
-    assert recorder_ctx.recorder._rows[-1].trade_id is None  # noqa: SLF001
-
-
 @then(parsers.parse('recorded row {index:d}\'s trade_id is "{trade_id}"'))
 def _nth_row_trade_id(recorder_ctx: _RecorderCtx, index: int, trade_id: str) -> None:
-    assert recorder_ctx.recorder._rows[index - 1].trade_id == trade_id  # noqa: SLF001
+    assert recorder_ctx.recorder.rows[index - 1].trade_id == trade_id
 
 
 @then(parsers.parse("recorded row {index:d}'s trade_id is absent"))
 def _nth_row_trade_id_absent(recorder_ctx: _RecorderCtx, index: int) -> None:
-    assert recorder_ctx.recorder._rows[index - 1].trade_id is None  # noqa: SLF001
+    assert recorder_ctx.recorder.rows[index - 1].trade_id is None
 
 
 @when(parsers.parse('the recorder is written to "{filename}"'))
@@ -97,11 +87,11 @@ def _row_count(recorder_ctx: _RecorderCtx, count: int) -> None:
 
 @then(parsers.parse('row {index:d} read back has trade_id "{trade_id}" and pair "{pair}"'))
 def _read_back_row(recorder_ctx: _RecorderCtx, index: int, trade_id: str, pair: str) -> None:
-    row = next(r for r in recorder_ctx.read_back if r.pair == pair)
-    assert row.trade_id == trade_id
+    row = recorder_ctx.read_back[index - 1]
+    assert (row.trade_id, row.pair) == (trade_id, pair)
 
 
-@then(parsers.parse("row {index:d} read back has trade_id absent and pair \"{pair}\""))
+@then(parsers.parse('row {index:d} read back has trade_id absent and pair "{pair}"'))
 def _read_back_row_absent(recorder_ctx: _RecorderCtx, index: int, pair: str) -> None:
-    row = next(r for r in recorder_ctx.read_back if r.pair == pair)
-    assert row.trade_id is None
+    row = recorder_ctx.read_back[index - 1]
+    assert (row.trade_id, row.pair) == (None, pair)

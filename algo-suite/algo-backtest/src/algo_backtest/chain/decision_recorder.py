@@ -21,25 +21,41 @@ from algo_backtest.chain.model import ChainOutcome
 class DecisionRecorder:
     """Accumulates `DecisionRow`s for one run, threading the "currently open trade" id.
 
-    The caller tells this class when a trade opens (`open_trade`) or closes
-    (`close_trade`); `record` reads whatever id is current at the time of the call
-    and attaches it to the row. `decision_row_from_outcome` itself forces the id to
-    `None` for a `NO_TRADE` decision regardless of what is passed in (SPEC.md §6.2:
-    a stand-aside/veto row has no trade to be a foreign key to), so `record` does not
-    need to special-case that decision here.
+    The caller reports every *filled* order via `on_fill` with the position quantity
+    before and after it; `record` attaches whatever id is current to the row. The id
+    follows LEAN's own flat-to-flat trade grouping, so it stays a real foreign key into
+    `trades.json` (each trade's `orderIds[0]`):
+
+    - flat -> position, or a reversal (sign flip): LEAN opens a new trade whose first
+      order is this one, so this order id becomes current;
+    - a same-side scale-in/scale-out: still the same LEAN trade, so the id is kept;
+    - position -> flat: the trade closed, so no id is current.
+
+    A rejected/unfilled order is simply never reported, so it cannot clear or replace the
+    id of a trade that is in fact still open. `decision_row_from_outcome` itself forces
+    the id to `None` for a `NO_TRADE` decision (SPEC.md §6.2).
     """
 
     def __init__(self) -> None:
         self._rows: list[DecisionRow] = []
         self._current_trade_id: str | None = None
 
-    def open_trade(self, trade_id: str) -> None:
-        """Mark `trade_id` as the currently-open trade (an entry order just filled)."""
-        self._current_trade_id = trade_id
+    @property
+    def rows(self) -> tuple[DecisionRow, ...]:
+        """Every row recorded so far, in recording order."""
+        return tuple(self._rows)
 
-    def close_trade(self) -> None:
-        """Clear the currently-open trade (an exit order just filled, or none was open)."""
-        self._current_trade_id = None
+    @property
+    def current_trade_id(self) -> str | None:
+        """The id of the LEAN trade currently open, if any."""
+        return self._current_trade_id
+
+    def on_fill(self, order_id: str, prior_quantity: float, new_quantity: float) -> None:
+        """Update the current trade id from one filled order's position transition."""
+        if new_quantity == 0:
+            self._current_trade_id = None
+        elif prior_quantity == 0 or (prior_quantity > 0) != (new_quantity > 0):
+            self._current_trade_id = order_id
 
     def record(self, outcome: ChainOutcome) -> None:
         """Append one `DecisionRow` for `outcome`, joined to the currently-open trade, if any."""

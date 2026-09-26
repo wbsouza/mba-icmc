@@ -193,13 +193,25 @@ class LightGBMFamilyModel:
         return float(proba[0, 1])
 
 
+class ProbabilityCombiner(Protocol):
+    """The meta-learner's combiner contract: family P(up)s in, `[P(0), P(1)]` rows out.
+
+    Satisfied by a fitted sklearn `LogisticRegression` (training) and by
+    `f7_model_io.LogisticCombiner` (a model reloaded from its portable JSON form).
+    """
+
+    def predict_proba(self, inputs: np.ndarray) -> Any:
+        """Class probabilities per input row."""
+        ...
+
+
 @dataclass(frozen=True)
 class TrainedMetaLearner:
     """The fitted per-family sub-models plus the logistic combiner over their outputs."""
 
     families: tuple[FeatureFamily, ...]
     family_models: Mapping[FeatureFamily, FamilyPredictor]
-    meta_model: LogisticRegression
+    meta_model: ProbabilityCombiner
 
     def predict(self, features: Mapping[str, object]) -> float:
         """Combine every family's P(up) into the meta-learner's calibrated p̂_t."""

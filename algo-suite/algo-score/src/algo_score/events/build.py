@@ -8,7 +8,7 @@ from pathlib import Path
 from algo_core.repository.parquet import ParquetRepository
 
 from algo_score.events.features import EventFeatureSpec, feature_rows, spec_for
-from algo_score.events.grid import partitioned_minutes
+from algo_score.events.grid import PUBLICATION_LAG, partitioned_minutes
 from algo_score.events.models import DailyValue, EventFeatureReport
 from algo_score.events.paths import feature_path, feature_root
 from algo_score.events.readers import read_gdelt_daily_values, read_gpr_daily_values
@@ -17,7 +17,9 @@ from algo_score.events.readers import read_gdelt_daily_values, read_gpr_daily_va
 def build_event_features(data_root: Path, kind: str, start: date, end: date) -> EventFeatureReport:
     """Build ``kind`` event features for the inclusive date window."""
     spec = spec_for(kind)
-    daily_values = _read_daily_values(data_root, spec, start, end)
+    # The day before `start` is read too: its aggregate is what `start`'s own minutes
+    # carry under the grid's publication lag.
+    daily_values = _read_daily_values(data_root, spec, start - PUBLICATION_LAG, end)
     return _write_features(data_root, spec, daily_values, start, end)
 
 

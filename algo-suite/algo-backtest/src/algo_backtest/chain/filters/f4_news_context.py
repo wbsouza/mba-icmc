@@ -31,10 +31,11 @@ null-disableable the same way RiskGuard's caps are.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
+from algo_backtest.months import months_between
 from algo_core.config import Impact, ParameterSpec, resolve
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
@@ -147,6 +148,47 @@ def load_news_context_index(
         event_intensity=event_intensity,
         sentiment_polarity=sentiment_polarity,
         sentiment_source_present=sentiment_source_present,
+    )
+
+
+def missing_event_partitions(data_root: Path, start: date, end: date) -> list[Path]:
+    """Every GDELT event-feature partition the inclusive [start, end] window needs but lacks.
+
+    Lets a caller (the `run` CLI) reject a news-driven backtest on the host, with the
+    exact remediation command, before a LEAN container is ever started.
+    """
+    paths = [
+        event_feature_path(data_root, _EVENT_KIND, year, month)
+        for year, month in months_between(start, end)
+    ]
+    return [path for path in paths if not path.exists()]
+
+
+def load_news_context_window(
+    data_root: Path, pair: str, start: date, end: date
+) -> NewsContextIndex:
+    """Merge every calendar month the inclusive [start, end] window touches into one index.
+
+    `load_news_context_index` is scoped to a single (year, month) partition; a backtest
+    window may cross month boundaries. `sentiment_source_present` is true only if
+    *every* touched month had its sentiment Parquet — claiming a source for the whole
+    run when some months lacked one would mislabel those months' audit rows.
+
+    Raises:
+        ValueError: if any touched month's GDELT event-feature Parquet is missing.
+    """
+    event_intensity: dict[datetime, float] = {}
+    sentiment_polarity: dict[tuple[datetime, str], float] = {}
+    sentiment_everywhere = True
+    for year, month in months_between(start, end):
+        index = load_news_context_index(data_root, pair, year, month)
+        event_intensity.update(index.event_intensity)
+        sentiment_polarity.update(index.sentiment_polarity)
+        sentiment_everywhere = sentiment_everywhere and index.sentiment_source_present
+    return NewsContextIndex(
+        event_intensity=event_intensity,
+        sentiment_polarity=sentiment_polarity,
+        sentiment_source_present=sentiment_everywhere,
     )
 
 

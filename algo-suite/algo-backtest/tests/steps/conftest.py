@@ -98,3 +98,99 @@ def _bars_round_trip(ctx: dict[str, Any], probe_log: Any) -> None:
 @then(parsers.parse("the probe reports {n:d} bars"))
 def _probe_count(ctx: dict[str, Any], probe_log: Any, n: int) -> None:
     assert probe_log.done_count(ctx["run"].logs) == n, ctx["run"].logs[-3000:]
+
+
+# --- Chain-strategy (baseline/hybrid) trading fixture ---------------------------------
+# A deterministic four-hour sine cycle over five days: long enough for every indicator
+# (HTF EMA 60, MACD 26+9) to warm up and for trends to form, turn, and conflict with the
+# higher timeframe, so a model trained on it through the real `algo_backtest.training`
+# pipeline makes the chain open, reverse and close real trades inside LEAN.
+_SINE_FIRST = datetime(2014, 5, 5, tzinfo=UTC)
+_SINE_MINUTES = 5 * 24 * 60
+_SINE_PERIOD_MINUTES = 240
+
+
+def _sine_bars() -> list[QuoteBar]:
+    """Every minute of 2014-05-05..09 on a 30-pip-amplitude four-hour sine cycle."""
+    import math
+
+    bars = []
+    for i in range(_SINE_MINUTES):
+        mid = 1.3800 + 0.0030 * math.sin(2 * math.pi * i / _SINE_PERIOD_MINUTES)
+        bid, ask = round(mid, 5), round(mid + 0.0001, 5)
+        bars.append(
+            QuoteBar(
+                timestamp=_SINE_FIRST + timedelta(minutes=i),
+                bid_open=bid, bid_high=bid, bid_low=bid, bid_close=bid,
+                ask_open=ask, ask_high=ask, ask_low=ask, ask_close=ask,
+                tick_count=1,
+            )
+        )
+    return bars
+
+
+@given("materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09")
+def _materialize_sine(bctx: dict[str, Any]) -> None:
+    """Canonical m1 Parquet + LEAN minute zips for the sine fixture."""
+    from algo_backtest.materialize import materialize_month
+    from algo_core.bars import Timeframe
+    from algo_core.layout import price_path_for
+    from algo_core.repository.parquet import ParquetRepository
+
+    path = price_path_for(bctx["data_root"], _EURUSD, Timeframe.M1.value, 2014, 5)
+    ParquetRepository(QuoteBar, path).put(_sine_bars())
+    materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
+
+
+@given(
+    parsers.parse(
+        "a {strategy} F7 model trained on it: train through 2014-05-06, validate on "
+        "2014-05-07, test 2014-05-08 to 2014-05-09"
+    )
+)
+def _train_fixture_model(bctx: dict[str, Any], strategy: str, tmp_path: Path) -> None:
+    """Train through the same `algo_backtest.training` path the real scripts use."""
+    from datetime import date
+
+    from algo_backtest.chain.filters.f7_meta_learner import (
+        FeatureFamily,
+        train_meta_learner,
+        walk_forward_split,
+    )
+    from algo_backtest.training import (
+        build_training_rows,
+        load_event_intensity,
+        load_m1_bars,
+        save_model,
+    )
+
+    start, test_end = date(2014, 5, 5), date(2014, 5, 9)
+    bars = load_m1_bars(bctx["data_root"], _EURUSD, start, test_end)
+    news = strategy == "hybrid"
+    intensity = load_event_intensity(bctx["data_root"], start, test_end) if news else None
+    rows = build_training_rows(bars, intensity)
+    split = walk_forward_split(
+        rows, train_end=date(2014, 5, 6), validation_end=date(2014, 5, 7), test_end=test_end
+    )
+    families = (FeatureFamily.TREND, FeatureFamily.INDICATOR, FeatureFamily.PATTERN)
+    if news:
+        families += (FeatureFamily.NEWS,)
+    model_path = tmp_path / f"{strategy}-fixture.json"
+    save_model(
+        train_meta_learner(families=families, split=split),
+        model_path,
+        {"strategy": strategy, "fixture": "sine"},
+        data_root=bctx["data_root"],
+        inputs=[],
+    )
+    bctx["model"] = model_path
+
+
+@then("the container log shows the algorithm loaded the fixture model")
+def _fixture_model_logged(bctx: dict[str, Any]) -> None:
+    """The run is traceable to the exact model: its SHA-256 is in the container log."""
+    import hashlib
+
+    digest = hashlib.sha256(bctx["model"].read_bytes()).hexdigest()
+    logs = list(bctx["data_root"].glob("runs/*/*/log.txt"))
+    assert any(f"_MODEL_SHA256={digest}" in log.read_text() for log in logs), logs

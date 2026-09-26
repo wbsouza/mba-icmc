@@ -80,8 +80,10 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
     materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
 
 
-_RUN_WINDOW_START = datetime(2014, 5, 7, tzinfo=UTC)
-_RUN_WINDOW_MINUTES = 3 * 24 * 60  # 2014-05-07 through 2014-05-09 inclusive, plus margin
+_RUN_WINDOW_START = datetime(2014, 5, 5, tzinfo=UTC)
+# 2014-05-05 through 2014-05-09 inclusive (the sine fixture's training + test span) plus
+# the first minute of 2014-05-10: the last bar's decision time (its end) lands there.
+_RUN_WINDOW_MINUTES = 5 * 24 * 60 + 1
 
 
 def _synthetic_event_feature_rows(event_intensity: float) -> list[GdeltFeature]:
@@ -113,6 +115,20 @@ def _synthetic_news_veto(bctx: dict[str, Any]) -> None:
     rows = _synthetic_event_feature_rows(-10.0)
     path = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
     ParquetRepository(GdeltFeature, path).put(rows)
+
+
+@when(
+    "I run hybrid over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
+)
+def _run_hybrid_with_model(bctx: dict[str, Any], require_docker: None) -> None:
+    bctx["cli"] = CliRunner().invoke(
+        app,
+        [
+            "run", "--strategy", "hybrid", "--symbol", "EURUSD",
+            "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--model", str(bctx["model"]),
+        ],
+    )
 
 
 @when("I run hybrid over 2014-05-07 to 2014-05-09 with size 0.5")
@@ -193,7 +209,10 @@ def _decisions_parquet_written(bctx: dict[str, Any]) -> None:
     assert (_run_dir(bctx) / "decisions.parquet").exists()
 
 
-@then("every decisions.parquet row's trade_id is null or a real trades.json entry order id")
+@then(
+    "every decisions.parquet row's trade_id is null, a real trades.json entry order id, "
+    "or the trade still open at the end"
+)
 def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
     """Prove decisions.parquet's trade_id is a real foreign key into trades.json.
 
@@ -207,6 +226,11 @@ def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
     rows = repo.read_all()
     trades = json.loads((run_dir / "trades.json").read_text())
     entry_order_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
+    # A trade still open at the end has no trades.json entry; the algorithm logs its id.
+    marker = "HYBRID_OPEN_TRADE_AT_END="
+    for line in (run_dir / "log.txt").read_text().splitlines():
+        if marker in line and not line.rstrip().endswith("=None"):
+            entry_order_ids.add(line.split(marker, 1)[1].strip())
     for row in rows:
         assert row.trade_id is None or row.trade_id in entry_order_ids, (
             f"decisions.parquet trade_id {row.trade_id!r} matches no trades.json "
@@ -216,6 +240,38 @@ def _decisions_trade_id_joins_trades_json(bctx: dict[str, Any]) -> None:
 
 @then("no trade was ever opened")
 def _no_trade_opened(bctx: dict[str, Any]) -> None:
-    """Every bar vetoed by F4's active high-risk event -> trades.json is empty."""
+    """trades.json holds closed trades only -- necessary, not sufficient (see next step)."""
     trades = json.loads((_run_dir(bctx) / "trades.json").read_text())
     assert trades == [], f"expected no trades under an active-veto window, got {trades}"
+
+
+@then("at least one decisions.parquet row is joined to a trades.json trade")
+def _decisions_join_nonempty(bctx: dict[str, Any]) -> None:
+    """Without this, the join proof above passes vacuously when no trade ever filled."""
+    run_dir = _run_dir(bctx)
+    rows = ParquetRepository(DecisionRow, run_dir / "decisions.parquet").read_all()
+    trades = json.loads((run_dir / "trades.json").read_text())
+    closed_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
+    joined = [row for row in rows if row.trade_id in closed_ids]
+    assert joined, (
+        f"no decisions.parquet row joins a closed trades.json trade ({len(rows)} rows, "
+        f"{len(trades)} closed trades) -- the join is unproven"
+    )
+
+
+@then("every decisions.parquet row is a NO_TRADE vetoed by f4_news_context")
+def _every_row_vetoed(bctx: dict[str, Any]) -> None:
+    """The real proof of the veto: trades.json alone would also be empty for a position
+    that opened and was never closed, so assert on the audit trail itself."""
+    rows = ParquetRepository(DecisionRow, _run_dir(bctx) / "decisions.parquet").read_all()
+    assert rows, "no decisions.parquet rows -- the chain never ran"
+    vetoed = ("NO_TRADE", "f4_news_context")
+    offenders = [r for r in rows if (r.final_decision, r.vetoed_by) != vetoed]
+    assert not offenders, f"{len(offenders)}/{len(rows)} rows were not F4 vetoes: {offenders[:3]}"
+
+
+@then("the error names the missing 2014-05 GDELT event-feature partition and how to build it")
+def _missing_news_error(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    expected = event_feature_path(bctx["data_root"], "gdelt", 2014, 5)
+    assert str(expected) in out and "algo-score events --kind gdelt" in out, out
