@@ -34,6 +34,22 @@ Feature: algo-analyze CLI wires the library modules together
       Then the command exits 0
       And the corrected CLI significance records pairing effect interval and sensitivity
 
+    Scenario: a malformed paired artifact exits 2 while a missing endpoint is unavailable
+      Given engine equity and selection history for CLI run "base-eq"
+      And engine equity and selection history for CLI run "hyb-eq"
+      And run "hyb-eq" has a duplicated equity timestamp
+      When I run "algo-analyze significance --runs base-eq --runs hyb-eq --block-length 5 --block-rule registered --resamples 199 --seed 7"
+      Then the command exits 2
+      And the error names "ordered and unique"
+
+    Scenario: a missing midnight endpoint is reported unavailable, not repaired
+      Given engine equity and selection history for CLI run "base-eq"
+      And engine equity and selection history for CLI run "hyb-eq"
+      And run "hyb-eq" lacks one midnight equity endpoint
+      When I run "algo-analyze significance --runs base-eq --runs hyb-eq --block-length 5 --block-rule registered --resamples 199 --seed 7"
+      Then the command exits 0
+      And the significance output is unavailable for "missing exact UTC"
+
     Scenario: trade ledgers cannot masquerade as portfolio series
       Given a completed run "sig-a" with sharpe 0.1 and trade returns 0.01, 0.02
       And a completed run "sig-b" with sharpe 0.9 and trade returns 0.05, 0.06
@@ -52,11 +68,14 @@ Feature: algo-analyze CLI wires the library modules together
       Given engine equity and selection history for CLI run "inv-ready"
       And a completed run "inv-legacy" with sharpe 0.2 and trade returns 0.01, 0.02
       And a completed run "inv-corrupt" whose run manifest is not JSON
+      And engine equity and selection history for CLI run "inv-badreturn"
+      And run "inv-badreturn" has a null Return series
       When I run "algo-analyze inference-inventory"
       Then the command exits 0
       And the inventory lists "inv-ready" as unavailable for "selection history"
       And the inventory lists "inv-legacy" as unavailable for "inference-inputs.json"
       And the inventory lists "inv-corrupt" as invalid for "invalid JSON"
+      And the inventory lists "inv-badreturn" as invalid for "Return series"
       And no saved run artifact was modified
 
   Rule: the console entry point wires logging and the app

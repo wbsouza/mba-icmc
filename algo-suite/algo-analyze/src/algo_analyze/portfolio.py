@@ -61,12 +61,13 @@ def _contract(run_dir: Path) -> dict[str, Any]:
     for key in ("costs", "symbol", "start", "end"):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f"inference-inputs requires nonempty {key}")
-    _match_manifest(run_dir, data)
+    manifest = _match_manifest(run_dir, data)
+    data["contract_provenance"] = _verify_producer(run_dir, manifest, data)
     return data
 
 
-def _match_manifest(run_dir: Path, data: dict[str, Any]) -> None:
-    """Verify declared coverage against the successful engine run manifest."""
+def _match_manifest(run_dir: Path, data: dict[str, Any]) -> dict[str, Any]:
+    """Verify declared coverage against the successful engine run manifest; return it."""
     manifest = read_object(run_dir / "run.json")
     if manifest.get("success") is not True:
         raise ValueError("portfolio inference requires a successful run manifest")
@@ -79,6 +80,29 @@ def _match_manifest(run_dir: Path, data: dict[str, Any]) -> None:
         expected_end,
     ):
         raise ValueError("inference coverage must match run symbol and full inclusive run dates")
+    return manifest
+
+
+def _verify_producer(run_dir: Path, manifest: dict[str, Any], data: dict[str, Any]) -> str:
+    """Bind a producer-emitted contract to its manifest digest and resolved brokerage adapter.
+
+    `algo-backtest` records `inference_inputs_sha256` and `broker_adapter` in run.json. When
+    either is present the sidecar must match byte-for-byte and name that adapter; a manifest
+    without them is a separately archived declared contract and is labeled as such.
+    """
+    digest, adapter = manifest.get("inference_inputs_sha256"), manifest.get("broker_adapter")
+    if digest is None and adapter is None:
+        return "declared"
+    if digest is not None and digest != source_hash(run_dir / "inference-inputs.json"):
+        raise ValueError(
+            "inference-inputs.json does not match the run manifest digest; restore the "
+            "producer file or archive a declared contract with its own provenance"
+        )
+    if adapter is not None and data["costs"] != f"brokerage:{adapter}":
+        raise ValueError(
+            f"inference-inputs costs must name the manifest brokerage adapter {adapter!r}"
+        )
+    return "producer-verified"
 
 
 def _point(row: Any) -> tuple[int, float]:
@@ -120,10 +144,22 @@ def _equity(path: Path) -> tuple[dict[int, float], dict[int, float]]:
     return dict(points), _daily_performance(series)
 
 
-def _daily_performance(series: Any) -> dict[int, float]:
-    """Read LEAN's ``Return`` series (daily performance, percent) when the export has one."""
-    values = series.get("Return", {}).get("values", []) if isinstance(series, dict) else []
-    return dict(_performance_point(row) for row in values)
+def _daily_performance(series: dict[str, Any]) -> dict[int, float]:
+    """Read LEAN's ``Return`` series (daily performance, percent) when the export has one.
+
+    Absence is allowed; malformed presence is an artifact defect, never ignored.
+    """
+    if "Return" not in series:
+        return {}
+    if not isinstance(series["Return"], dict):
+        raise ValueError("engine Return series must be an object with a values list")
+    values = series["Return"].get("values")
+    if not isinstance(values, list):
+        raise ValueError("engine Return values must be a list of [epoch,percent] points")
+    points = [_performance_point(row) for row in values]
+    if len({timestamp for timestamp, _ in points}) != len(points):
+        raise ValueError("engine Return timestamps must be unique")
+    return dict(points)
 
 
 def _performance_point(row: Any) -> tuple[int, float]:

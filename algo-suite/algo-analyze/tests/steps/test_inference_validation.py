@@ -52,9 +52,20 @@ def _change_equity(data: dict[str, Any], change: str) -> None:
             Return={"values": [[rows[1][0], "0.1"]]}),
         "malformed Return point": lambda: data["charts"]["Strategy Equity"]["series"].update(
             Return={"values": [[rows[1][0], 0.1, 0.2]]}),
+        "null Return series": lambda: series_of(data).update(Return=None),
+        "null Return values": lambda: series_of(data).update(Return={"values": None}),
+        "empty Return object": lambda: series_of(data).update(Return={}),
+        "duplicate Return timestamps": lambda: series_of(data).update(
+            Return={"values": [[rows[1][0], 99.0], [rows[1][0], 0.0]]}),
         "missing charts": lambda: data.pop("charts"),
     }
     changes[change]()
+
+
+def series_of(data: dict[str, Any]) -> dict[str, Any]:
+    """Return the Strategy Equity series container of a main.json document."""
+    container: dict[str, Any] = data["charts"]["Strategy Equity"]["series"]
+    return container
 
 
 def _candles(rows: list[list[float]]) -> list[list[float]]:
@@ -102,6 +113,11 @@ _LEDGERS: dict[str, Any] = {
     "single trial ledger": {**_LEDGER_META, "trials": [{"daily_sharpe": 0.01}]},
     "ledger below declared n_trials": {**_LEDGER_META, "n_trials": 5, "trials": [0.01, 0.02]},
     "ledger with text n_trials": {**_LEDGER_META, "n_trials": "2", "trials": [0.01, 0.02]},
+    "nonlist trials": {**_LEDGER_META, "trial_count": 2, "trial_sharpe_std": 0.02,
+                       "trials": {"broken": "ledger"}},
+    "null trials": {**_LEDGER_META, "trial_count": 2, "trial_sharpe_std": 0.02, "trials": None},
+    "ledger declaring dispersion": {**_LEDGER_META, "trial_sharpe_std": 0.5,
+                                    "trials": [0.01, 0.02]},
 }
 
 
@@ -191,15 +207,15 @@ def valid_result(evidence: dict[str, Any]) -> None:
 @when("paired evidence has different cost assumptions")
 def mismatched_costs(evidence: dict[str, Any]) -> None:
     """Same timestamps do not excuse incompatible net-return conventions."""
-    other = evidence["root"] / "other"
+    other = evidence["root"] / "runs" / "other"
     evidence["write"](other, 1.)
     contract = other / "inference-inputs.json"
     data = json.loads(contract.read_text())
     data["costs"] = "different fees"
     contract.write_text(json.dumps(data))
     try:
-        significance_report(evidence["run"], other, block_lengths=[5], n_resamples=199,
-                            seed=7, block_rule="development rule")
+        significance_report(evidence["root"], "one", "other", block_lengths=[5],
+                            n_resamples=199, seed=7, block_rule="development rule")
     except ValueError as exc:
         evidence["error"] = str(exc)
 
@@ -207,10 +223,11 @@ def mismatched_costs(evidence: dict[str, Any]) -> None:
 @when("paired evidence has an unsupported sensitivity length")
 def unavailable_sensitivity(evidence: dict[str, Any]) -> None:
     """Keep all prespecified sensitivity entries even when one has too few blocks."""
-    other = evidence["root"] / "other"
+    other = evidence["root"] / "runs" / "other"
     evidence["write"](other, 1.)
-    evidence["result"] = significance_report(evidence["run"], other, block_lengths=[5, 20],
-                                             n_resamples=199, seed=7, block_rule="development rule")
+    evidence["result"] = significance_report(evidence["root"], "one", "other",
+                                             block_lengths=[5, 20], n_resamples=199, seed=7,
+                                             block_rule="development rule")
 
 
 @then("the primary inference is available and the sensitivity explains insufficient blocks")
@@ -240,7 +257,7 @@ def invalid_settings(evidence: dict[str, Any], problem: str) -> None:
     """Exercise settings through public report or public numerical boundaries."""
     try:
         if problem in ("duplicated", "missing rule"):
-            significance_report(evidence["run"], evidence["run"], block_lengths=[5, 5],
+            significance_report(evidence["root"], "one", "one", block_lengths=[5, 5],
                                 n_resamples=199, seed=7,
                                 block_rule="" if problem == "missing rule" else "registered")
             return

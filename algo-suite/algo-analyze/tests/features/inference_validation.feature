@@ -23,6 +23,10 @@ Feature: Inference rejects malformed evidence instead of fabricating certainty
       | main.json | mismatching Return series | error | engine daily Return series |
       | main.json | text Return percent | error | Return points require |
       | main.json | malformed Return point | error | Return points require |
+      | main.json | null Return series | error | Return series must be an object |
+      | main.json | null Return values | error | Return values must be a list |
+      | main.json | empty Return object | error | Return values must be a list |
+      | main.json | duplicate Return timestamps | error | Return timestamps must be unique |
       | run.json | unsuccessful | error | successful run manifest |
       | run.json | missing symbol | error | string start, end, symbol |
       | run.json | reversed dates | error | end must be after start |
@@ -39,6 +43,9 @@ Feature: Inference rejects malformed evidence instead of fabricating certainty
       | selection.json | single trial ledger | error | at least two trials |
       | selection.json | ledger below declared n_trials | error | cannot exceed |
       | selection.json | ledger with text n_trials | error | positive integer |
+      | selection.json | nonlist trials | error | trials must be a list |
+      | selection.json | null trials | error | trials must be a list |
+      | selection.json | ledger declaring dispersion | error | must not also declare |
 
   Scenario: Candle rows use the end-stamped close as the daily mark
     LEAN stamps each equity candlestick with its END time and schedules a

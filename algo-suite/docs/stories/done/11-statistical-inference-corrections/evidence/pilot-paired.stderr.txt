@@ -1,1 +1,1 @@
-[2m2026-09-27T08:24:19.639023Z[0m [[32m[1minfo     [0m] [1mconfig                        [0m [36mprovenance[0m=[35m'DATA ROOT: data_root=/tmp/story11-real-smoke.IvpJg1 (from ALGO_DATA_ROOT)'[0m
+[2m2026-09-27T08:44:26.674433Z[0m [[32m[1minfo     [0m] [1mconfig                        [0m [36mprovenance[0m=[35m'DATA ROOT: data_root=/tmp/story11-real-smoke.WaXZuP (from ALGO_DATA_ROOT)'[0m

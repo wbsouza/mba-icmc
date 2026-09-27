@@ -1,20 +1,20 @@
 {
   "baseline": [
     0,
-    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n174 passed, 2 warnings in 2.25s"
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n159 passed, 2 warnings in 2.36s"
   ],
   "negative_control": [
     1,
-    "FAILED ../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
+    "FAILED ../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
   ],
   "source_sha256": {
     "deflated.py": "88aa6951d90aed3cc12708c20d2aaa1b41ce276c7e9aa6766b58ce17775c07c1",
     "significance.py": "b7c544bdc527de89c225a2825841ff5224cda54a7c7f0f1e611a5b81cbab5f99",
-    "portfolio.py": "8336f0594449dce8e6046d654e8ddb0db3aef7280691ae464c8f8887c32a0506",
-    "reports.py": "9b6331d100edcc81e177508678e5d86c5c1e64c90c624292976a480281f38077"
+    "portfolio.py": "fe334caf74eefda4a6f35e86797092a3595837c03e97325bd584b653432b499c",
+    "reports.py": "e461854990ba570350cc8e823163a1dd03b35c35efd2e96e930c30f103363bae"
   },
-  "executed_in_this_run": 1,
-  "reused_kills": 173,
+  "executed_in_this_run": 114,
+  "reused_kills": 47,
   "operators": "repository harness: simple comparisons, and/or, not, + - * /; no cap",
   "mutants": [
     {
@@ -906,319 +906,319 @@
       "description": "compare@L59: NotEq flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.73s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.61s"
     },
     {
       "file": "portfolio.py",
       "index": 1,
-      "line": 77,
-      "description": "compare@L77: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.63s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 2,
-      "line": 96,
-      "description": "compare@L96: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_produceremitted_contracts_are_verified_against_the_run_manifest\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 136 passed, 2 warnings in 2.19s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 3,
-      "line": 101,
-      "description": "compare@L101: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_produceremitted_contracts_are_verified_against_the_run_manifest\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 136 passed, 2 warnings in 2.31s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 4,
-      "line": 123,
-      "description": "compare@L123: LtE flip",
+      "line": 76,
+      "description": "compare@L76: NotEq flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
     },
     {
       "file": "portfolio.py",
+      "index": 2,
+      "line": 99,
+      "description": "compare@L99: LtE flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 3,
+      "line": 118,
+      "description": "compare@L118: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 4,
+      "line": 131,
+      "description": "compare@L131: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 78 passed, 2 warnings in 2.20s"
+    },
+    {
+      "file": "portfolio.py",
       "index": 5,
-      "line": 142,
-      "description": "compare@L142: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.71s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 6,
-      "line": 160,
-      "description": "compare@L160: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 2.20s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 7,
-      "line": 167,
-      "description": "compare@L167: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 2.22s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 8,
-      "line": 195,
-      "description": "compare@L195: LtE flip",
+      "line": 159,
+      "description": "compare@L159: LtE flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
     },
     {
       "file": "portfolio.py",
+      "index": 6,
+      "line": 199,
+      "description": "compare@L199: Gt flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 98 passed, 2 warnings in 2.29s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 7,
+      "line": 209,
+      "description": "compare@L209: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.62s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 8,
+      "line": 209,
+      "description": "compare@L209: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.62s"
+    },
+    {
+      "file": "portfolio.py",
       "index": 9,
-      "line": 235,
-      "description": "compare@L235: Gt flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 107 passed, 2 warnings in 2.15s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 10,
-      "line": 245,
-      "description": "compare@L245: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.58s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 11,
-      "line": 245,
-      "description": "compare@L245: NotEq flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.61s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 12,
       "line": 62,
       "description": "boolop@L62: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[inference-inputs.json-empty costs-error-nonempty costs]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 91 passed, 2 warnings in 2.07s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[inference-inputs.json-empty costs-error-nonempty costs]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 85 passed, 2 warnings in 2.25s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 10,
+      "line": 92,
+      "description": "boolop@L92: Or flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-malformed point-error-equity points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 72 passed, 2 warnings in 2.19s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 11,
+      "line": 99,
+      "description": "boolop@L99: Or flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-zero equity-error-finite and positive]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 75 passed, 2 warnings in 2.23s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 12,
+      "line": 131,
+      "description": "boolop@L131: Or flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-malformed Return point-error-Return points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 2.11s"
     },
     {
       "file": "portfolio.py",
       "index": 13,
-      "line": 94,
-      "description": "boolop@L94: And flip",
+      "line": 133,
+      "description": "boolop@L133: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_a_manifest_with_only_one_producer_field_is_still_verified[inference_inputs_sha256-the contract costs are edited after production-does not match the run manifest digest]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 139 passed, 2 warnings in 2.06s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-text Return percent-error-Return points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 79 passed, 2 warnings in 2.16s"
     },
     {
       "file": "portfolio.py",
       "index": 14,
-      "line": 96,
-      "description": "boolop@L96: And flip",
+      "line": 209,
+      "description": "boolop@L209: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_produceremitted_contracts_are_verified_against_the_run_manifest\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 136 passed, 2 warnings in 2.27s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_pair_alignment_rejects_timestamps_independently_of_identical_metadata\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 57 passed, 2 warnings in 2.18s"
     },
     {
       "file": "portfolio.py",
       "index": 15,
-      "line": 101,
-      "description": "boolop@L101: And flip",
+      "line": 36,
+      "description": "not@L36: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_produceremitted_contracts_are_verified_against_the_run_manifest\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 136 passed, 2 warnings in 2.17s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
     },
     {
       "file": "portfolio.py",
       "index": 16,
-      "line": 116,
-      "description": "boolop@L116: Or flip",
+      "line": 49,
+      "description": "not@L49: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-malformed point-error-equity points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 74 passed, 2 warnings in 1.97s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.63s"
     },
     {
       "file": "portfolio.py",
       "index": 17,
-      "line": 123,
-      "description": "boolop@L123: Or flip",
+      "line": 62,
+      "description": "not@L62: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-zero equity-error-finite and positive]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 77 passed, 2 warnings in 2.01s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
     },
     {
       "file": "portfolio.py",
       "index": 18,
-      "line": 167,
-      "description": "boolop@L167: Or flip",
+      "line": 62,
+      "description": "not@L62: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-malformed Return point-error-Return points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 82 passed, 2 warnings in 2.12s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.64s"
     },
     {
       "file": "portfolio.py",
       "index": 19,
-      "line": 169,
-      "description": "boolop@L169: Or flip",
+      "line": 73,
+      "description": "not@L73: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-text Return percent-error-Return points require]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 81 passed, 2 warnings in 2.02s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "portfolio.py",
       "index": 20,
-      "line": 245,
-      "description": "boolop@L245: Or flip",
+      "line": 92,
+      "description": "not@L92: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_pair_alignment_rejects_timestamps_independently_of_identical_metadata\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 59 passed, 2 warnings in 2.02s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "portfolio.py",
       "index": 21,
-      "line": 36,
-      "description": "not@L36: remove not",
+      "line": 99,
+      "description": "not@L99: remove not",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.63s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 22,
+      "line": 106,
+      "description": "not@L106: remove not",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
     },
     {
       "file": "portfolio.py",
-      "index": 22,
-      "line": 49,
-      "description": "not@L49: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
-    },
-    {
-      "file": "portfolio.py",
       "index": 23,
-      "line": 62,
-      "description": "not@L62: remove not",
+      "line": 114,
+      "description": "not@L114: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.69s"
     },
     {
       "file": "portfolio.py",
       "index": 24,
-      "line": 62,
-      "description": "not@L62: remove not",
+      "line": 131,
+      "description": "not@L131: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 78 passed, 2 warnings in 2.10s"
     },
     {
       "file": "portfolio.py",
       "index": 25,
-      "line": 74,
-      "description": "not@L74: remove not",
+      "line": 133,
+      "description": "not@L133: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 78 passed, 2 warnings in 2.16s"
     },
     {
       "file": "portfolio.py",
       "index": 26,
-      "line": 116,
-      "description": "not@L116: remove not",
+      "line": 179,
+      "description": "not@L179: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.68s"
     },
     {
       "file": "portfolio.py",
       "index": 27,
-      "line": 123,
-      "description": "not@L123: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 28,
-      "line": 130,
-      "description": "not@L130: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 29,
-      "line": 138,
-      "description": "not@L138: remove not",
+      "line": 48,
+      "description": "arith@L48: Div flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.61s"
     },
     {
       "file": "portfolio.py",
-      "index": 30,
-      "line": 154,
-      "description": "not@L154: remove not",
+      "index": 28,
+      "line": 70,
+      "description": "arith@L70: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 14 passed, 2 warnings in 0.65s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 29,
+      "line": 75,
+      "description": "arith@L75: Add flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
+    },
+    {
+      "file": "portfolio.py",
+      "index": 30,
+      "line": 142,
+      "description": "arith@L142: Div flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
     },
     {
       "file": "portfolio.py",
       "index": 31,
-      "line": 157,
-      "description": "not@L157: remove not",
+      "line": 147,
+      "description": "arith@L147: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 2.07s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
     },
     {
       "file": "portfolio.py",
       "index": 32,
-      "line": 167,
-      "description": "not@L167: remove not",
+      "line": 148,
+      "description": "arith@L148: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 1.99s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "portfolio.py",
       "index": 33,
-      "line": 169,
-      "description": "not@L169: remove not",
+      "line": 149,
+      "description": "arith@L149: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[main.json-mismatching Return series-error-engine daily Return series]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 80 passed, 2 warnings in 2.09s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
     },
     {
       "file": "portfolio.py",
       "index": 34,
-      "line": 215,
-      "description": "not@L215: remove not",
+      "line": 162,
+      "description": "arith@L162: Add flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "portfolio.py",
       "index": 35,
-      "line": 48,
-      "description": "arith@L48: Div flip",
+      "line": 163,
+      "description": "arith@L163: Add flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
@@ -1226,128 +1226,47 @@
     {
       "file": "portfolio.py",
       "index": 36,
-      "line": 71,
-      "description": "arith@L71: Div flip",
+      "line": 163,
+      "description": "arith@L163: Sub flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
     },
     {
       "file": "portfolio.py",
       "index": 37,
-      "line": 76,
-      "description": "arith@L76: Add flip",
+      "line": 177,
+      "description": "arith@L177: Sub flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_daily_portfolio_returns_retain_flat_periods_and_use_previous_portfolio_equity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 55 passed, 2 warnings in 1.95s"
     },
     {
       "file": "portfolio.py",
       "index": 38,
-      "line": 96,
-      "description": "arith@L96: Div flip",
+      "line": 177,
+      "description": "arith@L177: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_produceremitted_contracts_are_verified_against_the_run_manifest\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 136 passed, 2 warnings in 2.27s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_daily_portfolio_returns_retain_flat_periods_and_use_previous_portfolio_equity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 55 passed, 2 warnings in 1.95s"
     },
     {
       "file": "portfolio.py",
       "index": 39,
-      "line": 178,
-      "description": "arith@L178: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 40,
-      "line": 183,
-      "description": "arith@L183: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 41,
-      "line": 184,
-      "description": "arith@L184: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.68s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 42,
-      "line": 185,
-      "description": "arith@L185: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 43,
-      "line": 198,
-      "description": "arith@L198: Add flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 44,
-      "line": 199,
-      "description": "arith@L199: Add flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 45,
       "line": 199,
       "description": "arith@L199: Sub flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.61s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 98 passed, 2 warnings in 2.07s"
     },
     {
       "file": "portfolio.py",
-      "index": 46,
-      "line": 213,
-      "description": "arith@L213: Sub flip",
+      "index": 40,
+      "line": 199,
+      "description": "arith@L199: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_daily_portfolio_returns_retain_flat_periods_and_use_previous_portfolio_equity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 57 passed, 2 warnings in 1.98s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 47,
-      "line": 213,
-      "description": "arith@L213: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_daily_portfolio_returns_retain_flat_periods_and_use_previous_portfolio_equity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 57 passed, 2 warnings in 2.08s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 48,
-      "line": 235,
-      "description": "arith@L235: Sub flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 107 passed, 2 warnings in 2.10s"
-    },
-    {
-      "file": "portfolio.py",
-      "index": 49,
-      "line": 235,
-      "description": "arith@L235: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 107 passed, 2 warnings in 2.12s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_a_consistent_engine_return_series_is_accepted\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 98 passed, 2 warnings in 2.09s"
     },
     {
       "file": "reports.py",
@@ -1356,43 +1275,43 @@
       "description": "compare@L45: NotEq flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
     },
     {
       "file": "reports.py",
       "index": 1,
-      "line": 75,
-      "description": "compare@L75: Lt flip",
+      "line": 65,
+      "description": "compare@L65: Lt flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 100 passed, 2 warnings in 2.17s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 94 passed, 2 warnings in 2.08s"
     },
     {
       "file": "reports.py",
       "index": 2,
-      "line": 96,
-      "description": "compare@L96: Lt flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.61s"
-    },
-    {
-      "file": "reports.py",
-      "index": 3,
-      "line": 98,
-      "description": "compare@L98: Gt flip",
+      "line": 86,
+      "description": "compare@L86: Lt flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
     },
     {
       "file": "reports.py",
-      "index": 4,
-      "line": 161,
-      "description": "compare@L161: NotEq flip",
+      "index": 3,
+      "line": 88,
+      "description": "compare@L88: Gt flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.79s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
+    },
+    {
+      "file": "reports.py",
+      "index": 4,
+      "line": 146,
+      "description": "compare@L146: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.62s"
     },
     {
       "file": "reports.py",
@@ -1401,43 +1320,43 @@
       "description": "boolop@L32: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 14 passed, 2 warnings in 0.77s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 12 passed, 2 warnings in 0.61s"
     },
     {
       "file": "reports.py",
       "index": 6,
-      "line": 88,
-      "description": "boolop@L88: Or flip",
+      "line": 78,
+      "description": "boolop@L78: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-ledger with text sharpe-error-finite daily_sharpe]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 98 passed, 2 warnings in 2.07s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-ledger with text sharpe-error-finite daily_sharpe]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 92 passed, 2 warnings in 2.08s"
     },
     {
       "file": "reports.py",
       "index": 7,
-      "line": 96,
-      "description": "boolop@L96: Or flip",
+      "line": 86,
+      "description": "boolop@L86: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_selection_manifest_counts_cannot_use_boolean_values[trial_count]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 65 passed, 2 warnings in 1.95s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_mutations.py::test_selection_manifest_counts_cannot_use_boolean_values[trial_count]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 63 passed, 2 warnings in 1.96s"
     },
     {
       "file": "reports.py",
       "index": 8,
-      "line": 100,
-      "description": "boolop@L100: Or flip",
+      "line": 90,
+      "description": "boolop@L90: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-empty provenance-error-provenance must be nonempty]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 96 passed, 2 warnings in 2.04s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-empty provenance-error-provenance must be nonempty]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 90 passed, 2 warnings in 2.12s"
     },
     {
       "file": "reports.py",
       "index": 9,
-      "line": 161,
-      "description": "boolop@L161: Or flip",
+      "line": 146,
+      "description": "boolop@L146: Or flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_resampling_requires_valid_prespecified_settings[duplicated-unique block lengths]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 112 passed, 2 warnings in 2.14s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_resampling_requires_valid_prespecified_settings[duplicated-unique block lengths]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 103 passed, 2 warnings in 2.19s"
     },
     {
       "file": "reports.py",
@@ -1446,7 +1365,7 @@
       "description": "not@L32: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.68s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
     },
     {
       "file": "reports.py",
@@ -1460,129 +1379,93 @@
     {
       "file": "reports.py",
       "index": 12,
-      "line": 58,
-      "description": "not@L58: remove not",
+      "line": 55,
+      "description": "not@L55: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "reports.py",
       "index": 13,
-      "line": 67,
-      "description": "not@L67: remove not",
+      "line": 78,
+      "description": "not@L78: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-ledger with text sharpe-error-finite daily_sharpe]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 98 passed, 2 warnings in 2.04s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 94 passed, 2 warnings in 2.18s"
     },
     {
       "file": "reports.py",
       "index": 14,
-      "line": 88,
-      "description": "not@L88: remove not",
+      "line": 78,
+      "description": "not@L78: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 100 passed, 2 warnings in 2.18s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 94 passed, 2 warnings in 2.15s"
     },
     {
       "file": "reports.py",
       "index": 15,
-      "line": 88,
-      "description": "not@L88: remove not",
+      "line": 90,
+      "description": "not@L90: remove not",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_inference_validation.py::test_artifact_schema_and_coverage_are_validated_on_a_declared_channel[selection.json-single trial ledger-error-at least two trials]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 100 passed, 2 warnings in 2.14s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
     },
     {
       "file": "reports.py",
       "index": 16,
-      "line": 100,
-      "description": "not@L100: remove not",
+      "line": 90,
+      "description": "not@L90: remove not",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+    },
+    {
+      "file": "reports.py",
+      "index": 17,
+      "line": 146,
+      "description": "not@L146: remove not",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.60s"
+    },
+    {
+      "file": "reports.py",
+      "index": 18,
+      "line": 146,
+      "description": "not@L146: remove not",
+      "verdict": "killed",
+      "returncode": 1,
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.57s"
+    },
+    {
+      "file": "reports.py",
+      "index": 19,
+      "line": 96,
+      "description": "arith@L96: Div flip",
       "verdict": "killed",
       "returncode": 1,
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
     },
     {
       "file": "reports.py",
-      "index": 17,
-      "line": 100,
-      "description": "not@L100: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.62s"
-    },
-    {
-      "file": "reports.py",
-      "index": 18,
-      "line": 161,
-      "description": "not@L161: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.61s"
-    },
-    {
-      "file": "reports.py",
-      "index": 19,
-      "line": 161,
-      "description": "not@L161: remove not",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.60s"
-    },
-    {
-      "file": "reports.py",
       "index": 20,
-      "line": 106,
-      "description": "arith@L106: Div flip",
+      "line": 100,
+      "description": "arith@L100: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.59s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.58s"
     },
     {
       "file": "reports.py",
       "index": 21,
-      "line": 110,
-      "description": "arith@L110: Div flip",
+      "line": 184,
+      "description": "arith@L184: Div flip",
       "verdict": "killed",
       "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.61s"
-    },
-    {
-      "file": "reports.py",
-      "index": 22,
-      "line": 176,
-      "description": "arith@L176: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.62s"
-    },
-    {
-      "file": "reports.py",
-      "index": 23,
-      "line": 177,
-      "description": "arith@L177: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.59s"
-    },
-    {
-      "file": "reports.py",
-      "index": 24,
-      "line": 177,
-      "description": "arith@L177: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_paired_equity_yields_an_auditable_effect_interval_and_sensitivity\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 9 passed, 2 warnings in 0.60s"
-    },
-    {
-      "file": "reports.py",
-      "index": 25,
-      "line": 200,
-      "description": "arith@L200: Div flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 14 passed, 2 warnings in 0.68s"
+      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 12 passed, 2 warnings in 0.59s"
     }
   ],
-  "reused_from": "docs/stories/done/11-statistical-inference-corrections/evidence/gauntlet-mutations-pass6.json"
+  "reused_from": "docs/stories/done/11-statistical-inference-corrections/evidence/gauntlet-mutations-pass4.json"
 }

@@ -3,11 +3,13 @@
 import hashlib
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
+from algo_analyze.deflated import InferenceUnavailable
 from algo_analyze.portfolio import load_portfolio_returns
 from algo_analyze.reports import metrics_report, migration_inventory, significance_report
 from algo_analyze.significance import paired_block_test, stationary_indices
@@ -32,9 +34,15 @@ def portfolios(pctx: dict[str, Any], portfolio_factory: Callable[..., None]) -> 
     }
 
 
+# Independent constants for the 20-row ledger 0.00..0.19 (mpmath, 50 digits): sample SD is
+# 0.01*sqrt(35); the Eq. 2 threshold uses N=10 with that dispersion.
+LEDGER_SD = 0.05916079783099616
+LEDGER_THRESHOLD = 0.09315449177094589
+
+
 @when("portfolio metrics are reported with registered search history")
 def metrics(pctx: dict[str, Any]) -> None:
-    """Supply explicit multi-trial provenance."""
+    """Supply explicit multi-trial provenance as a ledger the analyzer must compute from."""
     path = pctx["root"] / "selection.json"
     path.write_text(
         json.dumps(
@@ -44,7 +52,129 @@ def metrics(pctx: dict[str, Any]) -> None:
                          for i in range(20)])
         )
     )
-    pctx["report"] = metrics_report(pctx["a"], path)
+    pctx["selection"] = path
+    try:
+        pctx["report"] = metrics_report(pctx["a"], path)
+    except InferenceUnavailable as exc:
+        pctx["error_kind"], pctx["error"] = "unavailable", str(exc)
+    except ValueError as exc:
+        pctx["error_kind"], pctx["error"] = "error", str(exc)
+
+
+@then("the ledger supplies the independently computed dispersion and threshold")
+def ledger_values(pctx: dict[str, Any]) -> None:
+    """A constant or declared dispersion must fail here; only the ledger's SD is acceptable."""
+    result = pctx["report"]
+    assert result["selection"]["trial_sharpe_std"] == pytest.approx(LEDGER_SD, abs=1e-15, rel=0)
+    assert result["selection_threshold"] == pytest.approx(LEDGER_THRESHOLD, abs=1e-12, rel=0)
+    assert result["selection"]["trial_count"] == 20
+    assert result["selection"]["source_sha256"] == _sha256(pctx["selection"])
+    assert result["portfolio"]["source_sha256"] == _sha256(pctx["a"] / "main.json")
+    assert result["portfolio"]["contract_provenance"] == "declared"
+
+
+def _sha256(path: Path) -> str:
+    """Independent digest of a file's exact bytes."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@given("a run written by the backtest artifact producer with engine equity")
+def producer_run(pctx: dict[str, Any]) -> None:
+    """Produce run.json, trades.json, metrics.json and inference-inputs.json via the producer."""
+    from algo_backtest.artifacts import RunManifest, write_run_artifacts
+    from algo_backtest.metrics import Metrics
+
+    run = pctx["root"] / "runs" / "prod"
+    run.mkdir(parents=True)
+    write_run_artifacts(
+        run,
+        RunManifest(strategy="baseline", symbol="EURUSD", start="2020-01-01", end="2020-04-29",
+                    params={}, success=True, closed_trades=0, broker_adapter="oanda"),
+        closed_trades=[],
+        metrics=Metrics(total_return=0.0, sharpe=0.0, max_drawdown=0.0, hit_rate=0.0),
+    )
+    start = datetime(2020, 1, 1, tzinfo=UTC)
+    values, equity = [], 100000.0
+    for i in range(121):
+        values.append([int((start + timedelta(days=i)).timestamp()), equity])
+        equity *= 1 + 0.004 * np.sin(i * 0.53) + 0.0005
+    (run / "main.json").write_text(json.dumps(
+        {"charts": {"Strategy Equity": {"series": {"Equity": {"values": values}}}}}))
+    pctx["a"] = run
+
+
+@given("the contract costs are edited after production")
+def tampered_contract(pctx: dict[str, Any]) -> None:
+    """Change the sidecar bytes without touching the digest the producer recorded."""
+    contract = pctx["a"] / "inference-inputs.json"
+    data = json.loads(contract.read_text())
+    data["costs"] = "brokerage:oanda"  # same label, different bytes (formatting)
+    contract.write_text(json.dumps(data, indent=4))
+
+
+@given("the manifest records a different brokerage adapter")
+def adapter_mismatch(pctx: dict[str, Any]) -> None:
+    """Keep the sidecar and its digest intact but change the adapter the manifest resolved."""
+    manifest = pctx["a"] / "run.json"
+    data = json.loads(manifest.read_text())
+    data["broker_adapter"] = "interactive-brokers"
+    manifest.write_text(json.dumps(data, indent=2))
+
+
+@given(parsers.parse("the manifest keeps only its {kept} field"))
+def one_field_manifest(pctx: dict[str, Any], kept: str) -> None:
+    """Drop the other producer field so verification must key on the remaining one."""
+    manifest = pctx["a"] / "run.json"
+    data = json.loads(manifest.read_text())
+    for field in ("inference_inputs_sha256", "broker_adapter"):
+        if field != kept:
+            data.pop(field)
+    manifest.write_text(json.dumps(data, indent=2))
+
+
+@given("the contract names a different brokerage adapter")
+def contract_adapter_mismatch(pctx: dict[str, Any]) -> None:
+    """Change the sidecar's cost model so it no longer names the manifest's adapter."""
+    contract = pctx["a"] / "inference-inputs.json"
+    data = json.loads(contract.read_text())
+    data["costs"] = "brokerage:interactive-brokers"
+    contract.write_text(json.dumps(data, indent=2))
+
+
+@then("the contract is producer-verified and its digest equals the manifest record")
+def producer_verified(pctx: dict[str, Any]) -> None:
+    """Producer-generated contracts are accepted only when bytes and adapter agree with run.json."""
+    result = pctx["report"]
+    manifest = json.loads((pctx["a"] / "run.json").read_text())
+    assert result["status"] == "available"
+    assert result["portfolio"]["contract_provenance"] == "producer-verified"
+    assert result["portfolio"]["contract_sha256"] == manifest["inference_inputs_sha256"]
+    assert result["portfolio"]["contract_sha256"] == _sha256(pctx["a"] / "inference-inputs.json")
+    assert result["portfolio"]["costs"] == "brokerage:oanda"
+
+
+@given(parsers.parse('complete paired engine portfolios under "{first}" and "{second}"'))
+def nested_portfolios(pctx: dict[str, Any], portfolio_factory: Callable[..., None],
+                      first: str, second: str) -> None:
+    """Two runs sharing a basename in different experiment directories."""
+    pctx["ids"] = (first, second)
+    portfolio_factory(pctx["root"] / "runs" / first)
+    portfolio_factory(pctx["root"] / "runs" / second, 1.0)
+
+
+@when("paired portfolio significance is reported for the nested runs")
+def nested_significance(pctx: dict[str, Any]) -> None:
+    """Identify runs by their relative identifiers, as the CLI receives them."""
+    first, second = pctx["ids"]
+    pctx["report"] = significance_report(pctx["root"], first, second, block_lengths=[5],
+                                         n_resamples=199, seed=7, block_rule="preregistered")
+
+
+@then(parsers.parse('the report names "{first}" and "{second}"'))
+def nested_names(pctx: dict[str, Any], first: str, second: str) -> None:
+    """Basenames alone would collide; the full relative identifier must survive."""
+    assert pctx["report"]["status"] == "available"
+    assert (pctx["report"]["run_a"], pctx["report"]["run_b"]) == (first, second)
 
 
 @then("probability and moments use daily engine equity with source hashes")
@@ -67,15 +197,18 @@ def significance(pctx: dict[str, Any]) -> None:
     """Exercise explicit primary and sensitivity settings."""
     try:
         pctx["report"] = significance_report(
-            pctx["a"],
-            pctx["b"],
+            pctx["root"],
+            "a",
+            "b",
             block_lengths=[5, 10],
             n_resamples=199,
             seed=7,
             block_rule="preregistered",
         )
+    except InferenceUnavailable as exc:
+        pctx["error_kind"], pctx["error"] = "unavailable", str(exc)
     except ValueError as exc:
-        pctx["error"] = str(exc)
+        pctx["error_kind"], pctx["error"] = "error", str(exc)
 
 
 @then("the bootstrap records effect interval settings and sensitivity")
@@ -144,14 +277,25 @@ def invalid_blocks(pctx: dict[str, Any], problem: str) -> None:
     length = 20 if problem == "insufficient blocks" else 5
     try:
         paired_block_test(a, b, block_length=length, n_resamples=199, seed=7)
+    except InferenceUnavailable as exc:
+        pctx["error_kind"], pctx["error"] = "unavailable", str(exc)
     except ValueError as exc:
-        pctx["error"] = str(exc)
+        pctx["error_kind"], pctx["error"] = "error", str(exc)
 
 
-@then(parsers.parse('portfolio inference diagnoses "{reason}"'))
-def diagnosis(pctx: dict[str, Any], reason: str) -> None:
-    """Accept structured unavailable output or an explicit invalid-artifact error."""
-    assert reason in (pctx.get("error") or json.dumps(pctx["report"]))
+@then(parsers.parse('portfolio inference is "{outcome}" diagnosing "{reason}"'))
+def diagnosis(pctx: dict[str, Any], outcome: str, reason: str) -> None:
+    """Assert the channel: an unavailable report (or InferenceUnavailable) versus a hard error."""
+    if outcome == "error":
+        assert pctx.get("error_kind") == "error", pctx.get("report") or pctx.get("error_kind")
+        assert reason in pctx["error"]
+    elif "report" in pctx:
+        assert "error" not in pctx
+        assert pctx["report"]["status"] == "unavailable", pctx["report"]
+        assert reason in pctx["report"]["reason"]
+    else:
+        assert pctx["error_kind"] == "unavailable", pctx["error"]
+        assert reason in pctx["error"]
 
 
 @when("migration inventory is generated")

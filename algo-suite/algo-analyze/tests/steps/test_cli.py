@@ -300,6 +300,40 @@ def _engine_cli_run(cctx: dict[str, Any], run_id: str) -> None:
     cctx["selection"] = selection
 
 
+def _edit_main(cctx: dict[str, Any], run_id: str, mutate: Any) -> None:
+    """Apply one in-place change to a run's main.json document."""
+    path = cctx["data_root"] / "runs" / run_id / "main.json"
+    data = json.loads(path.read_text())
+    mutate(data["charts"]["Strategy Equity"]["series"])
+    path.write_text(json.dumps(data))
+
+
+@given(parsers.parse('run "{run_id}" has a duplicated equity timestamp'))
+def _duplicate_timestamp(cctx: dict[str, Any], run_id: str) -> None:
+    """Malformed equity: an artifact defect, never repaired."""
+    _edit_main(cctx, run_id, lambda s: s["Equity"]["values"].insert(10, s["Equity"]["values"][10]))
+
+
+@given(parsers.parse('run "{run_id}" lacks one midnight equity endpoint'))
+def _missing_endpoint(cctx: dict[str, Any], run_id: str) -> None:
+    """Missing evidence: inference is unavailable, never gap-filled."""
+    _edit_main(cctx, run_id, lambda s: s["Equity"]["values"].pop(10))
+
+
+@given(parsers.parse('run "{run_id}" has a null Return series'))
+def _null_return(cctx: dict[str, Any], run_id: str) -> None:
+    """A malformed optional series must classify as invalid, not abort the scan."""
+    _edit_main(cctx, run_id, lambda s: s.update(Return=None))
+
+
+@then(parsers.parse('the significance output is unavailable for "{reason}"'))
+def _significance_unavailable(cctx: dict[str, Any], reason: str) -> None:
+    """Missing endpoints surface as an unavailable report on the success channel."""
+    payload = json.loads(cctx["result"].output)
+    assert payload["status"] == "unavailable"
+    assert reason in payload["reason"], payload
+
+
 @when(parsers.parse('I run corrected metrics for CLI run "{run_id}"'))
 def _corrected_metrics(cctx: dict[str, Any], run_id: str) -> None:
     """Pass a real JSON manifest through the CLI option parser."""
@@ -317,9 +351,17 @@ def _corrected_probability(cctx: dict[str, Any]) -> None:
     assert result["descriptive_metrics"]["sharpe"] == 99
     assert result["moments"]["n_returns"] == 120
     assert result["moments"]["observed_sharpe"] != 99
-    assert len(result["portfolio"]["source_sha256"]) == 64
-    assert len(result["selection"]["source_sha256"]) == 64
+    assert result["portfolio"]["source_sha256"] == _sha256(
+        cctx["data_root"] / "runs" / "complete" / "main.json")
+    assert result["selection"]["source_sha256"] == _sha256(cctx["selection"])
     assert "deflated_sharpe" not in result
+
+
+def _sha256(path: Path) -> str:
+    """Independent digest of a file's exact bytes."""
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 @then("the corrected CLI significance records pairing effect interval and sensitivity")
@@ -334,5 +376,7 @@ def _corrected_significance(cctx: dict[str, Any]) -> None:
     assert primary["confidence_interval"][0] <= primary["effect"]
     assert primary["confidence_interval"][1] >= primary["effect"]
     assert result["sensitivity"][0]["block_length"] == 10
-    assert len(result["portfolio_a"]["source_sha256"]) == 64
-    assert len(result["portfolio_b"]["source_sha256"]) == 64
+    assert (result["run_a"], result["run_b"]) == ("base-eq", "hyb-eq")
+    for arm, run_id in (("portfolio_a", "base-eq"), ("portfolio_b", "hyb-eq")):
+        main = cctx["data_root"] / "runs" / run_id / "main.json"
+        assert result[arm]["source_sha256"] == _sha256(main)

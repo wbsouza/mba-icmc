@@ -50,17 +50,27 @@ def _selection(path: Path | None) -> dict[str, Any]:
 
 
 def _load_selection(path: Path) -> dict[str, Any]:
-    """Parse a selection file as a trial ledger (``trials`` list) or a declared manifest."""
+    """Parse a selection file: a trial ledger when ``trials`` is present, else a declared manifest.
+
+    Dispatch is on key presence so a malformed ledger can never fall back to hand-typed values.
+    """
     raw = read_json(path)
     if not isinstance(raw, dict):
         raise ValueError("selection history must be a JSON object: declared manifest or ledger")
-    if isinstance(raw.get("trials"), list):
+    if "trials" in raw:
         return _selection_from_ledger(raw)
     return {**raw, "source_kind": "declared"}
 
 
 def _selection_from_ledger(manifest: dict[str, Any]) -> dict[str, Any]:
     """Compute across-trial dispersion from the ledger; counts and provenance stay declared."""
+    if not isinstance(manifest["trials"], list):
+        raise ValueError("selection ledger trials must be a list of daily Sharpe values")
+    if {"trial_sharpe_std", "trial_count"} & manifest.keys():
+        raise ValueError(
+            "a selection ledger must not also declare trial_sharpe_std or trial_count; "
+            "the analyzer computes them from trials"
+        )
     values = [_ledger_sharpe(trial) for trial in manifest["trials"]]
     if len(values) < 2:
         raise ValueError("selection ledger requires at least two trials")
@@ -134,23 +144,28 @@ def metrics_report(run_dir: Path, selection_path: Path | None) -> dict[str, Any]
 
 
 def significance_report(
-    run_a: Path,
-    run_b: Path,
+    data_root: Path,
+    run_a: str,
+    run_b: str,
     *,
     block_lengths: list[int],
     n_resamples: int,
     seed: int,
     block_rule: str,
 ) -> dict[str, Any]:
-    """Record all declared sensitivity lengths; never select the smallest p-value."""
+    """Record all declared sensitivity lengths; never select the smallest p-value.
+
+    ``run_a``/``run_b`` are the relative identifiers under ``<data_root>/runs`` exactly as the
+    CLI received them, so nested experiment runs stay distinguishable and replayable.
+    """
     if not block_lengths or len(set(block_lengths)) != len(block_lengths) or not block_rule.strip():
         raise ValueError("declare unique block lengths and a nonempty prespecified --block-rule")
     for length in block_lengths:
         validate_block_settings(length, n_resamples, seed)
     report: dict[str, Any] = {
         "schema_version": 2,
-        "run_a": run_a.name,
-        "run_b": run_b.name,
+        "run_a": run_a,
+        "run_b": run_b,
         "legacy_notice": LEGACY_NOTICE,
         "block_rule": block_rule,
         "prespecified_block_lengths": block_lengths,
@@ -158,7 +173,8 @@ def significance_report(
         "n_resamples": n_resamples,
     }
     try:
-        a, b = load_portfolio_returns(run_a), load_portfolio_returns(run_b)
+        runs = data_root / "runs"
+        a, b = load_portfolio_returns(runs / run_a), load_portfolio_returns(runs / run_b)
         align_portfolios(a, b)
         report["portfolio_a"], report["portfolio_b"] = a.metadata, b.metadata
         results = []

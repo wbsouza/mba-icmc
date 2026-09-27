@@ -5,9 +5,9 @@ story; it does not close Task 10's scientific-readiness gates or establish H1.
 
 | Gate | Command / evidence | Result |
 | --- | --- | --- |
-| Analyzer acceptance and cleaner | `make -C algo-suite/algo-analyze check-inference` | 159 Gherkin scenarios (review follow-up, September 27); Ruff and strict mypy pass; architecture boundaries pass; `check-inference-architecture` is part of workspace `make check` |
+| Analyzer acceptance and cleaner | `make -C algo-suite/algo-analyze check-inference` | 174 Gherkin scenarios (two review rounds, September 27); Ruff and strict mypy pass; architecture boundaries pass; `check-inference-architecture` is part of workspace `make check` |
 | Coverage / CRAP | Same combined gate | 100% line coverage in deflated, significance, portfolio and reports; CLI file coverage above 95%; maximum scoped CRAP 8 |
-| Mutation hardening | `gauntlet_mutations.py`; `gauntlet-mutations-final.json` (prior final: `-pass4.json`) | 161/161 generated arithmetic, comparison and Boolean mutants killed (114 fresh after the follow-up, 47 hash-matched reuses); zero survivors/errors/exclusions; baseline and negative control verified |
+| Mutation hardening | `gauntlet_mutations.py`; `gauntlet-mutations-final.json` (prior final: `-pass4.json`) | 174/174 generated arithmetic, comparison and Boolean mutants killed across three replays (`-pass4/5/6.json` retain each prior final); the one interim survivor (producer-check `and`→`or`) was killed by added scenarios, not waived; baseline and negative control verified |
 | Backtest producer | `make -C algo-suite/algo-backtest check` | 418 scenarios pass with `inference-inputs.json` emitted per run and `broker_adapter` required |
 | Researcher-facing QA | `uv run python docs/stories/done/11-statistical-inference-corrections/evidence/qa_cli.py` from algo-suite | 14 actual subprocess CLI checks pass; `qa-results.json` |
 | Independent statistical study | `uv run --with mpmath==1.3.0 python docs/stories/done/11-statistical-inference-corrections/evidence/validate_inference.py` | Six formula fixtures pass; the original n=1200 gates pass and reproduce exactly; **both registered thesis-window extensions fail the null gate** (recorded, not waived; see `README.md`); 21,600 coherent p/interval decisions; script exits nonzero by design |

@@ -27,8 +27,10 @@ validation, gauntlet and final acceptance gates passed. See [quality evidence](e
   L=3 and L=1). No performance claim follows.
 - Review follow-up (September 27): candle close confirmed as the LEAN mark from
   engine source and the engine `Return` series, which is now cross-checked;
-  ledger-computed selection dispersion; per-scenario error/unavailable channels;
-  161/161 mutants killed; see [lessons-learned](lessons-learned.md).
+  ledger-computed selection dispersion pinned to an independent constant; producer
+  digest/adapter verification; strict `Return` containers; per-scenario
+  error/unavailable channels; relative run identity; 174/174 mutants killed; see
+  [lessons-learned](lessons-learned.md).
 - [Local inventory](evidence/local-inventory.json) and
   [pilot inventory](evidence/pilot-inventory.json) preserve legacy outputs and list
   missing metadata. Metadata is reconstructed only on temporary smoke copies;

@@ -1,11 +1,11 @@
 {
   "baseline": [
     0,
-    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n174 passed, 2 warnings in 2.25s"
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n172 passed, 2 warnings in 2.49s"
   ],
   "negative_control": [
     1,
-    "FAILED ../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.57s"
+    "FAILED ../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.70s"
   ],
   "source_sha256": {
     "deflated.py": "88aa6951d90aed3cc12708c20d2aaa1b41ce276c7e9aa6766b58ce17775c07c1",
@@ -13,8 +13,8 @@
     "portfolio.py": "8336f0594449dce8e6046d654e8ddb0db3aef7280691ae464c8f8887c32a0506",
     "reports.py": "9b6331d100edcc81e177508678e5d86c5c1e64c90c624292976a480281f38077"
   },
-  "executed_in_this_run": 1,
-  "reused_kills": 173,
+  "executed_in_this_run": 76,
+  "reused_kills": 98,
   "operators": "repository harness: simple comparisons, and/or, not, + - * /; no cap",
   "mutants": [
     {
@@ -1021,9 +1021,9 @@
       "index": 13,
       "line": 94,
       "description": "boolop@L94: And flip",
-      "verdict": "killed",
-      "returncode": 1,
-      "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_portfolio_inference.py::test_a_manifest_with_only_one_producer_field_is_still_verified[inference_inputs_sha256-the contract costs are edited after production-does not match the run manifest digest]\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 139 passed, 2 warnings in 2.06s"
+      "verdict": "survived",
+      "returncode": 0,
+      "detail": "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n172 passed, 2 warnings in 2.21s"
     },
     {
       "file": "portfolio.py",
@@ -1584,5 +1584,5 @@
       "detail": "FAILED ../../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_legacy_correctedready_and_corrupt_runs_are_each_labeled\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 14 passed, 2 warnings in 0.68s"
     }
   ],
-  "reused_from": "docs/stories/done/11-statistical-inference-corrections/evidence/gauntlet-mutations-pass6.json"
+  "reused_from": "docs/stories/done/11-statistical-inference-corrections/evidence/gauntlet-mutations-pass5.json"
 }

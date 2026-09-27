@@ -58,13 +58,18 @@ opt-in `legacy_iid.py`; it is never selected by the inference CLI.
 The explicit contract records main.json source, calendar-day frequency, UTC timezone,
 365 periods/year, zero daily risk-free return, cost convention, pair and complete
 run window. Start is the initial midnight endpoint; end is the midnight immediately
-after the inclusive `run.json` end date. Successful run identity must match.
+after the inclusive `run.json` end date. Successful run identity must match. When the
+manifest records `inference_inputs_sha256` and `broker_adapter` (every run produced by
+`algo-backtest`), the sidecar bytes must hash to that digest and `costs` must equal
+`brokerage:<adapter>`; the report labels the contract `producer-verified`. Manifests
+without those fields are `declared` contracts archived separately.
 
 Read actual marked-to-market `charts/Strategy Equity/series/Equity/values`, using
 line values or candle close values: LEAN's `SampleEquity(time)` documents `time` as
 the candlestick end time and its "Daily Sampling" schedule fires at midnight, so the
-midnight close is the mark. When LEAN's daily `Return` series is present, each derived
-return must agree with it within 1e-8 or the artifact is invalid. Require ordered
+midnight close is the mark. When LEAN's daily `Return` series is present it must be an
+object with a list of unique `[epoch,percent]` points and each derived return must agree
+with it within 1e-8, or the artifact is invalid; absence is allowed. Require ordered
 unique finite positive equity and every exact daily boundary, including recorded
 flat periods. Derive simple net
 portfolio returns, reject nonfinite derived values, and align by timestamps plus
@@ -118,7 +123,9 @@ algo-analyze ablation --runs BASE --runs CHALLENGER [--baseline BASE] [--figure]
 algo-analyze figures --run ID [--out directory]
 ```
 
-Repeat `--runs` and `--block-length` once per value. The first block length is primary;
+Repeat `--runs` and `--block-length` once per value; run identifiers are relative to
+`<data_root>/runs` and are echoed verbatim in `run_a`/`run_b`, so nested experiment
+runs stay distinguishable. The first block length is primary;
 the others are sensitivity settings. Examples are not a registration for a new
 experiment. Store corrected stdout in new v2 report files and retain legacy outputs.
 There is no default trial count, normal-moment assumption, or DSR plausibility band.

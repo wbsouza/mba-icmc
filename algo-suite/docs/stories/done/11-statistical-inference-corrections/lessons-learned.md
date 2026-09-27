@@ -43,6 +43,18 @@ Scenarios that accepted either an error or an unavailable report could not
 catch a regression that turned invalid data into a quiet "unavailable". Every
 malformed-input row now names its channel.
 
+## A second reviewer found what the first missed
+
+A third review reproduced four defects the first two rounds had not: producer
+provenance recorded but never verified, malformed `Return` containers escaping
+as programming exceptions, a malformed ledger falling back to declared values,
+and a suite that stayed green when the computed dispersion was replaced by a
+constant. Each was a missing invariant, not a wrong formula. Lesson: a test
+that checks shape (a label, a count, a bound) is not a test of the statistic;
+pin the independently computed value. And the mutation operators in use do
+not cover call replacement, so "all mutants killed" must be quoted with its
+operator scope.
+
 ## Cost of the gauntlet
 
 The full loop (registered method, coder, cleaner, hardener with 161 mutants,

@@ -116,8 +116,9 @@ def significance(
     config = _configured("analyze")
     try:
         result = significance_report(
-            config.data_root / "runs" / runs[0],
-            config.data_root / "runs" / runs[1],
+            config.data_root,
+            runs[0],
+            runs[1],
             block_lengths=block_length,
             n_resamples=resamples,
             seed=seed,

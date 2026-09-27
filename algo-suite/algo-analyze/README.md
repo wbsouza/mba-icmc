@@ -5,8 +5,12 @@ metrics from `deflated_sharpe_probability`. Missing source/search history produc
 an explicit unavailable result. No default trial count or normal moments exists.
 
 `algo-backtest run` emits `inference-inputs.json` beside each completed run as an
-explicit reproducibility contract. External historical runs may provide the same
-file through a separately archived producer manifest:
+explicit reproducibility contract and records its SHA-256 and the resolved brokerage
+adapter in `run.json`. The analyzer verifies both: a sidecar whose bytes differ from the
+recorded digest, or whose `costs` does not name the recorded adapter, is an input error
+(`contract_provenance: producer-verified` in the report). A historical run whose manifest
+carries neither field may provide the same file through a separately archived producer
+manifest and is labeled `contract_provenance: declared`:
 
 ```json
 {"source":"main.json","frequency":"calendar-day","timezone":"UTC",
@@ -32,10 +36,16 @@ execution. Zero daily risk-free rate and 365 calendar periods/year are deliberat
 Selection ledger example (the analyzer computes dispersion from the search record):
 
 ```json
-{"n_trials":10,"interim_looks":1,"frequency":"calendar-day",
- "provenance":"registered candidate ledger",
- "trials":[{"run_id":"candidate-01","daily_sharpe":0.02}]}
+{"n_trials":3,"interim_looks":1,"frequency":"calendar-day",
+ "provenance":"registered candidate ledger, 2026-09 development search",
+ "trials":[{"run_id":"candidate-01","daily_sharpe":0.021},
+           {"run_id":"candidate-02","daily_sharpe":-0.004},
+           {"run_id":"candidate-03","daily_sharpe":0.013}]}
 ```
+
+This example is complete and executable: three rows, effective count three. A ledger
+must not also declare `trial_sharpe_std` or `trial_count` (they are computed), and a
+present but malformed `trials` field is an error, never a fallback to declared values.
 
 `n_trials` is the effective independent count and stays a declared research judgment;
 `trial_count` and `trial_sharpe_std` are computed from the ledger (across-trial SD of
