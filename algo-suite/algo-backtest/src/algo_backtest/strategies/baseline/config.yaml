@@ -16,6 +16,28 @@ filters:
   - f6_capital_mgmt
   - f7_meta_learner
 
+# Price-feature parameters shared by F1/F2 and the F7 feature families (train and serve
+# read the same values; the trained model records them and a run refuses a model fitted
+# on different periods). All optional — these are the defaults.
+price_features:
+  ema_fast: 3
+  ema_slow: 8
+  ema_higher_tf: 60
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+
+# F2 — oscillator confirmation thresholds. Optional; these are the defaults.
+indicator:
+  rsi_midline: 50
+  macd_hist_threshold: 0
+
+# F3 — candlestick vocabulary (no detector is wired yet, TD-51). Optional; defaults.
+pattern:
+  bullish_patterns: [bullish_engulfing, hammer, morning_star]
+  bearish_patterns: [bearish_engulfing, shooting_star, evening_star]
+
 # F5 — RiskGuard caps (specs.md §14.8). `null` disables one cap. Drawdown limits are PnL
 # floors, so they are <= 0 (-0.05 = a 5% loss).
 risk_guard:
@@ -49,3 +71,4 @@ meta_learner:
   theta_high: 0.55
   theta_low: 0.45
   regime_gate: false
+  label_horizon_minutes: 15   # training label look-ahead (optional; default 15)

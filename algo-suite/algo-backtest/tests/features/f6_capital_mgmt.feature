@@ -71,8 +71,7 @@ Feature: F6 — capital-management filter
     Scenario Outline: a capital_mgmt section missing <key> fails fast naming the key and the strategy
       Given a capital_mgmt section missing "<key>"
       When parsing the capital-mgmt config for strategy "baseline" fails
-      Then the capital-mgmt config failure names "<key>"
-      And the capital-mgmt config failure names "baseline"
+      Then the capital-mgmt config failure names "strategy 'baseline': capital_mgmt.<key> is missing"
 
       Examples:
         | key                |
@@ -85,14 +84,14 @@ Feature: F6 — capital-management filter
     Scenario Outline: an out-of-range or non-numeric capital_mgmt value fails fast (<case>)
       Given a capital_mgmt section with risk_per_trade=<risk>, stop_loss_pips=<stop>, pip_value_per_lot=<pip>, lot_notional_units=<lot>, assumed_leverage=<lev>
       When parsing the capital-mgmt config for strategy "baseline" fails
-      Then the capital-mgmt config failure names "<names>"
+      Then the capital-mgmt config failure names "<failure>"
 
       Examples:
-        | case                        | risk | stop | pip  | lot    | lev | names              |
-        | zero risk                   | 0    | 20   | 10   | 100000 | 30  | risk_per_trade     |
-        | risk above 1                | 1.5  | 20   | 10   | 100000 | 30  | risk_per_trade     |
-        | zero stop distance          | 0.03 | 0    | 10   | 100000 | 30  | stop_loss_pips     |
-        | negative pip value          | 0.03 | 20   | -10  | 100000 | 30  | pip_value_per_lot  |
-        | zero lot notional           | 0.03 | 20   | 10   | 0      | 30  | lot_notional_units |
-        | zero leverage               | 0.03 | 20   | 10   | 100000 | 0   | assumed_leverage   |
-        | non-numeric stop distance   | 0.03 | wide | 10   | 100000 | 30  | stop_loss_pips     |
+        | case                        | risk | stop | pip  | lot    | lev | failure                                                                      |
+        | zero risk                   | 0    | 20   | 10   | 100000 | 30  | strategy 'baseline': capital_mgmt.risk_per_trade must be > 0                 |
+        | risk above 1                | 1.5  | 20   | 10   | 100000 | 30  | strategy 'baseline': capital_mgmt.risk_per_trade must be a fraction in (0, 1] |
+        | zero stop distance          | 0.03 | 0    | 10   | 100000 | 30  | strategy 'baseline': capital_mgmt.stop_loss_pips must be > 0                 |
+        | negative pip value          | 0.03 | 20   | -10  | 100000 | 30  | strategy 'baseline': capital_mgmt.pip_value_per_lot must be > 0              |
+        | zero lot notional           | 0.03 | 20   | 10   | 0      | 30  | strategy 'baseline': capital_mgmt.lot_notional_units must be > 0             |
+        | zero leverage               | 0.03 | 20   | 10   | 100000 | 0   | strategy 'baseline': capital_mgmt.assumed_leverage must be > 0               |
+        | non-numeric stop distance   | 0.03 | wide | 10   | 100000 | 30  | strategy 'baseline': capital_mgmt.stop_loss_pips must be a number            |

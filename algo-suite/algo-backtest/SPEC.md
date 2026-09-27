@@ -486,15 +486,24 @@ methodology result — see `docs/technical-debt.md`'s TD-51 entry.
 **Per-filter parameters (2026-09-27 amendment, story 09).** The same
 `config.yaml` carries every configurable filter's own section, parsed by that
 filter's `parse_*_config(section, *, strategy)` into a typed value on
-`StrategyChainConfig` and handed to the filter by `chain/wiring.py`: `news_context`
+`StrategyChainConfig` and handed to the filter by `chain/wiring.py`: `price_features`
+(the EMA/RSI/MACD periods F1/F2/F7 share; every key defaults; recorded in the model's
+provenance and checked by `run --model`), `indicator` (F2: `rsi_midline`,
+`macd_hist_threshold`; defaults), `pattern` (F3: `bullish_patterns`,
+`bearish_patterns`; defaults), `news_context`
 (F4: `event_intensity_veto_threshold`, `sentiment_direction_threshold`, `null`
 disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `capital_mgmt` (F6: `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`,
 `lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
-feeds F6) and `meta_learner.theta_high` / `theta_low` / `regime_gate` (F7; the
-gate is the dissertation's `r_t` agreement, switchable). A filter listed without
+feeds F6) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
+`label_horizon_minutes` (F7; the gate is the dissertation's `r_t` agreement,
+switchable; the horizon is the training label's look-ahead, default 15). Sections
+with defaults may be omitted; the loader writes the effective values back into the
+resolved config so every run's `strategy-config.json` shows what was used. A filter listed without
 its section, a section without its filter, a missing key or an out-of-range value
-is a hard stop before the first bar. `hybrid` inherits F5/F6/F7's sections from
+is a hard stop before the first bar, as are an unknown filter name, F7 keys in
+`meta_learner` without `f7_meta_learner` listed, and a `schema_version` other than
+the integer 2. `hybrid` inherits F5/F6/F7's sections from
 `baseline` through `extends:` and adds only `news_context`, so both variants face
 identical execution assumptions. The chain strategies take two run parameters,
 `--param size=<fraction>` and `--param cash=<starting deposit>`; the LEAN

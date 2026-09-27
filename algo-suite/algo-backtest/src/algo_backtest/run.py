@@ -28,11 +28,16 @@ from algo_core.layout import lean_data_dir_for
 
 import algo_backtest
 from algo_backtest.chain.filters.f4_news_context import news_coverage_problems
-from algo_backtest.chain.filters.f7_model_io import load_families, require_families
+from algo_backtest.chain.filters.f7_model_io import (
+    load_families,
+    load_provenance,
+    require_families,
+)
+from algo_backtest.chain.price_features import parse_price_features_config, price_features_mapping
 from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
 from algo_backtest.results import RunResult, parse_results
-from algo_backtest.strategies import load_strategy_chain_config
+from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
 
 Params = Mapping[str, str]
 
@@ -242,11 +247,46 @@ def _validate_model(strategy: str, model: Path | None) -> None:
     path = model if model is not None else _algos_root() / spec.algo_dir / spec.model_file
     if not path.is_file():
         raise ValueError(f"F7 model {path} is not a file")
-    require_families(
-        load_families(path),
-        load_strategy_chain_config(strategy).meta_learner_families,
-        where=str(path),
+    config = load_strategy_chain_config(strategy)
+    require_families(load_families(path), config.meta_learner_families, where=str(path))
+    _require_feature_parity(path, strategy, config)
+
+
+def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConfig) -> None:
+    """The model must have been trained on the strategy's price_features and label horizon.
+
+    A model's provenance records the `strategy_config` it was fitted under; a model from
+    before the `price_features` section existed was fitted on the documented defaults, so
+    an absent key compares as the defaults rather than being skipped.
+
+    Raises:
+        ValueError: naming every differing period, or the differing label horizon.
+    """
+    provenance = load_provenance(path)
+    trained_config = provenance.get("strategy_config", {})
+    trained_raw = (
+        trained_config.get("price_features", {}) if isinstance(trained_config, dict) else {}
     )
+    trained = parse_price_features_config(trained_raw, strategy=f"model {path.name}")
+    declared = config.price_features
+    differing = sorted(
+        key for key, value in price_features_mapping(declared).items()
+        if getattr(trained, key) != value
+    )
+    if differing:
+        raise ValueError(
+            f"F7 model {path} was trained with price_features "
+            f"{ {k: getattr(trained, k) for k in differing} } but strategy {strategy!r} declares "
+            f"{ {k: getattr(declared, k) for k in differing} } — retrain the model with "
+            "scripts/train_*_meta_learner.py or align the strategy's price_features section"
+        )
+    horizon = provenance.get("horizon_minutes")
+    if config.f7 is not None and horizon != config.f7.label_horizon_minutes:
+        raise ValueError(
+            f"F7 model {path} was trained with a {horizon}-minute label horizon but strategy "
+            f"{strategy!r} declares meta_learner.label_horizon_minutes="
+            f"{config.f7.label_horizon_minutes} — retrain the model or align the strategy"
+        )
 
 
 def _algos_root() -> Path:

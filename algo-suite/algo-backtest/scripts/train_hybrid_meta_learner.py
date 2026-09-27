@@ -115,7 +115,12 @@ def main() -> None:
     bars = load_m1_bars(data_root, instrument, args.start, args.test_end)
     event_intensity = load_event_intensity(data_root, args.start, args.test_end)
     config = load_strategy_chain_config("hybrid")
-    rows = build_training_rows(bars, event_intensity, perception=config.perception)
+    assert config.f7 is not None, "strategy 'hybrid' does not list f7_meta_learner"
+    rows = build_training_rows(
+        bars, event_intensity, perception=config.perception,
+        price_features_config=config.price_features,
+        horizon_minutes=config.f7.label_horizon_minutes,
+    )
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end
     )
@@ -147,6 +152,7 @@ def main() -> None:
             *price_partitions(data_root, instrument, args.start, args.test_end),
             *event_partitions(data_root, args.start, args.test_end),
         ],
+        horizon_minutes=config.f7.label_horizon_minutes,
     )
     print(
         f"rows={len(rows)} train={len(split.train)} validation={len(split.validation)} "

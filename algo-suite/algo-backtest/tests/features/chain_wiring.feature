@@ -37,6 +37,26 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then feature "account_portfolio_at_risk" is 0
       And feature "account_open_trade_count" is 0
 
+    Scenario: An invested account with no equity left reports zero at-risk and leverage instead of dividing by zero
+      Given an invested account worth 0 holding -50000 with unrealized profit -200
+      When account features are built at price 1.1000 with the real baseline capital_mgmt section
+      Then feature "account_portfolio_at_risk" is 0
+      And feature "account_leverage" is 0
+      And feature "account_open_trade_count" is 1
+
+    Scenario Outline: Every F5/F6 account reading is carried under its contract key (<case>)
+      Given a flat account worth 10000 with cash <cash>, margin remaining <margin>, daily PnL fraction <daily> and weekly PnL fraction <weekly>
+      When account features are built at price 1.1000 without a capital_mgmt section
+      Then feature "account_balance" is <cash>
+      And feature "available_margin" is <margin>
+      And feature "account_daily_pnl_fraction" is <daily>
+      And feature "account_weekly_pnl_fraction" is <weekly>
+
+      Examples:
+        | case               | cash  | margin | daily | weekly |
+        | mixed day and week | 8000  | 6000   | 0.01  | -0.02  |
+        | losing week        | 9500  | 9500   | -0.03 | -0.05  |
+
     Scenario Outline: The F6 sizing inputs come from the capital_mgmt section, not constants (<case>)
       Given a flat account worth 10000
       When account features are built at price <price> with capital_mgmt stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
@@ -49,6 +69,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
         | standard lot at 30x  | 1.1   | 20   | 10  | 100000 | 30  | 3666.6666667 |
         | mini lot at 50x      | 1.25  | 15   | 1   | 10000  | 50  | 250    |
         | unlevered            | 2.0   | 5    | 10  | 100000 | 1   | 200000 |
+        | zero price           | 0     | 20   | 10  | 100000 | 30  | 0      |
 
     Scenario: A strategy without F6 gets no sizing inputs rather than invented ones
       Given a flat account worth 10000
@@ -90,7 +111,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
 
     Scenario Outline: A configurable filter whose section was never parsed fails fast (<filter>)
       When filters "f1_trend, <filter>" are built
-      Then building fails naming "<section>"
+      Then building fails naming "has no parsed '<section>' section"
       And building fails naming "load_strategy_chain_config"
 
       Examples:
@@ -98,6 +119,11 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
         | f7_meta_learner | meta_learner |
+
+    Scenario: F4 whose section was never parsed fails fast even when a news index is given
+      When filters "f1_trend, f4_news_context" are built with an empty news index
+      Then building fails naming "has no parsed 'news_context' section"
+      And building fails naming "load_strategy_chain_config"
 
   Rule: The bundled risk caps follow RiskGuard's sign contract
 

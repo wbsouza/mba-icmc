@@ -30,15 +30,9 @@ from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
 from algo_backtest.chain.model import ExecutionState, FilterChain
+from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
 from algo_backtest.chain.wiring import (
-    EMA_FAST_PERIOD,
-    EMA_HTF_PERIOD,
-    EMA_SLOW_PERIOD,
-    MACD_FAST_PERIOD,
-    MACD_SIGNAL_PERIOD,
-    MACD_SLOW_PERIOD,
-    RSI_PERIOD,
     AccountSnapshot,
     PnlWindows,
     account_features,
@@ -111,7 +105,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         config = load_strategy_chain_config(
             self.get_parameter("chain_config") or self.strategy_name
         )
-        self._subscribe_indicators(config.perception)
+        self._subscribe_indicators(config.perception, config.price_features)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
         write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
@@ -132,9 +126,15 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
         self.init_execution(broker_adapter)
 
-    def _subscribe_indicators(self, perception: PerceptionConfig | None = None) -> None:
-        """Subscribe EMA/RSI/MACD and, when selected, construct the native HA perception."""
+    def _subscribe_indicators(
+        self,
+        perception: PerceptionConfig | None = None,
+        price_features_config: PriceFeatureConfig | None = None,
+    ) -> None:
+        """Subscribe EMA/RSI/MACD with the strategy's periods and, when selected, construct
+        the native HA perception. Omitted arguments mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
+        periods = price_features_config or PriceFeatureConfig()
         self._trend_perception = None
         if perception.source == "double_smoothed_heikin_ashi":
             from algo_backtest.perception.multi_timeframe import MultiTimeframeHeikinAshi
@@ -144,12 +144,12 @@ class ChainAlgorithm(ExecutionAlgorithm):
                 higher_tf_minutes=perception.higher_tf_minutes,
             )
         minute = Resolution.MINUTE  # noqa: F405
-        self._ema_fast = self.ema(self._symbol, EMA_FAST_PERIOD, minute)
-        self._ema_slow = self.ema(self._symbol, EMA_SLOW_PERIOD, minute)
-        self._ema_htf = self.ema(self._symbol, EMA_HTF_PERIOD, minute)
-        self._rsi = self.rsi(self._symbol, RSI_PERIOD, MovingAverageType.WILDERS, minute)  # noqa: F405
+        self._ema_fast = self.ema(self._symbol, periods.ema_fast, minute)
+        self._ema_slow = self.ema(self._symbol, periods.ema_slow, minute)
+        self._ema_htf = self.ema(self._symbol, periods.ema_higher_tf, minute)
+        self._rsi = self.rsi(self._symbol, periods.rsi_period, MovingAverageType.WILDERS, minute)  # noqa: F405
         self._macd = self.macd(
-            self._symbol, MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD,
+            self._symbol, periods.macd_fast, periods.macd_slow, periods.macd_signal,
             MovingAverageType.EXPONENTIAL, minute,  # noqa: F405
         )
 

@@ -352,15 +352,18 @@ class F7Config:
     theta_high: float
     theta_low: float
     regime_gate: bool
+    label_horizon_minutes: int = 15
 
 
 def parse_f7_config(section: Mapping[str, Any], *, strategy: str) -> F7Config:
     """F7's parameters from a strategy config.yaml `meta_learner` section (fail fast).
 
+    `label_horizon_minutes` — how far ahead the training label looks — defaults to 15.
+
     Raises:
         ValueError: a key is missing, a threshold is not a probability strictly inside
-            (0, 1), `theta_low` is not strictly below `theta_high`, or `regime_gate` is
-            not a YAML boolean.
+            (0, 1), `theta_low` is not strictly below `theta_high`, `regime_gate` is
+            not a YAML boolean, or the horizon is not a positive integer.
     """
     theta_high = _probability(section, "theta_high", strategy)
     theta_low = _probability(section, "theta_low", strategy)
@@ -370,7 +373,21 @@ def parse_f7_config(section: Mapping[str, Any], *, strategy: str) -> F7Config:
             f"theta_high ({theta_high}) — the HOLD band between them cannot be empty"
         )
     regime_gate = require_bool(section, "regime_gate", section=_SECTION, strategy=strategy)
-    return F7Config(theta_high=theta_high, theta_low=theta_low, regime_gate=regime_gate)
+    return F7Config(
+        theta_high=theta_high, theta_low=theta_low, regime_gate=regime_gate,
+        label_horizon_minutes=_horizon(section, strategy),
+    )
+
+
+def _horizon(section: Mapping[str, Any], strategy: str) -> int:
+    """`label_horizon_minutes`: a positive integer, defaulting to 15 when absent."""
+    value = section.get("label_horizon_minutes", 15)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.label_horizon_minutes must be a positive "
+            f"integer number of bars, got {value!r}"
+        )
+    return value
 
 
 def _probability(section: Mapping[str, Any], key: str, strategy: str) -> float:

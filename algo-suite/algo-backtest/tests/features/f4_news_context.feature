@@ -180,8 +180,7 @@ Feature: F4 — News-context filter
     Scenario Outline: a news_context section missing <key> fails fast naming the key and the strategy
       Given a news_context section missing "<key>"
       When parsing the news-context config for strategy "hybrid" fails
-      Then the news-context config failure names "<key>"
-      And the news-context config failure names "hybrid"
+      Then the news-context config failure names "strategy 'hybrid': news_context.<key> is missing"
 
       Examples:
         | key                            |
@@ -191,7 +190,7 @@ Feature: F4 — News-context filter
     Scenario Outline: a non-numeric news_context value fails fast (<key>)
       Given a news_context section whose "<key>" is the string "soon"
       When parsing the news-context config for strategy "hybrid" fails
-      Then the news-context config failure names "<key>"
+      Then the news-context config failure names "strategy 'hybrid': news_context.<key> must be a number"
 
       Examples:
         | key                            |

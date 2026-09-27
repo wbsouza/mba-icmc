@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from algo_backtest.run import validate_run_inputs
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -115,3 +118,39 @@ def _covers(vctx: dict[str, Any], first: str, last: str, covered: str) -> None:
         vctx["data_root"], vctx["instrument"], date.fromisoformat(first), date.fromisoformat(last)
     )
     assert result is (covered == "true")
+
+
+@given(
+    parsers.parse("a baseline-family model file whose provenance price_features is {provenance}")
+)
+def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str) -> None:
+    """A minimal F7 model document: families + provenance are all validation reads."""
+    strategy_config: dict[str, Any] = {}
+    if provenance != "absent":
+        strategy_config["price_features"] = yaml.safe_load(provenance)
+    document = {
+        "format": "algo-backtest/f7-meta-learner", "format_version": 1,
+        "families": ["trend", "indicator", "pattern"], "family_models": {}, "combiner": {},
+        "provenance": {"strategy_config": strategy_config, "horizon_minutes": 15},
+    }
+    vctx["model"] = tmp_path / "model.json"
+    vctx["model"].write_text(json.dumps(document))
+    vctx["strategy"] = "baseline"
+    vctx["params"] = {"size": "0.5", "cash": "10000"}
+
+
+@when(parsers.parse('I validate the run inputs for strategy "{strategy}" with that model passes'))
+def _validate_with_model(vctx: dict[str, Any], strategy: str) -> None:
+    validate_run_inputs(strategy, vctx["params"], _START, _END, vctx["model"])
+    vctx["ok"] = True
+
+
+@when(
+    parsers.parse(
+        'I validate the run inputs for strategy "{strategy}" with that model expecting failure'
+    )
+)
+def _validate_with_model_failing(vctx: dict[str, Any], strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        validate_run_inputs(strategy, vctx["params"], _START, _END, vctx["model"])
+    vctx["error"] = str(exc_info.value)

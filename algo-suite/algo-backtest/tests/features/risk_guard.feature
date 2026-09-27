@@ -108,8 +108,7 @@ Feature: RiskGuard — portfolio/drawdown/leverage caps
     Scenario Outline: a risk_guard section missing <key> fails fast naming the key and the strategy
       Given a risk_guard section missing "<key>"
       When parsing the risk-guard caps for strategy "baseline" fails
-      Then the risk-guard config failure names "<key>"
-      And the risk-guard config failure names "baseline"
+      Then the risk-guard config failure names "strategy 'baseline': risk_guard.<key> is missing"
 
       Examples:
         | key                               |
@@ -122,11 +121,11 @@ Feature: RiskGuard — portfolio/drawdown/leverage caps
     Scenario Outline: an invalid risk_guard value fails fast (<case>)
       Given a risk_guard section with portfolio_at_risk_cap=<par>, daily_drawdown_limit=<daily>, weekly_drawdown_limit=<weekly>, max_concurrent_trades_per_account=<trades>, max_leverage=<lev>
       When parsing the risk-guard caps for strategy "baseline" fails
-      Then the risk-guard config failure names "<names>"
+      Then the risk-guard config failure names "<failure>"
 
       Examples:
-        | case                              | par  | daily | weekly | trades | lev  | names                             |
-        | positive daily drawdown limit     | 0.1  | 0.05  | -0.1   | 2      | 10.0 | daily_drawdown_limit              |
-        | positive weekly drawdown limit    | 0.1  | -0.05 | 0.1    | 2      | 10.0 | weekly_drawdown_limit             |
-        | fractional concurrent-trade cap   | 0.1  | -0.05 | -0.1   | 1.5    | 10.0 | max_concurrent_trades_per_account |
-        | non-numeric leverage cap          | 0.1  | -0.05 | -0.1   | 2      | high | max_leverage                      |
+        | case                              | par  | daily | weekly | trades | lev  | failure                                                                                    |
+        | positive daily drawdown limit     | 0.1  | 0.05  | -0.1   | 2      | 10.0 | risk_guard.daily_drawdown_limit must be <= 0                                               |
+        | positive weekly drawdown limit    | 0.1  | -0.05 | 0.1    | 2      | 10.0 | risk_guard.weekly_drawdown_limit must be <= 0                                              |
+        | fractional concurrent-trade cap   | 0.1  | -0.05 | -0.1   | 1.5    | 10.0 | strategy 'baseline': risk_guard.max_concurrent_trades_per_account must be an integer or null |
+        | non-numeric leverage cap          | 0.1  | -0.05 | -0.1   | 2      | high | strategy 'baseline': risk_guard.max_leverage must be a number                              |

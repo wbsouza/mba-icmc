@@ -12,7 +12,12 @@ Decisions taken with the user after the zero-trade diagnosis below:
    section without its filter, a missing key or an out-of-range value. `hybrid` inherits
    F5/F6/F7's sections from `baseline` via `extends:` and adds only `news_context`. The
    `conf/backtest.yaml` loaders and the `chain/wiring.py` constants are removed (TD-43
-   closed). Modelled on the reference engine's per-component parameter maps with parent
+   closed). Later the same day, at the user's request that *every* item be a parameter
+   (defaults for the ones that almost never change): `price_features` (EMA/RSI/MACD
+   periods, shared by training and serving, recorded in the model's provenance and
+   checked on `--model`), `indicator` (F2 midline/threshold), `pattern` (F3 vocabulary)
+   and `meta_learner.label_horizon_minutes`. Defaulted sections are written back into
+   the resolved config so `strategy-config.json` shows the effective values. Modelled on the reference engine's per-component parameter maps with parent
    inheritance (`spockfx-engine` `deploy.xml` / `strategies/dragon.xml`).
 2. **F7 regime gate off** (`regime_gate: false` in both bundled configs). The gated rule
    cannot fire with these models (diagnosis below); the gate stays available as a switch.

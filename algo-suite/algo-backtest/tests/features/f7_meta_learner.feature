@@ -56,30 +56,31 @@ Feature: F7 — threshold-rule (meta-learner) filter
       Then F7 recommends "<recommendation>"
       And F7's result does not veto
       And F7's reason mentions "regime_gate=<gate_flag>"
+      And F7's reason mentions "regime=<regime>"
 
       Examples: gate on — the thesis rule, the regime must agree with p_hat
-        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation |
-        | high p_hat in a bull regime buys                  | 0.8   | 0.55       | 0.45      | on   | True      | 0.5         | BUY            |
-        | low p_hat in a bear regime sells                  | 0.2   | 0.55       | 0.45      | on   | True      | -0.5        | SELL           |
-        | high p_hat in a bear regime holds                 | 0.8   | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           |
-        | low p_hat in a bull regime holds                  | 0.2   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
-        | p_hat inside the band holds                       | 0.5   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
-        | p_hat exactly at theta_high holds (strict >)      | 0.55  | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
-        | p_hat exactly at theta_low holds (strict <)       | 0.45  | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           |
-        | neutral regime blocks a buy                       | 0.8   | 0.55       | 0.45      | on   | True      | 0           | HOLD           |
-        | neutral regime blocks a sell                      | 0.2   | 0.55       | 0.45      | on   | True      | 0           | HOLD           |
-        | wider band: 0.58 is inside 0.6/0.4 and holds      | 0.58  | 0.6        | 0.4       | on   | True      | 0.5         | HOLD           |
-        | narrower band: 0.53 clears 0.52 and buys          | 0.53  | 0.52       | 0.48      | on   | True      | 0.5         | BUY            |
+        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation | regime  |
+        | high p_hat in a bull regime buys                  | 0.8   | 0.55       | 0.45      | on   | True      | 0.5         | BUY            | bull    |
+        | low p_hat in a bear regime sells                  | 0.2   | 0.55       | 0.45      | on   | True      | -0.5        | SELL           | bear    |
+        | high p_hat in a bear regime holds                 | 0.8   | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           | bear    |
+        | low p_hat in a bull regime holds                  | 0.2   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           | bull    |
+        | p_hat inside the band holds                       | 0.5   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           | bull    |
+        | p_hat exactly at theta_high holds (strict >)      | 0.55  | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           | bull    |
+        | p_hat exactly at theta_low holds (strict <)       | 0.45  | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           | bear    |
+        | neutral regime blocks a buy                       | 0.8   | 0.55       | 0.45      | on   | True      | 0           | HOLD           | neutral |
+        | neutral regime blocks a sell                      | 0.2   | 0.55       | 0.45      | on   | True      | 0           | HOLD           | neutral |
+        | wider band: 0.58 is inside 0.6/0.4 and holds      | 0.58  | 0.6        | 0.4       | on   | True      | 0.5         | HOLD           | bull    |
+        | narrower band: 0.53 clears 0.52 and buys          | 0.53  | 0.52       | 0.48      | on   | True      | 0.5         | BUY            | bull    |
 
       Examples: gate off — p_hat alone decides (2026-09-27 pilot amendment, story 09)
-        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation |
-        | high p_hat in a bear regime buys                  | 0.8   | 0.55       | 0.45      | off  | False     | -0.5        | BUY            |
-        | low p_hat in a bull regime sells                  | 0.2   | 0.55       | 0.45      | off  | False     | 0.5         | SELL           |
-        | neutral regime does not block a buy               | 0.8   | 0.55       | 0.45      | off  | False     | 0           | BUY            |
-        | neutral regime does not block a sell              | 0.2   | 0.55       | 0.45      | off  | False     | 0           | SELL           |
-        | p_hat inside the band still holds                 | 0.5   | 0.55       | 0.45      | off  | False     | 0.5         | HOLD           |
-        | p_hat exactly at theta_high still holds           | 0.55  | 0.55       | 0.45      | off  | False     | -0.5        | HOLD           |
-        | narrower band: 0.47 is below 0.48 and sells       | 0.47  | 0.52       | 0.48      | off  | False     | 0.5         | SELL           |
+        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation | regime  |
+        | high p_hat in a bear regime buys                  | 0.8   | 0.55       | 0.45      | off  | False     | -0.5        | BUY            | n/a     |
+        | low p_hat in a bull regime sells                  | 0.2   | 0.55       | 0.45      | off  | False     | 0.5         | SELL           | n/a     |
+        | neutral regime does not block a buy               | 0.8   | 0.55       | 0.45      | off  | False     | 0           | BUY            | n/a     |
+        | neutral regime does not block a sell              | 0.2   | 0.55       | 0.45      | off  | False     | 0           | SELL           | n/a     |
+        | p_hat inside the band still holds                 | 0.5   | 0.55       | 0.45      | off  | False     | 0.5         | HOLD           | n/a     |
+        | p_hat exactly at theta_high still holds           | 0.55  | 0.55       | 0.45      | off  | False     | -0.5        | HOLD           | n/a     |
+        | narrower band: 0.47 is below 0.48 and sells       | 0.47  | 0.52       | 0.48      | off  | False     | 0.5         | SELL           | n/a     |
 
     Scenario: F7's result carries the audit fields and the meta-learner sees the state's own features
       Given a stub meta-learner predicting p_hat 0.8
@@ -125,24 +126,48 @@ Feature: F7 — threshold-rule (meta-learner) filter
     Scenario Outline: an invalid meta_learner section fails fast naming the bad key and the strategy (<case>)
       Given a meta_learner section with theta_high <theta_high>, theta_low <theta_low> and regime_gate <regime_gate>
       When parsing the F7 config for strategy "baseline" fails
-      Then the F7 config failure names "<names>"
-      And the F7 config failure names "baseline"
+      Then the F7 config failure names "<failure>"
 
       Examples:
-        | case                              | theta_high | theta_low | regime_gate | names       |
-        | theta_low above theta_high        | 0.45       | 0.55      | true        | theta_low   |
-        | theta_low equal to theta_high     | 0.5        | 0.5       | true        | theta_low   |
-        | theta_high above 1                | 1.5        | 0.45      | true        | theta_high  |
-        | theta_low at 0                    | 0.55       | 0         | true        | theta_low   |
-        | regime_gate as a string           | 0.55       | 0.45      | "yes"       | regime_gate |
-        | regime_gate as an integer         | 0.55       | 0.45      | 1           | regime_gate |
-        | theta_high as a string            | high       | 0.45      | true        | theta_high  |
+        | case                              | theta_high | theta_low | regime_gate | failure                                                                                          |
+        | theta_low above theta_high        | 0.45       | 0.55      | true        | strategy 'baseline': meta_learner.theta_low (0.55) must be strictly below theta_high (0.45)      |
+        | theta_low equal to theta_high     | 0.5        | 0.5       | true        | strategy 'baseline': meta_learner.theta_low (0.5) must be strictly below theta_high (0.5)        |
+        | theta_high above 1                | 1.5        | 0.45      | true        | strategy 'baseline': meta_learner.theta_high must be a probability strictly inside (0, 1), got 1.5 |
+        | theta_high exactly 1 (strict <)   | 1          | 0.45      | true        | strategy 'baseline': meta_learner.theta_high must be a probability strictly inside (0, 1), got 1.0 |
+        | theta_high exactly 0 (strict >)   | 0          | 0.45      | true        | strategy 'baseline': meta_learner.theta_high must be a probability strictly inside (0, 1), got 0.0 |
+        | theta_low at 0                    | 0.55       | 0         | true        | strategy 'baseline': meta_learner.theta_low must be a probability strictly inside (0, 1), got 0.0  |
+        | theta_low exactly 1               | 0.55       | 1         | true        | strategy 'baseline': meta_learner.theta_low must be a probability strictly inside (0, 1), got 1.0  |
+        | regime_gate as a string           | 0.55       | 0.45      | "yes"       | strategy 'baseline': meta_learner.regime_gate must be true or false, got 'yes'                   |
+        | regime_gate as an integer         | 0.55       | 0.45      | 1           | strategy 'baseline': meta_learner.regime_gate must be true or false, got 1                       |
+        | theta_high as a string            | high       | 0.45      | true        | strategy 'baseline': meta_learner.theta_high must be a number, got 'high'                        |
+
+    Scenario Outline: label_horizon_minutes defaults to 15 and accepts a positive integer (<case>)
+      Given a meta_learner section with theta_high 0.55, theta_low 0.45 and regime_gate false
+      And the meta_learner section sets label_horizon_minutes to <value>
+      When the F7 config is parsed for strategy "baseline"
+      Then the parsed F7 config has label_horizon_minutes <horizon>
+
+      Examples:
+        | case            | value  | horizon |
+        | absent: default | absent | 15      |
+        | one hour        | 60     | 60      |
+
+    Scenario Outline: an invalid label_horizon_minutes fails fast (<case>)
+      Given a meta_learner section with theta_high 0.55, theta_low 0.45 and regime_gate false
+      And the meta_learner section sets label_horizon_minutes to <value>
+      When parsing the F7 config for strategy "baseline" fails
+      Then the F7 config failure names "label_horizon_minutes"
+
+      Examples:
+        | case        | value |
+        | zero        | 0     |
+        | fractional  | 7.5   |
+        | string      | hour  |
 
     Scenario Outline: a missing meta_learner key fails fast naming the key and the strategy (<key>)
       Given a meta_learner section missing "<key>"
       When parsing the F7 config for strategy "baseline" fails
-      Then the F7 config failure names "<key>"
-      And the F7 config failure names "baseline"
+      Then the F7 config failure names "strategy 'baseline': meta_learner.<key> is missing"
 
       Examples:
         | key         |

@@ -40,10 +40,13 @@ A filter listed without its section, or a section without its filter, fails fast
 
 | Filter | Section | Keys |
 |---|---|---|
+| F1/F2/F7 features | `price_features` | `ema_fast` 3, `ema_slow` 8, `ema_higher_tf` 60, `rsi_period` 14, `macd_fast` 12, `macd_slow` 26, `macd_signal` 9 (all optional; recorded in the trained model and checked by `--model`) |
+| F2 indicator | `indicator` | `rsi_midline` 50, `macd_hist_threshold` 0 (optional) |
+| F3 pattern | `pattern` | `bullish_patterns`, `bearish_patterns` (optional; default vocabularies) |
 | F4 news context (hybrid only) | `news_context` | `event_intensity_veto_threshold`, `sentiment_direction_threshold` (`null` disables a half) |
 | F5 risk guard | `risk_guard` | `portfolio_at_risk_cap`, `daily_drawdown_limit`, `weekly_drawdown_limit`, `max_concurrent_trades_per_account`, `max_leverage` (`null` disables one) |
 | F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` |
-| F7 threshold rule | `meta_learner` | `families`, `theta_high`, `theta_low`, `regime_gate` |
+| F7 threshold rule | `meta_learner` | `families`, `theta_high`, `theta_low`, `regime_gate`, `label_horizon_minutes` 15 (optional) |
 
 `regime_gate: true` is the dissertation's rule (BUY needs F1's bull regime, SELL its
 bear regime); `false` trades on p̂ alone. Since 2026-09-27 (story 09) the bundled

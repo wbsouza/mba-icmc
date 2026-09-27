@@ -44,6 +44,7 @@ Feature: Strategy parameter validation
         | baseline-dsha | 10000  |
         | hybrid        | 10000  |
         | baseline      | 250.5  |
+        | baseline      | 0.5    |
 
   Rule: An unknown strategy or invalid parameters are rejected (fail fast)
 
@@ -61,6 +62,7 @@ Feature: Strategy parameter validation
       Given strategy "<strategy>" with params size=0.5 cash=<cash>
       When I validate the run inputs expecting failure
       Then validation fails naming "cash"
+      And validation fails naming "<strategy>"
 
       Examples:
         | strategy      | cash  |
@@ -68,6 +70,18 @@ Feature: Strategy parameter validation
         | baseline      | -100  |
         | hybrid        | lots  |
         | baseline-dsha | 0     |
+
+    Scenario Outline: the chain strategies reject an out-of-range size naming the strategy (<strategy>)
+      Given strategy "<strategy>" with params size=<size> cash=10000
+      When I validate the run inputs expecting failure
+      Then validation fails naming "size"
+      And validation fails naming "<strategy>"
+
+      Examples:
+        | strategy      | size |
+        | baseline      | 1.5  |
+        | hybrid        | 0    |
+        | baseline-dsha | -0.1 |
 
     Scenario: a chain strategy without a starting cash is rejected as an incomplete param set
       Given strategy "baseline" with params size=0.5
@@ -127,3 +141,17 @@ Feature: Strategy parameter validation
       | wrong=0.5    |
       | size=wrong   |
       | size=1.5     |
+
+  Rule: A model must have been trained on the strategy's price-feature parameters
+
+    Scenario Outline: model provenance vs strategy price_features (<case>)
+      Given a baseline-family model file whose provenance price_features is <provenance>
+      When I validate the run inputs for strategy "baseline" with that model <outcome>
+      Then <assertion>
+
+      Examples:
+        | case                                   | provenance             | outcome           | assertion                                 |
+        | identical periods                      | {ema_fast: 3}          | passes            | validation passes                         |
+        | pre-amendment model without the key    | absent                 | passes            | validation passes                         |
+        | different fast EMA                     | {ema_fast: 5}          | expecting failure | validation fails naming "price_features"  |
+        | different RSI period                   | {rsi_period: 21}       | expecting failure | validation fails naming "rsi_period"      |

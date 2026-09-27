@@ -91,6 +91,22 @@ def _flat_account(wiring_ctx: _WiringCtx, value: float) -> None:
     wiring_ctx.account = _account(False, value, 0.0, 0.0)
 
 
+@given(
+    parsers.parse(
+        "a flat account worth {value:g} with cash {cash:g}, margin remaining {margin:g}, "
+        "daily PnL fraction {daily:g} and weekly PnL fraction {weekly:g}"
+    )
+)
+def _flat_account_readings(
+    wiring_ctx: _WiringCtx, value: float, cash: float, margin: float, daily: float, weekly: float
+) -> None:
+    """A flat account whose every LEAN reading is distinct, so each contract key is checkable."""
+    wiring_ctx.account = AccountSnapshot(
+        invested=False, portfolio_value=value, unrealized_profit=0.0, holdings_value=0.0,
+        cash=cash, margin_remaining=margin, daily_pnl_fraction=daily, weekly_pnl_fraction=weekly,
+    )
+
+
 @when(
     parsers.parse(
         "account features are built at price {price:g} with the real baseline capital_mgmt section"
@@ -189,6 +205,16 @@ def _named_filters(wiring_ctx: _WiringCtx, names: str) -> None:
         meta_learner_families=(), extends=None, raw={},
     )
     _build(wiring_ctx, config, None)
+
+
+@when(parsers.parse('filters "{names}" are built with an empty news index'))
+def _named_filters_with_news(wiring_ctx: _WiringCtx, names: str) -> None:
+    """Like the hand-built config above, but with a news index so F4 reaches its section check."""
+    config = StrategyChainConfig(
+        name="handbuilt", filters=tuple(name.strip() for name in names.split(",")),
+        meta_learner_families=(), extends=None, raw={},
+    )
+    _build(wiring_ctx, config, _EMPTY_NEWS)
 
 
 def _built(wiring_ctx: _WiringCtx, kind: type[Filter]) -> Filter:

@@ -59,6 +59,14 @@ def _amend_config(root: Path, name: str, amend: Callable[[dict[str, Any]], None]
 # One valid parameter section per configurable filter, so a scenario that lists the
 # filter gets a complete config unless it deliberately breaks it.
 _SECTIONS: dict[str, tuple[str, dict[str, Any]]] = {
+    "f2_indicator": ("indicator", {"rsi_midline": 50.0, "macd_hist_threshold": 0.0}),
+    "f3_pattern": (
+        "pattern",
+        {
+            "bullish_patterns": ["bullish_engulfing", "hammer", "morning_star"],
+            "bearish_patterns": ["bearish_engulfing", "shooting_star", "evening_star"],
+        },
+    ),
     "f4_news_context": (
         "news_context",
         {"event_intensity_veto_threshold": -0.5, "sentiment_direction_threshold": 0.15},
@@ -130,6 +138,26 @@ def _amend_max_leverage(strategies_ctx: _StrategiesCtx, name: str, value: float)
     )
 
 
+@given(parsers.parse('"{name}" adds meta_learner key "{key}" with value {value}'))
+def _add_meta_learner_key(strategies_ctx: _StrategiesCtx, name: str, key: str, value: str) -> None:
+    _amend_config(
+        strategies_ctx.root, name,
+        lambda b: b["meta_learner"].__setitem__(key, yaml.safe_load(value)),
+    )
+
+
+@given(parsers.parse('"{name}" sets schema_version to {value}'))
+def _set_schema_version(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
+    """`absent` removes the key; anything else is parsed as YAML (so "2" stays a string)."""
+    def amend(body: dict[str, Any]) -> None:
+        if value == "absent":
+            body.pop("schema_version")
+        else:
+            body["schema_version"] = yaml.safe_load(value)
+
+    _amend_config(strategies_ctx.root, name, amend)
+
+
 @given(parsers.parse('"{name}" drops its "{section}" section'))
 def _drop_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.pop(section))
@@ -138,6 +166,15 @@ def _drop_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> No
 @given(parsers.parse('"{name}" drops meta_learner key "{key}"'))
 def _drop_meta_learner_key(strategies_ctx: _StrategiesCtx, name: str, key: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b["meta_learner"].pop(key))
+
+
+@given(parsers.parse('"{name}" adds a "{section}" section {section_yaml}'))
+def _add_section_yaml(
+    strategies_ctx: _StrategiesCtx, name: str, section: str, section_yaml: str
+) -> None:
+    """Add (or replace) a section from the table's flow-style YAML mapping."""
+    value = yaml.safe_load(section_yaml)
+    _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__(section, value))
 
 
 @given(parsers.parse('"{name}" adds a "{section}" section anyway'))
@@ -175,13 +212,13 @@ def _extending_config(
 @given(parsers.parse('a strategy config directory with an empty filters list for "{name}"'))
 def _empty_filters_config(strategies_ctx: _StrategiesCtx, name: str) -> None:
     _write_config(
-        strategies_ctx.root, name, {"schema_version": 1, "filters": [], "meta_learner": {}}
+        strategies_ctx.root, name, {"schema_version": 2, "filters": [], "meta_learner": {}}
     )
 
 
 @given(parsers.parse('a strategy config directory with no filters key at all for "{name}"'))
 def _no_filters_key_config(strategies_ctx: _StrategiesCtx, name: str) -> None:
-    _write_config(strategies_ctx.root, name, {"schema_version": 1, "meta_learner": {}})
+    _write_config(strategies_ctx.root, name, {"schema_version": 2, "meta_learner": {}})
 
 
 @given(parsers.parse('a strategy config directory with a non-mapping config for "{name}"'))
@@ -200,7 +237,7 @@ def _scalar_meta_learner_config(strategies_ctx: _StrategiesCtx, name: str, filte
     _write_config(
         strategies_ctx.root,
         name,
-        {"schema_version": 1, "filters": list(_split(filters)), "meta_learner": "not-a-mapping"},
+        {"schema_version": 2, "filters": list(_split(filters)), "meta_learner": "not-a-mapping"},
     )
 
 
@@ -216,7 +253,7 @@ def _empty_meta_learner_mapping_config(
     _write_config(
         strategies_ctx.root,
         name,
-        {"schema_version": 1, "filters": list(_split(filters)), "meta_learner": {}},
+        {"schema_version": 2, "filters": list(_split(filters)), "meta_learner": {}},
     )
 
 
@@ -233,7 +270,7 @@ def _scalar_families_config(
         strategies_ctx.root,
         name,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "filters": list(_split(filters)),
             "meta_learner": {"families": scalar},
         },
@@ -251,7 +288,7 @@ def _mapping_families_config(strategies_ctx: _StrategiesCtx, name: str, filters:
         strategies_ctx.root,
         name,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "filters": list(_split(filters)),
             "meta_learner": {"families": {"a": 1}},
         },
@@ -269,7 +306,7 @@ def _non_string_families_config(strategies_ctx: _StrategiesCtx, name: str, filte
         strategies_ctx.root,
         name,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "filters": list(_split(filters)),
             "meta_learner": {"families": ["trend", 7]},
         },
@@ -282,7 +319,7 @@ def _extends_scalar_meta_learner(strategies_ctx: _StrategiesCtx, name: str, base
         strategies_ctx.root,
         name,
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "extends": base,
             "filters": ["f1_trend"],
             "meta_learner": "not-a-mapping",
@@ -352,9 +389,34 @@ def _loaded_daily_limit(strategies_ctx: _StrategiesCtx, value: float) -> None:
 
 
 _TYPED_ATTR = {
+    "indicator": "indicator", "pattern": "pattern",
     "news_context": "news_context", "risk_guard": "risk_guard",
     "capital_mgmt": "capital_mgmt", "meta_learner": "f7",
 }
+
+
+@then(
+    parsers.parse(
+        "the loaded strategy's price features are ema_fast {fast:d}, ema_slow {slow:d}, "
+        "ema_higher_tf {htf:d}, rsi_period {rsi:d}, macd_fast {mf:d}, macd_slow {ms:d}, "
+        "macd_signal {sig:d}"
+    )
+)
+def _loaded_price_features(  # noqa: PLR0913 - one parameter per table column
+    strategies_ctx: _StrategiesCtx,
+    fast: int, slow: int, htf: int, rsi: int, mf: int, ms: int, sig: int,
+) -> None:
+    assert strategies_ctx.loaded is not None
+    pf = strategies_ctx.loaded.price_features
+    assert (pf.ema_fast, pf.ema_slow, pf.ema_higher_tf) == (fast, slow, htf)
+    assert (pf.rsi_period, pf.macd_fast, pf.macd_slow, pf.macd_signal) == (rsi, mf, ms, sig)
+
+
+@then(parsers.parse("the loaded strategy's raw config records {section}.{key} {value}"))
+def _raw_records(strategies_ctx: _StrategiesCtx, section: str, key: str, value: str) -> None:
+    """Effective (possibly defaulted) values must appear in `raw`, hence in strategy-config.json."""
+    assert strategies_ctx.loaded is not None
+    assert strategies_ctx.loaded.raw[section][key] == yaml.safe_load(value)
 
 
 @then(parsers.parse('the loaded strategy has a typed "{section}" config'))

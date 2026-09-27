@@ -381,6 +381,19 @@ def _meta_learner_section(
     }
 
 
+@given(parsers.parse("the meta_learner section sets label_horizon_minutes to {value}"))
+def _meta_learner_horizon(f7_ctx: _F7Ctx, value: str) -> None:
+    """`absent` leaves the key out (default applies); anything else is YAML-typed."""
+    if value != "absent":
+        f7_ctx.section["label_horizon_minutes"] = yaml.safe_load(value)
+
+
+@then(parsers.parse("the parsed F7 config has label_horizon_minutes {expected:d}"))
+def _parsed_horizon(f7_ctx: _F7Ctx, expected: int) -> None:
+    assert f7_ctx.parsed_config is not None
+    assert f7_ctx.parsed_config.label_horizon_minutes == expected
+
+
 @given(parsers.parse('a meta_learner section missing "{missing_key}"'))
 def _meta_learner_section_missing(f7_ctx: _F7Ctx, missing_key: str) -> None:
     f7_ctx.section = {k: v for k, v in _SECTION_DEFAULTS.items() if k != missing_key}

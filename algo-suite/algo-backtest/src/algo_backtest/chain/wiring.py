@@ -34,32 +34,14 @@ from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
 from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
 from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
 from algo_backtest.chain.model import Filter
-from algo_backtest.strategies import StrategyChainConfig
-
-# Indicator periods: the LEAN indicators in algos/*/main.py and the plain-Python
-# re-implementation in scripts/train_*_meta_learner.py must agree.
-EMA_FAST_PERIOD = 3
-EMA_SLOW_PERIOD = 8
-EMA_HTF_PERIOD = 60
-RSI_PERIOD = 14
-MACD_FAST_PERIOD = 12
-MACD_SLOW_PERIOD = 26
-MACD_SIGNAL_PERIOD = 9
+from algo_backtest.strategies import KNOWN_FILTERS, StrategyChainConfig
 
 # F1 hard-requires trend_strength in [0, 100] (an ADX-style reading); the EMA-gap proxy
 # below is in basis points and can exceed that on a volatile bar, so it is clamped.
 _TREND_STRENGTH_CAP = 100.0
 _BASIS_POINTS = 10_000.0
 
-# The parameter-free price filters; F4/F5/F6/F7 are built from the strategy's sections.
-_PRICE_FILTERS: dict[str, Callable[[], Filter]] = {
-    "f1_trend": F1TrendFilter,
-    "f2_indicator": F2IndicatorFilter,
-    "f3_pattern": F3PatternFilter,
-}
-_KNOWN_FILTERS = sorted(
-    [*_PRICE_FILTERS, "f4_news_context", "f5_risk_guard", "f6_capital_mgmt", "f7_meta_learner"]
-)
+_KNOWN_FILTERS = sorted(KNOWN_FILTERS)
 
 
 def _sign(delta: float) -> float:
@@ -147,7 +129,7 @@ def _sizing_inputs(economics: CapitalMgmtConfig, price: float) -> dict[str, obje
     return {
         "pip_value": economics.pip_value_per_lot,
         "stop_loss_pips": economics.stop_loss_pips,
-        "margin_per_lot": notional / economics.assumed_leverage if price else 0.0,
+        "margin_per_lot": notional / economics.assumed_leverage,
     }
 
 
@@ -206,6 +188,40 @@ def _section(value: _T | None, section: str, config: StrategyChainConfig) -> _T:
     return value
 
 
+def _build_f4(
+    config: StrategyChainConfig, news_index: NewsContextIndex | None
+) -> F4NewsContextFilter:
+    """F4 needs the run's news index on top of its own section."""
+    if news_index is None:
+        raise ValueError(
+            "f4_news_context needs a NewsContextIndex; register the strategy with "
+            "StrategySpec(needs_news_data=True) so the news Parquet is mounted"
+        )
+    return F4NewsContextFilter(
+        index=news_index, config=_section(config.news_context, "news_context", config)
+    )
+
+
+_Builder = Callable[[StrategyChainConfig, TrainedMetaLearner, NewsContextIndex | None], Filter]
+_BUILDERS: dict[str, _Builder] = {
+    "f1_trend": lambda c, m, n: F1TrendFilter(),
+    "f2_indicator": lambda c, m, n: F2IndicatorFilter(
+        config=_section(c.indicator, "indicator", c)
+    ),
+    "f3_pattern": lambda c, m, n: F3PatternFilter(config=_section(c.pattern, "pattern", c)),
+    "f4_news_context": lambda c, m, n: _build_f4(c, n),
+    "f5_risk_guard": lambda c, m, n: RiskGuardFilter(
+        caps=_section(c.risk_guard, "risk_guard", c)
+    ),
+    "f6_capital_mgmt": lambda c, m, n: CapitalMgmtFilter(
+        risk_per_trade=_section(c.capital_mgmt, "capital_mgmt", c).risk_per_trade
+    ),
+    "f7_meta_learner": lambda c, m, n: F7MetaLearnerFilter(
+        meta_learner=m, config=_section(c.f7, "meta_learner", c)
+    ),
+}
+
+
 def _build_filter(
     name: str,
     config: StrategyChainConfig,
@@ -213,27 +229,10 @@ def _build_filter(
     news_index: NewsContextIndex | None,
 ) -> Filter:
     """One filter by its `config.yaml` name, parameterised from its own section."""
-    if name == "f7_meta_learner":
-        return F7MetaLearnerFilter(
-            meta_learner=meta_learner, config=_section(config.f7, "meta_learner", config)
-        )
-    if name == "f4_news_context":
-        if news_index is None:
-            raise ValueError(
-                "f4_news_context needs a NewsContextIndex; register the strategy with "
-                "StrategySpec(needs_news_data=True) so the news Parquet is mounted"
-            )
-        news = _section(config.news_context, "news_context", config)
-        return F4NewsContextFilter(index=news_index, config=news)
-    if name == "f5_risk_guard":
-        return RiskGuardFilter(caps=_section(config.risk_guard, "risk_guard", config))
-    if name == "f6_capital_mgmt":
-        economics = _section(config.capital_mgmt, "capital_mgmt", config)
-        return CapitalMgmtFilter(risk_per_trade=economics.risk_per_trade)
-    factory = _PRICE_FILTERS.get(name)
-    if factory is None:
+    builder = _BUILDERS.get(name)
+    if builder is None:
         raise ValueError(f"unknown filter {name!r} in strategy config; known: {_KNOWN_FILTERS}")
-    return factory()
+    return builder(config, meta_learner, news_index)
 
 
 def parse_yyyymmdd(raw: str) -> date:

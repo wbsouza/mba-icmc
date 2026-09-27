@@ -51,6 +51,8 @@ Feature: Strategy-chain config loading (Spec 04h)
 
       Examples:
         | filter          | section      |
+        | f2_indicator    | indicator    |
+        | f3_pattern      | pattern      |
         | f4_news_context | news_context |
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
@@ -63,10 +65,51 @@ Feature: Strategy-chain config loading (Spec 04h)
 
       Examples:
         | filter          | section      |
+        | f2_indicator    | indicator    |
+        | f3_pattern      | pattern      |
         | f4_news_context | news_context |
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
         | f7_meta_learner | meta_learner |
+
+  Rule: Sections with defaults may be omitted; the effective values are recorded in the resolved config
+
+    Scenario: price_features is always resolved, defaulting when the section is absent
+      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      When strategy "plain" is loaded
+      Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 60, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
+      And the loaded strategy's raw config records price_features.ema_fast 3
+
+    Scenario: a partial price_features section overrides and the rest defaults
+      Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
+      And "custom" adds a "price_features" section {ema_higher_tf: 240}
+      When strategy "custom" is loaded
+      Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 240, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
+      And the loaded strategy's raw config records price_features.ema_higher_tf 240
+
+    Scenario Outline: <filter> listed without its optional <section> section resolves defaults and records them
+      Given a strategy config directory with "defaulted" filters "<filter>" and families "trend"
+      And "defaulted" drops its "<section>" section
+      When strategy "defaulted" is loaded
+      Then the loaded strategy has a typed "<section>" config
+      And the loaded strategy's raw config records <section>.<key> <value>
+
+      Examples:
+        | filter       | section   | key              | value |
+        | f2_indicator | indicator | rsi_midline      | 50    |
+        | f3_pattern   | pattern   | bullish_patterns | [bullish_engulfing, hammer, morning_star] |
+
+    Scenario Outline: an invalid <section> value fails fast at load (<case>)
+      Given a strategy config directory with "bad" filters "f1_trend,f2_indicator,f3_pattern" and families "trend"
+      And "bad" adds a "<section>" section <section_yaml>
+      When loading strategy "bad" fails
+      Then the failure names "<names>"
+
+      Examples:
+        | case                        | section        | section_yaml                | names        |
+        | fast EMA above slow EMA     | price_features | {ema_fast: 9}               | ema_fast     |
+        | RSI midline out of range    | indicator      | {rsi_midline: 100}          | rsi_midline  |
+        | pattern in both lists       | pattern        | {bullish_patterns: [hammer], bearish_patterns: [hammer]} | hammer |
 
     Scenario Outline: listing <filter> without its <section> section fails fast
       Given a strategy config directory with "gap" filters "<filter>" and families "trend"
@@ -96,6 +139,8 @@ Feature: Strategy-chain config loading (Spec 04h)
 
       Examples:
         | filter          | section      |
+        | f2_indicator    | indicator    |
+        | f3_pattern      | pattern      |
         | f4_news_context | news_context |
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
@@ -111,6 +156,48 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f4_news_context | news_context |
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
+
+    Scenario Outline: F7 keys in meta_learner without f7_meta_learner listed fail fast (<key>)
+      Given a strategy config directory with "strayf7" filters "f1_trend" and families "trend"
+      And "strayf7" adds meta_learner key "<key>" with value <value>
+      When loading strategy "strayf7" fails
+      Then the failure names "<key>"
+      And the failure names "f7_meta_learner"
+
+      Examples:
+        | key         | value |
+        | theta_high  | 0.55  |
+        | theta_low   | 0.45  |
+        | regime_gate | false |
+
+  Rule: Filter names are checked when the config is loaded, not when the chain is built
+
+    Scenario Outline: an unknown filter name fails fast at load time (<filter>)
+      Given a strategy config directory with "typo" filters "f1_trend,<filter>" and families "trend"
+      When loading strategy "typo" fails
+      Then the failure names "<filter>"
+      And the failure names "known filters"
+
+      Examples:
+        | filter        |
+        | f9_bogus      |
+        | F1_trend      |
+        | f7_metalearner |
+
+  Rule: The config schema version is declared and current
+
+    Scenario Outline: a config whose schema_version is not 2 fails fast (<case>)
+      Given a strategy config directory with "old" filters "f1_trend" and families "trend"
+      And "old" sets schema_version to <schema_version>
+      When loading strategy "old" fails
+      Then the failure names "schema_version"
+
+      Examples:
+        | case            | schema_version |
+        | version 1       | 1              |
+        | version 3       | 3              |
+        | string "2"      | "2"            |
+        | missing         | absent         |
 
   Rule: Only one level of extends is supported (TD-8)
 

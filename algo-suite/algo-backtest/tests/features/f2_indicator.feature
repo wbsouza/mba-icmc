@@ -109,3 +109,45 @@ Feature: F2 indicator filter
         | rsi   |
         | 0.0   |
         | 100.0 |
+
+  Rule: F2's thresholds come from the strategy config.yaml indicator section (2026-09-27)
+
+    Scenario Outline: the indicator section parses with defaults for what it omits (<case>)
+      Given an indicator section <section>
+      When the indicator config is parsed for strategy "baseline"
+      Then the parsed indicator config has rsi_midline <midline> and macd_hist_threshold <threshold>
+
+      Examples:
+        | case                  | section                                          | midline | threshold |
+        | empty: all defaults   | {}                                               | 50      | 0         |
+        | custom midline        | {rsi_midline: 55}                                | 55      | 0         |
+        | both overridden       | {rsi_midline: 45, macd_hist_threshold: 0.0001}   | 45      | 0.0001    |
+
+    Scenario Outline: an invalid indicator section fails fast (<case>)
+      Given an indicator section <section>
+      When parsing the indicator config for strategy "baseline" fails
+      Then the indicator config failure names "<names>"
+
+      Examples:
+        | case                     | section                       | names               |
+        | midline at 0             | {rsi_midline: 0}              | rsi_midline         |
+        | midline at 100           | {rsi_midline: 100}            | rsi_midline         |
+        | midline as a string      | {rsi_midline: mid}            | rsi_midline         |
+        | negative threshold       | {macd_hist_threshold: -0.1}   | macd_hist_threshold |
+        | unknown key              | {stochastic_period: 14}       | stochastic_period   |
+
+    Scenario Outline: the configured midline decides bullish vs bearish (<case>)
+      Given an indicator section <section>
+      And rsi <rsi> and macd_hist <macd_hist>
+      When F2 is applied with that indicator config
+      Then F2 recommends "<recommendation>"
+
+      Examples:
+        | case                                    | section                        | rsi | macd_hist | recommendation |
+        | 52 is bullish against the default 50    | {}                             | 52  | 0.4       | BUY            |
+        | 52 is not bullish against midline 55    | {rsi_midline: 55}              | 52  | 0.4       | NEUTRAL        |
+        | 56 clears midline 55                    | {rsi_midline: 55}              | 56  | 0.4       | BUY            |
+        | 48 is bearish against the default 50    | {}                             | 48  | -0.4      | SELL           |
+        | 48 is not bearish against midline 45    | {rsi_midline: 45}              | 48  | -0.4      | NEUTRAL        |
+        | histogram inside the threshold band     | {macd_hist_threshold: 0.5}     | 60  | 0.4       | NEUTRAL        |
+        | histogram beyond the threshold band     | {macd_hist_threshold: 0.5}     | 60  | 0.6       | BUY            |

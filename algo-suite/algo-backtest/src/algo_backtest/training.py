@@ -30,27 +30,14 @@ from algo_score.events.paths import feature_path as event_feature_path
 
 from algo_backtest.chain.filters.f7_meta_learner import TrainedMetaLearner, TrainingRow
 from algo_backtest.chain.filters.f7_model_io import dump_model
-from algo_backtest.chain.wiring import (
-    EMA_FAST_PERIOD,
-    EMA_HTF_PERIOD,
-    EMA_SLOW_PERIOD,
-    MACD_FAST_PERIOD,
-    MACD_SIGNAL_PERIOD,
-    MACD_SLOW_PERIOD,
-    RSI_PERIOD,
-    price_features,
-)
+from algo_backtest.chain.price_features import PriceFeatureConfig, warmup_bars
+from algo_backtest.chain.wiring import price_features
 from algo_backtest.market_hours import exchange_time, lean_delivers
 from algo_backtest.months import BAR_DURATION, months_between
 from algo_backtest.perception.config import PerceptionConfig
 from algo_backtest.perception.heikin_ashi import OHLC
 from algo_backtest.perception.offline import OfflineMultiTimeframeHeikinAshi
 
-HORIZON_MINUTES = 15
-# Bars before every LEAN indicator the features read is ready (EMA 60 needs 60 samples,
-# MACD 26/9 needs 34, Wilder RSI 14 needs 15): the live algorithm skips them, so
-# training does too — they would be rows the model is never asked to score.
-WARMUP_BARS = max(EMA_HTF_PERIOD, MACD_SLOW_PERIOD + MACD_SIGNAL_PERIOD - 1, RSI_PERIOD + 1) - 1
 _RSI_NEUTRAL = 50.0
 _MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow")
 
@@ -102,18 +89,18 @@ def rsi_series(values: Sequence[float], period: int) -> list[float]:
     return out
 
 
-def macd_hist_series(values: Sequence[float]) -> list[float]:
+def macd_hist_series(values: Sequence[float], periods: PriceFeatureConfig) -> list[float]:
     """LEAN's MACD histogram: (fast EMA - slow EMA) minus its signal-line EMA.
 
     As in LEAN, the signal EMA only starts consuming the MACD line once the slow EMA is
-    ready (its `MACD_SLOW_PERIOD`-th sample); before that the histogram is 0.0 — those
-    bars are inside `WARMUP_BARS` and never become rows.
+    ready (its `macd_slow`-th sample); before that the histogram is 0.0 — those bars are
+    inside `warmup_bars(periods)` and never become rows.
     """
-    fast = ema_series(values, MACD_FAST_PERIOD)
-    slow = ema_series(values, MACD_SLOW_PERIOD)
+    fast = ema_series(values, periods.macd_fast)
+    slow = ema_series(values, periods.macd_slow)
     line = [f - s for f, s in zip(fast, slow, strict=True)]
-    ready = MACD_SLOW_PERIOD - 1
-    signal = ema_series(line[ready:], MACD_SIGNAL_PERIOD)
+    ready = periods.macd_slow - 1
+    signal = ema_series(line[ready:], periods.macd_signal)
     histogram = [m - s for m, s in zip(line[ready:], signal, strict=True)]
     return [0.0] * min(ready, len(line)) + histogram
 
@@ -248,6 +235,8 @@ def _perception_features(
 def build_training_rows(
     bars: Sequence[QuoteBar], event_intensity: Mapping[datetime, float] | None = None,
     *, perception: PerceptionConfig | None = None,
+    price_features_config: PriceFeatureConfig | None = None,
+    horizon_minutes: int = 15,
 ) -> list[TrainingRow]:
     """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
@@ -255,23 +244,26 @@ def build_training_rows(
     algorithm's LEAN indicators consume — so indicator state, warm-up and the label
     horizon (counted in delivered bars) match the backtest.
 
-    Label: 1 if the mid price is strictly higher `HORIZON_MINUTES` bars later, else 0
+    Label: 1 if the mid price is strictly higher `horizon_minutes` bars later, else 0
     (flat is 0). `label_time` is the close of that horizon bar, so
     `walk_forward_split` can purge rows whose label reaches into the next span. The
-    first `WARMUP_BARS` bars and any additional DSHA warm-up bars yield no row,
-    matching live readiness. The last `HORIZON_MINUTES` bars have no label.
-    Perception is resolved from the strategy config; omitted means the EMA default.
+    first `warmup_bars(price_features_config)` bars and any additional DSHA warm-up bars
+    yield no row, matching live readiness. The last `horizon_minutes` bars have no label.
+    Perception, the indicator periods and the horizon come from the strategy config
+    (`config.perception`, `config.price_features`, `config.f7.label_horizon_minutes`);
+    omitted means the documented defaults.
     """
+    periods = price_features_config or PriceFeatureConfig()
     bars = lean_bar_stream(bars)
     directions = _perception_features(bars, perception or PerceptionConfig())
     prices = [mid(bar) for bar in bars]
-    fast = ema_series(prices, EMA_FAST_PERIOD)
-    slow = ema_series(prices, EMA_SLOW_PERIOD)
-    htf = ema_series(prices, EMA_HTF_PERIOD)
-    rsi = rsi_series(prices, RSI_PERIOD)
-    macd = macd_hist_series(prices)
+    fast = ema_series(prices, periods.ema_fast)
+    slow = ema_series(prices, periods.ema_slow)
+    htf = ema_series(prices, periods.ema_higher_tf)
+    rsi = rsi_series(prices, periods.rsi_period)
+    macd = macd_hist_series(prices, periods)
     rows: list[TrainingRow] = []
-    for i in range(WARMUP_BARS, len(bars) - HORIZON_MINUTES):
+    for i in range(warmup_bars(periods), len(bars) - horizon_minutes):
         direction = directions[i]
         if direction is None:
             continue
@@ -286,7 +278,7 @@ def build_training_rows(
         features.update(direction)
         if event_intensity is not None:
             features |= _news_features(event_intensity, bars[i].timestamp + BAR_DURATION)
-        horizon = i + HORIZON_MINUTES
+        horizon = i + horizon_minutes
         rows.append(
             TrainingRow(
                 timestamp=bars[i].timestamp,
@@ -315,6 +307,7 @@ def save_model(
     *,
     data_root: Path,
     inputs: Sequence[Path],
+    horizon_minutes: int = 15,
 ) -> None:
     """Persist `model` as a portable JSON document with its training provenance embedded.
 
@@ -330,7 +323,7 @@ def save_model(
         out_path,
         {
             **provenance,
-            "horizon_minutes": HORIZON_MINUTES,
+            "horizon_minutes": horizon_minutes,
             "inputs": {
                 path.relative_to(data_root).as_posix(): file_digest(path) for path in inputs
             },
