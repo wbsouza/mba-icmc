@@ -19,6 +19,8 @@ build/
 # tracked.
 /.swarmforge/
 /.worktrees/
+/algo-suite/data/
+/algo-suite/data-nas/
 
 # CodeGraph local index state (db, daemon socket/log) — regenerated per
 # machine via `codegraph init`/`codegraph sync`. codegraph.json (the
