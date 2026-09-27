@@ -12,7 +12,7 @@ flowchart TB
     F3["F3 — Pattern filter<br/>reads candlestick_pattern"]
     F4["F4 — News-context filter<br/>reads real GDELT event_intensity<br/>(mandatory) + per-symbol sentiment<br/>(best-effort, TD-48)"]
     F5["F5 — Risk-guard filter<br/>reads account state, positions"]
-    F6["F6 — Capital-management filter<br/>reads ATR, balance, stop distance"]
+    F6["F6 — Capital-management filter<br/>builds the trade plan: stop, lot, targets, trail"]
     F7["F7 — Meta-learner threshold rule<br/>p_hat from trend+indicator+pattern+news"]
     Decision([Decision: BUY / SELL / HOLD<br/>+ full audit trail])
     Veto([NO_TRADE])
@@ -22,7 +22,7 @@ flowchart TB
     F1 -. veto: direction conflict .-> Veto
     F4 -. veto: active high-risk event .-> Veto
     F5 -. veto: risk cap breached .-> Veto
-    F6 -. veto: insufficient margin .-> Veto
+    F6 -. veto: reward:risk below floor / insufficient margin .-> Veto
 
     classDef filter fill:#dff,stroke:#066
     classDef terminus fill:#efe,stroke:#3c3
@@ -47,9 +47,9 @@ and `strategy-config.yaml` next to its results (the YAML is ready to seed a vari
 | F3 pattern | `pattern` | `bullish_patterns`, `bearish_patterns` (optional; default vocabularies) |
 | F4 news context (hybrid only) | `news_context` | `event_intensity_veto_threshold`, `sentiment_direction_threshold` (`null` disables a half) |
 | F5 risk guard | `risk_guard` | `portfolio_at_risk_cap`, `daily_drawdown_limit`, `weekly_drawdown_limit`, `max_concurrent_trades_per_account`, `max_leverage` (`null` disables one) |
-| F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` (required); the A05 trade plan (story 12, all optional): `stop_loss_shrink` 0.0 in [0, 1), `min_stop_pips` 0.0, `targets` `[{at_level_ratio: 2.0, close_fraction: 1.0}]` (levels strictly increasing, fractions sum ≤ 1), `trail_stops` `[]` (`at_level_ratio`, `to_level_ratio`), `min_reward_risk` `null` (= off), `stop_distance_source` `fixed`\|`atr`, `atr_multiplier` 2.0 |
+| F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` (required); the A05 trade plan (story 12, all optional): `stop_loss_shrink` 0.0 in [0, 1), `min_stop_pips` 0.0, `targets` `[{at_level_ratio: 2.0, close_fraction: 1.0}]` (levels strictly increasing, fractions sum ≤ 1), `trail_stops` `[]` (`at_level_ratio`, `to_level_ratio`), `min_stop_factor` 1.0 (× `execution.broker_stop_level_pips`, the higher floor wins), `min_reward_risk` `null` (= off; measured as first-target pips / stop pips), `stop_distance_source` `fixed`\|`atr`\|`swing` (`atr` reads feature `atr_pips` × `atr_multiplier` 2.0; `swing` reads `swing_low_pips` for a long and `swing_high_pips` for a short). F6 enriches `proposed_lot_size` and `trade_plan` — lot from the wider side's stop, per side the stop pips (shrunk, floored), targets and trail steps in pips with the spread added as `rules/trail_stop.py`, and reward:risk — and vetoes below `min_reward_risk` or on insufficient margin |
 | F7 threshold rule | `meta_learner` | `families`, `theta_high`, `theta_low`, `regime_gate`, `label_horizon_minutes` 15 (optional) |
-| Execution (no filter) | `execution` | `spread_pips` 0.0, `commission_per_lot` 0.0, `min_hold_bars` 0 (all optional; the fill costs and holding rule the executor applies, story 12) |
+| Execution (no filter) | `execution` | `spread_pips` 0.0, `commission_per_lot` 0.0, `min_hold_bars` 0, `broker_stop_level_pips` 0.0 (all optional; the fill costs and holding rule the executor applies, story 12; F6 adds the spread to every target/trail level and floors its stop at `min_stop_factor` × the broker stop level) |
 
 `regime_gate: true` is the dissertation's rule (BUY needs F1's bull regime, SELL its
 bear regime); `false` trades on p̂ alone. Since 2026-09-27 (story 09) the bundled

@@ -25,6 +25,7 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
         | ECN commission per lot  | commission_per_lot | 7.0   | spread_pips        | 0.0           |
         | hold at least three bars| min_hold_bars      | 3     | commission_per_lot | 0.0           |
         | integer spread          | spread_pips        | 2     | min_hold_bars      | 0             |
+        | broker stop level       | broker_stop_level_pips | 5.0 | spread_pips      | 0.0           |
 
   Rule: An invalid or unknown value fails fast naming the strategy, section and key
 
@@ -43,4 +44,5 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
         | negative hold               | min_hold_bars      | -1    | execution.min_hold_bars must be an integer >= 0          |
         | fractional hold             | min_hold_bars      | 1.5   | execution.min_hold_bars must be an integer >= 0          |
         | boolean hold                | min_hold_bars      | true  | execution.min_hold_bars must be an integer >= 0          |
+        | negative broker stop level  | broker_stop_level_pips | -1 | execution.broker_stop_level_pips must be >= 0          |
         | unknown key                 | slippage_pips      | 0.3   | execution has unknown keys ['slippage_pips']             |

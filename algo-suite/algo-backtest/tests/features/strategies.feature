@@ -135,7 +135,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       Examples:
         | case                     | section      | key                  | value |
         | stop shrink of 100%      | capital_mgmt | stop_loss_shrink     | 1.0   |
-        | unknown stop source      | capital_mgmt | stop_distance_source | swing |
+        | unknown stop source      | capital_mgmt | stop_distance_source | structural |
         | negative spread          | execution    | spread_pips          | -1    |
         | fractional hold          | execution    | min_hold_bars        | 1.5   |
 

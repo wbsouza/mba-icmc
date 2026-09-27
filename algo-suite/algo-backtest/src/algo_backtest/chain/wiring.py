@@ -12,9 +12,9 @@ the same `price_features()` so train and serve cannot drift.
 Since the 2026-09-27 amendment (story 09) no filter parameter lives here: F4/F5/F6/F7
 read `StrategyChainConfig`'s typed sections, so the bundled `strategies/<name>/config.yaml`
 travels into the LEAN container with the algorithm and is the single source of the run's
-economics (closing `docs/technical-debt.md` TD-43). The F6 sizing inputs are still fixed
-configured values — no ATR indicator is wired (TD-51), so the stop distance is not
-volatility-derived.
+economics (closing `docs/technical-debt.md` TD-43). F6 additionally takes the `execution`
+section's `spread_pips` and `broker_stop_level_pips` (story 12): its trade plan adds the
+spread to every target and trail level and floors the stop at the broker's stop level.
 """
 
 from __future__ import annotations
@@ -214,7 +214,9 @@ _BUILDERS: dict[str, _Builder] = {
         caps=_section(c.risk_guard, "risk_guard", c)
     ),
     "f6_capital_mgmt": lambda c, m, n: CapitalMgmtFilter(
-        risk_per_trade=_section(c.capital_mgmt, "capital_mgmt", c).risk_per_trade
+        config=_section(c.capital_mgmt, "capital_mgmt", c),
+        spread_pips=c.execution.spread_pips,
+        broker_stop_level_pips=c.execution.broker_stop_level_pips,
     ),
     "f7_meta_learner": lambda c, m, n: F7MetaLearnerFilter(
         meta_learner=m, config=_section(c.f7, "meta_learner", c)

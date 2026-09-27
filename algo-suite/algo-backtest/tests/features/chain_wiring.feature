@@ -98,7 +98,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then the chain's filters are "f1_trend, f2_indicator, f3_pattern, f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner"
       And the built F7 filter carries the hybrid config's thresholds and regime gate
       And the built F5 filter carries the hybrid config's risk-guard caps
-      And the built F6 filter carries the hybrid config's risk_per_trade
+      And the built F6 filter carries the hybrid config's capital_mgmt section and execution spread
       And the built F4 filter carries the hybrid config's news-context thresholds
 
     Scenario: F4 without a news index fails fast

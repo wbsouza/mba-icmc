@@ -29,11 +29,14 @@ class ExecutionConfig:
     - ``commission_per_lot``: account-currency fee per 1.0 lot traded, per side.
     - ``min_hold_bars``: bars a position must stay open before an opposite signal may
       close it (0 = a reversal closes immediately).
+    - ``broker_stop_level_pips``: the broker's minimum stop distance (MT4 ``STOP_LEVEL``),
+      in pips; F6 floors its stop at ``capital_mgmt.min_stop_factor`` × this (0 = none).
     """
 
     spread_pips: float = 0.0
     commission_per_lot: float = 0.0
     min_hold_bars: int = 0
+    broker_stop_level_pips: float = 0.0
 
 
 _KEYS = tuple(field.name for field in fields(ExecutionConfig))
@@ -70,6 +73,9 @@ def parse_execution_config(section: Section, *, strategy: str) -> ExecutionConfi
             section, "commission_per_lot", default=0.0, section=_SECTION, strategy=strategy
         ),
         min_hold_bars=_min_hold_bars(section, strategy=strategy),
+        broker_stop_level_pips=require_non_negative(
+            section, "broker_stop_level_pips", default=0.0, section=_SECTION, strategy=strategy
+        ),
     )
 
 

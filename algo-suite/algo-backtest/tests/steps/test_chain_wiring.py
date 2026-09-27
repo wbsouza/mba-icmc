@@ -238,13 +238,15 @@ def _f5_carries_config(wiring_ctx: _WiringCtx) -> None:
     assert built.caps == load_strategy_chain_config("hybrid").risk_guard
 
 
-@then("the built F6 filter carries the hybrid config's risk_per_trade")
+@then("the built F6 filter carries the hybrid config's capital_mgmt section and execution spread")
 def _f6_carries_config(wiring_ctx: _WiringCtx) -> None:
     built = _built(wiring_ctx, CapitalMgmtFilter)
     assert isinstance(built, CapitalMgmtFilter)
-    economics = load_strategy_chain_config("hybrid").capital_mgmt
-    assert economics is not None
-    assert built.risk_per_trade == economics.risk_per_trade
+    config = load_strategy_chain_config("hybrid")
+    assert config.capital_mgmt is not None
+    assert built.config == config.capital_mgmt
+    assert built.spread_pips == config.execution.spread_pips
+    assert built.broker_stop_level_pips == config.execution.broker_stop_level_pips
 
 
 @then("the built F4 filter carries the hybrid config's news-context thresholds")
