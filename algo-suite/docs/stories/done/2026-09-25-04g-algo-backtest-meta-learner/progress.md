@@ -22,6 +22,7 @@
       mutants timed out (real LightGBM/LogisticRegression fits under mutation are slow/
       variable-latency) — new debt TD-50, deferred (needs a file-scoped mutmut timeout or a
       fit-seam refactor, out of this story's differential-pass budget).
+- [x] `lessons-learned.md` written, story moved to `docs/stories/done/`
 
 ## Closure (recorded 2026-09-26)
 
