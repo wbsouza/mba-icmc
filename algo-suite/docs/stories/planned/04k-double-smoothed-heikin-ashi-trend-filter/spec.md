@@ -108,10 +108,16 @@ up    otherwise
 ```
 
 Because the tie (`==`) case is folded into **down**, this is not a symmetric `>`/`<` split: a flat
-reading classifies as down, never as a distinct "neutral". **Do not silently normalize this to a
-symmetric rule** — if the LEAN port wants a true neutral/ABSTAIN state on a tie (which fits this
-workspace's fail-fast/no-silent-default conventions better than MT4's binary up/down), that is a
-deliberate, documented deviation from the source, not a port of it. State the choice either way.
+reading classifies as down, never as a distinct "neutral".
+
+**Decision (2026-09-26): port `>=` byte-exact, do not add an ABSTAIN-on-tie branch.** Checked every
+sibling B-family file (`mtfHasB1.mq4`, `hasGridB1.mq4`, `trendHas.mq4`) — all use the identical
+unremarked `>=` with no comment anywhere justifying it as a trading rule; it reads as the original
+author's unexamined default, not a considered decision. On continuously-moving real price the tie
+is effectively unreachable; it is reachable on an extended flat/no-movement stretch, but there is no
+evidence an ABSTAIN state there is better *or* worse than the ported default — deciding that needs a
+real ablation comparison, not another guess, and this thesis is scoped to defense first. Tracked as
+**TD-61**: implement and empirically compare an ABSTAIN-on-tie variant after the defense, not now.
 
 `hasTrend.mq4` (the trend-gate half) runs `trendMtfHasB1.mq4` at a **configurable higher timeframe**
 (`level` index into `periods[] = {1,5,15,30,60,240,1440,10080,43200}` minutes) and exposes up/down —
@@ -181,20 +187,32 @@ substance here, not left as a vague caveat):
 4. Wire both candidates through `algo-analyze`'s existing ablation-table machinery (already built,
    `docs/stories/done/2026-09-24-ablation-table`) — no new ablation infrastructure needed, just a
    second config variant to run through it.
-5. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
+5. **Train/serve parity (found 2026-09-26, not in the original plan).** `chain/wiring.py`'s
+   `price_features()` is called from exactly two places — `engine/chain_algorithm.py` (live/
+   backtest) and `training.py` (offline F7 training) — and `training.py` does not reuse LEAN
+   indicator objects at all: it hand-reimplements EMA/RSI/MACD in pure Python (`ema_series` etc.,
+   `training.py`) to bit-match LEAN's live values, proven by `feature_parity.feature`. This
+   candidate needs the same pair: the LEAN-native `WilderMovingAverage`/`LinearWeightedMovingAverage`
+   composition for live/backtest (step 1), **plus** a pure-Python offline reimplementation of the
+   same pass-1/HA/pass-2 pipeline for `training.py`, **plus** a `feature_parity.feature`-style
+   scenario proving the two agree — not a smaller task than step 1 itself.
+6. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
    input/output pairs (hand-computed, same style as `trail_stop.feature`), the §2 classification
-   rule's tie-handling (`smoothedFar == smoothedNear` → down, per source — or the documented
-   deviation if ABSTAIN is chosen instead), and a warm-up-period scenario asserting the filter
-   correctly reports "not ready"/abstains rather than emitting a wrong-but-plausible value before
-   enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own bug, see §2).
+   rule's tie-handling (`smoothedFar >= smoothedNear` → down, ported byte-exact per the §2 decision
+   — TD-61 tracks the deferred ABSTAIN-on-tie alternative), and a warm-up-period scenario asserting
+   the filter correctly reports "not ready"/abstains rather than emitting a wrong-but-plausible
+   value before enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own
+   bug, see §2).
 
 ## 5. Open questions
 
 - **~~The exact classification rule~~ — RESOLVED (2026-09-26).** `trendMtfHasB1.mq4` is in the
   checkout (`related-work/projects/fx-manager/metatrader/experts/indicators/trendMtfHasB1.mq4`) and
   its rule is byte-exact, not inferred: down when `smoothedFar >= smoothedNear` (its own buffers 1
-  and 0), up otherwise. See §2. The one thing left to *decide*, not discover: whether the port
-  keeps MT4's fold-tie-into-down behavior or documents a deliberate ABSTAIN-on-tie deviation.
+  and 0), up otherwise. See §2. **Tie-handling decided too:** port `>=` byte-exact (fold tie into
+  down), do not add an ABSTAIN branch now — no sibling B-family file documents a trading rationale
+  for the tie case, and there is no evidence ABSTAIN would be better or worse without an actual
+  ablation run. Tracked as **TD-61** for a post-defense empirical comparison.
 - **~~`spockfx-engine`'s `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
   are now confirmed from primary sources, not guessed: `Heiken_Ashi_Smoothed.mq4`'s own `extern int
   MaPeriod2 = 2` default (the original, human-authored MQL source, not decompiled) is `2`;
@@ -215,12 +233,14 @@ substance here, not left as a vague caveat):
 
 - Double-Smoothed-Heikin-Ashi-based `trend_direction`/`higher_tf_trend_direction` implementation
   built on LEAN's native `WilderMovingAverage`/`LinearWeightedMovingAverage`, not a hand-rolled
-  reimplementation.
+  reimplementation, live/backtest side.
+- A parity-proven pure-Python offline reimplementation of the same pipeline feeding `training.py`
+  (§4 step 5), with a `feature_parity.feature`-style scenario proving live/offline agreement.
 - Config-selectable alongside (not replacing) the default perception source.
 - Wired through the existing ablation-table machinery; at least one ablation run comparing both
   candidates exists.
-- The tie-handling decision and the `period2` choice in §5 are documented (not silently guessed
-  past); the module-location open question is resolved.
+- Tie folds into down, ported byte-exact (§2/§5); TD-61 filed for the deferred ABSTAIN-on-tie
+  comparison. The `period2=2` choice is documented. The module-location open question is resolved.
 - `make check` green.
 - Move to `docs/stories/done/<YYYY-MM-DD>-double-smoothed-heikin-ashi-trend-filter/` with
   `lessons-learned.md`.
