@@ -313,6 +313,42 @@ transformers/torch, FinBERT not built); `algo-backtest` LEAN run via
 pyyaml, typer, plus `algo-score` (no TA-Lib); `algo-analyze` matplotlib, typer
 (statistics in the standard library), plus `algo-backtest`.
 
+### 11.4a `algo-backtest` filter chain — as actually wired (2026-09-26, Spec 04h)
+
+The generic `F1..Fn` sequence diagram in `algo-backtest/SPEC.md` §4.1 is the
+spec-level contract; this is the concrete chain the two shipped strategies build
+from `chain/wiring.py` + `strategies/{baseline,hybrid}/config.yaml` (`extends:`
+composition), run in the pinned LEAN container via `algos/{baseline,hybrid}/main.py`:
+
+```mermaid
+flowchart LR
+    subgraph shared["F1-F3: price-derived (both strategies)"]
+        F1["F1 trend\n(EMA3/8/60 direction+strength)"]
+        F2["F2 indicator\n(RSI/MACD)"]
+        F3["F3 pattern\n(ABSTAIN — no real detector, TD-45)"]
+    end
+    F4["F4 news-context\n(hybrid only — GDELT event veto,\nsentiment ABSTAIN-safe, TD-48)"]
+    subgraph gates["F5-F6: execution-viability gates"]
+        F5["F5 risk-guard\n(placeholder economics, TD-43)"]
+        F6["F6 capital-mgmt\n(placeholder economics, TD-43)"]
+    end
+    F7["F7 meta-learner\n(LightGBM sub-models + logistic combiner,\nterminal BUY/SELL/HOLD)"]
+    AU["decisions.parquet\n(audit trail, joins trades.json by trade_id)"]
+
+    F1 --> F2 --> F3 -->|"baseline"| F5
+    F3 -->|"hybrid"| F4 --> F5
+    F5 --> F6 --> F7 --> AU
+
+    classDef placeholder fill:#fee,stroke:#c33
+    classDef built fill:#dfd,stroke:#060
+    class F3,F5,F6 placeholder
+    class F1,F2,F4,F7 built
+```
+
+`baseline`'s meta-learner is trained on the `{trend, indicator, pattern}` feature
+families; `hybrid`'s adds `news`. Both are smoke-test-verified end to end in the
+real LEAN container, not yet a methodology result (see `ch04-deliverables.md`).
+
 ### 11.5 Dependency boundaries (architecture invariant)
 
 ```mermaid
