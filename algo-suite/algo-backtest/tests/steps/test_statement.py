@@ -237,6 +237,22 @@ def _trade_with_field(st_ctx: dict[str, Any], orders: str, field: str, value: st
     _add_trade_with_fills(st_ctx, trade)
 
 
+@given(parsers.parse('a closed trade with orders {orders} lacking "{key}"'))
+def _trade_lacking(st_ctx: dict[str, Any], orders: str, key: str) -> None:
+    """A consistent ledger trade (fills included) with one required key removed."""
+    trade = _trade(orders, 0, 10000, 1.1, 1.2, 10.0, 0.0)
+    _add_trade_with_fills(st_ctx, trade)
+    del trade[key]
+
+
+@given(parsers.parse("a closed trade with orders {orders} whose {field} holds the JSON {value}"))
+def _trade_with_json_field(st_ctx: dict[str, Any], orders: str, field: str, value: str) -> None:
+    """A ledger trade with one field replaced by a parsed JSON value (a list, null, ...)."""
+    trade = _trade(orders, 0, 10000, 1.1, 1.2, 10.0, 0.0)
+    _add_trade_with_fills(st_ctx, trade)
+    trade[field] = json.loads(value)
+
+
 @given("the closed trades")
 def _trades_table(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
     """Several ledger trades with entry/exit fills consistent with each direction."""
@@ -440,6 +456,11 @@ def _derive_precision(st_ctx: dict[str, Any], prices: str) -> None:
 def _run_cli(st_ctx: dict[str, Any]) -> None:
     run_dir = _materialize(st_ctx)
     st_ctx["cli"] = CliRunner().invoke(app, ["statement", "--run", str(run_dir)])
+
+
+@when(parsers.parse('I run the statement command on the missing run directory "{name}"'))
+def _run_cli_missing(st_ctx: dict[str, Any], tmp_path: Path, name: str) -> None:
+    st_ctx["cli"] = CliRunner().invoke(app, ["statement", "--run", str(tmp_path / name)])
 
 
 @when("I run the statement command on that run directory with an --out directory")

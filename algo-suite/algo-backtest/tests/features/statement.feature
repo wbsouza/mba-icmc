@@ -78,6 +78,27 @@ Feature: End-of-run broker statement and equity chart
         | entryTime | yesterday-ish |
         | exitTime  | 2015-13-45    |
 
+    Scenario Outline: a ledger trade lacking <key> is an incomplete run (fail fast naming the key)
+      Given a closed trade with orders 1,2 lacking "<key>"
+      When I build the statement expecting failure
+      Then the failure names both "trades.json" and "<key>"
+
+      Examples:
+        | key        |
+        | quantity   |
+        | entryPrice |
+        | profitLoss |
+
+    Scenario Outline: a ledger trade whose <field> is <value> cannot be ticketed (<names>)
+      Given a closed trade with orders 1,2 whose <field> holds the JSON <value>
+      When I build the statement expecting failure
+      Then the failure names both "trades.json" and "<names>"
+
+      Examples:
+        | field    | value | names          |
+        | orderIds | []    | empty orderIds |
+        | orderIds | null  | empty orderIds |
+
     Scenario: a trade whose ledger direction contradicts its entry fill is rejected
       Given a closed trade with orders 1,2 direction 0 quantity 1000 entry 1.1 exit 1.2 profit 100 fees 0
       And order 1 filled as "sell" for -1000 units
@@ -149,6 +170,16 @@ Feature: End-of-run broker statement and equity chart
       Given the engine runtime statistics report equity "$10,011.93"
       When I build the statement
       Then the A/C summary shows engine-reported equity "10,011.93"
+
+    Scenario Outline: an engine equity that is not a money amount is rejected (<equity>)
+      Given the engine runtime statistics report equity "<equity>"
+      When I build the statement expecting failure
+      Then the failure names both "Equity" and "money amount"
+
+      Examples:
+        | equity       |
+        | n/a          |
+        | ten thousand |
 
     Scenario: the A/C summary is the broker's two-column block
       When I build the statement
@@ -298,6 +329,12 @@ Feature: End-of-run broker statement and equity chart
       When I build the statement expecting failure
       Then the failure names both "main.json" and "Strategy Equity"
 
+    Scenario: an equity chart without samples has no period end and is rejected
+      Given the engine equity chart rows
+        | unix_seconds | close |
+      When I build the statement expecting failure
+      Then the failure names both "main.json" and "no samples"
+
   Rule: Performance and parameters are quoted with their provenance
 
     Scenario: median holding time is computed from the ledger durations
@@ -369,3 +406,14 @@ Feature: End-of-run broker statement and equity chart
         | artifact    | document | shape |
         | trades.json | {}       | list  |
         | run.json    | []       | dict  |
+
+    Scenario Outline: a run directory that does not exist fails the command naming it (<name>)
+      When I run the statement command on the missing run directory "<name>"
+      Then the statement command exits with code 2
+      And the output names "<name>"
+      And the output names "does not exist"
+
+      Examples:
+        | name                      |
+        | never-ran                 |
+        | 20990101T000000-cafebabe  |

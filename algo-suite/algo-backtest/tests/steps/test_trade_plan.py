@@ -11,10 +11,12 @@ import yaml
 from algo_backtest.engine.trade_plan import (
     DirectionalPlan,
     OpenOrder,
+    PlannedPosition,
     PlanTarget,
     PlanTrailStep,
     TradePlan,
     TradePlanRecord,
+    TrailMove,
     build_record,
     hold_elapsed,
     order_quantity,
@@ -46,6 +48,7 @@ class _PlanCtx:
     features: dict[str, object] = field(default_factory=dict)
     record: TradePlanRecord | None = None
     serialised: dict[str, Any] = field(default_factory=dict)
+    position: PlannedPosition | None = None
 
 
 @pytest.fixture
@@ -238,6 +241,38 @@ def _trail_outcome(plan_ctx: _PlanCtx, outcome: str, new_stop: str, newly_fired:
         assert move.new_stop is None and expected is None
     else:
         assert move.new_stop == pytest.approx(float(expected), abs=1e-9)
+
+
+@given(
+    parsers.parse(
+        "a planned BUY position with stop {stop:g} whose fired steps are {fired}"
+    )
+)
+def _position(plan_ctx: _PlanCtx, stop: float, fired: str) -> None:
+    """The executor's record of one open long trade at 1.10000 (order ids are arbitrary)."""
+    plan = DirectionalPlan(stop_pips=20.0, targets=(), trail_stops=(), reward_risk=None)
+    plan_ctx.position = PlannedPosition(
+        direction=Direction.BUY, plan=plan, entry_price=1.1, entry_bar_index=0,
+        entry_order_id=1, stop_order_id=2, target_order_ids=(), current_stop=stop,
+        fired=frozenset(yaml.safe_load(fired)),
+    )
+
+
+@when(parsers.parse("the trail move firing {fired} with new stop {new_stop} is applied to it"))
+def _apply_move(plan_ctx: _PlanCtx, fired: str, new_stop: str) -> None:
+    assert plan_ctx.position is not None
+    stop = yaml.safe_load(new_stop)
+    move = TrailMove(
+        fired=tuple(yaml.safe_load(fired)), new_stop=None if stop is None else float(stop)
+    )
+    plan_ctx.position.apply(move)
+
+
+@then(parsers.parse("the position's fired steps are {fired} and its stop is {stop:g}"))
+def _position_is(plan_ctx: _PlanCtx, fired: str, stop: float) -> None:
+    assert plan_ctx.position is not None
+    assert plan_ctx.position.fired == frozenset(yaml.safe_load(fired))
+    assert plan_ctx.position.current_stop == pytest.approx(stop, abs=1e-9)
 
 
 # --- hold -------------------------------------------------------------------------------

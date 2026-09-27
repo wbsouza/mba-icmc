@@ -169,6 +169,19 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
       When computing the stop quantity for a remaining position of 0 fails
       Then the trade-plan failure names "needs an open position"
 
+  Rule: The executor's memory of the open trade consumes fired steps and adopts a tightened stop
+
+    Scenario Outline: a planned position applies a trail move (<case>)
+      Given a planned BUY position with stop <stop_before> whose fired steps are <fired_before>
+      When the trail move firing <fired> with new stop <new_stop> is applied to it
+      Then the position's fired steps are <fired_after> and its stop is <stop_after>
+
+      Examples:
+        | case                     | stop_before | fired_before | fired | new_stop | fired_after | stop_after |
+        | first step tightens      | 1.09800     | []           | [0]   | 1.09950  | [0]         | 1.09950    |
+        | armed but looser: consumed only | 1.09800 | [0]        | [1]   | null     | [0, 1]      | 1.09800    |
+        | both steps at once       | 1.09800     | []           | [0, 1]| 1.10050  | [0, 1]      | 1.10050    |
+
   Rule: F6's trade_plan feature is read as typed blocks and its absence is a chain misconfiguration
 
     Scenario: a complete trade_plan feature parses into the long and short plans

@@ -39,6 +39,19 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When the meta-learner is trained twice with random_state 42 on the trend and indicator families
       Then both trained meta-learners predict the same p_hat for the same held-out row
 
+  Rule: train_meta_learner refuses a degenerate fit rather than returning a biased combiner
+
+    Scenario Outline: training fails fast on <case>
+      Given a walk-forward split whose validation labels are <labels>
+      When training the meta-learner on the families <families> fails
+      Then the training failure names "<failure>"
+
+      Examples:
+        | case                          | labels       | families | failure                       |
+        | an all-UP validation span     | [1, 1, 1, 1] | [trend]  | only one label class          |
+        | an all-DOWN validation span   | [0, 0, 0, 0] | [trend]  | only one label class          |
+        | an empty family list          | [1, 0, 1, 0] | []       | at least one feature family   |
+
   Rule: train_meta_learner calibrates the combiner on validation, not train (regression proof)
 
     Scenario: a train/validation split with an inverted trend-label relationship proves validation is used
