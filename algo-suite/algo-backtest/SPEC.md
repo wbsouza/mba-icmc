@@ -50,9 +50,22 @@ the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adap
 `algo-analyze` can refuse an edited sidecar) and `metrics.json` next to LEAN's own result
 JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
 `hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
-`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). The
-`trades.parquet` schema (§6.1), equity-curve export and `parameters.txt` are not built
-yet.
+`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). Every run then
+ends with `statement.md` and `equity.png` (`statement.py`, story 12 item H): a
+retail-FX-style account statement — Closed Transactions (ticket = entry order id, lots =
+quantity / `capital_mgmt.lot_notional_units`, S/L and T/P from `trade-plans.json` when
+the plan-driven executor wrote one, else "—" with an explicit "no trade plan recorded"
+note), Open Trades and Working Orders at the end of the run (from the order events and
+`runtimeStatistics`), an A/C Summary (balance = starting deposit + closed P/L after
+commission; equity = balance + floating P/L; the engine-reported equity is printed next
+to it so a rounding gap is visible; margin is 0.00 when flat, LEAN's `Portfolio Margin`
+sample when current, else "n/a"), Performance (LEAN's `statistics` quoted verbatim plus
+trade count and median holding minutes) and a Parameters table pairing every resolved
+`strategy-config.json` leaf with its `strategy-provenance.json` source — plus a two-panel
+equity/drawdown chart from `charts['Strategy Equity']`. Both are pure derivations of the
+artifacts above (no LEAN import) and `algo-backtest statement --run <dir> [--out DIR]`
+regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
+`parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
 
@@ -140,6 +153,13 @@ algo_backtest/
 ├── metrics.py              # IMPLEMENTED — metrics_from_results()/extract_metrics(): the four
 │                           #   Chapter-4 metrics (total return, Sharpe, max drawdown, hit rate) from
 │                           #   LEAN portfolioStatistics; fail-fast on incomplete results (E2)
+├── statement.py            # IMPLEMENTED — story 12 item H: broker-style end-of-run statement
+│                           #   (statement.md) + equity/drawdown chart (equity.png, matplotlib Agg)
+│                           #   built purely from the run directory's artifacts (run.json,
+│                           #   trades.json, main.json, main-order-events.json, strategy-config/
+│                           #   provenance, optional trade-plans.json); direction 0=buy/1=sell is
+│                           #   cross-checked against each entry fill; write_statement() is called
+│                           #   at the end of `run` and by `algo-backtest statement --run`
 ├── experiment.py           # IMPLEMENTED — Run/Experiment value objects, load_experiment() (closed
 │                           #   schema, fail-fast), run_experiment() (injected runner): deterministic
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json

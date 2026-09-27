@@ -1,0 +1,236 @@
+Feature: End-of-run broker statement and equity chart
+  Every simulation ends with a retail-FX-style account statement (statement.md) and an
+  equity chart (equity.png) built purely from the run directory's artifacts: run.json,
+  trades.json, LEAN's result JSON and its order-events sibling, plus strategy-config.json,
+  strategy-provenance.json and trade-plans.json when present. Nothing is fabricated: a
+  missing optional artifact is stated as absent, a missing required one fails fast
+  naming the file and key.
+
+  Background:
+    Given a run directory for strategy "baseline" on "EURUSD" from "2015-09-01" to "2015-09-30"
+    And the engine reports start equity 10000.00 and end equity 10000.00
+    And the engine equity chart rows
+      | unix_seconds | close    |
+      | 1441065600   | 10000.00 |
+
+  Rule: Closed transactions mirror the trade ledger, direction 0 = buy and 1 = sell
+
+    Scenario Outline: a closed trade becomes one statement row
+      Given the strategy config sets capital_mgmt.lot_notional_units to <lot_units>
+      And a closed trade with orders 1,2 direction <direction> quantity <quantity> entry <entry> exit <exit> profit <profit> fees <fees>
+      And order 1 filled as "<fill_side>" for <fill_quantity> units
+      When I build the statement
+      Then closed transaction 1 shows ticket 1, type "<type>", lots "<lots>", item "EURUSD"
+      And closed transaction 1 shows open price <entry>, close price <exit>, commission "<commission>", swap "0.00", P/L "<pl>"
+
+      Examples:
+        | lot_units | direction | quantity | entry   | exit    | profit  | fees | fill_side | fill_quantity | type | lots | commission | pl      |
+        | 100000    | 0         | 44094    | 1.13115 | 1.13129 | 6.17    | 0.0  | buy       | 44094         | buy  | 0.44 | 0.00       | 6.17    |
+        | 100000    | 1         | 45896    | 1.08668 | 1.08645 | 10.56   | 0.0  | sell      | -45896        | sell | 0.46 | 0.00       | 10.56   |
+        | 100000    | 0         | 250000   | 1.10000 | 1.09800 | -500.00 | 7.5  | buy       | 250000        | buy  | 2.50 | -7.50      | -500.00 |
+        | absent    | 1         | 45896    | 1.08668 | 1.08645 | 10.56   | 0.0  | sell      | -45896        | sell | —    | 0.00       | 10.56   |
+
+    Scenario: a trade whose ledger direction contradicts its entry fill is rejected
+      Given a closed trade with orders 1,2 direction 0 quantity 1000 entry 1.1 exit 1.2 profit 100 fees 0
+      And order 1 filled as "sell" for -1000 units
+      When I build the statement expecting failure
+      Then the failure names both "trades.json" and "direction"
+
+    Scenario: an unknown ledger direction is rejected, not guessed
+      Given a closed trade with orders 1,2 direction 2 quantity 1000 entry 1.1 exit 1.2 profit 100 fees 0
+      And order 1 filled as "buy" for 1000 units
+      When I build the statement expecting failure
+      Then the failure names both "trades.json" and "direction"
+
+    Scenario: the totals row sums commission, swap and P/L over every closed trade
+      Given the closed trades
+        | orders | direction | quantity | entry   | exit    | profit  | fees |
+        | 1,2    | 0         | 10000    | 1.10000 | 1.10100 | 10.00   | 1.0  |
+        | 3,4    | 1         | 10000    | 1.10200 | 1.10300 | -10.00  | 1.0  |
+        | 5,6    | 0         | 20000    | 1.10000 | 1.10500 | 100.00  | 2.0  |
+      When I build the statement
+      Then the statement lists 3 closed transactions
+      And the totals row shows commission "-4.00", swap "0.00" and P/L "100.00"
+
+  Rule: The A/C summary is arithmetic over the artifacts
+
+    Scenario Outline: balance and equity follow from the start deposit, closed P/L and floating P/L
+      Given the engine reports start equity <start> and end equity <end>
+      And the closed trades
+        | orders | direction | quantity | entry | exit | profit   | fees   |
+        | 1,2    | 0         | 10000    | 1.1   | 1.2  | <profit> | <fees> |
+      And the engine runtime statistics report holdings "<holdings>" and unrealized "<unrealized>"
+      And order 1 filled as "buy" for 10000 units
+      And order 2 filled as "sell" for <exit_units> units
+      When I build the statement
+      Then the A/C summary shows previous ledger balance "<start_fmt>", closed trade P/L "<closed>", balance "<balance>", floating P/L "<floating>" and equity "<equity>"
+      And the A/C summary shows deposit/withdrawal "0.00"
+
+      Examples:
+        | start    | end      | profit  | fees | holdings  | unrealized | exit_units | start_fmt | closed  | balance   | floating | equity    |
+        | 10000.00 | 10250.00 | 250.00  | 0.0  | $0.00     | $0.00      | -10000     | 10,000.00 | 250.00  | 10,250.00 | 0.00     | 10,250.00 |
+        | 10000.00 | 9700.00  | -295.00 | 5.0  | $0.00     | $0.00      | -10000     | 10,000.00 | -300.00 | 9,700.00  | 0.00     | 9,700.00  |
+        | 100000   | 100011.9 | 11.93   | 0.0  | $5,000.00 | $-12.50    | -5000      | 100,000.00| 11.93   | 100,011.93| -12.50   | 99,999.43 |
+
+    Scenario: the engine-reported equity is printed next to the computed one
+      Given the engine runtime statistics report equity "$10,011.93"
+      When I build the statement
+      Then the A/C summary shows engine-reported equity "10,011.93"
+
+    Scenario Outline: margin requirement is zero when flat, else the engine's current sample or n/a
+      Given the engine runtime statistics report holdings "<holdings>" and unrealized "<unrealized>"
+      And <position>
+      And the portfolio margin chart is <margin_chart>
+      When I build the statement
+      Then the A/C summary shows margin requirement "<requirement>" and available margin "<available>"
+
+      Examples:
+        | holdings  | unrealized | position                                | margin_chart                                 | requirement | available |
+        | $0.00     | $0.00      | no order ever filled                    | at 12.5 percent sampled after the last fill  | 0.00        | 10,000.00 |
+        | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | absent                                       | n/a         | n/a       |
+        | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | empty                                        | n/a         | n/a       |
+        | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | at 12.5 percent sampled after the last fill  | 1,248.44    | 8,739.06  |
+        | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | at 12.5 percent sampled before the last fill | n/a         | n/a       |
+
+  Rule: Trade plans are joined by entry order id and never fabricated
+
+    Scenario: stop and target levels come from the recorded trade plan
+      Given the closed trades
+        | orders | direction | quantity | entry   | exit    | profit | fees |
+        | 1,2    | 0         | 10000    | 1.10000 | 1.10100 | 10.00  | 0.0  |
+        | 3,4    | 1         | 10000    | 1.10200 | 1.10300 | -10.00 | 0.0  |
+      And the trade plans
+        | entry_order_id | direction | stop_loss | take_profits    |
+        | 1              | buy       | 1.09800   | 1.10200,1.10400 |
+      When I build the statement
+      Then closed transaction 1 shows S/L "1.09800" and T/P "1.10200 / 1.10400"
+      And closed transaction 2 shows S/L "—" and T/P "—"
+      And the statement does not say "no trade plan recorded for this run"
+
+    Scenario: without trade-plans.json the S/L and T/P columns are explicitly absent
+      Given a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
+      And order 1 filled as "buy" for 10000 units
+      When I build the statement
+      Then closed transaction 1 shows S/L "—" and T/P "—"
+      And the statement says "no trade plan recorded for this run"
+
+  Rule: Open trades and working orders reflect the end-of-run position and order book
+
+    Scenario: a flat account lists no open trades and no working orders
+      When I build the statement
+      Then the open trades section says "No transactions"
+      And the working orders section says "No transactions"
+
+    Scenario: a position still open at the end is listed with its floating P/L
+      Given the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And the engine runtime statistics report holdings "$5,433.40" and unrealized "$-12.50"
+      And order 7 filled as "sell" for -5000 units
+      When I build the statement
+      Then the open trades section lists 1 position of type "sell", 5000 units, lots "0.05", holdings "5,433.40" and floating P/L "-12.50"
+
+    Scenario: a stop order still pending at the end is a working order
+      Given order 9 was submitted as "sell" for -10000 units and never filled
+      And the engine order book prices order 9 at stop 1.09500
+      When I build the statement
+      Then the working orders section lists ticket 9 of type "sell", 10000 units, status "submitted", price "1.09500"
+
+    Scenario: an order the engine rejected is not a working order
+      Given order 9 was submitted as "sell" for -10000 units and then marked "invalid"
+      When I build the statement
+      Then the working orders section says "No transactions"
+
+    Scenario: a run with closed trades but no order-events file is rejected
+      Given a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
+      And the order-events file is missing
+      When I build the statement expecting failure
+      Then the failure names "main-order-events.json"
+
+  Rule: Equity and drawdown series are read from the engine's equity chart
+
+    Scenario: the equity series keeps each candle's close in UTC order
+      Given the engine equity chart rows
+        | unix_seconds | close    |
+        | 1441065600   | 10000.00 |
+        | 1441065900   | 10010.00 |
+        | 1441066200   | 9990.00  |
+      When I read the equity series
+      Then the equity series is
+        | time                      | equity   |
+        | 2015-09-01T00:00:00+00:00 | 10000.00 |
+        | 2015-09-01T00:05:00+00:00 | 10010.00 |
+        | 2015-09-01T00:10:00+00:00 | 9990.00  |
+
+    Scenario Outline: drawdown is the percentage below the running peak
+      When I compute drawdowns for the equity values <equity>
+      Then the drawdowns are <drawdowns>
+
+      Examples:
+        | equity                        | drawdowns              |
+        | 100,110,99,120,90             | 0,0,10,0,25            |
+        | 100,100,100                   | 0,0,0                  |
+        | 50,25                         | 0,50                   |
+
+    Scenario: a result without the Strategy Equity chart is rejected
+      Given the engine result has no equity chart
+      When I build the statement expecting failure
+      Then the failure names both "main.json" and "Strategy Equity"
+
+  Rule: Performance and parameters are quoted with their provenance
+
+    Scenario: median holding time is computed from the ledger durations
+      Given the closed trades with durations
+        | orders | duration   |
+        | 1,2    | 00:14:00   |
+        | 3,4    | 1.02:00:00 |
+        | 5,6    | 00:09:00   |
+      When I build the statement
+      Then the performance section shows median holding "14.0" minutes and trades "3"
+
+    Scenario: every strategy parameter is listed with the config.yaml that set it
+      Given the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And the strategy config sets meta_learner.regime_gate to false
+      And the strategy provenance maps "capital_mgmt.lot_notional_units" to "baseline/config.yaml"
+      And the run params include "cash" = "10000"
+      When I build the statement
+      Then the parameters table has row "capital_mgmt.lot_notional_units" = "100000" from "baseline/config.yaml"
+      And the parameters table has row "meta_learner.regime_gate" = "false" from "unknown"
+      And the parameters table has row "cash" = "10000" from "--param"
+
+    Scenario: a code-registered strategy without strategy-config.json says so
+      Given the run params include "size" = "0.5"
+      When I build the statement
+      Then the statement says "no strategy-config.json recorded for this run"
+      And the parameters table has row "size" = "0.5" from "--param"
+
+  Rule: The statement command regenerates both files for an existing run
+
+    Scenario: the command writes statement.md and equity.png into the run directory
+      Given a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
+      And order 1 filled as "buy" for 10000 units
+      When I run the statement command on that run directory
+      Then the statement command exits with code 0
+      And the run directory contains "statement.md" and "equity.png"
+      And the output prints the A/C summary balance "10,010.00" and both file paths
+
+    Scenario: --out redirects both files to another directory
+      When I run the statement command on that run directory with an --out directory
+      Then the statement command exits with code 0
+      And the --out directory contains "statement.md" and "equity.png"
+
+    Scenario Outline: a missing required artifact fails the command naming the file
+      Given the run directory lacks "<artifact>"
+      When I run the statement command on that run directory
+      Then the statement command exits with code 2
+      And the output names "<artifact>"
+
+      Examples:
+        | artifact    |
+        | run.json    |
+        | trades.json |
+        | main.json   |
+
+    Scenario: a corrupt artifact fails the command naming the file
+      Given the run directory's "trades.json" is corrupt
+      When I run the statement command on that run directory
+      Then the statement command exits with code 2
+      And the output names "trades.json"
