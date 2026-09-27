@@ -8,7 +8,7 @@ Wave 1 (parallel worktrees, merged by the lead):
 - [x] H — end-of-run broker-style `statement.md` + `equity.png`, `algo-backtest statement --run` for existing runs
 
 Wave 2:
-- [ ] B — F6 builds the trade plan (stop, lot, targets, trail, reward:risk veto)
+- [x] B — F6 builds the trade plan (stop, lot, targets, trail, reward:risk veto)
 - [ ] D — executor places sized market + stop + target orders, partial close, trail, min hold; `size` dropped
 
 Wave 3 (lead):
