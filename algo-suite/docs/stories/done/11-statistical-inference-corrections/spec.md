@@ -1,6 +1,6 @@
 # Story 11 — Correct DSR and time-series significance inference
 
-**Status:** planned, September 26, 2026.
+**Status:** done, September 27, 2026.
 **Priority:** high; blocks statistical-significance claims in Chapter 4.
 **Tools:** `algo-analyze`; `algo-backtest` only where additional return artifacts
 are necessary. Training and pilot simulations can continue independently.

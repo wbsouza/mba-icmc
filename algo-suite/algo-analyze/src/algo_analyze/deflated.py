@@ -1,137 +1,105 @@
-"""Deflated Sharpe ratio statistics."""
+"""Bailey–López de Prado (2014), Eq. 2; nonannualized Sharpe, Pearson kurtosis."""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
-from statistics import NormalDist
-
-_EULER_MASCHERONI = 0.5772156649015329
+from statistics import NormalDist, mean, stdev
 
 
-@dataclass(frozen=True)
-class _DeflatedSharpeInputs:
-    """Validated closed-form inputs for the deflated Sharpe statistic."""
+class InferenceUnavailable(ValueError):
+    """Valid artifacts cannot support the requested inference."""
 
-    observed_sharpe: float
-    n_returns: int
-    skew: float
-    kurtosis: float
-    n_trials: int
+
+def return_moments(returns: Sequence[float]) -> dict[str, float | int]:
+    """Estimate sample Sharpe (ddof=1), and uncorrected standardized central moments."""
+    if len(returns) < 4 or not all(math.isfinite(x) for x in returns):
+        raise ValueError("moments require at least four finite daily returns")
+    centered, average, scale = _scaled_center(returns)
+    variance = mean([x**2 for x in centered])
+    sharpe = (average / scale) / stdev(centered)
+    return {
+        "observed_sharpe": sharpe,
+        "n_returns": len(returns),
+        "skew": mean([x**3 for x in centered]) / variance**1.5,
+        "kurtosis": mean([x**4 for x in centered]) / variance**2,
+    }
+
+
+def _scaled_center(returns: Sequence[float]) -> tuple[list[float], float, float]:
+    """Normalize centered returns before powers to avoid finite-input overflow/underflow."""
+    average = mean(returns)
+    scale = max(abs(x - average) for x in returns)
+    if not math.isfinite(scale):
+        raise ValueError("return centering overflow; use finite representable returns")
+    if scale == 0:
+        raise InferenceUnavailable("zero return variance; Sharpe and moments undefined")
+    centered = [(x - average) / scale for x in returns]
+    return centered, average, scale
+
+
+def selection_threshold(n_trials: int, trial_sharpe_std: float | None) -> float:
+    """Expected maximum using across-trial Sharpe SD and registered effective trial count."""
+    if type(n_trials) is not int or n_trials < 1:
+        raise ValueError("n_trials must be a positive integer")
+    _validate_dispersion(trial_sharpe_std)
+    if n_trials == 1:
+        return 0.0
+    if trial_sharpe_std is None:
+        raise InferenceUnavailable("multi-trial DSR requires across-trial Sharpe dispersion")
+    normal = NormalDist()
+    gamma = 0.5772156649015329
+    threshold = trial_sharpe_std * (
+        (1 - gamma) * normal.inv_cdf(1 - 1 / n_trials)
+        + gamma * normal.inv_cdf(1 - 1 / (n_trials * math.e))
+    )
+    if not math.isfinite(threshold):
+        raise ValueError("selection threshold must be finite")
+    return threshold
+
+
+def _validate_dispersion(trial_sharpe_std: float | None) -> None:
+    """Reject malformed or negative trial dispersion before special-casing one trial."""
+    if trial_sharpe_std is not None and (
+        isinstance(trial_sharpe_std, bool)
+        or not isinstance(trial_sharpe_std, int | float)
+        or not math.isfinite(trial_sharpe_std)
+        or trial_sharpe_std < 0
+    ):
+        raise ValueError("trial_sharpe_std must be finite and nonnegative")
 
 
 def deflated_sharpe(
     *,
-    observed_sharpe: float | None = None,
-    n_returns: int | None = None,
-    skew: float = 0.0,
-    kurtosis: float = 3.0,
-    n_trials: int = 1,
-    returns: Sequence[float] | None = None,
-) -> float:
-    """Return the Bailey-Lopez de Prado deflated Sharpe ratio.
-
-    Args:
-        observed_sharpe: Naive Sharpe ratio observed after strategy search.
-        n_returns: Number of trade returns used to estimate the observed Sharpe.
-        skew: Return distribution skewness.
-        kurtosis: Return distribution kurtosis.
-        n_trials: Number of independent strategy trials considered.
-        returns: Optional raw trade returns. When provided, they are validated for
-            zero variance and can supply `observed_sharpe`/`n_returns`.
-
-    Raises:
-        ValueError: inputs are non-finite, underspecified, or imply an invalid
-            Sharpe standard error.
-    """
-    inferred_sharpe, inferred_count = _infer_sharpe_from_returns(returns)
-    sharpe = inferred_sharpe if observed_sharpe is None else observed_sharpe
-    count = inferred_count if n_returns is None else n_returns
-    inputs = _validated_inputs(sharpe, count, skew, kurtosis, n_trials)
-    if inputs.n_trials == 1:
-        return inputs.observed_sharpe
-    return inputs.observed_sharpe - _sharpe_standard_error(
-        inputs.observed_sharpe, inputs.n_returns, inputs.skew, inputs.kurtosis
-    ) * _expected_max_z(inputs.n_trials)
-
-
-def _infer_sharpe_from_returns(returns: Sequence[float] | None) -> tuple[float | None, int | None]:
-    """Validate optional raw returns and infer Sharpe/count when present."""
-    if returns is None:
-        return None, None
-    values = [float(value) for value in returns]
-    if len(values) < 2:
-        raise ValueError(
-            "returns must contain at least two observations; provide more trade returns"
-        )
-    if not all(math.isfinite(value) for value in values):
-        raise ValueError("returns must be finite; remove NaN or infinite trade returns")
-    mean = sum(values) / len(values)
-    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
-    if variance == 0.0:
-        raise ValueError(
-            "returns have zero variance; provide varying trade returns or pass a "
-            "precomputed observed_sharpe with n_returns"
-        )
-    return mean / math.sqrt(variance), len(values)
-
-
-def _validated_inputs(
-    observed_sharpe: float | None,
-    n_returns: int | None,
+    observed_sharpe: float,
+    n_returns: int,
     skew: float,
     kurtosis: float,
     n_trials: int,
-) -> _DeflatedSharpeInputs:
-    """Return validated closed-form inputs or fail fast when undefined."""
-    if observed_sharpe is None:
-        raise ValueError("observed_sharpe is required when returns are not provided")
-    if n_returns is None:
-        raise ValueError("n_returns is required when returns are not provided")
-    if n_returns < 2:
-        raise ValueError("n_returns must be at least 2 to estimate Sharpe uncertainty")
-    if n_trials < 1:
-        raise ValueError("n_trials must be at least 1")
-    values = {
-        "observed_sharpe": observed_sharpe,
-        "skew": skew,
-        "kurtosis": kurtosis,
-    }
-    for name, value in values.items():
-        if not math.isfinite(value):
-            raise ValueError(f"{name} must be finite; got {value!r}")
-    if _variance_term(observed_sharpe, skew, kurtosis) <= 0.0:
-        raise ValueError(
-            "observed_sharpe, skew, and kurtosis imply non-positive Sharpe variance; "
-            "check the input moments"
-        )
-    return _DeflatedSharpeInputs(
-        observed_sharpe=observed_sharpe,
-        n_returns=n_returns,
-        skew=skew,
-        kurtosis=kurtosis,
-        n_trials=n_trials,
-    )
-
-
-def _sharpe_standard_error(
-    observed_sharpe: float, n_returns: int, skew: float, kurtosis: float
+    trial_sharpe_std: float | None,
+    provenance: str,
 ) -> float:
-    """Return the standard error of the observed Sharpe estimate."""
-    return math.sqrt(_variance_term(observed_sharpe, skew, kurtosis) / (n_returns - 1))
+    """Compute classical DSR probability; serial-dependence validity is not established."""
+    if not provenance.strip():
+        raise InferenceUnavailable("selection history provenance is required")
+    if type(n_returns) is not int or n_returns < 4:
+        raise ValueError("n_returns must be an integer of at least four")
+    if not all(math.isfinite(x) for x in (observed_sharpe, skew, kurtosis)):
+        raise ValueError("Sharpe and moments must be finite")
+    if kurtosis < 1 + skew * skew - 1e-12:
+        raise ValueError("Pearson kurtosis must be at least 1 + skew squared")
+    threshold = selection_threshold(n_trials, trial_sharpe_std)
+    variance = _sampling_variance(observed_sharpe, skew, kurtosis)
+    z = (observed_sharpe - threshold) * math.sqrt((n_returns - 1) / variance)
+    return NormalDist().cdf(z)
 
 
-def _variance_term(observed_sharpe: float, skew: float, kurtosis: float) -> float:
-    """Return the numerator of the Sharpe standard-error expression."""
-    return 1.0 - skew * observed_sharpe + ((kurtosis - 1.0) / 4.0) * observed_sharpe**2
-
-
-def _expected_max_z(n_trials: int) -> float:
-    """Approximate the expected maximum of N independent standard-normal trials."""
-    if n_trials == 1:
-        return 0.0
-    normal = NormalDist()
-    return (1.0 - _EULER_MASCHERONI) * normal.inv_cdf(
-        1.0 - 1.0 / n_trials
-    ) + _EULER_MASCHERONI * normal.inv_cdf(1.0 - 1.0 / (n_trials * math.e))
+def _sampling_variance(observed_sharpe: float, skew: float, kurtosis: float) -> float:
+    """Reject nonrepresentable sampling variances rather than emit a false probability."""
+    try:
+        variance = 1 - skew * observed_sharpe + (kurtosis - 1) * observed_sharpe**2 / 4
+    except OverflowError as exc:
+        raise ValueError("DSR sampling variance overflow") from exc
+    if not math.isfinite(variance) or variance <= 0:
+        raise ValueError("DSR sampling variance must be finite and positive")
+    return variance

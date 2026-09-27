@@ -1,197 +1,138 @@
 # Spec — algo-analyze
 
-## 1. Purpose & scope
+## 1. Purpose and scope
 
-`algo-analyze` is the final pipeline stage: it reads `algo-backtest` run artifacts and
-`algo-backtest experiment run` manifests, and produces the evaluation artifacts Chapter 4
-of the thesis cites — headline + deflated Sharpe, the Monte-Carlo Permutation Test,
-ablation comparison tables, thesis figures, and the cross-experiment summary CSV.
+Read completed backtest artifacts and experiment manifests to produce descriptive
+metrics, probability-valued DSR, paired mean-return inference, ablation tables,
+trade-sequence figures and summary CSV. Run artifacts and frozen models are read-only.
+The [experiment plan](../docs/experiments.md) maps reports to Chapter 4; statistical
+software completion alone does not authorize empirical claims.
 
-It is read-only over run outputs; it never trades, scores or transforms. It turns runs
-into the numbers and figures the experimental chapter needs, per `docs/experiments.md`
-(the authoritative experiment → command → Chapter-4-artifact contract).
+Schema 2 replaces the legacy Sharpe adjustment and default pooled-trade shuffle.
+Historical outputs remain exploratory and are never relabeled as corrected.
+The [README](README.md) defines exact JSON input examples and usage.
 
-Out of scope: producing runs (that is `algo-backtest`); live monitoring; the
-`decisions.parquet`/`trade_id` forensics join (per-filter contribution on losing trades —
-not built yet; the `algo-backtest` filter chain and `decisions.parquet` it needs now exist,
-see §10).
+## 2. Inputs and outputs
 
-## 2. Inputs & outputs
+| Command | Inputs | Output |
+| --- | --- | --- |
+| `metrics` | `metrics.json`, actual engine `main.json`, `run.json`, explicit `inference-inputs.json`, optional selection manifest | Schema-v2 descriptive metrics, daily moments, `deflated_sharpe_probability`, provenance or unavailable reason |
+| `significance` | Two runs with compatible portfolio contracts, declared primary/sensitivity block lengths and rule | Schema-v2 paired mean effect, compatible confidence interval, p-value and resampling metadata for every setting |
+| `inference-inventory` | Saved `runs/**/metrics.json` | Correctability inventory with missing prerequisites; no writes to historical artifacts |
+| `summary` | `experiment.json` manifests | One deterministic CSV row per successful run |
+| `ablation` | Completed run manifests and metrics | Total-return differences against a baseline, optionally a vector PDF |
+| `figures` | `trades.json` per-trade notional returns | Descriptive trade-sequence equity/drawdown PDFs, not portfolio return sources |
 
-| Direction | Item | Form |
-|---|---|---|
-| In | one run | `<data_root>/runs/<run-id>/` (`run.json` manifest, `trades.json` ledger, `metrics.json`) |
-| In | many runs | for `ablation`/`significance`, each under its own `<data_root>/runs/<run-id>/` |
-| In | experiment manifests | `<data_root>/runs/experiments/<experiment>/experiment.json` (or `experiment-error.json` for a failed experiment) |
-| Out | `summary` | one CSV row per successful run across every experiment (Stage F2) |
-| Out | `metrics` | headline metrics (`algo_backtest.metrics.Metrics`) + deflated Sharpe + plausibility flags, one run |
-| Out | `significance` | Monte-Carlo Permutation Test p-value between two runs' trade-return samples |
-| Out | `ablation` | per-run contribution table (total-return delta against a baseline), optionally a bar-chart PDF |
-| Out | `figures` | equity-curve and drawdown-curve vector PDFs for one run |
+Headline metrics use `algo_backtest.metrics.metrics_from_artifact`. Their annualized
+Sharpe and trade counts never enter inferential moments. Unequal trade counts do not
+prevent a valid paired portfolio comparison.
 
-Headline metrics come from `<run-id>/metrics.json` (`algo_backtest.metrics.metrics_from_artifact`),
-not by recomputing from the trade ledger. Per-trade fractional returns (used by
-`metrics`'s deflation, `significance`'s two-sample test, and `figures`'s curves) come from
-`<run-id>/trades.json`, read by the single shared reader `algo_analyze._trades.trade_returns`
-— one implementation, reused everywhere a run's return series is needed, so the three
-callers can't drift on what counts as a valid trade return.
-
-## 3. Architecture & libraries
-
-- **algo_backtest.metrics** — headline `Metrics` (total_return, sharpe, max_drawdown,
-  hit_rate) and its artifact readers; `algo-analyze` reuses these rather than
-  recomputing them.
-- **typer** / **structlog** — CLI + structured logging, mirroring every other tool's
-  `cli.py`/`config.py` shape (`algo_core.config.resolve` for the data root, logs to
-  stderr via `algo_core.logging.configure_logging`).
-- **Pure stdlib (`math`, `statistics.NormalDist`)** — the deflated Sharpe closed-form
-  correction (`deflated.py`) and the Monte-Carlo Permutation Test (`significance.py`)
-  need no numerical-computing dependency.
-- **matplotlib** — equity curve, drawdown curve, ablation bars; vector PDF output sized
-  for the LaTeX thesis (`\includegraphics`), shared style pack in `_style.py`.
-- **algo-core** — config resolution, data-root layout, atomic writes, shared logging.
-
-```
-algo_analyze/
-├── cli.py          # algo-analyze summary|metrics|significance|ablation|figures — IMPLEMENTED
-├── config.py       # IMPLEMENTED — load_analyze_config(): data_root via shared resolve
-├── summary.py      # IMPLEMENTED (F2) — union experiment.json manifests → summary.csv
-├── deflated.py      # IMPLEMENTED — Bailey–López de Prado deflated Sharpe (pure function)
-├── significance.py  # IMPLEMENTED — Aronson-style Monte-Carlo Permutation Test
-├── ablation.py       # IMPLEMENTED — cross-run total-return contribution table
-├── figures.py         # IMPLEMENTED — equity/drawdown/ablation-bars vector PDF renderers
-├── _trades.py           # IMPLEMENTED — shared trades.json → fractional-return reader
-├── _style.py              # IMPLEMENTED — shared matplotlib style pack
-└── audit.py                # NOT BUILT — trade_id forensics join over decisions.parquet (§10)
-```
-
-## 4. Diagrams
-
-### 4.1 Sequence — `algo-analyze metrics`
+## 3. Architecture
 
 ```mermaid
-sequenceDiagram
-    participant U as Operator (CLI)
-    participant A as algo-analyze cli.py
-    participant M as algo_backtest.metrics
-    participant T as trades.json
-    participant D as deflated.py
-    participant OUT as stdout (JSON)
-
-    U->>A: algo-analyze metrics --run 2026-05-23-01 --trials 50
-    A->>M: metrics_from_artifact(run_dir/metrics.json)
-    M-->>A: Metrics(total_return, sharpe, max_drawdown, hit_rate)
-    A->>T: trade_returns(run_dir)
-    T-->>A: [r_1, ..., r_n]
-    alt n_trades >= 2
-        A->>D: deflated_sharpe(observed_sharpe, n_returns=n, n_trials)
-        D-->>A: deflated value
-        A->>A: flag if deflated > 2.0 (docs/experiments.md §7.1)
-    else n_trades < 2
-        A->>A: deflated_sharpe = null, explicit note
-    end
-    A->>OUT: headline + deflated_sharpe + flags (JSON)
+flowchart TD
+    CLI[cli.py] --> Reports[reports.py: schema-v2 orchestration]
+    Reports --> Portfolio[portfolio.py: equity, metadata, alignment]
+    Reports --> DSR[deflated.py: moments and probability]
+    Reports --> Bootstrap[significance.py: stationary bootstrap]
+    Reports --> Metrics[algo_backtest.metrics: descriptive metrics]
+    Portfolio --> Engine[main.json + run.json + inference-inputs.json]
+    CLI --> Descriptive[summary / ablation / figures]
+    Descriptive --> Ledger[trade ledger and experiment manifests]
 ```
 
-### 4.2 State — a run's evaluation lifecycle
+Numerical modules contain no CLI, backtest or filesystem dependencies. The portfolio
+reader has no reporting or CLI dependency. Reports compose readers and numerical
+methods; the CLI resolves configuration, catches diagnostics and serializes output.
+The gauntlet architecture/CRAP checker enforces these boundaries.
 
-```mermaid
-stateDiagram-v2
-    [*] --> RunLoaded
-    RunLoaded --> NoTrades: trades.json empty
-    RunLoaded --> HasTrades: closed trades present
-    NoTrades --> Reported: zero-trade metrics (no crash)
-    HasTrades --> MetricsComputed
-    MetricsComputed --> TooFewForDeflation: n_trades < 2
-    MetricsComputed --> Deflated: n_trades >= 2
-    TooFewForDeflation --> Reported: undeflated + note
-    Deflated --> FlaggedIfImplausible
-    FlaggedIfImplausible --> Reported
-    Reported --> [*]
+Libraries: NumPy for resampling; stdlib `statistics.NormalDist` for the classical
+DSR expression; Typer/structlog for CLI/logging; matplotlib for vector figures;
+`algo-core` for shared configuration. Legacy IID testing lives only in explicitly
+opt-in `legacy_iid.py`; it is never selected by the inference CLI.
+
+## 4. Portfolio-return contract
+
+The explicit contract records main.json source, calendar-day frequency, UTC timezone,
+365 periods/year, zero daily risk-free return, cost convention, pair and complete
+run window. Start is the initial midnight endpoint; end is the midnight immediately
+after the inclusive `run.json` end date. Successful run identity must match.
+
+Read actual marked-to-market `charts/Strategy Equity/series/Equity/values`, using
+line values or candle close values. Require ordered unique finite positive equity
+and every exact daily boundary, including recorded flat periods. Derive simple net
+portfolio returns, reject nonfinite derived values, and align by timestamps plus
+pair/window/cost conventions. No imputation, trade-index pairing or array truncation.
+Missing endpoints make inference unavailable. Simulation reruns may be necessary
+when engine export is insufficient; model retraining is not required for analysis
+correction alone. Record source, manifest and metadata SHA-256 hashes.
+
+## 5. Statistical methods
+
+DSR implements Bailey–López de Prado (2014), Eq. 2:
+
+`Phi((SR-SR0)*sqrt(T-1)/sqrt(1-skew*SR+(kurtosis-1)*SR*SR/4))`.
+
+SR is mean divided by sample SD (ddof1). Skew and Pearson kurtosis are uncorrected
+central moments m3/m2^1.5 and m4/m2^2 from that same daily return series. T is its
+length. SR0 uses across-trial nonannualized Sharpe SD and registered effective
+independent-trial count. Preserve actual variants, interim looks and provenance;
+never default missing history to one trial. Explicit N=1 uses PSR against zero,
+including 0.5 at SR=0. Invalid moments/counts/variance fail. Classical DSR assumptions
+do not establish validity under arbitrary serial dependence.
+
+The default comparison is the Politis–Romano (1994) stationary bootstrap of paired,
+null-centered daily return differences, challenger minus baseline. Geometric block
+lengths have declared expectation; circular within-block ordering and common indices
+preserve pairing. The estimand is mean net return, null zero, two-sided. The plus-one
+absolute-tail p-value and symmetric confidence interval invert the same empirical
+error distribution. They do not test Sharpe superiority. Require at least 30 returns
+and ten expected blocks. Constant differences yield unavailable uncertainty.
+
+Register primary and sensitivity block lengths before examining evaluation outcomes;
+record all outcomes, block rule, seed, resamples, observations and expected blocks.
+Stationarity, weak dependence and finite moments remain explicit assumptions.
+[Story 11](../docs/stories/done/11-statistical-inference-corrections/method-design.md)
+contains primary sources, independent references and a registered simulation study.
+
+## 6. CLI
+
+```sh
+algo-analyze summary [--out path.csv]
+algo-analyze metrics --run ID [--selection selection.json]
+algo-analyze significance --runs BASE --runs CHALLENGER --block-length 20 \
+  --block-length 10 --block-length 40 --block-rule registered-development-rule \
+  --resamples 999 --seed 42
+algo-analyze inference-inventory
+algo-analyze ablation --runs BASE --runs CHALLENGER [--baseline BASE] [--figure] [--out path.pdf]
+algo-analyze figures --run ID [--out directory]
 ```
 
-## 5. CLI surface
+Repeat `--runs` and `--block-length` once per value. The first block length is primary;
+the others are sensitivity settings. Examples are not a registration for a new
+experiment. Store corrected stdout in new v2 report files and retain legacy outputs.
+There is no default trial count, normal-moment assumption, or DSR plausibility band.
 
-```
-algo-analyze summary      [--out <path.csv>]
-algo-analyze metrics      --run <id> [--trials N]
-algo-analyze significance --runs <a> --runs <b> [--permutations N] [--seed N]
-algo-analyze ablation     --runs <id1> --runs <id2> ... [--baseline <id>] [--figure] [--out <path.pdf>]
-algo-analyze figures      --run <id> [--out <dir>]
-```
+## 7. Error handling and acceptance
 
-`--runs` is a repeatable single-value option (Click/Typer's native idiom — one `--runs`
-per value, e.g. `--runs baseline --runs hybrid`), not a single flag taking multiple
-space-separated values. `docs/experiments.md`'s example commands use this exact syntax.
+Incomplete equity/selection history, zero variance and insufficient blocks report
+`status: unavailable` with a reason. Invalid data or incompatible windows produce
+an actionable CLI error (exit 2); they are never silently repaired. Descriptive
+metrics remain available when inference is unavailable. Missing `metrics.json`
+is an input error. Logging goes to stderr; JSON goes to stdout.
 
-## 6. Data contracts
+Gherkin/pytest-bdd checks independent DSR fixtures, single-trial probability semantics,
+selection effects, portfolio source/frequency, malformed inputs and strict alignment,
+seeded block ordering and pairing, degeneracy, metadata, migration immutability and
+public CLI behavior. Legacy IID cases are explicitly scoped to the legacy module.
+Unchanged summary/ablation/figure acceptance scenarios remain in force.
 
-- `run.json` (`algo_backtest.artifacts.RunManifest`): `strategy`, `symbol`, `start`,
-  `end`, `params`, `success`, `closed_trades` — `ablation.py` requires `strategy`,
-  `symbol`, `start`, `end` to be non-empty strings.
-- `metrics.json`: `total_return`, `sharpe`, `max_drawdown`, `hit_rate` (all floats).
-- `trades.json`: a JSON list of closed-trade objects, each with a `return` field
-  (fractional; `algo_backtest.artifacts._normalize_trade` computes it from
-  `profitLoss / abs(entryPrice * quantity)` when the raw fields support it).
-- `experiment.json` (F2 summary): `{"experiment": str, "runs": [SummaryRow, ...]}`,
-  where each `SummaryRow` has exactly `summary.SUMMARY_COLUMNS`.
-- Figures: vector PDF only (no PNG — `\includegraphics` in the LaTeX thesis takes PDF
-  directly).
+Acceptance also requires `make check`, dependency audit, gauntlet review and
+coverage/complexity/mutation gates, independent simulation validation, saved-run
+smoke diagnostics and manuscript build/citation verification. Empirical significance
+claims additionally require the experiment-readiness gates.
 
-## 7. Error handling
-
-- Empty `trades.json` → `figures`/`significance` proceed with an empty return series
-  where that's meaningful (an empty equity curve is a single point at 1.0); `metrics`
-  reports `n_trades: 0`, `deflated_sharpe: null` with the same "fewer than 2 closed
-  trades" note as any undersized sample.
-- `metrics` with fewer than 2 closed trades → undeflated headline Sharpe reported with
-  an explicit `note`, never a crash.
-- `significance` → fixed permutation seed (`--seed`, default 42); the seed is recorded
-  in the output JSON. Requires exactly two `--runs` values — fails fast naming the count
-  otherwise.
-- Missing `run.json`/`metrics.json`/`trades.json` → `FileNotFoundError` naming the run id
-  and the missing artifact's path; every CLI command catches `FileNotFoundError`/
-  `ValueError` at the boundary and exits 2 with the message on stderr (`_fail` in
-  `cli.py`) — never a raw traceback.
-- Drawdown on zero open positions is 0, not NaN (guaranteed by `_drawdown_curve`'s peak
-  seeded at `equity[0]`).
-
-## 8. Test scenarios (Gherkin)
-
-Covered today, one `.feature` per concern under `tests/features/`:
-
-- `deflated_sharpe.feature` — golden-value deflation, single-trial no-op, zero-variance
-  failure, determinism, invalid-input matrix, raw-returns inference, boundary/non-zero-skew
-  cases.
-- `significance.feature` — reproducible p-value under a fixed seed, significant vs.
-  not-significant cases, minimum-permutation-count and input-validation failures.
-- `ablation.feature` — known delta against a named baseline; missing baseline, missing
-  run, missing metrics/manifest artifact, incomplete manifest.
-- `figures.feature` — valid equity/drawdown/ablation-bar PDFs; zero-trade run; malformed
-  or missing `trades.json` in every shape (null return, non-numeric, non-finite, wrong
-  JSON type, absolute-PnL-only trade).
-- `summary.feature` — two experiments aggregate sorted and deterministic; failed
-  experiments excluded; every producer/consumer-integrity failure mode (both-artifacts,
-  corrupt manifest, wrong columns, mismatched experiment label, unsuccessful run,
-  duplicate identity); byte-identical re-run.
-- `cli.feature` — end-to-end wiring for `metrics`/`significance`/`ablation`/`figures`
-  through the actual CLI (not just the underlying library call): deflation happening,
-  the too-few-trades note, the implausible-Sharpe flag, the two-run requirement for
-  `significance`, the ablation delta + figure output, both figure PDFs, and the
-  fail-fast paths for missing artifacts.
-
-## 9. Acceptance criteria
-
-- `metrics`, `significance`, `ablation`, `figures`, `summary` all exist and match
-  `docs/experiments.md` §2/§3's command surface exactly.
-- Deflated Sharpe and the MCP test implemented per Bailey–López de Prado / Aronson, with
-  the `docs/experiments.md` §7.1 plausibility-band flag wired into `metrics`'s output.
-- Ablation table works against real completed runs; `--figure` renders a bar-chart PDF.
-- Figures render as vector PDF, thesis style pack applied.
-- `make check` (ruff incl. `C901` max-complexity 8, mypy strict, pytest) and `make audit`
-  green.
-
-## 10. Open items
+## 8. Open items
 
 - **`audit.py` / `trade_id` forensics join** — per-filter contribution analysis on
   losing trades, joining `decisions.parquet` to `trades.json`/`trades.parquet` on the
@@ -201,10 +142,6 @@ Covered today, one `.feature` per concern under `tests/features/`:
   `trade_id` is LEAN's `orderIds[0]` of the `trades.json` trade open at that row (Spec
   04h); the join *mechanism* can be built and tested against it without waiting for
   statistically meaningful hybrid runs.
-- **Empirical skew/kurtosis for deflated Sharpe** — `metrics` currently deflates using
-  the normal-distribution defaults (skew 0, kurtosis 3) `deflated_sharpe` itself
-  defaults to; estimating the trade-return series's own skew/kurtosis is a later
-  refinement once a numerical-computing dependency is justified elsewhere in the tool.
 - **Multi-run sweep figures** (`docs/experiments.md` Exp 7–8, threshold/sensitivity
   sweeps) — not built; `figures` today covers one run's equity/drawdown curves and
   ablation's own bar chart, not an arbitrary multi-run parameter sweep.

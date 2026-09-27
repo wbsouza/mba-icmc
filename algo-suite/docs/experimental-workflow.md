@@ -90,18 +90,26 @@ measures their joint effect unless separate ablations isolate each component.
 Third, inspecting pilot outcomes to tune later configurations makes that pilot
 development data; it cannot remain an untouched confirmation set.
 
-[Story 11](stories/planned/11-statistical-inference-corrections/spec.md) owns two
-confirmed analysis gaps: the function labeled DSR returns a Sharpe-scale
-adjustment rather than a probability, and the default pooled-trade permutation
-test does not preserve time dependence or market-time pairing. Existing tests
-encode these contracts and cannot serve as independent scientific validation.
-Do not publish their outputs as corrected DSR or confirmatory significance.
-The current figures also compound per-trade notional returns; they are not the
-portfolio-equity return series required for the corrected inference.
+[Story 11](stories/done/11-statistical-inference-corrections/spec.md) provides
+schema-v2 inference: probability-valued DSR from consistent daily portfolio
+moments and declared search history, plus a paired stationary bootstrap of mean
+return differences. Register expected block lengths before evaluation and report
+all sensitivity results, effect intervals, source hashes and unavailable reasons.
+The classical DSR expression does not itself correct serial dependence. Archived
+Sharpe adjustments and pooled-trade p-values remain legacy/exploratory; never
+relabel them as corrected results. Trade-sequence figures remain descriptive.
 
-This is a focused design/evidence audit, not a full reanalysis of all historical
-runs or a completed power study. No causal market claim, profitability claim,
-or rejection of H1 follows from it. The review used the procedures described in
+Before analysis, supply audited equity/cost metadata and actual trial history.
+Daily equity boundaries must be recorded; missing boundaries cannot be filled
+from trades or interpolated. Inventory old runs and regenerate to new output
+files only where inputs suffice. A simulation rerun is needed if the original
+engine artifacts lack the grid; a statistical correction alone does not require
+model retraining. Keep all original runs and model hashes.
+
+Story 11 archives independent formula checks and a registered synthetic
+calibration/power study. These validate specified software behavior; they do not
+establish power for the trading experiment. No causal market claim, profitability
+claim, or rejection of H1 follows. The earlier review used the procedures described in
 [Kassis et al. (2026), Scientific Agent Skills](https://doi.org/10.48550/arXiv.2609.00065);
 the skills organize review and are not independent empirical validation.
 

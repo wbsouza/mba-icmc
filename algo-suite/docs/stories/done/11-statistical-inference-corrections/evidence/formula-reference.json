@@ -1,0 +1,67 @@
+[
+  {
+    "observed_sharpe": 0.0,
+    "n_returns": 100,
+    "skew": 0.0,
+    "kurtosis": 3.0,
+    "n_trials": 1,
+    "trial_sharpe_std": null,
+    "expected_threshold_80_digits": "0.0",
+    "expected_probability_80_digits": "0.5",
+    "production_probability": 0.5,
+    "absolute_error": 0.0,
+    "pass_tolerance_1e_12": true
+  },
+  {
+    "observed_sharpe": 0.1,
+    "n_returns": 252,
+    "skew": 0.0,
+    "kurtosis": 3.0,
+    "n_trials": 1,
+    "trial_sharpe_std": null,
+    "expected_threshold_80_digits": "0.0",
+    "expected_probability_80_digits": "0.94298686102436226844084726461643211223855446838258536742471865840834694043208172",
+    "production_probability": 0.9429868610243624,
+    "absolute_error": 1.1102230246251565e-16,
+    "pass_tolerance_1e_12": true
+  },
+  {
+    "observed_sharpe": 0.15,
+    "n_returns": 500,
+    "skew": -0.5,
+    "kurtosis": 4.0,
+    "n_trials": 20,
+    "trial_sharpe_std": 0.08,
+    "expected_threshold_80_digits": "0.15205663609449586973592247555546200368102786323321059086684460901014564666871433",
+    "expected_probability_80_digits": "0.48246557897367718751847651248638533196269097495222675657558253208370274481630432",
+    "production_probability": 0.4824655789736773,
+    "absolute_error": 1.1102230246251565e-16,
+    "pass_tolerance_1e_12": true
+  },
+  {
+    "observed_sharpe": -0.05,
+    "n_returns": 1200,
+    "skew": 0.3,
+    "kurtosis": 5.0,
+    "n_trials": 50,
+    "trial_sharpe_std": 0.04,
+    "expected_threshold_80_digits": "0.091052123736813934944974877988059265320562292740766895910948368200754363457790415",
+    "expected_probability_80_digits": "0.00000064279385097667885106828057995435251718529922922016811446572455869122360089382168",
+    "production_probability": 6.427938509800946e-07,
+    "absolute_error": 3.415660359802966e-18,
+    "pass_tolerance_1e_12": true
+  },
+  {
+    "observed_sharpe": 0.25,
+    "n_returns": 1250,
+    "skew": -1.0,
+    "kurtosis": 6.0,
+    "n_trials": 100,
+    "trial_sharpe_std": 0.1,
+    "expected_threshold_80_digits": "0.25306028932016820309075650874629718361932283147030243496128261495677713044858777",
+    "expected_probability_80_digits": "0.46261501867133466042547571084422057371807067386925587297941418265524835877536191",
+    "production_probability": 0.4626150186713311,
+    "absolute_error": 3.552713678800501e-15,
+    "pass_tolerance_1e_12": true
+  }
+]

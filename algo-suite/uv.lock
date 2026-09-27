@@ -44,6 +44,8 @@ dependencies = [
     { name = "algo-backtest" },
     { name = "algo-core" },
     { name = "matplotlib" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "structlog" },
     { name = "typer" },
 ]
@@ -53,6 +55,7 @@ requires-dist = [
     { name = "algo-backtest", editable = "algo-backtest" },
     { name = "algo-core", editable = "algo-core" },
     { name = "matplotlib", specifier = ">=3.8" },
+    { name = "numpy", specifier = ">=1.26" },
     { name = "structlog", specifier = ">=24" },
     { name = "typer", specifier = ">=0.12" },
 ]

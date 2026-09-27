@@ -1,0 +1,388 @@
+{
+  "configuration": {
+    "seed": 20260927,
+    "replications": 300,
+    "observations": 1200,
+    "burn_in": 300,
+    "resamples": 499,
+    "block_lengths": [
+      1,
+      10,
+      20,
+      40
+    ],
+    "primary_block_length": 20,
+    "null_gate_bound": 0.08774917217635375,
+    "marginal_difference_sd": 0.01,
+    "baseline_sd": 0.01,
+    "seed_construction": "SeedSequence([20260927, scenario_index]).spawn(300)",
+    "numpy_version": "2.4.6",
+    "production_source_sha256": {
+      "deflated.py": "74b29a262c0e0f49d6718315a97691b20660133c61003fac32321bfed2ec9a37",
+      "significance.py": "b7c544bdc527de89c225a2825841ff5224cda54a7c7f0f1e611a5b81cbab5f99"
+    }
+  },
+  "results": [
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 18,
+      "replications": 300,
+      "rejection_rate": 0.06,
+      "wilson_95_interval": [
+        0.038286369524692054,
+        0.09283944515290843
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 16,
+      "replications": 300,
+      "rejection_rate": 0.05333333333333334,
+      "wilson_95_interval": [
+        0.03309191251909646,
+        0.08486914177483133
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 18,
+      "replications": 300,
+      "rejection_rate": 0.06,
+      "wilson_95_interval": [
+        0.038286369524692054,
+        0.09283944515290843
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 23,
+      "replications": 300,
+      "rejection_rate": 0.07666666666666666,
+      "wilson_95_interval": [
+        0.051627611786607464,
+        0.1124101038501748
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 280,
+      "replications": 300,
+      "rejection_rate": 0.9333333333333333,
+      "wilson_95_interval": [
+        0.899276940483885,
+        0.9564324844548417
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 93,
+      "replications": 300,
+      "rejection_rate": 0.31,
+      "wilson_95_interval": [
+        0.26034352510199493,
+        0.3644608039633325
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 24,
+      "replications": 300,
+      "rejection_rate": 0.08,
+      "wilson_95_interval": [
+        0.054346855395144764,
+        0.11627324043347391
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 21,
+      "replications": 300,
+      "rejection_rate": 0.07,
+      "wilson_95_interval": [
+        0.046236944827176336,
+        0.10463601042593323
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 22,
+      "replications": 300,
+      "rejection_rate": 0.07333333333333333,
+      "wilson_95_interval": [
+        0.04892399383922859,
+        0.10853134160571733
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 237,
+      "replications": 300,
+      "rejection_rate": 0.79,
+      "wilson_95_interval": [
+        0.7403888774230657,
+        0.8322781992666975
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 151,
+      "replications": 300,
+      "rejection_rate": 0.5033333333333333,
+      "wilson_95_interval": [
+        0.44707193979203275,
+        0.5595104403998036
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 149,
+      "replications": 300,
+      "rejection_rate": 0.49666666666666665,
+      "wilson_95_interval": [
+        0.4404895596001963,
+        0.5529280602079671
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 145,
+      "replications": 300,
+      "rejection_rate": 0.48333333333333334,
+      "wilson_95_interval": [
+        0.4273544128335898,
+        0.5397336862072283
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 298,
+      "replications": 300,
+      "rejection_rate": 0.9933333333333333,
+      "wilson_95_interval": [
+        0.9760224167496929,
+        0.998169851642088
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 286,
+      "replications": 300,
+      "rejection_rate": 0.9533333333333334,
+      "wilson_95_interval": [
+        0.923202639772079,
+        0.9720010663176659
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 286,
+      "replications": 300,
+      "rejection_rate": 0.9533333333333334,
+      "wilson_95_interval": [
+        0.923202639772079,
+        0.9720010663176659
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    }
+  ],
+  "all_registered_gates_pass": true
+}

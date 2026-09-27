@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime, timedelta
+from math import sin
 from pathlib import Path
 from typing import Any
 
@@ -77,9 +79,7 @@ def _write_trades(run_dir: Path, returns: list[float]) -> None:
 
 
 @given(
-    parsers.parse(
-        'a completed run "{run_id}" with sharpe {sharpe:f} and trade returns {values}'
-    )
+    parsers.parse('a completed run "{run_id}" with sharpe {sharpe:f} and trade returns {values}')
 )
 def _completed_run_with_returns(
     cctx: dict[str, Any], run_id: str, sharpe: float, values: str
@@ -137,32 +137,25 @@ def _error_names(cctx: dict[str, Any], text: str) -> None:
     assert text in cctx["result"].output, cctx["result"].output
 
 
-@then("the metrics output has a numeric deflated_sharpe")
-def _numeric_deflated_sharpe(cctx: dict[str, Any]) -> None:
-    payload = json.loads(cctx["result"].output)
-    assert isinstance(payload["deflated_sharpe"], int | float), payload
-
-
-@then("the metrics output has a null deflated_sharpe with a note")
+@then("the metrics output has an unavailable probability with a reason")
 def _null_deflated_sharpe(cctx: dict[str, Any]) -> None:
+    """Unavailable inference retains a separate descriptive headline."""
     payload = json.loads(cctx["result"].output)
-    assert payload["deflated_sharpe"] is None, payload
-    assert "note" in payload and payload["note"], payload
+    assert payload["schema_version"] == 2
+    assert payload["deflated_sharpe_probability"] is None
+    assert payload["status"] == "unavailable" and payload["reason"]
+    assert payload["descriptive_metrics"]["sharpe"] == 1.0
+    assert "deflated_sharpe" not in payload
 
 
-@then("the metrics output flags the deflated Sharpe for investigation")
-def _flags_deflated_sharpe(cctx: dict[str, Any]) -> None:
-    payload = json.loads(cctx["result"].output)
-    assert payload["flags"], payload
-    assert any("investigate" in flag for flag in payload["flags"]), payload
-
-
-@then(parsers.parse("the significance output records seed {seed:d}"))
+@then(parsers.parse("the significance output records unavailable data and seed {seed:d}"))
 def _significance_seed(cctx: dict[str, Any], seed: int) -> None:
+    """Legacy trade files cannot yield a corrected p-value."""
     payload = json.loads(cctx["result"].output)
-    assert "p_value" in payload, payload
-    assert payload["n_permutations"] == 200, payload
-    assert payload["seed"] == seed, payload
+    assert payload["status"] == "unavailable"
+    assert payload["n_resamples"] == 200
+    assert payload["seed"] == seed
+    assert "inference-inputs.json" in payload["reason"]
 
 
 @then(parsers.parse('the ablation output has delta_total_return {delta:f} for "{run_id}"'))
@@ -185,3 +178,101 @@ def _both_figures_written(cctx: dict[str, Any]) -> None:
     drawdown = figures_dir / "drawdown.pdf"
     assert equity.is_file() and equity.stat().st_size > 1_000, equity
     assert drawdown.is_file() and drawdown.stat().st_size > 1_000, drawdown
+
+
+@given(parsers.parse('engine equity and selection history for CLI run "{run_id}"'))
+def _engine_cli_run(cctx: dict[str, Any], run_id: str) -> None:
+    """Write independent engine-shape fixtures with 120 daily intervals and unrelated trades."""
+    run_dir = _run_dir(cctx, run_id)
+    start = datetime(2020, 1, 1, tzinfo=UTC)
+    offset = 1 if run_id == "hyb-eq" else 0
+    equity, points = 100000.0, []
+    for i in range(121):
+        points.append([int((start + timedelta(days=i)).timestamp()), equity])
+        equity *= 1 + 0.005 * sin(i * 0.71 + offset) + 0.001
+    _write_metrics(run_dir, sharpe=99.0)
+    _write_trades(run_dir, [10.0] * (2 + offset))
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "success": True,
+                "symbol": "EURUSD",
+                "start": "2020-01-01",
+                "end": "2020-04-29",
+            }
+        )
+    )
+    (run_dir / "main.json").write_text(
+        json.dumps(
+            {
+                "charts": {"Strategy Equity": {"series": {"Equity": {"values": points}}}},
+            }
+        )
+    )
+    (run_dir / "inference-inputs.json").write_text(
+        json.dumps(
+            {
+                "source": "main.json",
+                "frequency": "calendar-day",
+                "timezone": "UTC",
+                "annualization": 365,
+                "risk_free_daily": 0,
+                "costs": "engine cost model",
+                "symbol": "EURUSD",
+                "start": "2020-01-01",
+                "end": "2020-04-30",
+            }
+        )
+    )
+    selection = cctx["data_root"] / "selection.json"
+    selection.write_text(
+        json.dumps(
+            {
+                "n_trials": 10,
+                "trial_count": 20,
+                "interim_looks": 1,
+                "trial_sharpe_std": 0.02,
+                "frequency": "calendar-day",
+                "provenance": "registered development search",
+            }
+        )
+    )
+    cctx["selection"] = selection
+
+
+@when(parsers.parse('I run corrected metrics for CLI run "{run_id}"'))
+def _corrected_metrics(cctx: dict[str, Any], run_id: str) -> None:
+    """Pass a real JSON manifest through the CLI option parser."""
+    cctx["result"] = CliRunner().invoke(
+        app, ["metrics", "--run", run_id, "--selection", str(cctx["selection"])]
+    )
+
+
+@then("the corrected CLI probability records daily moments and source hashes")
+def _corrected_probability(cctx: dict[str, Any]) -> None:
+    """Assert valid corrected inference never uses headline Sharpe or closed trade count."""
+    result = json.loads(cctx["result"].output)
+    assert result["schema_version"] == 2 and result["status"] == "available"
+    assert 0 <= result["deflated_sharpe_probability"] <= 1
+    assert result["descriptive_metrics"]["sharpe"] == 99
+    assert result["moments"]["n_returns"] == 120
+    assert result["moments"]["observed_sharpe"] != 99
+    assert len(result["portfolio"]["source_sha256"]) == 64
+    assert len(result["selection"]["source_sha256"]) == 64
+    assert "deflated_sharpe" not in result
+
+
+@then("the corrected CLI significance records pairing effect interval and sensitivity")
+def _corrected_significance(cctx: dict[str, Any]) -> None:
+    """Require the complete inference contract on the public command surface."""
+    result = json.loads(cctx["result"].output)
+    assert result["schema_version"] == 2 and result["status"] == "available"
+    primary = result["primary"]
+    assert primary["method"] == "paired_stationary_bootstrap"
+    assert primary["n_observations"] == 120 and primary["seed"] == 7
+    assert 0 < primary["p_value"] <= 1
+    assert primary["confidence_interval"][0] <= primary["effect"]
+    assert primary["confidence_interval"][1] >= primary["effect"]
+    assert result["sensitivity"][0]["block_length"] == 10
+    assert len(result["portfolio_a"]["source_sha256"]) == 64
+    assert len(result["portfolio_b"]["source_sha256"]) == 64

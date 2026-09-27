@@ -5,25 +5,19 @@ Feature: algo-analyze CLI wires the library modules together
   end to end through the CLI (not just that the underlying library function
   works in isolation, which is covered by each module's own feature file).
 
-  Rule: metrics prints headline metrics plus the deflated Sharpe
+  Rule: metrics reports versioned inference without invented inputs
 
-    Scenario: enough closed trades deflates the headline Sharpe
-      Given a completed run "r1" with sharpe 0.5 and trade returns 0.01, -0.02, 0.03, 0.01, -0.01
-      When I run "algo-analyze metrics --run r1 --trials 50"
+    Scenario: recorded equity and selection history yield a versioned probability
+      Given engine equity and selection history for CLI run "complete"
+      When I run corrected metrics for CLI run "complete"
       Then the command exits 0
-      And the metrics output has a numeric deflated_sharpe
+      And the corrected CLI probability records daily moments and source hashes
 
-    Scenario: fewer than two closed trades reports undeflated with a note
+    Scenario: missing portfolio data leaves DSR explicitly unavailable
       Given a completed run "r2" with sharpe 1.0 and trade returns 0.01
       When I run "algo-analyze metrics --run r2"
       Then the command exits 0
-      And the metrics output has a null deflated_sharpe with a note
-
-    Scenario: an implausibly high deflated Sharpe is flagged, not silently reported
-      Given a completed run "r3" with sharpe 5.87 and trade returns 0.01, -0.02, 0.03
-      When I run "algo-analyze metrics --run r3 --trials 1"
-      Then the command exits 0
-      And the metrics output flags the deflated Sharpe for investigation
+      And the metrics output has an unavailable probability with a reason
 
     Scenario: a run with no metrics artifact fails fast
       Given a run "r4" without a metrics artifact
@@ -31,17 +25,24 @@ Feature: algo-analyze CLI wires the library modules together
       Then the command exits 2
       And the error names "r4"
 
-  Rule: significance compares exactly two runs under a fixed, recorded seed
+  Rule: significance requires calendar portfolios and declared blocks
 
-    Scenario: two runs produce a reproducible p-value
-      Given a completed run "sig-a" with sharpe 0.1 and trade returns 0.01, 0.02, 0.03, -0.01, 0.02
-      And a completed run "sig-b" with sharpe 0.9 and trade returns 0.05, 0.06, 0.04, 0.07, 0.05
-      When I run "algo-analyze significance --runs sig-a --runs sig-b --permutations 200 --seed 7"
+    Scenario: paired equity yields an auditable effect interval and sensitivity
+      Given engine equity and selection history for CLI run "base-eq"
+      And engine equity and selection history for CLI run "hyb-eq"
+      When I run "algo-analyze significance --runs base-eq --runs hyb-eq --block-length 5 --block-length 10 --block-rule registered --resamples 199 --seed 7"
       Then the command exits 0
-      And the significance output records seed 7
+      And the corrected CLI significance records pairing effect interval and sensitivity
+
+    Scenario: trade ledgers cannot masquerade as portfolio series
+      Given a completed run "sig-a" with sharpe 0.1 and trade returns 0.01, 0.02
+      And a completed run "sig-b" with sharpe 0.9 and trade returns 0.05, 0.06
+      When I run "algo-analyze significance --runs sig-a --runs sig-b --block-length 5 --block-rule registered --resamples 200 --seed 7"
+      Then the command exits 0
+      And the significance output records unavailable data and seed 7
 
     Scenario: significance requires exactly two runs
-      When I run "algo-analyze significance --runs sig-a"
+      When I run "algo-analyze significance --runs sig-a --block-length 5 --block-rule registered"
       Then the command exits 2
       And the error names "exactly two"
 
