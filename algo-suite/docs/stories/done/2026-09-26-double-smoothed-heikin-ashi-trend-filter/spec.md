@@ -1,5 +1,51 @@
 # Spec 04k — algo-backtest: Double-Smoothed Heikin-Ashi Trend Filter as an F1 ablation candidate (lane of Spec 04)
 
+> **Completed 2026-09-26, including the PR #43 training/parity follow-up.**
+> Offline DSHA reads the same config and is verified against real LEAN; the prior
+> TD-62 deferral is superseded. The implementation lives in `algo_backtest/perception/`
+> and integrates through the shared `engine/chain_algorithm.py`. It follows
+> QuantConnect's manual `PythonIndicator` standard. The exact source classifier
+> (including tie-as-down) and MT4 period2=2 are preserved. `baseline-dsha` selects
+> the alternative while sharing baseline's frozen EMA-trained F7 model. See
+> `ablation/README.md`, `validation.md` and `lessons-learned.md` for measured evidence.
+> The package `make check` passes; the root workspace gate retains the unrelated
+> pre-existing TD-55 lint blocker. Historical planning/background notes below are
+> retained as the original rationale; their "not started" statements are superseded.
+
+
+## Second-round implementation — PR #43 training/parity completed
+
+The first implementation supplied native DSHA inference and a frozen-model input
+ablation. The second round, implemented in commit `9c4fc84`, also completes the
+offline training/parity requirement from PR #43 in this same story:
+
+- **Offline features:** `perception/offline.py` reproduces Wilder → shared HA →
+  LWMA and closed higher-timeframe aggregation without loading LEAN. Training
+  reads the same resolved perception selector and periods as the live algorithm.
+- **Readiness and timing:** training omits rows until both timeframes are ready,
+  preserves the existing label horizon and delivered/fill-forward bar stream,
+  and consolidates in OANDA exchange-local time. Native tests exposed and fixed
+  the UTC bucket mismatch for custom 7- and 90-minute periods.
+- **Training entry points:** the baseline trainer accepts `--strategy baseline-dsha`
+  with required `--out` for a separate model artifact. Hybrid training reads its
+  own resolved config. Both embed the resolved config in model provenance.
+- **Native parity evidence:** five new DSHA scenarios compare decision timestamps
+  and every price feature against real LEAN to nine decimal places: default
+  settings, missing minutes, flat ties, and two custom configurations. The three
+  existing EMA/news parity scenarios also pass.
+- **Completion and gates:** TD-62's deferral is superseded and its resolved ledger
+  row removed. The expanded gauntlet includes offline coverage, native parity,
+  and mutations: 418 package scenarios, 17 native scenarios, 49/49 mutations
+  killed, maximum CRAP 6. See [validation](validation.md) and the
+  [native parity report](native-parity-report.txt) for scope and evidence.
+
+The committed ablation still uses the shared frozen EMA-trained model; this round
+adds the ability to train a separate DSHA model, not a newly trained model or a
+retrained-model performance result. Exact ties still classify **down**; no ABSTAIN
+mode was introduced (TD-61 remains deferred). `trend_score` still combines DSHA
+direction with EMA-gap strength. The [tool contract](../../../../algo-backtest/SPEC.md)
+and [usage guide](../../../../algo-backtest/README.md) document the resulting API.
+
 > **Naming (2026-09-26):** this candidate was previously called "HAS/JapaDragon" after fx-manager's
 > internal codenames. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
 > name (Clean Code: a name should say what the thing does, not what someone once called it) that
@@ -20,7 +66,7 @@ independent of Spec 04i/04j (disjoint files).
 as second candidate, compare via ablation," not "replace the default."
 **Order:** standalone; can start any time, but is naturally sequenced after whichever story first
 builds a real perception layer for F1 (04a/04h), since this reuses that same integration point.
-**Boundary:** a new indicator/perception module (exact location TBD, see §5 open question), F1's
+**Boundary:** the `algo_backtest/perception/` package (§5), F1's
 config schema (adding a `perception_source` selector), and `algo-analyze`'s existing ablation
 machinery (wiring only, not new ablation infrastructure).
 
@@ -34,8 +80,8 @@ machinery (wiring only, not new ablation infrastructure).
 > same function. The "no real implementation populating them yet" statement below (and in
 > `f1_trend.py`'s docstring) was true when written and is no longer. That module is this
 > candidate's natural integration point: §5's third open question now has a concrete default
-> shape to match. It is still unresolved which module should host the candidate.
-> No `perception_source` selector exists yet. This story's own work has not started.
+> shape to match. Completion resolved the location as `algo_backtest/perception/`
+> and added the `perception_source` selector described above.
 
 > **Update 2026-09-26 (formula fully confirmed against fx-manager's actual MetaTrader source,
 > `related-work/projects/fx-manager/metatrader/experts/indicators/`).** §2 and §5 below were
@@ -149,7 +195,8 @@ Checked directly against `QuantConnect/Lean` on GitHub (not assumed from the MQL
   a pandas/numpy reimplementation of Wilder smoothing or LWMA; LEAN's own tested indicators are
   the correct dependency here, and matching LEAN's own moving-average semantics (warm-up,
   `IsReady`, rolling-window bookkeeping) is exactly what should be inherited rather than
-  reinvented.
+  reinvented. The offline training exception in §4 step 5 reproduces these
+  semantics in host Python and must be verified against the native implementation.
 - **Higher-timeframe consolidation**: LEAN's `TradeBarConsolidator` + `RegisterIndicator` (or the
   `consolidate()`/`Resolution` helpers) is the native mechanism for "run an indicator on a coarser
   bar than the subscription resolution" — the direct LEAN-idiomatic replacement for
@@ -187,15 +234,16 @@ substance here, not left as a vague caveat):
 4. Wire both candidates through `algo-analyze`'s existing ablation-table machinery (already built,
    `docs/stories/done/2026-09-24-ablation-table`) — no new ablation infrastructure needed, just a
    second config variant to run through it.
-5. **Train/serve parity (found 2026-09-26, not in the original plan).** `chain/wiring.py`'s
-   `price_features()` is called from exactly two places — `engine/chain_algorithm.py` (live/
-   backtest) and `training.py` (offline F7 training) — and `training.py` does not reuse LEAN
-   indicator objects at all: it hand-reimplements EMA/RSI/MACD in pure Python (`ema_series` etc.,
-   `training.py`) to bit-match LEAN's live values, proven by `feature_parity.feature`. This
-   candidate needs the same pair: the LEAN-native `WilderMovingAverage`/`LinearWeightedMovingAverage`
-   composition for live/backtest (step 1), **plus** a pure-Python offline reimplementation of the
-   same pass-1/HA/pass-2 pipeline for `training.py`, **plus** a `feature_parity.feature`-style
-   scenario proving the two agree — not a smaller task than step 1 itself.
+5. **Train/serve parity — required in this implementation (PR #43).** Read the
+   same resolved strategy perception config in offline training and live execution.
+   Add a host-importable Wilder → HA → LWMA pipeline and closed-bar higher-timeframe
+   aggregation for `training.py`. Match native seeding, midpoint OHLC, readiness,
+   session gaps and fill-forward behavior. Prove matching decision timestamps and
+   features against real LEAN for the default and overridden periods/timeframes.
+   The existing frozen EMA-trained-model ablation remains a separate experiment;
+   implementing DSHA training features does not silently replace its model.
+   Baseline/hybrid keep EMA when the selector is absent. Exact ties remain down
+   per §2; ABSTAIN is not implemented and stays deferred in TD-61.
 6. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
    input/output pairs (hand-computed, same style as `trail_stop.feature`), the §2 classification
    rule's tie-handling (`smoothedFar >= smoothedNear` → down, ported byte-exact per the §2 decision
@@ -204,7 +252,7 @@ substance here, not left as a vague caveat):
    value before enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own
    bug, see §2).
 
-## 5. Open questions
+## 5. Resolved implementation decisions
 
 - **~~The exact classification rule~~ — RESOLVED (2026-09-26).** `trendMtfHasB1.mq4` is in the
   checkout (`related-work/projects/fx-manager/metatrader/experts/indicators/trendMtfHasB1.mq4`) and
@@ -223,19 +271,17 @@ substance here, not left as a vague caveat):
   **Decision: use `2`, the original MQL default**, since this port's reference is `outerHAS.mq4`/
   `hasTrend.mq4`/`trendMtfHasB1.mq4` (the MT4 side), and document that spockfx-engine's Java
   rewrite deliberately ran `period2=1` instead, as a fact about that other system, not this port.
-- **Exact module location for this perception-layer code** — still open. No `perception/` package
-  exists yet in `algo_backtest`; decide at implementation time whether this lives alongside F1, in
-  a new package, or as part of whatever 04a/04h's real indicator wiring introduces for the EMA/ADX
-  default, so the two candidates share a consistent integration shape. Suggested class name:
-  `DoubleSmoothedHeikinAshiTrend` (see the naming note at the top of this file).
+- **Module location — RESOLVED.** `algo_backtest/perception/` separates pure formula/config
+  from native LEAN adapters. `engine/chain_algorithm.py` integrates both sources. The
+  custom indicator is `DoubleSmoothedHeikinAshiTrend`.
 
 ## Definition of done
 
 - Double-Smoothed-Heikin-Ashi-based `trend_direction`/`higher_tf_trend_direction` implementation
   built on LEAN's native `WilderMovingAverage`/`LinearWeightedMovingAverage`, not a hand-rolled
   reimplementation, live/backtest side.
-- A parity-proven pure-Python offline reimplementation of the same pipeline feeding `training.py`
-  (§4 step 5), with a `feature_parity.feature`-style scenario proving live/offline agreement.
+- Config-selected offline DSHA features and real LEAN train/serve parity (§4 step 5).
+  Preserve the shared frozen model for the existing input-ablation experiment.
 - Config-selectable alongside (not replacing) the default perception source.
 - Wired through the existing ablation-table machinery; at least one ablation run comparing both
   candidates exists.

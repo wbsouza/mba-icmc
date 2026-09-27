@@ -87,3 +87,14 @@ Feature: Strategy parameter validation
         | first           | 20140507               | true    |
         | day after last  | 20140510               | false   |
         | day before first| 20140506               | false   |
+
+  Scenario Outline: DSHA validation failures identify the requested strategy
+    Given strategy "baseline-dsha" with params <params>
+    When I validate the run inputs expecting failure
+    Then validation fails naming "baseline-dsha"
+
+    Examples:
+      | params       |
+      | wrong=0.5    |
+      | size=wrong   |
+      | size=1.5     |

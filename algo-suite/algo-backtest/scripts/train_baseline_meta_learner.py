@@ -2,6 +2,9 @@
 
 Trains and persists a `TrainedMetaLearner` for `algos/baseline/main.py` as a portable JSON
 document (`chain/filters/f7_model_io.py`) embedding exactly what it was trained on.
+`--strategy baseline-dsha` reads the candidate config and requires an explicit
+`--out` for its separately trained artifact; the bundled frozen model is not replaced
+by default.
 Rows are built over the bar stream LEAN delivers, with LEAN's indicator seeding and the
 live algorithm's feature function (`algo_backtest.training` over `chain.wiring`), and
 news is keyed at decision time — train/serve parity of the price features and of
@@ -32,6 +35,7 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     train_meta_learner,
     walk_forward_split,
 )
+from algo_backtest.strategies import load_strategy_chain_config
 from algo_backtest.training import (
     build_training_rows,
     load_m1_bars,
@@ -72,6 +76,7 @@ def _parse_args() -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--symbol", default="EURUSD")
+    parser.add_argument("--strategy", choices=("baseline", "baseline-dsha"), default="baseline")
     parser.add_argument(
         "--from",
         dest="start",
@@ -88,10 +93,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-end", type=date.fromisoformat, required=True, help="YYYY-MM-DD, inclusive"
     )
-    parser.add_argument("--out", type=Path, default=_DEFAULT_OUT)
+    parser.add_argument(
+        "--out", type=Path,
+        help="Required for baseline-dsha; preserves the frozen baseline model",
+    )
     args = parser.parse_args()
     if args.start > args.train_end:
         parser.error(f"--from {args.start} is after --train-end {args.train_end}")
+    if args.strategy == "baseline-dsha" and args.out is None:
+        parser.error("--strategy baseline-dsha requires --out for its separately trained model")
+    args.out = args.out or _DEFAULT_OUT
     return args
 
 
@@ -101,7 +112,8 @@ def main() -> None:
     data_root = layout.data_root()
     instrument = build_instrument(args.symbol)
     bars = load_m1_bars(data_root, instrument, args.start, args.test_end)
-    rows = build_training_rows(bars)
+    config = load_strategy_chain_config(args.strategy)
+    rows = build_training_rows(bars, perception=config.perception)
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end
     )
@@ -110,7 +122,8 @@ def main() -> None:
         model,
         args.out,
         {
-            "strategy": "baseline",
+            "strategy": args.strategy,
+            "strategy_config": dict(config.raw),
             "symbol": args.symbol,
             "window": {"from": args.start.isoformat(), "to": args.test_end.isoformat()},
             "split": {

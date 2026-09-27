@@ -3,7 +3,7 @@
 **Do not start until Specs 01–05 (all lanes) and Spec 04h are landed.**
 
 **Update 2026-09-26: the tooling prerequisites are now met.** Specs 01–05 and every required Spec 04
-lane (04a–04h, plus 04i/04j) are in `docs/stories/done/`. Only 04k, an optional F1 ablation candidate, is still planned. `algos/{baseline,hybrid}` run in the
+lane (04a–04h, plus 04i/04j) are in `docs/stories/done/`. The optional 04k F1 perception candidate is also done, with a frozen-model smoke ablation. `algos/{baseline,hybrid}` run in the
 LEAN container. TD-56 lets experiments start on the 2015-02..2015-07 GDELT window without
 waiting for the full backfill. **Not started:** `monografia/chapters/04-experimental-evaluation.tex`
 still has `\textit{To be added in the final version.}` in §sec:coverage-results through

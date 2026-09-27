@@ -14,7 +14,6 @@ dependencies = [
     "lightgbm>=4.5",
     "scikit-learn>=1.5",
     "numpy>=1.26",
-    "joblib>=1.3",
 ]
 
 [project.scripts]
@@ -65,4 +64,8 @@ only_mutate = [
     "src/algo_backtest/training.py",
     "src/algo_backtest/chain/filters/f7_model_io.py",
     "src/algo_backtest/market_hours.py",
+    # Spec 04k pure perception; LEAN adapters require make check-perception.
+    "src/algo_backtest/perception/config.py",
+    "src/algo_backtest/perception/heikin_ashi.py",
+    "src/algo_backtest/perception/offline.py",
 ]

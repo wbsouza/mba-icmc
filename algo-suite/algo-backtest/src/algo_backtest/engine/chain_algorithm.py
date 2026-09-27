@@ -25,6 +25,7 @@ from engine.algorithm import ExecutionAlgorithm  # noqa: E402
 from engine.order_executor import Decision as OrderDecision  # noqa: E402
 from engine.order_executor import FillStatus, SizingContext  # noqa: E402
 
+from algo_backtest.artifacts import write_strategy_config
 from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
@@ -47,6 +48,7 @@ from algo_backtest.chain.wiring import (
     price_features,
 )
 from algo_backtest.container_paths import DECISIONS_FILE
+from algo_backtest.perception.config import PerceptionConfig
 from algo_backtest.strategies import load_strategy_chain_config
 
 
@@ -97,11 +99,15 @@ class ChainAlgorithm(ExecutionAlgorithm):
         self.set_start_date(start.year, start.month, start.day)
         self.set_end_date(end.year, end.month, end.day)
         self._symbol = self.add_forex(symbol, Resolution.MINUTE, Market.OANDA).symbol  # noqa: F405
-        self._subscribe_indicators()
+        config = load_strategy_chain_config(
+            self.get_parameter("chain_config") or self.strategy_name
+        )
+        self._subscribe_indicators(config.perception)
+        self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
+        write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
         meta_learner = load_model(self.model_path)
         self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
-        config = load_strategy_chain_config(self.strategy_name)
         require_families(
             meta_learner.families, config.meta_learner_families, where=str(self.model_path)
         )
@@ -116,8 +122,17 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
         self.init_execution(broker_adapter)
 
-    def _subscribe_indicators(self) -> None:
-        """The minute indicators behind ``wiring.price_features``."""
+    def _subscribe_indicators(self, perception: PerceptionConfig | None = None) -> None:
+        """Subscribe EMA/RSI/MACD and, when selected, construct the native HA perception."""
+        perception = perception if perception is not None else PerceptionConfig()
+        self._trend_perception = None
+        if perception.source == "double_smoothed_heikin_ashi":
+            from algo_backtest.perception.multi_timeframe import MultiTimeframeHeikinAshi
+
+            self._trend_perception = MultiTimeframeHeikinAshi(
+                period1=perception.period1, period2=perception.period2,
+                higher_tf_minutes=perception.higher_tf_minutes,
+            )
         minute = Resolution.MINUTE  # noqa: F405
         self._ema_fast = self.ema(self._symbol, EMA_FAST_PERIOD, minute)
         self._ema_slow = self.ema(self._symbol, EMA_SLOW_PERIOD, minute)
@@ -131,7 +146,9 @@ class ChainAlgorithm(ExecutionAlgorithm):
     def _indicators_ready(self) -> bool:
         """Whether every indicator the features contract reads has warmed up."""
         indicators = (self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd)
-        return all(indicator.is_ready for indicator in indicators)
+        return all(indicator.is_ready for indicator in indicators) and (
+            self._trend_perception is None or self._trend_perception.is_ready
+        )
 
     def _features(self) -> dict[str, object]:
         """This bar's ``ExecutionState.features``, via the shared wiring contract."""
@@ -156,6 +173,8 @@ class ChainAlgorithm(ExecutionAlgorithm):
             rsi=self._rsi.current.value,
             macd_hist=self._macd.current.value - self._macd.signal.current.value,
         )
+        if self._trend_perception is not None:
+            market.update(self._trend_perception.features())
         return {**market, **account_features(account, price)}
 
     def _state(self) -> ExecutionState:
@@ -173,7 +192,11 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
     def on_data(self, data: Slice) -> None:  # noqa: F405
         """Each bar: run the chain, act on its Decision, record one audit row."""
-        if not self._indicators_ready() or self._symbol not in data.quote_bars:
+        if self._symbol not in data.quote_bars:
+            return
+        if self._trend_perception is not None:
+            self._trend_perception.update(data.quote_bars[self._symbol])
+        if not self._indicators_ready():
             return
         outcome = self._chain.run(self._state())
         action = decision_to_order_action(outcome.decision)

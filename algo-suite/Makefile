@@ -24,7 +24,7 @@ type: ## mypy across the workspace
 test: ## pytest across the workspace (exit 5 = no tests collected, not a failure)
 	@uv run pytest; rc=$$?; [ $$rc -eq 0 ] || [ $$rc -eq 5 ]
 
-check: lint type test ## Lint + type + test
+check: lint type test check-perception-architecture ## Lint + type + test
 
 audit: ## Scan third-party dependencies for known vulnerabilities (pip-audit)
 	uv run --with pip-audit pip-audit --skip-editable
@@ -41,3 +41,15 @@ report-html: ## Generate a single-file Allure HTML report (opens via file://)
 		&& allure generate --clean --single-file -o $(ALLURE_REPORT) $(ALLURE_RESULTS) \
 		&& echo "Open $(ALLURE_REPORT)/index.html (self-contained; or: allure open $(ALLURE_REPORT))" \
 		|| echo "Install the 'allure' CLI to generate the report: https://allurereport.org/docs/install/"
+
+.PHONY: check-perception check-perception-architecture
+
+check-perception-architecture: ## Check pure/native perception dependency boundaries (offline)
+	uv run python tools/perception_quality.py --architecture-only
+
+check-perception: ## Run perception coverage, native LEAN assertions, CRAP and mutations (Docker)
+	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py algo-backtest/tests/steps/test_offline_dsha.py --cov=algo_backtest.perception --cov-report=json:build/perception-host-coverage.json
+	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py -m integration --basetemp=build/perception-native
+	uv run pytest algo-backtest/tests/steps/test_feature_parity.py -m integration
+	uv run python tools/perception_quality.py --coverage build/perception-host-coverage.json --native-lines-dir build/perception-native --merged-coverage build/perception-coverage.json
+	uv run python tools/perception_mutations.py --native

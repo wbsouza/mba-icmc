@@ -307,7 +307,7 @@ def _memory_capped_preexec() -> None:
     )
 
 
-def _cap_memory(cmd: list[str]) -> tuple[list[str], Callable[[], None] | None]:
+def cap_memory(cmd: list[str]) -> tuple[list[str], Callable[[], None] | None]:
     """Wraps cmd to enforce _CHILD_MEM_CAP_MB, isolated in its own cgroup scope when possible.
 
     Prefers `systemd-run --scope -p MemoryMax=...`: a mutant that runs away in memory
@@ -347,7 +347,7 @@ def run_tool_tests(tool: str, timeout: int = 900) -> tuple[bool, str]:
         "--color=no",
         f"--confcutdir={confcutdir}",
     ]
-    cmd, preexec_fn = _cap_memory(cmd)
+    cmd, preexec_fn = cap_memory(cmd)
     global _PENDING_PROC_GROUP
     proc_handle = subprocess.Popen(
         cmd,

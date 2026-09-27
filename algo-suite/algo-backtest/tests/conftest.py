@@ -9,8 +9,10 @@ these visible to every step module under `tests/steps/`.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -83,3 +85,17 @@ def probe_log() -> ProbeLog:
 def ctx() -> dict[str, Any]:
     """Mutable per-scenario context shared across BDD steps."""
     return {}
+
+
+@pytest.fixture(scope="session")
+def native_dsha_probe(lean_backtest, tmp_path_factory):
+    """Run all native HA acceptance checks once per pytest session."""
+    results_dir = tmp_path_factory.mktemp("dsha-native")
+    result = lean_backtest(
+        algo_dir=Path(__file__).parent / "algos" / "double_smoothed_heikin_ashi",
+        results_dir=results_dir,
+    )
+    assert result.exit_code == 0, result.logs[-8000:]
+    assert "DSHA|DONE" in result.logs, result.logs[-8000:]
+    assert "ERROR::" not in result.logs, result.logs[-8000:]
+    return json.loads((results_dir / "perception-native-observations.json").read_text())

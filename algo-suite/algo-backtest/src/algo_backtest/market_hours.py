@@ -49,6 +49,11 @@ _EARLY_CLOSES = {_day(raw): _offset(clock) for raw, clock in _ENTRY["earlyCloses
 _LATE_OPENS = {_day(raw): _offset(clock) for raw, clock in _ENTRY["lateOpens"].items()}
 
 
+def exchange_time(bar_start: datetime) -> datetime:
+    """Return OANDA's native bar wall time for LEAN consolidation boundaries."""
+    return bar_start.astimezone(_EXCHANGE_TZ)
+
+
 def lean_delivers(bar_start: datetime) -> bool:
     """Whether LEAN delivers the minute bar starting at `bar_start` (aware, any zone).
 
@@ -57,7 +62,7 @@ def lean_delivers(bar_start: datetime) -> bool:
     close or late open (a partial day); an early close ends the day at its time and a
     late open starts it at its time.
     """
-    local = bar_start.astimezone(_EXCHANGE_TZ)
+    local = exchange_time(bar_start)
     day = local.date()
     clock = timedelta(hours=local.hour, minutes=local.minute, seconds=local.second)
     partial = day in _EARLY_CLOSES or day in _LATE_OPENS

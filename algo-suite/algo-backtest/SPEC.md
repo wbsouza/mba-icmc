@@ -601,3 +601,44 @@ audit completeness (one row per chain run incl. NO_TRADE); determinism
   parameter.
 - Whether TA-Lib `CDL*` runs inside the LEAN algorithm or as a pre-pass (default:
   inside, native indicators preferred; TA-Lib only for candlestick patterns).
+
+### F1 alternative perception source (04k, 2026-09-26)
+
+`StrategyChainConfig.perception` validates `perception_source: ema` (default) or
+`double_smoothed_heikin_ashi`. The latter lives in `perception/`: a pure HA
+transform, a native `PythonIndicator` composing Wilder(6) and LWMA(2), and a
+primary/closed-higher-timeframe wrapper using `TradeBarConsolidator`. Integer
+period overrides live under `double_smoothed_heikin_ashi`; higher timeframe
+minutes defaults to 60 and must exceed 1. No decision consumes an unready reading.
+The exact historical rule is down when smoothed far >= near (ties down), up
+otherwise, using direction-reordered extremes rather than HA body buffers.
+
+`baseline-dsha` extends baseline with this selector and shares its model artifact.
+It is a frozen-model direction-feature ablation through the existing analyzer;
+EMA-gap strength and all other filters remain unchanged. The committed experiment
+uses the frozen baseline model and must not be represented as independently trained.
+Offline `build_training_rows` accepts the same resolved `PerceptionConfig`; its
+host Wilder/HA/LWMA replay gates rows on both timeframes' readiness and consolidates
+in OANDA exchange-local wall time. `feature_parity.feature` verifies timestamps
+and features against real LEAN for default and custom periods, gaps and ties.
+The baseline trainer accepts `--strategy baseline-dsha` with required `--out`
+for a separate artifact; hybrid training reads its own resolved config. Both
+record the resolved config in model provenance. No replacement model is bundled.
+
+### Resolved strategy config artifact
+
+Chain-driven runs (`baseline`, `baseline-dsha`, `hybrid`) publish
+`strategy-config.json` in the run results directory during initialization.
+It contains the fully resolved `StrategyChainConfig.raw` mapping, including
+inherited settings, serialized as deterministic UTF-8 JSON. It is published via
+the shared atomic writer (same-directory temporary file followed by replace).
+Unsupported or non-finite JSON values fail explicitly before replacing an
+existing artifact. Its presence records configuration, **not successful run
+completion**; completed runs still require `run.json`/`metrics.json`.
+Ablation QA requires and hashes the engine-written config for both runs.
+
+`make check` includes the offline perception dependency-boundary gate.
+`make check-perception` runs the full host/native coverage, CRAP and mutation
+gauntlet (requires the pinned LEAN Docker image). Pure perception modules also
+belong to the package's standard mutmut scope; native adapters are tested by the
+Docker-backed target. See the done story's validation report for measured results.

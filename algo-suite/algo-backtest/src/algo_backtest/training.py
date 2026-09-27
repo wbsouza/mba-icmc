@@ -2,7 +2,8 @@
 
 Keeps train and serve on one feature definition: every row's features come from
 `chain.wiring.price_features` (the same function `engine/chain_algorithm.py` calls live)
-over plain-Python re-implementations of LEAN's EMA/RSI/MACD, and news lookups are keyed
+over plain-Python re-implementations of LEAN's EMA/RSI/MACD and config-selected
+DSHA direction features. News lookups are keyed
 on the bar's *decision time* (bar start + one minute), which is what LEAN's `self.time`
 is inside `on_data` — so a feature never sees a later value at train time than it would
 at backtest time.
@@ -39,8 +40,11 @@ from algo_backtest.chain.wiring import (
     RSI_PERIOD,
     price_features,
 )
-from algo_backtest.market_hours import lean_delivers
+from algo_backtest.market_hours import exchange_time, lean_delivers
 from algo_backtest.months import BAR_DURATION, months_between
+from algo_backtest.perception.config import PerceptionConfig
+from algo_backtest.perception.heikin_ashi import OHLC
+from algo_backtest.perception.offline import OfflineMultiTimeframeHeikinAshi
 
 HORIZON_MINUTES = 15
 # Bars before every LEAN indicator the features read is ready (EMA 60 needs 60 samples,
@@ -219,8 +223,31 @@ def _filled_forward(previous: QuoteBar, minute: datetime) -> QuoteBar:
     )
 
 
+def _perception_features(
+    bars: Sequence[QuoteBar], perception: PerceptionConfig
+) -> list[dict[str, float] | None]:
+    """Update every delivered bar, retaining only ready, closed-bucket directions."""
+    if perception.source == "ema":
+        return [{} for _ in bars]
+    indicator = OfflineMultiTimeframeHeikinAshi(
+        perception.period1, perception.period2, perception.higher_tf_minutes
+    )
+    features = []
+    for bar in bars:
+        candle = OHLC(
+            (bar.bid_open + bar.ask_open) / 2,
+            (bar.bid_high + bar.ask_high) / 2,
+            (bar.bid_low + bar.ask_low) / 2,
+            (bar.bid_close + bar.ask_close) / 2,
+        )
+        indicator.update(exchange_time(bar.timestamp), candle)
+        features.append(indicator.features() if indicator.is_ready else None)
+    return features
+
+
 def build_training_rows(
-    bars: Sequence[QuoteBar], event_intensity: Mapping[datetime, float] | None = None
+    bars: Sequence[QuoteBar], event_intensity: Mapping[datetime, float] | None = None,
+    *, perception: PerceptionConfig | None = None,
 ) -> list[TrainingRow]:
     """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
@@ -231,10 +258,12 @@ def build_training_rows(
     Label: 1 if the mid price is strictly higher `HORIZON_MINUTES` bars later, else 0
     (flat is 0). `label_time` is the close of that horizon bar, so
     `walk_forward_split` can purge rows whose label reaches into the next span. The
-    first `WARMUP_BARS` bars (the live algorithm never decides before its LEAN
-    indicators are ready) and the last `HORIZON_MINUTES` bars (no label) yield no row.
+    first `WARMUP_BARS` bars and any additional DSHA warm-up bars yield no row,
+    matching live readiness. The last `HORIZON_MINUTES` bars have no label.
+    Perception is resolved from the strategy config; omitted means the EMA default.
     """
     bars = lean_bar_stream(bars)
+    directions = _perception_features(bars, perception or PerceptionConfig())
     prices = [mid(bar) for bar in bars]
     fast = ema_series(prices, EMA_FAST_PERIOD)
     slow = ema_series(prices, EMA_SLOW_PERIOD)
@@ -243,6 +272,9 @@ def build_training_rows(
     macd = macd_hist_series(prices)
     rows: list[TrainingRow] = []
     for i in range(WARMUP_BARS, len(bars) - HORIZON_MINUTES):
+        direction = directions[i]
+        if direction is None:
+            continue
         features = price_features(
             price=prices[i],
             ema_fast=fast[i],
@@ -251,6 +283,7 @@ def build_training_rows(
             rsi=rsi[i],
             macd_hist=macd[i],
         )
+        features.update(direction)
         if event_intensity is not None:
             features |= _news_features(event_intensity, bars[i].timestamp + BAR_DURATION)
         horizon = i + HORIZON_MINUTES

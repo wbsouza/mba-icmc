@@ -150,3 +150,85 @@ TD-51. Still planned: richer analytics (CPCV, equity curves, `trades.parquet` sc
 read-through caching.
 
 Spec: [`SPEC.md`](SPEC.md).
+
+### Double-smoothed Heikin-Ashi perception ablation
+
+`baseline-dsha` inherits `baseline` and selects
+`perception_source: double_smoothed_heikin_ashi` in its strategy `config.yaml`.
+The default source remains `ema`. The optional `double_smoothed_heikin_ashi`
+mapping accepts integer `period1` (default 6), `period2` (2), and
+`higher_tf_minutes` (60, must exceed the one-minute subscription).
+
+The candidate uses a native LEAN `PythonIndicator`, composing four Wilder moving
+averages, a Heikin-Ashi transform, and four linear-weighted moving averages.
+Direction comes from the reordered near/far extremes: **far >= near means down,
+including ties**. This intentionally preserves the historical classifier even
+though its sign can be counterintuitive. Pass 2 uses the MT4 default 2; the later
+Java implementation's period 1 is not this default. The first ready smoothed
+candle seeds HA open at `(open + close) / 2`; both smoothing passes must be ready.
+Forex QuoteBar midpoint OHLC is converted to TradeBars and fed through LEAN's
+`TradeBarConsolidator`; only completed higher-timeframe bars affect direction.
+
+No chain decision is made until both timeframes are ready. The candidate changes
+only `trend_direction` and `higher_tf_trend_direction`; `trend_strength` remains
+the existing EMA-gap proxy. `baseline-dsha` deliberately uses the same frozen,
+EMA-trained F7 model as `baseline`. Its committed ablation is a frozen-model input
+ablation, **not a retrained-model comparison**. Offline training supports both
+sources through the same resolved strategy config; this does not replace the
+shared frozen model automatically.
+The shared chain engine also honors this selector for `hybrid` strategy configs.
+
+Run the paired experiment with `experiments/double-smoothed-heikin-ashi.yaml`, or
+run `algo-backtest run` separately with `--strategy baseline` and
+`--strategy baseline-dsha`, the same window and `--param size=0.5`. Pass the two
+result IDs to `algo-analyze ablation --runs <ema-id> --runs <dsha-id>`.
+
+Implementation follows QuantConnect's [custom indicator contract](https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/custom-indicators)
+and [native consolidator](https://github.com/QuantConnect/Lean/blob/master/Common/Data/Consolidators/TradeBarConsolidator.cs).
+The indicator is manually updated and publishes `current`/`on_updated`; do not
+also register it for automatic updates. LEAN streaming initialization and session
+boundaries can differ from the original MT4 historical-array calculations.
+
+### Training the DSHA candidate
+
+`build_training_rows(..., perception=config.perception)` uses the resolved
+strategy selector and periods. The default remains EMA. DSHA training uses a pure
+Python Wilder → HA → LWMA replay over the same delivered/fill-forward bar stream.
+Higher-timeframe buckets use OANDA exchange-local wall time, and rows wait for
+both timeframes to become ready. Native parity scenarios compare every decision
+bar and feature with real LEAN, including gaps, flat ties, and custom periods.
+
+From `algo-suite/algo-backtest`, use the existing baseline trainer with the
+candidate config and a separate output artifact:
+
+```sh
+uv run python scripts/train_baseline_meta_learner.py --strategy baseline-dsha \
+  --symbol EURUSD --from 2015-02-02 --train-end 2015-06-30 \
+  --validation-end 2015-07-31 --test-end 2016-01-31 --out /tmp/dsha-f7.json
+```
+
+`--out` is required for `baseline-dsha`; the existing default output remains for
+baseline training. Both training scripts include the resolved strategy config in
+model provenance. To evaluate the separately trained candidate, use
+`algo-backtest run --strategy baseline-dsha --model /tmp/dsha-f7.json` with the
+normal symbol/window/size arguments and a held-out evaluation window. No new
+trained model or performance claim is included in this story. Ties remain down;
+ABSTAIN-on-tie is still the separate TD-61 research question.
+
+### Resolved strategy config artifact
+
+Chain-driven runs (`baseline`, `baseline-dsha`, `hybrid`) publish
+`strategy-config.json` in the run results directory during initialization.
+It contains the fully resolved `StrategyChainConfig.raw` mapping, including
+inherited settings, serialized as deterministic UTF-8 JSON. It is published via
+the shared atomic writer (same-directory temporary file followed by replace).
+Unsupported or non-finite JSON values fail explicitly before replacing an
+existing artifact. Its presence records configuration, **not successful run
+completion**; completed runs still require `run.json`/`metrics.json`.
+Ablation QA requires and hashes the engine-written config for both runs.
+
+`make check` includes the offline perception dependency-boundary gate.
+`make check-perception` runs the full host/native coverage, CRAP and mutation
+gauntlet (requires the pinned LEAN Docker image). Pure perception modules also
+belong to the package's standard mutmut scope; native adapters are tested by the
+Docker-backed target. See the done story's validation report for measured results.

@@ -36,6 +36,7 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     train_meta_learner,
     walk_forward_split,
 )
+from algo_backtest.strategies import load_strategy_chain_config
 from algo_backtest.training import (
     build_training_rows,
     event_partitions,
@@ -113,7 +114,8 @@ def main() -> None:
     instrument = build_instrument(args.symbol)
     bars = load_m1_bars(data_root, instrument, args.start, args.test_end)
     event_intensity = load_event_intensity(data_root, args.start, args.test_end)
-    rows = build_training_rows(bars, event_intensity)
+    config = load_strategy_chain_config("hybrid")
+    rows = build_training_rows(bars, event_intensity, perception=config.perception)
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end
     )
@@ -123,6 +125,7 @@ def main() -> None:
         args.out,
         {
             "strategy": "hybrid",
+            "strategy_config": dict(config.raw),
             "symbol": args.symbol,
             "window": {"from": args.start.isoformat(), "to": args.test_end.isoformat()},
             "split": {

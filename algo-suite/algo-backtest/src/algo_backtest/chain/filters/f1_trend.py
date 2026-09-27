@@ -1,16 +1,16 @@
 """F1 — trend-regime filter (specs.md §11.3.2, Spec 04c).
 
-"Recommends BUY/SELL aligned with the multi-timeframe trend; vetoes if direction
-conflicts." No upstream perception layer populates `ExecutionState.features` from real
-LEAN indicators yet (`engine/algorithm.py` — future 04a/04h integration work), so this
-filter defines and documents its own minimal feature-key contract, proven here with
-synthetic `ExecutionState` fixtures (`tests/features/f1_trend.feature`).
+Recommends BUY/SELL aligned with the multi-timeframe trend; vetoes direction
+conflicts. The shared chain engine supplies EMA directions by default, or the
+config-selected double-smoothed Heikin-Ashi candidate. It waits for both timeframes
+to be ready before invoking this filter. Trend strength remains the EMA-gap proxy.
 
 **Feature-key contract** (read from `state.features`, all required — a missing key is a
 hard, explained failure per the workspace's fail-fast policy, not a silent default):
 
-- ``trend_direction`` (float): signed slope of the primary-timeframe EMA. Positive =
-  uptrend, negative = downtrend, zero = flat.
+- ``trend_direction`` (float): signed direction from the selected perception source. Positive =
+  uptrend, negative = downtrend. EMA may emit zero (flat); DSHA emits only
+  -1/+1 and folds equal smoothed extremes into -1 (down).
 - ``trend_strength`` (float, ``[0, 100]``): an ADX-style trend-strength reading for the
   primary timeframe.
 - ``higher_tf_trend_direction`` (float): same sign convention as ``trend_direction``,
@@ -22,7 +22,9 @@ trade against the higher timeframe's regime, so the filter vetoes rather than pi
 side. When aligned (or the higher timeframe is flat), the filter recommends BUY/SELL
 by the sign of ``trend_direction`` (NEUTRAL if the primary timeframe itself is flat)
 and enriches ``trend_score`` — ``trend_direction * trend_strength / 100`` — for
-downstream filters (specs.md §11.3.1's `"trend_score"` enrichment example).
+downstream filters. With DSHA selected, this deliberately combines DSHA direction
+with EMA-gap strength; it is not a DSHA-derived strength measure
+(specs.md §11.3.1's `"trend_score"` enrichment example).
 """
 
 from __future__ import annotations
