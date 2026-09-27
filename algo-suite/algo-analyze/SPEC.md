@@ -22,6 +22,7 @@ The [README](README.md) defines exact JSON input examples and usage.
 | `summary` | `experiment.json` manifests | One deterministic CSV row per successful run |
 | `ablation` | Completed run manifests and metrics | Total-return differences against a baseline, optionally a vector PDF |
 | `figures` | `trades.json` per-trade notional returns | Descriptive trade-sequence equity/drawdown PDFs, not portfolio return sources |
+| `equity-curves` | Per run directory: `run.json` + the `equity.csv` that `algo-backtest statement --run` writes (LEAN's marked-to-market equity samples); `trades.json` when present | One consolidated overlay: `equity-consolidated.csv` (long format), `equity-consolidated.png`, `equity-consolidated.html` (self-contained comparison dashboard), one chained line per strategy, and a summary line per strategy |
 
 Headline metrics use `algo_backtest.metrics.metrics_from_artifact`. Their annualized
 Sharpe and trade counts never enter inferential moments. Unequal trade counts do not
@@ -39,6 +40,9 @@ flowchart TD
     Portfolio --> Engine[main.json + run.json + inference-inputs.json]
     CLI --> Descriptive[summary / ablation / figures]
     Descriptive --> Ledger[trade ledger and experiment manifests]
+    CLI --> Equity[equity.py: consolidated equity curves]
+    Equity --> Dashboard[equity_dashboard.py: inline-SVG HTML]
+    Equity --> Statement[run.json + equity.csv from algo_backtest.statement]
 ```
 
 Numerical modules contain no CLI, backtest or filesystem dependencies. The portfolio
@@ -121,11 +125,54 @@ algo-analyze significance --runs BASE --runs CHALLENGER --block-length 20 \
 algo-analyze inference-inventory
 algo-analyze ablation --runs BASE --runs CHALLENGER [--baseline BASE] [--figure] [--out path.pdf]
 algo-analyze figures --run ID [--out directory]
+algo-analyze equity-curves --run RESULTS_DIR [--run RESULTS_DIR ...] \
+  [--label strategy=Label ...] --out directory
 ```
 
 Repeat `--runs` and `--block-length` once per value; run identifiers are relative to
 `<data_root>/runs` and are echoed verbatim in `run_a`/`run_b`, so nested experiment
-runs stay distinguishable. The first block length is primary;
+runs stay distinguishable. `equity-curves` is the exception: each `--run` is a results
+directory path (`runs/<strategy>/<stamp>/`, anywhere on disk) holding `run.json` and
+`equity.csv`; a run without `equity.csv` fails fast naming the directory and the
+`algo-backtest statement --run <dir>` command that creates it.
+
+### 6.1 Consolidated equity curves (`equity-curves`, story 12)
+
+The robustness-testing overlay: several runs on one time axis, **one line per
+strategy** (the `strategy` in `run.json`; `--label strategy=Label` renames it in the
+legend, the CSV and the summary, and a label naming a strategy no run reports is an
+error). Runs of one strategy are sorted by window start and their consecutive windows
+are **chained** into one continuous curve: each later window's raw equity is re-based
+by `previous_window_chained_end / this_window_raw_start`, compounding along the chain,
+so three monthly backtests that each redeposit 10,000 read as one carried-forward
+account. Windows of one strategy must not overlap (fail fast); different strategies may
+cover the same dates. Outputs, in `--out`:
+
+- `equity-consolidated.csv` — long format, columns `strategy, run_id, time
+  (ISO-8601 UTC), equity_raw, equity_chained, drawdown_pct`; `equity_raw` is the
+  un-chained value straight from the run's `equity.csv`, `drawdown_pct` the percent
+  below the running peak of the **chained** curve (a loss straddling a month boundary is
+  one drawdown). Rows are ordered by strategy, then window start, then time.
+- `equity-consolidated.png` — the chained line per strategy (legend carries the chained
+  net %), a dashed starting-deposit reference, dotted markers where a later window was
+  chained on, a UTC date axis and a title with the covered window (earliest start ..
+  latest end).
+- `equity-consolidated.html` — a self-contained dark dashboard (inline CSS + inline
+  SVG; no external scripts, stylesheets or fonts, so it opens from `file://`): a KPI
+  card per strategy (start equity, end equity, chained net %, max drawdown %, trades,
+  win rate — trades and wins summed over the strategy's runs from each `trades.json`
+  (`isWin`), falling back to `run.json`'s `closed_trades` for the count when the ledger
+  is absent, `n/a` when neither records it), ONE full-width SVG chart (a distinct colour
+  per strategy with legend, gradient fill only under the best-performing curve, dashed
+  starting-deposit reference, y gridlines, month labels on the x axis) and a table of
+  the runs that fed each curve (strategy, run id, window, raw end equity, chained end
+  equity). Every curve is mapped by the one pure `svg_polyline()` helper.
+- One console line per strategy: `<strategy>: first <equity> -> last <equity>, net
+  <chained %>, max drawdown <%>, <n> run(s)`.
+
+Nothing is fabricated: the chained curve is a deterministic re-scaling of recorded
+equity, the raw column is always beside it, and no window is filled, trimmed or
+interpolated. The first block length is primary;
 the others are sensitivity settings. Examples are not a registration for a new
 experiment. Store corrected stdout in new v2 report files and retain legacy outputs.
 There is no default trial count, normal-moment assumption, or DSR plausibility band.
@@ -162,7 +209,8 @@ claims additionally require the experiment-readiness gates.
   04h); the join *mechanism* can be built and tested against it without waiting for
   statistically meaningful hybrid runs.
 - **Multi-run sweep figures** (`docs/experiments.md` Exp 7–8, threshold/sensitivity
-  sweeps) — not built; `figures` today covers one run's equity/drawdown curves and
-  ablation's own bar chart, not an arbitrary multi-run parameter sweep.
+  sweeps) — not built; `figures` covers one run's trade-sequence curves, ablation its own
+  bar chart, and `equity-curves` (§6.1) the multi-run equity overlay; an arbitrary
+  multi-run *parameter sweep* figure is still missing.
 - Whether to adopt a tearsheet library (e.g. quantstats) or keep custom matplotlib
   (current default: custom, for control over thesis figure styling).

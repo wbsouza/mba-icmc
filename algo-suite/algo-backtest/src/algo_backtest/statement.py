@@ -1,12 +1,16 @@
-"""End-of-run broker statement (`statement.md`) and equity chart (`equity.png`).
+"""End-of-run broker statement (`statement.md`), equity chart (`equity.png`) and the
+chart's series as `equity.csv`.
 
 Every simulation ends with a retail-FX account statement laid out like a MetaTrader /
 MIG Bank daily or monthly confirmation (the run window is the period): a header line,
 "Closed Transactions:", "Open Trades:", "Working Orders:" and the two-column "A/C
 Summary:" block, followed by two extra sections (Performance, Parameters) and an
-equity/drawdown chart. Both files are built **purely from the run directory's
-artifacts** — no LEAN import, no engine re-run — so `algo-backtest statement --run` can
-regenerate them for any finished run on disk:
+equity/drawdown chart. `equity.csv` holds exactly the series the chart draws — one row
+per LEAN equity sample: `time` (ISO-8601 UTC), `equity`, `drawdown_pct` (percent below
+the running peak) — so `algo-analyze equity-curves` can overlay several runs without
+re-reading LEAN's result JSON. All three files are built **purely from the run
+directory's artifacts** — no LEAN import, no engine re-run — so `algo-backtest statement
+--run` can regenerate them for any finished run on disk:
 
   run.json                  strategy, symbol, window, params, broker_adapter
   trades.json               LEAN's closed-trade ledger (`totalPerformance.closedTrades`)
@@ -40,6 +44,8 @@ only constants are presentation (file names, chart size/dpi, labels).
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import statistics as pystats
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -59,6 +65,8 @@ from algo_backtest.results import find_result_json  # noqa: E402
 
 STATEMENT_FILE = "statement.md"
 CHART_FILE = "equity.png"
+EQUITY_CSV_FILE = "equity.csv"
+EQUITY_CSV_COLUMNS: tuple[str, ...] = ("time", "equity", "drawdown_pct")
 TRADE_PLANS_FILE = "trade-plans.json"
 # Presentation only — no money math depends on these.
 CHART_DPI = 150
@@ -209,11 +217,21 @@ class Statement:
 
 
 @dataclass(frozen=True)
+class EquityRow:
+    """One `equity.csv` row: an ISO-8601 UTC time, the equity and its drawdown percent."""
+
+    time: str
+    equity: float
+    drawdown_pct: float
+
+
+@dataclass(frozen=True)
 class StatementPaths:
-    """Where the statement and its chart were written."""
+    """Where the statement, its chart and the equity CSV were written."""
 
     statement: Path
     chart: Path
+    equity_csv: Path
     report: Path
 
 
@@ -419,6 +437,28 @@ def drawdowns(equity: Sequence[float]) -> list[float]:
             raise ValueError(f"equity must be positive to define a drawdown, got {value}")
         out.append((peak - value) / peak * 100.0)
     return out
+
+
+def equity_rows(equity: Sequence[tuple[datetime, float]]) -> list[EquityRow]:
+    """The `equity.csv` rows of an equity series: ISO-8601 UTC time, equity, drawdown %.
+
+    Pure: the drawdown column is `drawdowns()` of the same closes the chart plots, so the
+    CSV and `equity.png` never disagree.
+    """
+    values = [value for _, value in equity]
+    return [
+        EquityRow(time=moment.astimezone(UTC).isoformat(), equity=value, drawdown_pct=dd)
+        for (moment, value), dd in zip(equity, drawdowns(values), strict=True)
+    ]
+
+
+def render_equity_csv(rows: Sequence[EquityRow]) -> str:
+    """`equity.csv` text: the header then one row per equity sample (LF line endings)."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(EQUITY_CSV_COLUMNS)
+    writer.writerows((row.time, row.equity, row.drawdown_pct) for row in rows)
+    return buffer.getvalue()
 
 
 def _leaf_paths(document: Mapping[str, Any], prefix: str = "") -> Iterator[tuple[str, Any]]:
@@ -991,10 +1031,11 @@ def render_equity_chart(statement: Statement, out: Path) -> Path:
 
 
 def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
-    """Write `statement.md`, `equity.png` and `report.html` for a built statement.
+    """Write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a built
+    statement into `target`.
 
-    The Markdown and HTML are written atomically; the chart is rendered to a temp file
-    and renamed into place, so no artifact is ever half-written.
+    The Markdown, the CSV and the HTML are written atomically; the chart is rendered to a
+    temp file and renamed into place, so no artifact is ever half-written.
     """
     # Local import: report.py builds on this module's Statement (no import cycle).
     from algo_backtest.report import REPORT_FILE, render_report
@@ -1003,15 +1044,20 @@ def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
     chart = render_equity_chart(statement, target / CHART_FILE)
     statement_path = target / STATEMENT_FILE
     write_text_atomic(statement_path, render_markdown(statement))
+    equity_csv = target / EQUITY_CSV_FILE
+    write_text_atomic(equity_csv, render_equity_csv(equity_rows(statement.equity)))
     report_path = target / REPORT_FILE
     write_text_atomic(report_path, render_report(statement))
-    return StatementPaths(statement=statement_path, chart=chart, report=report_path)
+    return StatementPaths(
+        statement=statement_path, chart=chart, equity_csv=equity_csv, report=report_path
+    )
 
 
 def write_statement(run_dir: Path, out_dir: Path | None = None) -> StatementPaths:
-    """Build and write `statement.md`, `equity.png` and `report.html` for a finished run.
+    """Build and write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a
+    finished run.
 
-    All land in `out_dir` (default: the run directory itself). Raises what
+    All four land in `out_dir` (default: the run directory itself). Raises what
     `load_run_artifacts`/`build_statement` raise on a missing or inconsistent artifact.
     """
     statement = build_statement(load_run_artifacts(run_dir))

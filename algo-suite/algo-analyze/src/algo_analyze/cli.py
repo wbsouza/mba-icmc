@@ -1,9 +1,11 @@
 """CLI for algo-analyze.
 
 Wires the library modules into the exact command surface `docs/experiments.md` §2/§3
-specifies: `summary`, `metrics`, `significance`, `ablation`, `figures`. Each command
-resolves the data root via the shared config convention, reads run artifacts under
-`<data_root>/runs/<run-id>/`, and fails fast with an actionable message on malformed
+specifies: `summary`, `metrics`, `significance`, `ablation`, `figures`, plus
+`equity-curves` (story 12: the consolidated multi-run equity overlay). Each command
+resolves the data root via the shared config convention and reads run artifacts under
+`<data_root>/runs/<run-id>/` — except `equity-curves`, whose `--run` values are results
+directories given explicitly — and fails fast with an actionable message on malformed
 or missing input rather than a raw traceback.
 """
 
@@ -19,6 +21,7 @@ from algo_core.logging import configure_logging, run_with_logging
 
 from algo_analyze.ablation import AblationRow, build_ablation_table
 from algo_analyze.config import AnalyzeConfig, load_analyze_config
+from algo_analyze.equity import summary_line, write_consolidated
 from algo_analyze.figures import (
     ablation_bars_figure,
     drawdown_curve_figure,
@@ -40,6 +43,17 @@ _SIGNIFICANCE_RUNS_OPTION = typer.Option(
 )
 _ABLATION_RUNS_OPTION = typer.Option(
     ..., "--runs", help="Run identifiers to compare, in the order given (repeatable)."
+)
+_EQUITY_RUNS_OPTION = typer.Option(
+    ..., "--run",
+    help="A finished run's results directory holding run.json + equity.csv (repeatable).",
+)
+_EQUITY_LABELS_OPTION = typer.Option(
+    None, "--label",
+    help="strategy=Display label for the legend, the CSV and the summary (repeatable).",
+)
+_EQUITY_OUT_OPTION = typer.Option(
+    ..., "--out", help="Directory for equity-consolidated.{csv,png,html}."
 )
 
 
@@ -186,6 +200,33 @@ def figures(
         _fail(exc)
 
     typer.echo(f"figures: {equity_path}, {drawdown_path}")
+
+
+@app.command("equity-curves")
+def equity_curves(
+    run: list[Path] = _EQUITY_RUNS_OPTION,
+    label: list[str] | None = _EQUITY_LABELS_OPTION,
+    out: Path = _EQUITY_OUT_OPTION,
+) -> None:
+    """Overlay several runs' equity curves on one time axis, one chained line per strategy.
+
+    Runs are grouped by the strategy run.json names; consecutive windows of a strategy are
+    re-based so each starts where the previous one ended (equity_raw * previous_end /
+    this_start), so a fresh deposit per month does not show as a reset. Writes the
+    long-format CSV, the PNG and a self-contained HTML comparison dashboard, prints one
+    summary line per strategy. Exits 2 naming the
+    run directory and the `algo-backtest statement --run` command when equity.csv is
+    missing.
+    """
+    try:
+        consolidation, paths = write_consolidated(run, label or [], out)
+    except (FileNotFoundError, ValueError) as exc:
+        _fail(exc)
+    for summary in consolidation.summaries:
+        typer.echo(f"equity-curves: {summary_line(summary)}")
+    typer.echo(f"equity-curves: {paths.csv}")
+    typer.echo(f"equity-curves: {paths.chart}")
+    typer.echo(f"equity-curves: {paths.html}")
 
 
 def _configured(logger_name: str) -> AnalyzeConfig:

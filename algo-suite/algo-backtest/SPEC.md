@@ -51,7 +51,7 @@ the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adap
 JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
 `hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
 `trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). Every run then
-ends with `statement.md` and `equity.png` (`statement.py`, story 12 item H): an account
+ends with `statement.md`, `equity.png` and `equity.csv` (`statement.py`, story 12 item H): an account
 statement laid out like a MetaTrader/MIG Bank daily or monthly confirmation (the run
 window is the period) — header `A/C No: <run id>   Name: <strategy> / <symbol>   <period
 end>`; "Closed Transactions:" (Ticket | Open Time | Type | Lots | Item | Price | S / L |
@@ -72,20 +72,23 @@ verbatim plus trade count and median holding minutes) and Parameters (every reso
 `strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
 `YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
 for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
-chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`. A third
-file, `report.html` (`report.py`), presents the same numbers as a broker "Account
-Performance" dashboard: self-contained (inline CSS and SVG, no script, no external font
-or CDN, opens from `file://`), dark theme, six account KPI cards (balance, equity with
-net % since start, floating P/L, margin used and % of equity, free margin, leverage
-`1:<capital_mgmt.assumed_leverage>`), a full-width SVG equity curve with the starting
-deposit as a dashed reference, six performance cards (total return %, max drawdown %,
-Sharpe, win rate, trades, profit factor = gross profit / gross loss or "n/a" without a
-loss), and CSS-only tabs — Equity, Drawdown (SVG of the drawdown series), Monthly
-Returns (each month chained from the previous month's last equity sample), Trade History
-(the Closed Transactions columns) and Parameters (the provenance table). All three are
-pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
---run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
-`parameters.txt` are not built yet.
+chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`, and
+`equity.csv` is that same series as data — columns `time` (ISO-8601 UTC), `equity`,
+`drawdown_pct` (percent below the running peak), one row per LEAN equity sample — so
+`algo-analyze equity-curves` can overlay and chain several runs without re-reading LEAN's
+result JSON. A fourth file, `report.html` (`report.py`), presents the same numbers as a
+broker "Account Performance" dashboard: self-contained (inline CSS and SVG, no script, no
+external font or CDN, opens from `file://`), dark theme, six account KPI cards (balance,
+equity with net % since start, floating P/L, margin used and % of equity, free margin,
+leverage `1:<capital_mgmt.assumed_leverage>`), a full-width SVG equity curve with the
+starting deposit as a dashed reference, six performance cards (total return %, max
+drawdown %, Sharpe, win rate, trades, profit factor = gross profit / gross loss or "n/a"
+without a loss), and CSS-only tabs — Equity, Drawdown (SVG of the drawdown series),
+Monthly Returns (each month chained from the previous month's last equity sample), Trade
+History (the Closed Transactions columns) and Parameters (the provenance table). All four
+are pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
+--run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema
+(§6.1) and `parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
 
@@ -175,6 +178,7 @@ algo_backtest/
 │                           #   LEAN portfolioStatistics; fail-fast on incomplete results (E2)
 ├── statement.py            # IMPLEMENTED — story 12 item H: broker-style end-of-run statement
 │                           #   (statement.md) + equity/drawdown chart (equity.png, matplotlib Agg)
+│                           #   + the chart's series as equity.csv (time, equity, drawdown_pct)
 │                           #   built purely from the run directory's artifacts (run.json,
 │                           #   trades.json, main.json, main-order-events.json, strategy-config/
 │                           #   provenance, optional trade-plans.json); direction 0=buy/1=sell is

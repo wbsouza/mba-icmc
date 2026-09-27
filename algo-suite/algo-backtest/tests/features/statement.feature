@@ -1,6 +1,8 @@
-Feature: End-of-run broker statement and equity chart
-  Every simulation ends with a retail-FX-style account statement (statement.md) and an
-  equity chart (equity.png) built purely from the run directory's artifacts: run.json,
+Feature: End-of-run broker statement, equity chart and equity CSV
+  Every simulation ends with a retail-FX-style account statement (statement.md), an
+  equity chart (equity.png) and the chart's own series as equity.csv (time, equity,
+  drawdown_pct — the input of `algo-analyze equity-curves`), all built purely from the
+  run directory's artifacts: run.json,
   trades.json, LEAN's result JSON and its order-events sibling, plus strategy-config.json,
   strategy-provenance.json and trade-plans.json when present. Nothing is fabricated: a
   missing optional artifact is stated as absent, a missing required one fails fast
@@ -293,6 +295,26 @@ Feature: End-of-run broker statement and equity chart
         | 0,10   |
         | -5,5   |
 
+    Scenario: equity rows pair each sample's ISO-8601 UTC time with its equity and drawdown
+      Given the engine equity chart rows
+        | unix_seconds | close    |
+        | 1441065600   | 10000.00 |
+        | 1441065900   | 10100.00 |
+        | 1441066200   | 9999.00  |
+      When I build the equity rows
+      Then the equity rows are
+        | time                      | equity   | drawdown_pct |
+        | 2015-09-01T00:00:00+00:00 | 10000.00 | 0.0          |
+        | 2015-09-01T00:05:00+00:00 | 10100.00 | 0.0          |
+        | 2015-09-01T00:10:00+00:00 | 9999.00  | 1.0          |
+      And the equity CSV text is
+        """
+        time,equity,drawdown_pct
+        2015-09-01T00:00:00+00:00,10000.0,0.0
+        2015-09-01T00:05:00+00:00,10100.0,0.0
+        2015-09-01T00:10:00+00:00,9999.0,1.0
+        """
+
     Scenario: a result without the Strategy Equity chart is rejected
       Given the engine result has no equity chart
       When I build the statement expecting failure
@@ -325,20 +347,22 @@ Feature: End-of-run broker statement and equity chart
       Then the statement says "no strategy-config.json recorded for this run"
       And the parameters table has row "size" = "0.5" from "--param"
 
-  Rule: The statement command regenerates both files for an existing run
+  Rule: The statement command regenerates all three files for an existing run
 
-    Scenario: the command writes statement.md and equity.png into the run directory
+    Scenario: the command writes statement.md, equity.png and equity.csv into the run directory
       Given a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
       And order 1 filled as "buy" for 10000 units
       When I run the statement command on that run directory
       Then the statement command exits with code 0
       And the run directory contains "statement.md" and "equity.png"
-      And the output prints the A/C summary balance "10,010.00" and both file paths
+      And the run directory's "equity.csv" has the header "time,equity,drawdown_pct" and 1 data row
+      And the output prints the A/C summary balance "10,010.00" and all three file paths
 
-    Scenario: --out redirects both files to another directory
+    Scenario: --out redirects all three files to another directory
       When I run the statement command on that run directory with an --out directory
       Then the statement command exits with code 0
       And the --out directory contains "statement.md" and "equity.png"
+      And the --out directory contains "equity.csv" and "equity.png"
 
     Scenario Outline: a missing required artifact fails the command naming the file
       Given the run directory lacks "<artifact>"
