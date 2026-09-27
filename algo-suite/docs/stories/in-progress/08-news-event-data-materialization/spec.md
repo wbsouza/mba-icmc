@@ -14,7 +14,8 @@ no new library code in these three tools; they are already built and merged).
 never been *run* against real data. The NAS data root
 (`/media/nas/wellington/mba/algo-suite/data`) currently has only `parquet/forex/` —
 no sentiment or event Parquet exists. `docs/stories/done/2026-09-25-04e-algo-backtest-news-context-filter/spec.md`
-names this exact gap as its blocking precondition. This story is the operational
+named this exact gap as its blocking precondition (since resolved — the event half is
+real+built; see that story's `progress.md`). This story is the operational
 runbook that closes it: bulk-materialize GDELT event/sentiment data and the GPR
 index for the real 2015-02-19 → 2024-12-31 window, mirroring the idempotent,
 resumable, checksum-verified pattern `scripts/prepare-lean-data.sh` already
