@@ -125,7 +125,6 @@ Feature: Filter-chain mechanics with stub filters
         | account_leverage          | 5.0    |
         | account_balance           | 10000  |
         | pip_value                 | 1.0    |
-        | stop_loss_pips            | 20.0   |
         | margin_per_lot            | 50.0   |
         | available_margin          | 10000  |
       And the account portfolio-at-risk is <portfolio_at_risk>

@@ -182,16 +182,18 @@ def _account_features_real(wiring_ctx: _WiringCtx, price: float) -> None:
 
 @when(
     parsers.parse(
-        "account features are built at price {price:g} with capital_mgmt stop_loss_pips {stop:g}, "
+        "account features are built at price {price:g} with capital_mgmt "
         "pip_value_per_lot {pip:g}, lot_notional_units {lot:g}, assumed_leverage {lev:g}"
     )
 )
 def _account_features_custom(
-    wiring_ctx: _WiringCtx, price: float, stop: float, pip: float, lot: float, lev: float
+    wiring_ctx: _WiringCtx, price: float, pip: float, lot: float, lev: float
 ) -> None:
+    """Only the per-lot economics reach the features; the stop distance is F6's own
+    (`CapitalMgmtConfig.stop_loss_pips`), so the config's value here is immaterial."""
     assert wiring_ctx.account is not None
     economics = CapitalMgmtConfig(
-        risk_per_trade=0.03, stop_loss_pips=stop, pip_value_per_lot=pip,
+        risk_per_trade=0.03, stop_loss_pips=20.0, pip_value_per_lot=pip,
         lot_notional_units=lot, assumed_leverage=lev,
     )
     wiring_ctx.features = account_features(wiring_ctx.account, price, economics)
