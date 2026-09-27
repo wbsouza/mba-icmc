@@ -15,6 +15,13 @@ from typing import Any
 
 import pytest
 from algo_backtest.cli import app
+from algo_backtest.report import (
+    account_kpis,
+    monthly_returns,
+    performance_kpis,
+    render_report,
+    svg_equity_path,
+)
 from algo_backtest.statement import (
     Statement,
     build_statement,
@@ -69,11 +76,12 @@ def _fill_events(order_id: int, side: str, units: float, price: float) -> list[d
 def _trade(
     orders: str, direction: int, quantity: float, entry: float, exit_: float, profit: float,
     fees: float, duration: str = "00:10:00", entry_time: str = _ENTRY_TIME,
+    exit_time: str = _EXIT_TIME,
 ) -> dict[str, Any]:
     """One closed trade in LEAN's ledger shape."""
     return {
         "id": f"trade-{orders}", "entryTime": entry_time, "entryPrice": entry,
-        "direction": direction, "quantity": quantity, "exitTime": _EXIT_TIME,
+        "direction": direction, "quantity": quantity, "exitTime": exit_time,
         "exitPrice": exit_, "profitLoss": profit, "totalFees": fees, "duration": duration,
         "isWin": profit > 0, "orderIds": [int(o) for o in orders.split(",")],
     }
@@ -239,6 +247,7 @@ def _trades_table(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
                 cells["orders"], int(cells["direction"]), float(cells["quantity"]),
                 float(cells["entry"]), float(cells["exit"]), float(cells["profit"]),
                 float(cells["fees"]), entry_time=cells.get("open_time", _ENTRY_TIME),
+                exit_time=cells.get("close_time", _EXIT_TIME),
             ),
         )
 
@@ -388,6 +397,24 @@ def _read_equity(st_ctx: dict[str, Any]) -> None:
 @when(parsers.parse("I compute drawdowns for the equity values {values}"))
 def _compute_drawdowns(st_ctx: dict[str, Any], values: str) -> None:
     st_ctx["drawdowns"] = drawdowns([float(v) for v in values.split(",")])
+
+
+@when("I build the report")
+def _build_report(st_ctx: dict[str, Any]) -> None:
+    statement = build_statement(load_run_artifacts(_materialize(st_ctx)))
+    st_ctx["statement"] = statement
+    st_ctx["report"] = render_report(statement)
+    st_ctx["kpis"] = {k.label: k for k in [*account_kpis(statement), *performance_kpis(statement)]}
+
+
+@when(
+    parsers.parse(
+        "I build the SVG path for the points {points} in a {width:g} by {height:g} box"
+    )
+)
+def _build_path(st_ctx: dict[str, Any], points: str, width: float, height: float) -> None:
+    pairs = [tuple(float(v) for v in p.split(":")) for p in points.split(",")]
+    st_ctx["path"] = svg_equity_path([(x, y) for x, y in pairs], width, height)
 
 
 @when(parsers.parse("I derive the price precision of {prices}"))
@@ -707,3 +734,54 @@ def _cli_output(st_ctx: dict[str, Any], balance: str) -> None:
 @then(parsers.parse('the output names "{artifact}"'))
 def _cli_names(st_ctx: dict[str, Any], artifact: str) -> None:
     assert artifact in st_ctx["cli"].output, st_ctx["cli"].output
+
+
+@then(parsers.parse('the report KPI "{label}" is "{value}" with note "{note}"'))
+def _kpi_with_note(st_ctx: dict[str, Any], label: str, value: str, note: str) -> None:
+    kpi = st_ctx["kpis"][label]
+    assert (kpi.value, kpi.note) == (value, note), kpi
+    assert value in st_ctx["report"] and note in st_ctx["report"]
+
+
+@then(parsers.parse('the report KPI "{label}" is "{value}"'))
+def _kpi(st_ctx: dict[str, Any], label: str, value: str) -> None:
+    kpi = st_ctx["kpis"][label]
+    assert kpi.value == value, kpi
+    assert value in st_ctx["report"]
+
+
+@then("the monthly returns are")
+def _monthly(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    _header, *expected = datatable
+    statement: Statement = st_ctx["statement"]
+    rows = [
+        [r.month, f"{r.start_equity:,.2f}", f"{r.end_equity:,.2f}", f"{r.return_pct:+.2f}%",
+         str(r.trades)]
+        for r in monthly_returns(statement.equity, statement.transactions)
+    ]
+    assert rows == expected, rows
+
+
+@then(parsers.parse('the SVG path is "{path}"'))
+def _path_is(st_ctx: dict[str, Any], path: str) -> None:
+    assert st_ctx["path"] == path
+
+
+@then(parsers.parse("the report contains the tab labels {labels}"))
+def _tab_labels(st_ctx: dict[str, Any], labels: str) -> None:
+    report = (st_ctx["run_dir"] / "report.html").read_text()
+    for label in labels.split(", "):
+        assert f">{label.strip(chr(34))}</label>" in report, label
+
+
+@then("the report references no external resource")
+def _self_contained(st_ctx: dict[str, Any]) -> None:
+    report = (st_ctx["run_dir"] / "report.html").read_text()
+    assert "http://" not in report and "https://" not in report and "<script" not in report
+    assert "<link" not in report and "@import" not in report
+
+
+@then("the output prints the report path")
+def _prints_report(st_ctx: dict[str, Any]) -> None:
+    out = st_ctx["cli"].output
+    assert f"report: {st_ctx['run_dir'] / 'report.html'}" in out, out

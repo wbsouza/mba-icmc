@@ -276,7 +276,8 @@ def run(
 
 
 def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
-    """Write statement.md + equity.png for `run_dir`; print the A/C summary and both paths."""
+    """Write statement.md, equity.png and report.html for `run_dir`; print the A/C summary
+    lines and the three paths."""
     from algo_backtest.statement import (
         build_statement,
         load_run_artifacts,
@@ -290,6 +291,7 @@ def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
         typer.echo(f"statement: {line}")
     typer.echo(f"statement: {paths.statement}")
     typer.echo(f"equity chart: {paths.chart}")
+    typer.echo(f"report: {paths.report}")
 
 
 @app.command(name="explain-strategy")

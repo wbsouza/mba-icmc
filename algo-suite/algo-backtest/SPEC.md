@@ -72,7 +72,17 @@ verbatim plus trade count and median holding minutes) and Parameters (every reso
 `strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
 `YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
 for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
-chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`. Both are
+chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`. A third
+file, `report.html` (`report.py`), presents the same numbers as a broker "Account
+Performance" dashboard: self-contained (inline CSS and SVG, no script, no external font
+or CDN, opens from `file://`), dark theme, six account KPI cards (balance, equity with
+net % since start, floating P/L, margin used and % of equity, free margin, leverage
+`1:<capital_mgmt.assumed_leverage>`), a full-width SVG equity curve with the starting
+deposit as a dashed reference, six performance cards (total return %, max drawdown %,
+Sharpe, win rate, trades, profit factor = gross profit / gross loss or "n/a" without a
+loss), and CSS-only tabs — Equity, Drawdown (SVG of the drawdown series), Monthly
+Returns (each month chained from the previous month's last equity sample), Trade History
+(the Closed Transactions columns) and Parameters (the provenance table). All three are
 pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
 --run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
 `parameters.txt` are not built yet.

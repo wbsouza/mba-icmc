@@ -277,3 +277,81 @@ Feature: End-of-run broker statement and equity chart
       When I run the statement command on that run directory
       Then the statement command exits with code 2
       And the output names "trades.json"
+
+  Rule: report.html is a self-contained dashboard of the same numbers
+
+    Scenario Outline: the account KPI cards repeat the A/C summary
+      Given the engine reports start equity <start> and end equity <start>
+      And the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And the strategy config sets capital_mgmt.assumed_leverage to <leverage>
+      And the closed trades
+        | orders | direction | quantity | entry   | exit    | profit   | fees |
+        | 1,2    | 0         | 10000    | 1.10000 | 1.10100 | <profit> | 0.0  |
+      When I build the report
+      Then the report KPI "Account Balance" is "<balance>"
+      And the report KPI "Equity" is "<balance>" with note "<note>"
+      And the report KPI "Floating P/L" is "0.00"
+      And the report KPI "Margin Used" is "0.00" with note "0.00% of equity"
+      And the report KPI "Free Margin" is "<balance>"
+      And the report KPI "Leverage" is "<lev_label>"
+      And the report KPI "Total Return %" is "<total_return>"
+
+      Examples:
+        | start    | leverage | profit  | balance   | note               | lev_label | total_return |
+        | 10000.00 | 30       | 250.00  | 10,250.00 | +2.50% since start | 1:30      | +2.50%       |
+        | 10000.00 | absent   | -100.00 | 9,900.00  | -1.00% since start | n/a       | -1.00%       |
+
+    Scenario Outline: profit factor is gross profit over gross loss, n/a without a loss
+      Given the closed trades
+        | orders | direction | quantity | entry | exit | profit    | fees |
+        | 1,2    | 0         | 10000    | 1.1   | 1.2  | <profit1> | 0.0  |
+        | 3,4    | 0         | 10000    | 1.1   | 1.2  | <profit2> | 0.0  |
+        | 5,6    | 0         | 10000    | 1.1   | 1.2  | <profit3> | 0.0  |
+      When I build the report
+      Then the report KPI "Profit Factor" is "<factor>"
+      And the report KPI "Total Trades" is "3"
+
+      Examples:
+        | profit1 | profit2 | profit3 | factor |
+        | 100.00  | -50.00  | 30.00   | 2.60   |
+        | 100.00  | 50.00   | 30.00   | n/a    |
+        | -100.00 | -50.00  | 0.00    | 0.00   |
+
+    Scenario: monthly returns chain each month from the previous month's close
+      Given the engine equity chart rows
+        | unix_seconds | close    |
+        | 1441065600   | 10000.00 |
+        | 1443571200   | 10200.00 |
+        | 1443657600   | 10100.00 |
+        | 1446249600   | 10403.00 |
+      And the closed trades
+        | orders | open_time            | close_time           | direction | quantity | entry | exit | profit | fees |
+        | 1,2    | 2015-09-05T09:00:00Z | 2015-09-05T10:00:00Z | 0         | 10000    | 1.1   | 1.2  | 100.00 | 0.0  |
+        | 3,4    | 2015-09-20T09:00:00Z | 2015-09-20T10:00:00Z | 0         | 10000    | 1.1   | 1.2  | 100.00 | 0.0  |
+        | 5,6    | 2015-10-10T09:00:00Z | 2015-10-10T10:00:00Z | 0         | 10000    | 1.1   | 1.2  | 203.00 | 0.0  |
+      When I build the report
+      Then the monthly returns are
+        | month   | start_equity | end_equity | return_pct | trades |
+        | 2015-09 | 10,000.00    | 10,200.00  | +2.00%     | 2      |
+        | 2015-10 | 10,200.00    | 10,403.00  | +1.99%     | 1      |
+      And the report KPI "Max Drawdown %" is "0.98%"
+
+    Scenario Outline: the SVG path helper maps a series onto the chart box
+      When I build the SVG path for the points <points> in a <width> by <height> box
+      Then the SVG path is "<path>"
+
+      Examples:
+        | points           | width | height | path                            |
+        | 0:100,1:110,2:90 | 100   | 50     | M0.0,25.0 L50.0,0.0 L100.0,50.0 |
+        | 0:100,1:100      | 100   | 50     | M0.0,25.0 L100.0,25.0           |
+        | 5:42             | 100   | 50     | M0.0,25.0                       |
+
+    Scenario: the statement command writes report.html with the five tabs and no external resource
+      Given a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
+      And order 1 filled as "buy" for 10000 units
+      When I run the statement command on that run directory
+      Then the statement command exits with code 0
+      And the run directory contains "report.html" and "statement.md"
+      And the report contains the tab labels "Equity", "Drawdown", "Monthly Returns", "Trade History", "Parameters"
+      And the report references no external resource
+      And the output prints the report path

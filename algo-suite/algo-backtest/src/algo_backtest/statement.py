@@ -85,6 +85,7 @@ _PERFORMANCE_KEYS: Sequence[tuple[str, str]] = (
     ("Total orders", "Total Orders"),
 )
 _TRADE_COLUMNS = ("Ticket", "Open Time", "Type", "Lots", "Item", "Price", "S / L", "T / P")
+CLOSED_COLUMNS = (*_TRADE_COLUMNS, "Close Time", "Price", "Commission", "R/O Swap", "Trade P/L")
 
 
 @dataclass(frozen=True)
@@ -213,6 +214,7 @@ class StatementPaths:
 
     statement: Path
     chart: Path
+    report: Path
 
 
 # --- loading ---------------------------------------------------------------------------
@@ -814,15 +816,18 @@ def _totals_row(rows: Sequence[ClosedTransaction | OpenTrade], width: int) -> li
     ]
 
 
+def transaction_cells(t: ClosedTransaction, decimals: int) -> list[str]:
+    """The thirteen Closed Transactions cells of one trade (shared with report.html)."""
+    return [
+        *_leading_cells(t, decimals), format_time(t.close_time), _price(t.close_price, decimals),
+        money(t.commission), money(t.swap), money(t.profit),
+    ]
+
+
 def _closed_section(statement: Statement) -> list[str]:
     """Closed Transactions: the ledger rows, a totals row and the closed P/L line."""
-    d = statement.price_decimals
-    headers = [*_TRADE_COLUMNS, "Close Time", "Price", "Commission", "R/O Swap", "Trade P/L"]
-    rows = [
-        [*_leading_cells(t, d), format_time(t.close_time), _price(t.close_price, d),
-         money(t.commission), money(t.swap), money(t.profit)]
-        for t in statement.transactions
-    ]
+    headers = list(CLOSED_COLUMNS)
+    rows = [transaction_cells(t, statement.price_decimals) for t in statement.transactions]
     if not rows:
         rows = [[NO_TRANSACTIONS] + [""] * (len(headers) - 1)]
     rows.append(_totals_row(statement.transactions, len(headers)))
@@ -969,22 +974,27 @@ def render_equity_chart(statement: Statement, out: Path) -> Path:
 
 
 def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
-    """Write `statement.md` + `equity.png` for an already-built statement into `target`.
+    """Write `statement.md`, `equity.png` and `report.html` for a built statement.
 
-    The Markdown is written atomically; the chart is rendered to a temp file and renamed
-    into place, so neither artifact is ever half-written.
+    The Markdown and HTML are written atomically; the chart is rendered to a temp file
+    and renamed into place, so no artifact is ever half-written.
     """
+    # Local import: report.py builds on this module's Statement (no import cycle).
+    from algo_backtest.report import REPORT_FILE, render_report
+
     target.mkdir(parents=True, exist_ok=True)
     chart = render_equity_chart(statement, target / CHART_FILE)
     statement_path = target / STATEMENT_FILE
     write_text_atomic(statement_path, render_markdown(statement))
-    return StatementPaths(statement=statement_path, chart=chart)
+    report_path = target / REPORT_FILE
+    write_text_atomic(report_path, render_report(statement))
+    return StatementPaths(statement=statement_path, chart=chart, report=report_path)
 
 
 def write_statement(run_dir: Path, out_dir: Path | None = None) -> StatementPaths:
-    """Build and write `statement.md` + `equity.png` for a finished run.
+    """Build and write `statement.md`, `equity.png` and `report.html` for a finished run.
 
-    Both land in `out_dir` (default: the run directory itself). Raises what
+    All land in `out_dir` (default: the run directory itself). Raises what
     `load_run_artifacts`/`build_statement` raise on a missing or inconsistent artifact.
     """
     statement = build_statement(load_run_artifacts(run_dir))

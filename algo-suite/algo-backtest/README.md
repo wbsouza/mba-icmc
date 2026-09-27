@@ -23,8 +23,12 @@ score → **backtest** → analyze.
   MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
   Working Orders, the two-column A/C Summary, then Performance and Parameters with
   provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
-  prices carry), and an **`equity.png`** equity/drawdown chart, both built purely from
-  those artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
+  prices carry), an **`equity.png`** equity/drawdown chart, and a self-contained
+  **`report.html`** "Account Performance" dashboard (dark theme, inline CSS + SVG, no
+  script or external resource: KPI cards, equity curve, and Equity / Drawdown /
+  Monthly Returns / Trade History / Parameters tabs — `report.py`), all built purely
+  from those artifacts (`statement.py`) and regenerable with `algo-backtest statement
+  --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
   (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.
