@@ -24,7 +24,7 @@ algo-download → algo-transform → algo-score → algo-backtest → algo-analy
 | [`algo-transform`](algo-transform/) | raw → canonical Parquet; coverage + currency-strength | 1 | `algo-transform` |
 | [`algo-score`](algo-score/) | Loughran–McDonald sentiment (per-currency; FinBERT planned) + GDELT/GPR events → feature Parquet | 2 | `algo-score` |
 | [`algo-backtest`](algo-backtest/) | materialize `lean-data/`, LightGBM meta-learner, deterministic filter chain on LEAN | 3–4 | `algo-backtest` |
-| [`algo-analyze`](algo-analyze/) | metrics, deflated Sharpe, Monte-Carlo Permutation Test, ablations | 5 | `algo-analyze` |
+| [`algo-analyze`](algo-analyze/) | metrics, DSR probability, paired stationary-bootstrap mean-return test, ablations, figures | 5 | `algo-analyze` |
 
 Each tool dir holds its own `SPEC.md` (technical spec, colocated with the code)
 and a `tests/` tree of Gherkin features.

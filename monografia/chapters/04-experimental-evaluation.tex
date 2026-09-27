@@ -1,6 +1,6 @@
 \chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
 
-This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 26, 2026. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
+This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 27, 2026. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
 
 \section{Experimental Setup} \label{sec:experimental-setup}
 
@@ -31,7 +31,7 @@ At this snapshot, the baseline September replay completed with zero closed trade
 
 Artifacts are kept in the directory \path{2026-09-26-six-month-pilot/} beneath the local \path{algo-suite/data/training/} root. Model JSON files contain split metadata, input hashes, configuration, code revision, and package versions. The job records stage logs and exit status; run directories contain \path{run.json}, \path{trades.json}, \path{metrics.json}, \path{strategy-config.json}, LEAN outputs, and the chain's \path{decisions.parquet}. The repository progress record tracks the initial missing-broker-configuration failure and the resumed OANDA run. These local artifacts must be archived with the final report; a documentation snapshot is not a substitute for them.
 
-The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, inspection of decision/trade evidence, and corrected statistical inference. Story 11 addresses the latter. The wider validation study, additional pairs, and feature ablations remain separate work. The results sections below stay incomplete until their required evidence exists.
+The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, and inspection of decision/trade evidence. Story 11 delivered the corrected inference software of Section~\ref{subsec:rule-significance}; each empirical use of it still requires audited daily equity, cost metadata, actual selection history and block settings registered before evaluation. The wider validation study, additional pairs, and feature ablations remain separate work. The results sections below stay incomplete until their required evidence exists.
 
 \section{Data Coverage} \label{sec:coverage-results}
 

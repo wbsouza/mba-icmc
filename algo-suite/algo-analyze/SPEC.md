@@ -44,7 +44,9 @@ flowchart TD
 Numerical modules contain no CLI, backtest or filesystem dependencies. The portfolio
 reader has no reporting or CLI dependency. Reports compose readers and numerical
 methods; the CLI resolves configuration, catches diagnostics and serializes output.
-The gauntlet architecture/CRAP checker enforces these boundaries.
+`make check-inference` (this tool's Makefile) enforces these boundaries with the
+dependency, coverage and CRAP gate in `tools/inference_quality.py`; it is a separate
+target, not part of the default `make check`.
 
 Libraries: NumPy for resampling; stdlib `statistics.NormalDist` for the classical
 DSR expression; Typer/structlog for CLI/logging; matplotlib for vector figures;

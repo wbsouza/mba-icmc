@@ -42,8 +42,8 @@ work gated on `algo-score`. No number here is an AI result.
   month — so spread drag dominates. `baseline-meanrev` trades rarely (band seldom hit), so a
   small loss.
 - **Sharpe is not meaningful at one month** (tiny sample → extreme values). The thesis uses
-  longer windows and proper **deflated Sharpe + Monte-Carlo Permutation Test** in the
-  analysis phase; these figures are a pipeline proof + order-of-magnitude sanity, not the
+  longer windows and the schema-v2 **DSR probability + paired stationary-bootstrap
+  inference** (Story 11) in the analysis phase; these figures are a pipeline proof + order-of-magnitude sanity, not the
   final result.
 - These params are arbitrary-but-reasonable first values, **not tuned**. The point of the
   execution pass is that the *pipeline produces real, reproducible numbers* — and it does.

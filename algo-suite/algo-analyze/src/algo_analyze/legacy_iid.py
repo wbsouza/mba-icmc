@@ -1,4 +1,9 @@
-"""Monte-Carlo permutation significance tests for strategy return samples."""
+"""Legacy IID Monte-Carlo permutation test; opt-in library only, never CLI inference.
+
+Pools two samples and shuffles individual observations, so it assumes exchangeable,
+independent observations. It discards market-time pairing and serial dependence.
+Schema-v2 strategy comparison uses the paired stationary bootstrap in `significance`.
+"""
 
 from __future__ import annotations
 

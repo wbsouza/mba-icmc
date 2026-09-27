@@ -281,7 +281,7 @@
     \item Walk-forward preserves chronological ordering.
     \item Combinatorial purged k-fold + embargo mitigates leakage in time series.
     \item Temporal split: train 2015--2022, validation 2023, test 2024 (a single pass on the test span, no iteration).
-    \item Metrics: Sharpe, max drawdown, hit rate, holding time, turnover; cost sensitivity. Headline Sharpe reported with its \alert{deflated} counterpart and a Monte-Carlo Permutation Test.
+    \item Metrics: Sharpe, max drawdown, hit rate, holding time, turnover; cost sensitivity. Headline Sharpe reported with the probability-valued \alert{deflated Sharpe ratio} (registered search history) and a paired stationary-bootstrap test of the mean daily return difference.
     \item Baselines: \textit{price-only} (same harness), Loughran--McDonald dictionary, Zhang (2025).
     \item Non-deterministic models report \alert{mean $\pm$ standard deviation} across CV folds.
   \end{itemize}
