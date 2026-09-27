@@ -2,23 +2,11 @@
 
 \section{Final Remarks} \label{sec:final-remarks}
 
-This work describes a hybrid algorithmic trading strategy for Forex that integrates technical-analysis features, indicators, chart and candlestick patterns, and NLP-derived sentiment and event signals over a ten-year corpus, designed to be evaluated under a strict walk-forward and combinatorial purged cross-validation protocol. The methodological contribution is the explicit separation of an \textit{agentic perception layer}, in which language models and other non-deterministic components produce cached features, from a \textit{deterministic execution layer}, in which a rule-based stage on those features emits the trade decision. The separation preserves backtest reproducibility and regulatory auditability while permitting the perception layer to incorporate increasingly capable models in subsequent iterations. The empirical assessment of this design, to the extent supported by the data and components runnable at the time of submission, is the subject of Chapter~\ref{cap:experimental-evaluation}; the portion that remains future work is recorded explicitly in Section~\ref{sec:future-work}.
+This work develops an architecture for combining price-derived and news/event features in a deterministic Forex execution system. The implementation has reached offline baseline/hybrid training and a fixed-model EUR/USD pilot, as documented in Chapter~\ref{cap:experimental-evaluation}. The ten-year, multi-source, rolling/CPCV evaluation remains a target rather than a completed empirical result.
 
-A note on the empirical conclusion. The accept/reject outcome of
-hypothesis~H1 (Section~\ref{sec:hypothesis}) depends on the evidence
-reported in Chapter~\ref{cap:experimental-evaluation}, which is itself
-sized by the methodology-freeze deadline of this manuscript. Should that
-evidence reject H1, the contribution of the present work remains: the
-methodological discipline (combinatorial purged $k$-fold with embargo,
-agentic perception with deterministic execution, configurable filter
-chain), the data-architecture decision (Parquet as canonical source of truth, a
-durable \path{lean-data/} execution store materialized once for replay), the coverage rule of Section~\ref{subsec:coverage-rule},
-the license-compatible execution path of Section~\ref{sec:execution-engine}
-and the documented conditions of failure are themselves the result. Negative
-results are recorded as such in Chapter~\ref{cap:experimental-evaluation},
-not hidden. A null result that survives the validation discipline of
-\citeonline{lopezdeprado2018advances} is more informative than a positive
-result that does not.
+The evidence currently supports the feasibility of the data, model-persistence, and replay path. It does not establish or reject hypothesis~H1. Zero trades, a nonsignificant diagnostic, or missing paired results cannot demonstrate that news has no value. Conversely, a favorable pilot return would not establish generalization without coverage, cost, leakage, and statistical checks.
+
+The workflow in Section~\ref{subsec:workflow-stages} makes the remaining requirements explicit: complete and audit the paired replay, validate execution assumptions, correct DSR and time-series inference, and extend evaluation under a declared protocol. Text sentiment, pattern detection, GPR evidence, and broader validation must be reported as present only when demonstrated. Any item unfinished at submission must remain an explicit limitation or deferred task, rather than being counted as an achieved methodological contribution.
 
 \section{Future Work} \label{sec:future-work}
 

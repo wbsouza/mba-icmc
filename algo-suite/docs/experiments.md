@@ -11,38 +11,36 @@ in Chapter 4 traces to a `runs/<run-id>/` directory and a recorded command.
 
 ---
 
-## 1. Run conventions
+## 1. Workflow and implemented run conventions
 
-- A backtest produces `runs/<run-id>/` with `trades.parquet`, `decisions.parquet`,
-  the equity series, and `parameters.txt` (the full provenance log).
-- `run-id` = `YYYY-MM-DD-NN` (date + ordinal). The `run-id` is cited in the
-  Chapter 4 caption of every table/figure derived from it.
-- Strategy variants are config files under `algo-backtest/src/algo_backtest/strategies/`, composed
-  with `extends:` (e.g. `hybrid` extends `baseline` adding F4; `A`/`B`/`C`/`D`
-  extend `core` adding extended filters). No engine code changes between
-  variants — only configuration.
-- Metrics are computed by `algo-analyze` from `trades.parquet`; forensics from
-  `decisions.parquet` joined on `trade_id`.
-- **Validation protocol is explicit on every run:** `--cv cpcv --folds N
-  --embargo D` (or `--cv walkforward`) per the methodology; `--cv single` is the
-  one-pass held-out test. Combinatorial purged k-fold is driven by
-  `algo-backtest` itself (spec §5.1), and `algo-analyze` reads the per-fold
-  `trades.parquet` for the deflated Sharpe. Experiment commands below omit the
-  `--cv` flags for brevity but every reported result names its protocol.
-- **Implemented today (2026-09-26)** — the bullets above are the target contract.
-  `algo-backtest run` writes `runs/<strategy>/<stamp>/` with `run.json`,
-  `trades.json` (the interim ledger `algo-analyze` reads), `metrics.json`, LEAN's
-  result JSON and, for `baseline`/`hybrid`, `decisions.parquet` (joins
-  `trades.json` by `trade_id`). `trades.parquet`, `parameters.txt`, `--cv` and
-  per-fold runs are not built; F7's train/validation/test split is set offline by
-  `scripts/train_{baseline,hybrid}_meta_learner.py` (`--from/--train-end/
-  --validation-end/--test-end`), the model's provenance (window, split, input
-  hashes, git revision) embedded in its `f7_meta_learner.json`. Only `baseline`
-  and `hybrid` exist as chain configs; Exp 4/6–9 variants are not written yet.
+Follow [the experimental workflow](experimental-workflow.md) before selecting
+an experiment below. In particular, fit family models, calibrate the combiner,
+and freeze model artifacts before held-out replay. The current six-month pilot
+uses February–June 2015 for family fitting, July for calibration, August for
+the trainer's held-out partition, and September for the first simulation.
+
+- `algo-backtest run` writes `runs/<strategy>/<stamp>/` with `run.json`,
+  `trades.json`, `metrics.json`, and LEAN outputs. Chain runs also write
+  `decisions.parquet` and `strategy-config.json`.
+- The F7 model JSON records training dates, row counts, input hashes, code
+  revision, and package versions. Pass the frozen artifact with `--model`;
+  record its hash and exact command alongside each result.
+- The analyzer currently reads `trades.json`. Its trade-sequence figures use
+  per-trade notional returns, not actual portfolio-equity compounding; label
+  them accordingly until portfolio-series reporting is implemented.
+- `trades.parquet`, `parameters.txt`, `--cv`, automatic rolling refits, CPCV,
+  and per-fold orchestration are target contracts, not implemented CLI options.
+- Strategy names in the experiment catalog are a research plan, not proof of
+  implementation. Baseline, hybrid, and baseline-dsha are available; extended
+  feature/filter variants need their own configurations and evidence.
+- [Story 11](stories/planned/11-statistical-inference-corrections/spec.md)
+  blocks DSR/significance claims. Legacy analyzer outputs are exploratory until
+  corrected and independently validated; do not compare DSR probabilities to
+  Sharpe-scale thresholds or treat pooled trade shuffling as time-series inference.
 
 ## 2. Experiment → command → Chapter 4 artifact
 
-The nine experiments of methodology Table 4 (each row maps to one Chapter 4
+The numbered experiments (0–9, including engine controls) (each row maps to one Chapter 4
 section). "Cmd" lists the producing commands; "Artifact" is the Chapter 4 output.
 
 | # | Experiment | Key variable | Producing commands | Chapter 4 artifact |
@@ -75,7 +73,7 @@ pack is shared with the thesis (fonts/sizes/palette) so they drop in cleanly.
 
 For each experiment, the Chapter 4 subsection follows the same skeleton:
 
-1. **Setup** — the strategy config (cite `parameters.txt`), pair, window.
+1. **Setup** — the resolved `strategy-config.json`, frozen model hash, and recorded command, pair, window.
 2. **Result** — the metrics table + figure (from `algo-analyze`), with `run-id`.
 3. **Significance** — deflated Sharpe and the Monte-Carlo Permutation Test
    p-value (Exp 2/3/5/6), so a headline number is never reported without its
@@ -84,15 +82,15 @@ For each experiment, the Chapter 4 subsection follows the same skeleton:
 
 The "overfiltering" discussion (methodology §subsec:extended-filters) is written
 from the Exp 6 ablation: where adding quality gates (A→D) reduces turnover but
-also trade count, the deflated Sharpe vs trade-count trade-off is read directly
+also trade count, the descriptive Sharpe vs trade-count trade-off is read directly
 off the ablation table.
 
 ## 5. Reproducibility
 
-Every Chapter 4 number is reproducible: `parameters.txt` records the exact config
-+ provenance, `features_hash` pins the input feature stream, fixed seeds make the
-MCP test and any model inference deterministic, and the `run-id` links caption to
-artifact. Re-running a cited command reproduces the table.
+Every reported number must link to an archived run ID, command, configuration,
+model hash, and input provenance. Current artifacts are listed in §1. Verify
+reproduction before claiming it; deterministic software alone does not validate
+the statistical method. Store rejected/failed runs and the search history too.
 
 ## 6. Hypothesis mapping
 
@@ -103,46 +101,33 @@ artifact. Re-running a cited command reproduces the table.
 | Position vs prior art | Exp 5 (vs Zhang 2025) |
 | Quality-gate value / overfiltering | Exp 6–9 |
 
-## 7. Benchmark comparison — expected ranges from the cited literature
+## 7. Benchmark comparison and interpretation
 
-Each experiment is sanity-checked against comparable results in the papers we
-cite, so a result that lands wildly outside the literature's range is a flag to
-investigate (data leak, look-ahead, cost model), and a result inside it is
-corroboration. Numbers below are verified against the source PDFs.
+The existing bibliography identifies Zhang (2025) as the closest Forex
+comparison, with FinDPO and Kirtac–Germano as examples from equities and the
+GPR studies as evidence motivating an event feature. Before transferring any
+reported number into Chapter 4, verify its source, sampling frequency, costs,
+window, asset class, and validation protocol. Similar source names do not make
+the current event-only pilot a replication of an NLP-sentiment study.
 
-| Our experiment | Comparable result (verified) | How we use it |
-|---|---|---|
-| **Exp 5** — vs Zhang (2025), our closest prior art | `zhang2025macroalpha`: cost-adjusted Sharpe **5.87 EUR/USD, 4.65 USD/JPY** (FinBERT→XGBoost over GDELT, 2017–2025) | Direct comparator. Same pairs, same GDELT+FinBERT lineage. Our deflated Sharpe is reported beside it; per López de Prado, a Sharpe near 5.87 is **above** the plausible band without scrutiny — so we treat a close match as a red flag, not a win. |
-| **Exp 2/3** — hybrid Sharpe after costs (EUR/USD, USD/JPY) | `iacovides2025findpo` (FinDPO): Sharpe **2.0**, 67% annual at **5 bps** costs — but on **S&P 500 equities**, not FX | Calibration **anchor** for a defensible post-cost Sharpe. A deflated Sharpe in the ~1–2 range after costs is credible; materially above 2.0 warrants scrutiny. Not a same-asset comparator. |
-| **GPR feature contribution** (within Exp 4) | `liu2024gprcurrency`: zero-cost GPR currency strategy **5.72% p.a. before / 4.73% after** costs (42 currencies, 2002–2019); `melone2026geopolitical` (working paper): GHML **3.28% annual / 2.76% alpha** | Establishes that GPR carries directional FX information. Our GPR-feature ablation should show a **positive, modest** marginal contribution; a large one is implausible given these effect sizes. |
-| **algo-score scorer choice** (informs algo-score, not a backtest exp) | `kirtac2024sentiment`: on **US equities**, OPT 74.4% > BERT 72.5% > FinBERT 72.2% accuracy; long-short Sharpe OPT **3.05** > FinBERT **2.07** | Pedigree that a frontier LLM scorer beats FinBERT — motivates the Tier-A scorer swap (Ch.5), and sets expectation that our FinBERT baseline is a floor, not a ceiling. Equities, not FX. |
+The earlier bands (~0.5–1.5 as plausible, above 2 as suspicious, and an expected
+positive GPR contribution) are withdrawn as decision criteria. They neither
+establish a universal Sharpe limit nor determine the sign of an effect in this
+sample. In particular, a probability-valued DSR cannot exceed 1 and must never
+be assessed using a Sharpe-scale cutoff. Story 11 removes the legacy CLI rule.
 
-Caveats carried into the prose: Zhang's figures are the same-asset comparator but
-sit above the plausible band; FinDPO and Kirtac–Germano are **equities** (anchors,
-not comparators); Melone is a **working paper**. Effect sizes, not just direction,
-are compared — a hybrid that "beats baseline" by an implausibly large margin is
-investigated before it is reported.
+A result inside a literature range does not validate this pipeline; a result
+outside it is not automatically invalid. Audit coverage, leakage, costs,
+selection, and the return convention regardless of the outcome. Report
+negative, zero, and positive effects without changing the protocol to favor a
+preferred answer. A zero-trade run needs diagnosis before performance
+interpretation; a nonsignificant result does not establish absence of value.
 
-### 7.1 Expected result bands
-
-Derived from the benchmarks above, these are the plausibility bands the results
-are read against (not targets — gates for "investigate before reporting"):
-
-| Quantity | Plausible | Investigate |
-|---|---|---|
-| Hybrid deflated Sharpe after costs (Exp 2/3) | ~0.5–1.5 | > 2.0 (above the FinDPO anchor) — check leakage/costs |
-| GPR-feature marginal contribution (Exp 4) | small, positive | large — implausible vs Liu–Zhang / Melone effect sizes |
-| Match to Zhang's 5.87 / 4.65 (Exp 5) | well below | at/above — treat as a red flag, not a win |
-
-### 7.2 Reading a negative baseline
-
-A **price-only baseline with a zero or negative Sharpe is not a failure** — it is
-the expected outcome for unleveraged major-pair FX without an informational edge
-(efficient, deep, low-drift). The experiment does not need the baseline to be
-profitable; it needs the baseline to be a *competitive, honestly-costed control*.
-The quantity that tests hypothesis H1 is the **hybrid − baseline delta** (and its
-deflated significance), not the absolute baseline level. Exp 1 therefore reports
-the baseline as a control, and Exp 2/3 report the delta as the result.
+H1 concerns the paired hybrid-minus-baseline comparison under matched economic
+assumptions. That delta, its uncertainty, and its generalization limits matter
+more than whether a single baseline appears profitable. Since hybrid changes
+both a family model and an event gate, an isolated feature-contribution claim
+requires separate ablations.
 
 ## 8. Cross-references
 

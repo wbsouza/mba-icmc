@@ -6,6 +6,10 @@ The trading-tools source tree for the TCC *"Algorithmic Trading Enhanced by AI"*
 workspace. The dissertation lives in `../monografia/`; product and design docs
 in `PRD.md` and `docs/`.
 
+The [experimental workflow](docs/experimental-workflow.md) documents all research
+stages, including training, calibration, model freezing, replay, and evidence
+review. The tool pipeline below is only the software layout.
+
 ## Pipeline
 
 ```
@@ -90,7 +94,7 @@ data/{raw,parquet,lean-data,runs}/
 Parquet is the canonical source of truth; the LEAN-native `lean-data/` execution
 store and the feature cache are derived and read-through (materialized once,
 reused across the sweep). See [`docs/parquet-evaluation.md`](docs/parquet-evaluation.md)
-and [`data/README.md`](data/README.md). Data contents are gitignored.
+and [the storage design](docs/parquet-evaluation.md). Data contents are gitignored.
 
 ## Docker (planned — TD-11)
 
