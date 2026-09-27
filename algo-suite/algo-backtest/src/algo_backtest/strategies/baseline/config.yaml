@@ -19,7 +19,8 @@ filters:
 # Price-feature parameters shared by F1/F2 and the F7 feature families (train and serve
 # read the same values; the trained model records them and a run refuses a model fitted
 # on different periods). All optional — these are the defaults. atr_period is the Wilder
-# ATR behind the atr_pips feature, F6's volatility stop-distance source (story 12).
+# ATR behind the atr_pips feature and swing_lookback_bars the window behind
+# swing_low_pips / swing_high_pips — F6's stop-distance sources (story 12).
 price_features:
   ema_fast: 3
   ema_slow: 8
@@ -29,6 +30,7 @@ price_features:
   macd_slow: 26
   macd_signal: 9
   atr_period: 14
+  swing_lookback_bars: 60
 
 # F2 — oscillator confirmation thresholds. Optional; these are the defaults.
 indicator:

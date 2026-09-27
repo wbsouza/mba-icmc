@@ -1,5 +1,6 @@
-"""The EMA/RSI/MACD periods behind the F1/F2 features and the F7 feature families, and
-the ATR period behind F6's volatility stop distance (`atr_pips`, story 12).
+"""The EMA/RSI/MACD periods behind the F1/F2 features and the F7 feature families, plus
+the ATR period and swing look-back behind F6's stop distances (`atr_pips`,
+`swing_low_pips`, `swing_high_pips`; story 12).
 
 They are strategy parameters — the `price_features` section of `strategies/<name>/
 config.yaml` (2026-09-27 amendment, story 09) — with defaults for the values that almost
@@ -29,6 +30,7 @@ class PriceFeatureConfig:
     macd_slow: int = 26
     macd_signal: int = 9
     atr_period: int = 14
+    swing_lookback_bars: int = 60
 
     def __post_init__(self) -> None:
         """Fail fast on a non-positive period or an inverted fast/slow ordering."""
@@ -73,9 +75,10 @@ def warmup_bars(config: PriceFeatureConfig) -> int:
     """Bars before every LEAN indicator the features read is ready.
 
     The higher-timeframe EMA needs its period, MACD needs slow + signal - 1 samples,
-    Wilder's RSI needs period + 1 (its first delta needs two closes) and Wilder's ATR
-    needs exactly its period (LEAN's first true range is that bar's own high - low, no
-    previous close required); the live algorithm skips those bars, so training must too.
+    Wilder's RSI needs period + 1 (its first delta needs two closes), Wilder's ATR needs
+    exactly its period (LEAN's first true range is that bar's own high - low, no previous
+    close required) and the swing Minimum/Maximum windows need their look-back; the live
+    algorithm skips those bars, so training must too.
     """
     return (
         max(
@@ -83,6 +86,7 @@ def warmup_bars(config: PriceFeatureConfig) -> int:
             config.macd_slow + config.macd_signal - 1,
             config.rsi_period + 1,
             config.atr_period,
+            config.swing_lookback_bars,
         )
         - 1
     )

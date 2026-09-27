@@ -42,7 +42,7 @@ and `strategy-config.yaml` next to its results (the YAML is ready to seed a vari
 
 | Filter | Section | Keys |
 |---|---|---|
-| F1/F2/F6/F7 features | `price_features` | `ema_fast` 3, `ema_slow` 8, `ema_higher_tf` 60, `rsi_period` 14, `macd_fast` 12, `macd_slow` 26, `macd_signal` 9, `atr_period` 14 (all optional; recorded in the trained model and checked by `--model`). `atr_period` is the Wilder ATR behind the `atr_pips` feature — the bar's ATR in pips (LEAN's minimum price variation × 10, i.e. 0.0001 on a 5-digit pair), F6's volatility stop-distance source |
+| F1/F2/F6/F7 features | `price_features` | `ema_fast` 3, `ema_slow` 8, `ema_higher_tf` 60, `rsi_period` 14, `macd_fast` 12, `macd_slow` 26, `macd_signal` 9, `atr_period` 14, `swing_lookback_bars` 60 (all optional; recorded in the trained model and checked by `--model`). `atr_period` is the Wilder ATR behind the `atr_pips` feature (the bar's ATR in pips); `swing_lookback_bars` the window behind `swing_low_pips` / `swing_high_pips` (pips from the close down to the window's lowest low / up to its highest high). Pips are the instrument's: LEAN's minimum price variation × 10 live, `Instrument.unit_size` offline (0.0001 on a 5-digit pair, 0.01 on JPY). F6's stop-distance sources |
 | F2 indicator | `indicator` | `rsi_midline` 50, `macd_hist_threshold` 0 (optional) |
 | F3 pattern | `pattern` | `bullish_patterns`, `bearish_patterns` (optional; default vocabularies) |
 | F4 news context (hybrid only) | `news_context` | `event_intensity_veto_threshold`, `sentiment_direction_threshold` (`null` disables a half) |

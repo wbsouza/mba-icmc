@@ -30,6 +30,7 @@ scenarios("../features/feature_parity.feature")
 _ALGOS = Path(__file__).parent.parent / "algos"
 _LEAN_SUBPATH = "forex/oanda/minute/eurusd"
 _DAY = datetime(2014, 5, 7, tzinfo=UTC)
+_EURUSD = build_instrument("EURUSD")
 
 
 # Float comparison with the semantics of Odoo's `odoo.tools.float_utils` (own
@@ -134,7 +135,9 @@ def _training_rows(ctx: dict[str, Any]) -> list:
     raw = dict(load_strategy_chain_config(parameters.get("chain_config", "baseline")).raw)
     if "smoothing" in parameters:
         raw["double_smoothed_heikin_ashi"] = json.loads(parameters["smoothing"])
-    return build_training_rows(ctx["bars"], perception=parse_perception_config(raw))
+    return build_training_rows(
+        ctx["bars"], instrument=_EURUSD, perception=parse_perception_config(raw)
+    )
 
 
 @given(parsers.parse('training and live perception use strategy "{strategy}"'))
@@ -250,7 +253,10 @@ def _news_parity(ctx: dict[str, Any]) -> None:
             live[decided - timedelta(minutes=1)] = float(value)
     assert live, ctx["run"].logs[-3000:]
     intensity = load_event_intensity(ctx["news_root"], _DAY.date(), _DAY.date())
-    rows = {r.timestamp: r.features for r in build_training_rows(ctx["bars"], intensity)}
+    rows = {
+        r.timestamp: r.features
+        for r in build_training_rows(ctx["bars"], intensity, instrument=_EURUSD)
+    }
     unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-_horizon(ctx):]}
     assert set(live) - unlabeled == set(rows)
     # float_is_zero of the difference at 9 decimals, not `!=`: the live value is re-parsed

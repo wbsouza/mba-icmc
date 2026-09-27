@@ -14,7 +14,10 @@ read `StrategyChainConfig`'s typed sections, so the bundled `strategies/<name>/c
 travels into the LEAN container with the algorithm and is the single source of the run's
 economics (closing `docs/technical-debt.md` TD-43). Since story 12 the bar's Wilder ATR
 travels in the features as `atr_pips` (LEAN's `AverageTrueRange` live, `training.atr_series`
-offline) so F6 can derive the stop distance from volatility instead of a fixed value.
+offline) and the swing levels as `swing_low_pips` / `swing_high_pips` (LEAN's Minimum /
+Maximum live, `training.swing_levels` offline), so F6 can derive the stop distance from
+volatility or structure instead of a fixed value. Pips come from the instrument on both
+sides (`pip_size_from_price_variation`, `Instrument.unit_size`), never from a literal.
 """
 
 from __future__ import annotations
@@ -42,6 +45,29 @@ _TREND_STRENGTH_CAP = 100.0
 _BASIS_POINTS = 10_000.0
 
 _KNOWN_FILTERS = sorted(KNOWN_FILTERS)
+# FX quoting convention: a broker's minimum price variation is the "pipette" (the fifth
+# decimal on EURUSD, the third on USDJPY) and a pip is ten of them. A definition, not a
+# tunable — it is what makes LEAN's SymbolProperties agree with Instrument.unit_size.
+_PIPETTES_PER_PIP = 10.0
+
+
+def pip_size_from_price_variation(minimum_price_variation: float) -> float:
+    """The pip in price units from LEAN's `SymbolProperties.minimum_price_variation`.
+
+    Ten pipettes make a pip (0.00001 -> 0.0001 on a 5-digit pair, 0.001 -> 0.01 on a
+    3-digit JPY pair), the same value as the offline `Instrument.unit_size`.
+
+    Raises:
+        ValueError: on a non-positive variation — the security's symbol properties were
+            not loaded for its market; check the LEAN symbol-properties database entry.
+    """
+    if minimum_price_variation <= 0:
+        raise ValueError(
+            f"minimum price variation must be positive, got {minimum_price_variation!r}: the "
+            "security's symbol properties carry no tick size, so no pip can be derived — check "
+            "LEAN's symbol-properties-database entry for the symbol and market"
+        )
+    return minimum_price_variation * _PIPETTES_PER_PIP
 
 
 def _sign(delta: float) -> float:
@@ -62,14 +88,18 @@ def price_features(
     rsi: float,
     macd_hist: float,
     atr_pips: float | None = None,
+    swing_low_pips: float | None = None,
+    swing_high_pips: float | None = None,
 ) -> dict[str, object]:
     """The F1/F2/F3 (and F7 TREND/INDICATOR/PATTERN family) inputs for one bar.
 
     `candlestick_pattern` is always `None`: no real detector is wired yet
     (`f3_pattern.py`'s documented gap) — deliberately missing, not fabricated.
-    `atr_pips` — the bar's Wilder ATR divided by the pair's pip size — is added under
-    that key only when given (F6's volatility stop distance; F1/F2/F3/F7 ignore it), so
-    a caller without an ATR reading yields no key rather than an invented value.
+    The F6 stop-distance readings — `atr_pips` (the bar's Wilder ATR in pips),
+    `swing_low_pips` / `swing_high_pips` (pips from the mid close down to the look-back
+    window's lowest low / up to its highest high) — are each added under their key only
+    when given (F1/F2/F3/F7 ignore them), so a caller without a reading yields no key
+    rather than an invented value.
     """
     trend_strength = (
         min(abs(ema_fast - ema_slow) / price * _BASIS_POINTS, _TREND_STRENGTH_CAP) if price else 0.0
@@ -82,8 +112,10 @@ def price_features(
         "macd_hist": macd_hist,
         "candlestick_pattern": None,
     }
-    if atr_pips is not None:
-        features["atr_pips"] = atr_pips
+    optional = {
+        "atr_pips": atr_pips, "swing_low_pips": swing_low_pips, "swing_high_pips": swing_high_pips,
+    }
+    features.update({key: value for key, value in optional.items() if value is not None})
     return features
 
 
