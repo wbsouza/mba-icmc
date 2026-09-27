@@ -195,6 +195,18 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
         | trail_stops |
         | reward_risk |
 
+    Scenario Outline: a trade_plan value of the wrong type fails naming its path (<case>)
+      Given a trade_plan feature where <path> is set to <value>
+      When parsing the trade plan fails
+      Then the trade-plan failure names "<failure>"
+
+      Examples:
+        | case                          | path                      | value  | failure                                    |
+        | the feature is not a mapping  | trade_plan                | 42     | 'trade_plan' must be a mapping             |
+        | a block is not a mapping      | trade_plan.long           | [1, 2] | trade_plan.long must be a mapping          |
+        | text where a number belongs   | trade_plan.lot_size       | big    | trade_plan.lot_size must be a number       |
+        | a flag where a number belongs | trade_plan.long.stop_pips | true   | trade_plan.long.stop_pips must be a number |
+
   Rule: The trade-plans.json record carries the frozen keys the run statement reads
 
     Scenario: a record serialises with the contract's keys, ratios and prices

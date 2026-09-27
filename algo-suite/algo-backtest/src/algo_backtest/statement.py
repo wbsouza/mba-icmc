@@ -634,13 +634,30 @@ def _margin_requirement(
     """
     if not open_trades:
         return 0.0
-    chart = (result.get("charts") or {}).get("Portfolio Margin")
-    if not isinstance(chart, Mapping):
+    chart = _margin_chart(result)
+    if chart is None:
         return None
-    samples = [s["values"][-1] for s in (chart.get("series") or {}).values() if s.get("values")]
+    percent = _current_margin_percent(_latest_margin_samples(chart), last_fill_time)
+    return None if percent is None else equity * percent / 100.0
+
+
+def _margin_chart(result: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """LEAN's `Portfolio Margin` chart, `None` when the result records none."""
+    chart = (result.get("charts") or {}).get("Portfolio Margin")
+    return chart if isinstance(chart, Mapping) else None
+
+
+def _latest_margin_samples(chart: Mapping[str, Any]) -> list[Any]:
+    """The last `[time, ..., percent]` sample of every non-empty series of the chart."""
+    return [s["values"][-1] for s in (chart.get("series") or {}).values() if s.get("values")]
+
+
+def _current_margin_percent(samples: Sequence[Any], last_fill_time: float) -> float | None:
+    """The summed per-symbol margin percentage when every sample is at least as recent as
+    the last fill; `None` (never guessed) when there are no samples or one is older."""
     if not samples or min(float(row[0]) for row in samples) < last_fill_time:
         return None
-    return equity * float(sum(row[-1] for row in samples)) / 100.0
+    return float(sum(row[-1] for row in samples))
 
 
 def _account_summary(

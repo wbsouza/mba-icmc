@@ -107,6 +107,29 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When F7 applies to a state missing "trend_score"
       Then F7 recommends "BUY"
 
+  Rule: A family's feature vector coerces each reading to a float; a pattern name becomes its polarity
+
+    Scenario Outline: the <family> family vector from <features> is <vector>
+      When the "<family>" family vector is extracted from features <features>
+      Then the family vector is <vector>
+
+      Examples:
+        | family  | features                                  | vector          |
+        | pattern | {candlestick_pattern: hammer}             | [1.0]           |
+        | pattern | {candlestick_pattern: shooting_star}      | [-1.0]          |
+        | pattern | {candlestick_pattern: null}               | [nan]           |
+        | pattern | {}                                        | [nan]           |
+        | trend   | {trend_direction: 1, trend_strength: 0.5} | [1.0, 0.5, nan] |
+
+    Scenario Outline: an unrecognized candlestick pattern fails fast naming it (<pattern>)
+      When extracting the "pattern" family vector from features {candlestick_pattern: <pattern>} fails
+      Then the family vector failure names "<pattern>"
+
+      Examples:
+        | pattern |
+        | doji    |
+        | HAMMER  |
+
   Rule: F7's thresholds and gate come from the strategy config.yaml meta_learner section
 
     Scenario Outline: a complete meta_learner section parses into an F7Config (<case>)

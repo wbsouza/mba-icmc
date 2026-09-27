@@ -76,6 +76,7 @@ Feature: F3 pattern filter
         | empty bullish list           | {bullish_patterns: []}                                       | bullish_patterns  |
         | scalar instead of list       | {bearish_patterns: shooting_star}                            | bearish_patterns  |
         | unknown key                  | {neutral_patterns: [doji]}                                   | neutral_patterns  |
+        | a non-string entry           | {bullish_patterns: [hammer, 7]}                              | only strings      |
 
     Scenario Outline: the configured vocabulary drives the recommendation (<case>)
       Given a pattern section <section>

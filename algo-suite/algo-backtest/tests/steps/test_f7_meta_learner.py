@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -15,6 +16,7 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     FeatureFamily,
     TrainingRow,
     WalkForwardSplit,
+    family_vector,
     parse_f7_config,
     train_meta_learner,
     walk_forward_split,
@@ -59,6 +61,8 @@ class _F7Ctx:
     section: dict[str, Any] = field(default_factory=dict)
     parsed_config: F7Config | None = None
     parse_error: Exception | None = None
+    vector: list[float] | None = None
+    vector_error: Exception | None = None
 
 
 @pytest.fixture
@@ -433,3 +437,36 @@ def _parsed_gate(f7_ctx: _F7Ctx, gate: str) -> None:
 def _parse_failure_names(f7_ctx: _F7Ctx, fragment: str) -> None:
     assert f7_ctx.parse_error is not None
     assert fragment in str(f7_ctx.parse_error)
+
+
+# --- family_vector ------------------------------------------------------------------------
+
+
+@when(parsers.parse('the "{family}" family vector is extracted from features {features}'))
+def _extract_vector(f7_ctx: _F7Ctx, family: str, features: str) -> None:
+    f7_ctx.vector = family_vector(FeatureFamily(family), yaml.safe_load(features))
+
+
+@when(
+    parsers.parse('extracting the "{family}" family vector from features {features} fails')
+)
+def _extract_vector_fails(f7_ctx: _F7Ctx, family: str, features: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        family_vector(FeatureFamily(family), yaml.safe_load(features))
+    f7_ctx.vector_error = exc_info.value
+
+
+@then(parsers.parse("the family vector is {vector}"))
+def _vector_is(f7_ctx: _F7Ctx, vector: str) -> None:
+    """Element-wise equality where `nan` (YAML text) means a NaN reading."""
+    expected = [float(cell) for cell in yaml.safe_load(vector)]
+    assert f7_ctx.vector is not None
+    assert len(f7_ctx.vector) == len(expected)
+    for got, want in zip(f7_ctx.vector, expected, strict=True):
+        assert (math.isnan(got) and math.isnan(want)) or got == want, (got, want)
+
+
+@then(parsers.parse('the family vector failure names "{fragment}"'))
+def _vector_failure(f7_ctx: _F7Ctx, fragment: str) -> None:
+    assert f7_ctx.vector_error is not None
+    assert fragment in str(f7_ctx.vector_error)

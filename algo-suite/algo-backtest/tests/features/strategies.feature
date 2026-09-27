@@ -280,6 +280,17 @@ Feature: Strategy-chain config loading (Spec 04h)
       When loading strategy "a" fails
       Then the failure names "extends cycle a -> b -> a"
 
+    Scenario Outline: an extends that is not a strategy name fails fast (<extends>)
+      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      And "odd" sets extends to <extends>
+      When loading strategy "odd" fails
+      Then the failure names "'extends' must be a strategy name"
+
+      Examples:
+        | extends            |
+        | 7                  |
+        | [baseline, hybrid] |
+
   Rule: An unknown strategy fails fast, naming the missing config path
 
     Scenario: loading a strategy with no config.yaml fails fast

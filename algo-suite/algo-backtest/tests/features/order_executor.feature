@@ -52,6 +52,16 @@ Feature: OrderExecutor translates a Decision into a LEAN order and a normalized 
     When OrderExecutor executes a BUY decision with size 1.0
     Then the fill record status is REJECTED with a rejection reason
 
+  Scenario Outline: an order LEAN never reports on is recorded as rejected, not as a fill (<decision>)
+    Given a fake algorithm that never reports an order event
+    When OrderExecutor executes a <decision> decision with size 1.0
+    Then the fill record is rejected with reason "<reason>"
+
+    Examples:
+      | decision | reason                                  |
+      | BUY      | no OnOrderEvent received for this order |
+      | SELL     | no OnOrderEvent received for this order |
+
   Scenario: Stop-loss and take-profit levels pass through to the fill record
     Given a fake algorithm that fills every order
     When OrderExecutor executes a BUY decision with a stop distance

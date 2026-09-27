@@ -126,23 +126,42 @@ def _covers(vctx: dict[str, Any], first: str, last: str, covered: str) -> None:
     assert result is (covered == "true")
 
 
-@given(
-    parsers.parse("a baseline-family model file whose provenance price_features is {provenance}")
-)
-def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str) -> None:
+def _write_model(vctx: dict[str, Any], tmp_path: Path, strategy_config: Any, horizon: int) -> None:
     """A minimal F7 model document: families + provenance are all validation reads."""
-    strategy_config: dict[str, Any] = {}
-    if provenance != "absent":
-        strategy_config["price_features"] = yaml.safe_load(provenance)
     document = {
         "format": "algo-backtest/f7-meta-learner", "format_version": 1,
         "families": ["trend", "indicator", "pattern"], "family_models": {}, "combiner": {},
-        "provenance": {"strategy_config": strategy_config, "horizon_minutes": 15},
+        "provenance": {"strategy_config": strategy_config, "horizon_minutes": horizon},
     }
     vctx["model"] = tmp_path / "model.json"
     vctx["model"].write_text(json.dumps(document))
     vctx["strategy"] = "baseline"
     vctx["params"] = {"cash": "10000"}
+
+
+@given(
+    parsers.parse("a baseline-family model file whose provenance price_features is {provenance}")
+)
+def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str) -> None:
+    """A model fitted under the given price_features (`absent`: a pre-amendment model)."""
+    strategy_config: dict[str, Any] = {}
+    if provenance != "absent":
+        strategy_config["price_features"] = yaml.safe_load(provenance)
+    _write_model(vctx, tmp_path, strategy_config, 15)
+
+
+@given(
+    parsers.parse(
+        "a baseline-family model file whose provenance strategy_config is {strategy_config} "
+        "and horizon_minutes is {horizon:d}"
+    )
+)
+def _model_with_horizon(
+    vctx: dict[str, Any], tmp_path: Path, strategy_config: str, horizon: int
+) -> None:
+    """A model whose provenance carries any YAML `strategy_config` (a mapping, null or a
+    scalar for a legacy document) and the given label horizon."""
+    _write_model(vctx, tmp_path, yaml.safe_load(strategy_config), horizon)
 
 
 @when(parsers.parse('I validate the run inputs for strategy "{strategy}" with that model passes'))

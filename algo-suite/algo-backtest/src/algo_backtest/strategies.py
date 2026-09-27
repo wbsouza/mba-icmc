@@ -237,27 +237,31 @@ def _filter_section(
     """
     section = _SECTION_FOR_FILTER[filter_name]
     listed, present = filter_name in filters, section in merged
-    if listed and not present and filter_name in _DEFAULTABLE_FILTERS:
-        return {}
-    if listed and not present:
-        raise ValueError(
-            f"strategy {name!r} lists {filter_name!r} but has no '{section}:' section — add "
-            f"the filter's parameters to strategies/{name}/config.yaml"
-        )
-    if present and not listed:
+    if listed and present:
+        return _mapping_section(name, merged, section)
+    if listed:
+        return _omitted_section(name, filter_name, section)
+    if present:
         raise ValueError(
             f"strategy {name!r} declares a '{section}:' section but does not list "
             f"{filter_name!r} in filters — remove the section or add the filter"
         )
-    if not listed:
-        return None
-    value = merged[section]
-    if not isinstance(value, dict):
-        raise ValueError(
-            f"strategy {name!r}: '{section}' must be a mapping (got "
-            f"{type(value).__name__!r}) — check its config.yaml"
-        )
-    return value
+    return None
+
+
+def _omitted_section(name: str, filter_name: str, section: str) -> dict[str, Any]:
+    """`{}` (every key defaults) for a listed filter whose section may be omitted; a hard
+    stop for a trading-impactful filter, whose parameters must be spelled out.
+
+    Raises:
+        ValueError: `filter_name` is not one of the defaultable filters.
+    """
+    if filter_name in _DEFAULTABLE_FILTERS:
+        return {}
+    raise ValueError(
+        f"strategy {name!r} lists {filter_name!r} but has no '{section}:' section — add "
+        f"the filter's parameters to strategies/{name}/config.yaml"
+    )
 
 
 def _require_schema_version(name: str, merged: Mapping[str, Any]) -> None:
@@ -307,9 +311,9 @@ def _reject_stray_f7_keys(
         )
 
 
-def _optional_top_level(name: str, merged: Mapping[str, Any], section: str) -> dict[str, Any]:
-    """A top-level section tied to no filter (`price_features`, `execution`): `{}` when
-    absent, so every key defaults; anything present must be a mapping.
+def _mapping_section(name: str, merged: Mapping[str, Any], section: str) -> dict[str, Any]:
+    """`merged[section]` as a mapping: `{}` when the section is absent (so every key
+    defaults — the `price_features`/`execution` case); anything present must be a mapping.
 
     Raises:
         ValueError: the section is present but not a mapping.
@@ -327,11 +331,11 @@ def _always_resolved_sections(name: str, merged: dict[str, Any]) -> dict[str, An
     """`price_features` and `execution`: parsed with defaults for every omitted key and
     their effective values written back into `merged` (story 09 / story 12)."""
     price = parse_price_features_config(
-        _optional_top_level(name, merged, "price_features"), strategy=name
+        _mapping_section(name, merged, "price_features"), strategy=name
     )
     merged["price_features"] = price_features_mapping(price)
     execution = parse_execution_config(
-        _optional_top_level(name, merged, "execution"), strategy=name
+        _mapping_section(name, merged, "execution"), strategy=name
     )
     merged["execution"] = execution_mapping(execution)
     return {"price_features": price, "execution": execution}

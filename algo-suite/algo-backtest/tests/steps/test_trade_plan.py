@@ -349,6 +349,20 @@ def _feature_lacking(plan_ctx: _PlanCtx, key: str) -> None:
     }
 
 
+@given(parsers.parse("a trade_plan feature where {path} is set to {value}"))
+def _feature_with_value(plan_ctx: _PlanCtx, path: str, value: str) -> None:
+    """A complete plan with the dotted `path` (`trade_plan[.block[.key]]`) set to a YAML value."""
+    plan_ctx.features = {
+        "trade_plan": {"lot_size": 1.0, "spread_pips": 1.0, "long": _long_block(16.0, "[]", "[]"),
+                       "short": _long_block(16.0, "[]", "[]")}
+    }
+    *parents, leaf = path.split(".")
+    node: Any = plan_ctx.features
+    for part in parents:
+        node = node[part]
+    node[leaf] = yaml.safe_load(value)
+
+
 @when("the trade plan is parsed")
 def _parse(plan_ctx: _PlanCtx) -> None:
     plan_ctx.result = parse_trade_plan(plan_ctx.features)

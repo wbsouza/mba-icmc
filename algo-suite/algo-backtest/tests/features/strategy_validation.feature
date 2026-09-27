@@ -201,6 +201,18 @@ Feature: Strategy parameter validation
         | different fast EMA                     | {ema_fast: 5}          | expecting failure | validation fails naming "price_features"  |
         | different RSI period                   | {rsi_period: 21}       | expecting failure | validation fails naming "rsi_period"      |
 
+    Scenario Outline: model provenance vs strategy label horizon and provenance shape (<case>)
+      Given a baseline-family model file whose provenance strategy_config is <strategy_config> and horizon_minutes is <horizon>
+      When I validate the run inputs for strategy "baseline" with that model <outcome>
+      Then <assertion>
+
+      Examples:
+        | case                                            | strategy_config | horizon | outcome           | assertion                               |
+        | identical label horizon                         | {}              | 15      | passes            | validation passes                       |
+        | different label horizon                         | {}              | 30      | expecting failure | validation fails naming "label horizon" |
+        | legacy provenance without a strategy_config     | null            | 15      | passes            | validation passes                       |
+        | legacy provenance with a scalar strategy_config | pre-story-09    | 15      | passes            | validation passes                       |
+
   Rule: Chain strategies are resolved from their YAML, not from a code registry (2026-09-27)
     A new `strategies/<name>/config.yaml` — bundled or in an external `--strategies-dir` —
     runs without a code change. The YAML decides which LEAN algorithm hosts it (F4 listed →
