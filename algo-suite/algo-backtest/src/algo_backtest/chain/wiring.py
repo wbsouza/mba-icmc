@@ -12,9 +12,9 @@ the same `price_features()` so train and serve cannot drift.
 Since the 2026-09-27 amendment (story 09) no filter parameter lives here: F4/F5/F6/F7
 read `StrategyChainConfig`'s typed sections, so the bundled `strategies/<name>/config.yaml`
 travels into the LEAN container with the algorithm and is the single source of the run's
-economics (closing `docs/technical-debt.md` TD-43). The F6 sizing inputs are still fixed
-configured values — no ATR indicator is wired (TD-51), so the stop distance is not
-volatility-derived.
+economics (closing `docs/technical-debt.md` TD-43). Since story 12 the bar's Wilder ATR
+travels in the features as `atr_pips` (LEAN's `AverageTrueRange` live, `training.atr_series`
+offline) so F6 can derive the stop distance from volatility instead of a fixed value.
 """
 
 from __future__ import annotations
@@ -61,16 +61,20 @@ def price_features(
     ema_htf: float,
     rsi: float,
     macd_hist: float,
+    atr_pips: float | None = None,
 ) -> dict[str, object]:
     """The F1/F2/F3 (and F7 TREND/INDICATOR/PATTERN family) inputs for one bar.
 
     `candlestick_pattern` is always `None`: no real detector is wired yet
     (`f3_pattern.py`'s documented gap) — deliberately missing, not fabricated.
+    `atr_pips` — the bar's Wilder ATR divided by the pair's pip size — is added under
+    that key only when given (F6's volatility stop distance; F1/F2/F3/F7 ignore it), so
+    a caller without an ATR reading yields no key rather than an invented value.
     """
     trend_strength = (
         min(abs(ema_fast - ema_slow) / price * _BASIS_POINTS, _TREND_STRENGTH_CAP) if price else 0.0
     )
-    return {
+    features: dict[str, object] = {
         "trend_direction": _sign(ema_fast - ema_slow),
         "trend_strength": trend_strength,
         "higher_tf_trend_direction": _sign(price - ema_htf),
@@ -78,6 +82,9 @@ def price_features(
         "macd_hist": macd_hist,
         "candlestick_pattern": None,
     }
+    if atr_pips is not None:
+        features["atr_pips"] = atr_pips
+    return features
 
 
 @dataclass(frozen=True)

@@ -22,6 +22,20 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then feature "trend_direction" is 0
       And feature "trend_strength" is 0
 
+    Scenario Outline: The ATR reading is carried under atr_pips exactly as given (<case>)
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000 with atr_pips <atr_pips>
+      Then feature "atr_pips" is <atr_pips>
+      And feature "trend_direction" is 0
+
+      Examples:
+        | case          | atr_pips |
+        | quiet market  | 3.25     |
+        | volatile bar  | 42       |
+
+    Scenario: Without an ATR reading the features carry no atr_pips key rather than an invented one
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000
+      Then the features carry none of "atr_pips"
+
   Rule: Account features follow the F5/F6 contract
 
     Scenario: A net-short portfolio's leverage is its unsigned holdings over equity

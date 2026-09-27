@@ -2,7 +2,7 @@
 
 Keeps train and serve on one feature definition: every row's features come from
 `chain.wiring.price_features` (the same function `engine/chain_algorithm.py` calls live)
-over plain-Python re-implementations of LEAN's EMA/RSI/MACD and config-selected
+over plain-Python re-implementations of LEAN's EMA/RSI/MACD/ATR and config-selected
 DSHA direction features. News lookups are keyed
 on the bar's *decision time* (bar start + one minute), which is what LEAN's `self.time`
 is inside `on_data` — so a feature never sees a later value at train time than it would
@@ -47,14 +47,12 @@ def mid(bar: QuoteBar) -> float:
     return (bar.bid_close + bar.ask_close) / 2.0
 
 
-def ema_series(values: Sequence[float], period: int) -> list[float]:
-    """LEAN's `ExponentialMovingAverage`: a running SMA until `period` samples, then EMA.
+def _smoothed_series(values: Sequence[float], period: int, k: float) -> list[float]:
+    """A running SMA until `period` samples, then `value * k + previous * (1 - k)`.
 
-    Seeding matters for train/serve parity: an EMA seeded on the first value instead
-    differs from LEAN's by ~1e-4 on the 60-period HTF EMA for hours, enough to flip
-    `higher_tf_trend_direction` (proven by `feature_parity.feature`).
+    The seeding LEAN's `ExponentialMovingAverage` and `WilderMovingAverage` share; only
+    the smoothing constant `k` differs.
     """
-    k = 2.0 / (period + 1)
     out: list[float] = []
     total = 0.0
     for i, value in enumerate(values):
@@ -64,6 +62,43 @@ def ema_series(values: Sequence[float], period: int) -> list[float]:
         else:
             out.append(value * k + out[-1] * (1 - k))
     return out
+
+
+def ema_series(values: Sequence[float], period: int) -> list[float]:
+    """LEAN's `ExponentialMovingAverage`: a running SMA until `period` samples, then EMA.
+
+    Seeding matters for train/serve parity: an EMA seeded on the first value instead
+    differs from LEAN's by ~1e-4 on the 60-period HTF EMA for hours, enough to flip
+    `higher_tf_trend_direction` (proven by `feature_parity.feature`).
+    """
+    return _smoothed_series(values, period, 2.0 / (period + 1))
+
+
+def _true_range(bar: QuoteBar, previous_close: float | None) -> float:
+    """LEAN's `AverageTrueRange.ComputeTrueRange` on mid prices: high - low on the first
+    bar, else the largest of high - low, |high - previous close|, |low - previous close|."""
+    high = (bar.bid_high + bar.ask_high) / 2.0
+    low = (bar.bid_low + bar.ask_low) / 2.0
+    if previous_close is None:
+        return high - low
+    return max(high - low, abs(high - previous_close), abs(low - previous_close))
+
+
+def atr_series(bars: Sequence[QuoteBar], period: int) -> list[float]:
+    """Wilder's ATR per bar, exactly as LEAN's `AverageTrueRange(period, WILDERS)` (in price units).
+
+    True ranges come from bid/ask-midpoint high/low/close (a LEAN forex `QuoteBar`'s
+    `High`/`Low`/`Close`, as `mid()` is its `Close`); the smoother is LEAN's Wilder
+    moving average — the simple mean of the first `period` true ranges, then
+    `(tr + (period - 1) * previous) / period`. Ready after `period` bars, since the
+    first true range needs no previous close; `price_features.warmup_bars` relies on that.
+    """
+    ranges: list[float] = []
+    previous_close: float | None = None
+    for bar in bars:
+        ranges.append(_true_range(bar, previous_close))
+        previous_close = mid(bar)
+    return _smoothed_series(ranges, period, 1.0 / period)
 
 
 def _rsi_value(avg_gain: float, avg_loss: float) -> float:
@@ -179,7 +214,7 @@ def lean_bar_stream(bars: Sequence[QuoteBar]) -> list[QuoteBar]:
 
     Time-ordered, only minutes the exchange is open (`market_hours.lean_delivers`),
     and every open minute between the first and last bar present: a minute missing
-    from the data is filled forward from the previous bar's close, as LEAN does.
+    from the data is filled forward as a clone of the previous bar, as LEAN does.
     """
     ordered = sorted(bars, key=lambda bar: bar.timestamp)
     if not ordered:
@@ -199,13 +234,18 @@ def lean_bar_stream(bars: Sequence[QuoteBar]) -> list[QuoteBar]:
 
 
 def _filled_forward(previous: QuoteBar, minute: datetime) -> QuoteBar:
-    """A flat bar at `minute` carrying `previous`'s closing quotes (LEAN fill-forward)."""
+    """`previous` re-stamped at `minute` with zero volume — LEAN's fill-forward bar.
+
+    LEAN's `FillForwardEnumerator` emits `previous.Clone(fillForward=True)`: the whole
+    bid/ask open/high/low/close carries over and only the sizes are zeroed. Flattening
+    the bar to the previous close would zero the ATR's true range on every filled minute.
+    """
     return QuoteBar(
         timestamp=minute,
-        bid_open=previous.bid_close, bid_high=previous.bid_close,
-        bid_low=previous.bid_close, bid_close=previous.bid_close,
-        ask_open=previous.ask_close, ask_high=previous.ask_close,
-        ask_low=previous.ask_close, ask_close=previous.ask_close,
+        bid_open=previous.bid_open, bid_high=previous.bid_high,
+        bid_low=previous.bid_low, bid_close=previous.bid_close,
+        ask_open=previous.ask_open, ask_high=previous.ask_high,
+        ask_low=previous.ask_low, ask_close=previous.ask_close,
         tick_count=0,
     )
 
@@ -237,6 +277,7 @@ def build_training_rows(
     *, perception: PerceptionConfig | None = None,
     price_features_config: PriceFeatureConfig | None = None,
     horizon_minutes: int = 15,
+    pip_size: float = 0.0001,
 ) -> list[TrainingRow]:
     """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
@@ -251,7 +292,9 @@ def build_training_rows(
     yield no row, matching live readiness. The last `horizon_minutes` bars have no label.
     Perception, the indicator periods and the horizon come from the strategy config
     (`config.perception`, `config.price_features`, `config.f7.label_horizon_minutes`);
-    omitted means the documented defaults.
+    omitted means the documented defaults. `pip_size` is the pair's pip in price units
+    — 0.0001 for a 5-digit pair such as EURUSD (the live side derives it from LEAN's
+    minimum price variation x 10) — and scales the row's `atr_pips`.
     """
     periods = price_features_config or PriceFeatureConfig()
     bars = lean_bar_stream(bars)
@@ -262,6 +305,7 @@ def build_training_rows(
     htf = ema_series(prices, periods.ema_higher_tf)
     rsi = rsi_series(prices, periods.rsi_period)
     macd = macd_hist_series(prices, periods)
+    atr = atr_series(bars, periods.atr_period)
     rows: list[TrainingRow] = []
     for i in range(warmup_bars(periods), len(bars) - horizon_minutes):
         direction = directions[i]
@@ -274,6 +318,7 @@ def build_training_rows(
             ema_htf=htf[i],
             rsi=rsi[i],
             macd_hist=macd[i],
+            atr_pips=atr[i] / pip_size,
         )
         features.update(direction)
         if event_intensity is not None:

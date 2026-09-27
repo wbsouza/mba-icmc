@@ -74,6 +74,21 @@ def _price_features(
     )
 
 
+@when(
+    parsers.parse(
+        "price features are built for price {price:g}, fast EMA {fast:g}, "
+        "slow EMA {slow:g}, HTF EMA {htf:g} with atr_pips {atr_pips:g}"
+    )
+)
+def _price_features_with_atr(
+    wiring_ctx: _WiringCtx, price: float, fast: float, slow: float, htf: float, atr_pips: float
+) -> None:
+    wiring_ctx.features = price_features(
+        price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0,
+        atr_pips=atr_pips,
+    )
+
+
 @given(
     parsers.parse(
         "an invested account worth {value:g} holding {holdings:g} with unrealized profit "
