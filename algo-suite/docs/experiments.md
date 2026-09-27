@@ -17,7 +17,7 @@ in Chapter 4 traces to a `runs/<run-id>/` directory and a recorded command.
   the equity series, and `parameters.txt` (the full provenance log).
 - `run-id` = `YYYY-MM-DD-NN` (date + ordinal). The `run-id` is cited in the
   Chapter 4 caption of every table/figure derived from it.
-- Strategy variants are config files under `algo-backtest/strategies/`, composed
+- Strategy variants are config files under `algo-backtest/src/algo_backtest/strategies/`, composed
   with `extends:` (e.g. `hybrid` extends `baseline` adding F4; `A`/`B`/`C`/`D`
   extend `core` adding extended filters). No engine code changes between
   variants — only configuration.
@@ -29,6 +29,16 @@ in Chapter 4 traces to a `runs/<run-id>/` directory and a recorded command.
   `algo-backtest` itself (spec §5.1), and `algo-analyze` reads the per-fold
   `trades.parquet` for the deflated Sharpe. Experiment commands below omit the
   `--cv` flags for brevity but every reported result names its protocol.
+- **Implemented today (2026-09-26)** — the bullets above are the target contract.
+  `algo-backtest run` writes `runs/<strategy>/<stamp>/` with `run.json`,
+  `trades.json` (the interim ledger `algo-analyze` reads), `metrics.json`, LEAN's
+  result JSON and, for `baseline`/`hybrid`, `decisions.parquet` (joins
+  `trades.json` by `trade_id`). `trades.parquet`, `parameters.txt`, `--cv` and
+  per-fold runs are not built; F7's train/validation/test split is set offline by
+  `scripts/train_{baseline,hybrid}_meta_learner.py` (`--from/--train-end/
+  --validation-end/--test-end`), the model's provenance (window, split, input
+  hashes, git revision) embedded in its `f7_meta_learner.json`. Only `baseline`
+  and `hybrid` exist as chain configs; Exp 4/6–9 variants are not written yet.
 
 ## 2. Experiment → command → Chapter 4 artifact
 

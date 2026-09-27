@@ -39,8 +39,8 @@ uv run algo-download --help
 ## Config
 
 Optional and **read-only**. With none, convention defaults apply (symbols/span
-from the CLI). File/env layering (`conf/`) is **deferred (TD-3)** and not used by
-this tool yet; this tool never mutates operator config.
+from the CLI). File/env layering (`conf/`) exists in `algo-core` (TD-3) but is not
+used by this tool yet; this tool never mutates operator config.
 
 ## Status
 

@@ -41,6 +41,15 @@ Two distinct artifacts, by design: **`trades.parquet`** is the trade ledger
 `HOLD`/`NO_TRADE` — for forensics). Metrics never reconstruct trades from
 `decisions.parquet`; they read `trades.parquet`.
 
+**Implemented today** (the table above is the target contract): `algo-backtest run`
+writes `run.json` (manifest), `trades.json` (LEAN's closed-trade ledger, the interim
+stand-in for `trades.parquet`) and `metrics.json` next to LEAN's own result JSON under
+`runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
+`hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
+`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). The
+`trades.parquet` schema (§6.1), equity-curve export and `parameters.txt` are not built
+yet.
+
 ## 3. Architecture & libraries
 
 - **LEAN** runs in Docker on the pinned image `quantconnect/lean:17748`; Python
@@ -56,15 +65,20 @@ Two distinct artifacts, by design: **`trades.parquet`** is the trade ledger
   the cap and the env var to raise it, never a silent/confusing failure.
   Automated backtests are driven via **testcontainers** (no `lean` CLI, no QC account;
   see `tests/integration/`); the `lean` CLI remains an option for manual runs.
-- **TA-Lib** (C lib + wrapper) for `CDL*` candlestick recognition; LEAN-native
+- **TA-Lib** (C lib + wrapper) for `CDL*` candlestick recognition (planned — not a
+  dependency yet; F3's pattern input is never populated, TD-51); LEAN-native
   indicators (`self.RSI`, `self.ATR`, …) for the rest.
+- **lightgbm** + **scikit-learn** + **numpy** for F7 training on the host; the model
+  is persisted as JSON (`chain/filters/f7_model_io.py`) because the LEAN image ships
+  older sklearn/LightGBM/numpy than the workspace, so a pickled model would not load.
 - **pydantic v2** config models; **typer** config-generator CLI; **algo-core** for
   schema/loader/`Instrument`/layout/DuckDB.
 - **pyarrow** to write the audit trail; the parquet→LEAN-native materializer.
 
 ```
 algo_backtest/
-├── cli.py                  # algo-backtest version|materialize|lean-smoke|run|metrics (IMPLEMENTED)
+├── cli.py                  # algo-backtest version|materialize|lean-smoke|run [--model PATH]|metrics|
+│                           #   experiment run (IMPLEMENTED)
 ├── config.py               # IMPLEMENTED — backtest schema (markets.oanda.data_tz=UTC) + typed
 │                           #   load_backtest_config() over algo_core.config.resolve()
 ├── materialize.py          # IMPLEMENTED — materialize_month(): canonical Parquet → lean-data/,
@@ -72,12 +86,19 @@ algo_backtest/
 ├── leandata.py             # IMPLEMENTED — canonical Parquet → durable lean-data/ day-zips
 │                           #   (UTC/START-indexed, config-injected data_tz, fail-fast); see §3.1
 ├── lean_runner.py          # IMPLEMENTED — run_lean(): the pinned LEAN container (testcontainers),
-│                           #   secret-free launcher config, 4 mounts; returns exit/logs/results dir
+│                           #   secret-free launcher config, 4 mounts (data overlays per run; hybrid
+│                           #   adds only parquet/events/_features [+ parquet/sentiment] under
+│                           #   /Lean/Data/news); copies engine/ + algo_backtest/algo_core/algo_score
+│                           #   and optional algo_files (e.g. a --model override) next to main.py
 ├── results.py              # IMPLEMENTED — parse_results(): LEAN /Results → RunResult(success,
 │                           #   closed_trades, raw_results_path); minimal (metrics deferred to Slice E)
 ├── run.py                  # IMPLEMENTED — STRATEGIES registry + validate_run_inputs() + run_strategy():
 │                           #   per-strategy param validator (closed key set), run a registered algo on
-│                           #   lean-data, parse_results. Params are strategy-specific (generic dict)
+│                           #   lean-data, parse_results. Params are strategy-specific (generic dict).
+│                           #   Also --model validation (F7 families vs the strategy's config) and
+│                           #   news_coverage_errors(): hybrid's pre-flight that every minute of the
+│                           #   decision window (through end+1 00:00 UTC) has GDELT event features,
+│                           #   failing with the `algo-score events` command to build them
 ├── algos/smoke_trade/      # IMPLEMENTED — bundled one-shot algo (explicit entry+exit) for lean-smoke
 ├── algos/baseline_ma/      # IMPLEMENTED — fast/slow SMA crossover (trend), long-only, fixed sizing
 ├── algos/baseline_meanrev/ # IMPLEMENTED — SMA mean-reversion (counter-trend), long-only, fixed sizing
@@ -89,14 +110,18 @@ algo_backtest/
 │                           #   plus a multi-month NewsContextIndex (f4 load_news_context_window)
 ├── container_paths.py      # IMPLEMENTED — /Lean/Data, /Results, news mount + decisions.parquet
 │                           #   paths shared by lean_runner/run.py (host) and algos (container)
-├── months.py               # IMPLEMENTED — months_between(): year=/month= partitions of a window
+├── months.py               # IMPLEMENTED — BAR_DURATION (bar start → decision time) + months_between():
+│                           #   year=/month= partitions of a window
 ├── training.py             # IMPLEMENTED — F7 training-data assembly for scripts/train_*: multi-
 │                           #   month loads; rows over LEAN's delivered bar stream (market hours +
 │                           #   fill-forward, lean_bar_stream) with LEAN-identical EMA/RSI/MACD —
 │                           #   price-feature and F4 news-lookup parity (to 9 decimals) proven in
 │                           #   real LEAN by feature_parity.feature; news keyed at decision time;
 │                           #   labels carry label_time so walk_forward_split purges rows whose
-│                           #   horizon crosses a span boundary; save_model() (JSON)
+│                           #   horizon crosses a span boundary; save_model() (JSON). Used by
+│                           #   scripts/train_{baseline,hybrid}_meta_learner.py (--from/--train-end/
+│                           #   --validation-end/--test-end; train fits the family models, validation
+│                           #   the logistic combiner, test is never fit on)
 ├── market_hours.py         # IMPLEMENTED — lean_delivers(): LEAN's Forex-oanda-[*] market hours
 │                           #   (lean_market_hours_forex_oanda.json, copied from the pinned image)
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
@@ -136,7 +161,9 @@ algo_backtest/
 │   ├── model.py            # FilterResult, ExecutionState, Decision, ChainOutcome, FilterChain (run → ChainOutcome)
 │   ├── filters/            # IMPLEMENTED — all seven: f1_trend.py, f2_indicator.py,
 │   │                       #   f3_pattern.py, f4_news_context.py (Spec 04e), f5_risk_guard.py,
-│   │                       #   f6_capital_mgmt.py, f7_meta_learner.py (Spec 04g).
+│   │                       #   f6_capital_mgmt.py, f7_meta_learner.py (Spec 04g); plus
+│   │                       #   f7_model_io.py — portable pickle-free F7 model JSON (LightGBM text
+│   │                       #   boosters + logistic coefficients + provenance), family check.
 │   ├── terminal.py         # IMPLEMENTED — F7TerminalDecision (Spec 04h): FilterChain's
 │   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision.
 │   ├── decision_recorder.py # IMPLEMENTED — DecisionRecorder (Spec 04h): per-run trade_id
@@ -149,7 +176,7 @@ algo_backtest/
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
 │   ├── risk_math.py        # IMPLEMENTED — fixed-fractional lot sizing (Spec 04d)
-│   ├── strategy_math.py    # stop-level stretch (target ladder + trail-stop landed in
+│   ├── strategy_math.py    # NOT BUILT — stop-level stretch (target ladder + trail-stop landed in
 │   │                       #   trail_stop.py, Spec 04d)
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
 │   │                       #   level math (Spec 04d). Sign convention + `spread`-term formula
@@ -160,12 +187,14 @@ algo_backtest/
 │   │                       #   §14.7, as current for this module's formulas.
 │   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)
 │   └── risk_guard.py       # IMPLEMENTED — portfolio caps, drawdown breakers, leverage cap;
-│                           #   config-driven via five `risk_guard.*` caps (Spec 04d)
-├── config/
+│                           #   config-driven via five `risk_guard.*` caps (Spec 04d); drawdown
+│                           #   limits are PnL floors (<= 0, e.g. -0.05) — a positive one is rejected
+├── config/                 # NOT BUILT
 │   ├── generator.py        # interactive CLI (typer)
 │   └── (schema/loader live in algo-core)
+├── strategies.py           # IMPLEMENTED — load a strategy's config.yaml, single-level `extends:`
 └── strategies/
-    └── <name>/config.yaml  # generated, version-controlled
+    └── <name>/config.yaml  # hand-written, version-controlled (baseline, hybrid extends baseline)
 ```
 
 ### 3.1 LEAN-native materializer (`leandata.py`) — not a black box
@@ -291,6 +320,12 @@ See `algo-core` §4.2; `algo-backtest` consumes that policy: a missing
 trading-impactful parameter is a hard stop before the first bar.
 
 ## 5. CLI surface
+
+Target surface below; **implemented today** is `version`, `materialize --symbol
+--year --month`, `lean-smoke`, `run --strategy --symbol --from --to [--param k=v]...
+[--model PATH]`, `metrics --run DIR` and `experiment run --spec YAML`. `--cv`, the
+`config` generator and read-through materialization inside `run` are not built. F7
+models are trained offline by `scripts/train_{baseline,hybrid}_meta_learner.py`.
 
 ```
 algo-backtest run      --strategy <name> [--symbol ...] --cv <single|cpcv|walkforward>

@@ -33,16 +33,16 @@ script** — it is imported, never run. The config-validation CLI
 | Out | `ConfigError` (carrying an `exit_code`) | raised on invalid config; a tool's CLI maps it to a process exit |
 
 No Parquet is written by `algo-core`; it only **defines** the layout that other
-tools write to. **Deferred** (TD-3): reading/merging the YAML files themselves and
-the env-override layer (`conf/<tool>.yaml` > `conf/algo.yaml` > env) — today the
-loader validates a dict the caller supplies.
+tools write to. `config.resolve(tool, schema, version)` reads/merges the YAML
+files and the env-override layer (`ALGO_*` env > `conf/<tool>.yaml` >
+`conf/algo.yaml` > schema defaults) and hands the result to the loader (TD-3).
 
 ## 3. Architecture & libraries
 
 Runtime dependencies (actual): **pydantic v2** (value objects + `ParameterSpec`),
 **structlog** (logging), **duckdb** (connection + Parquet reads), **pyarrow**
-(Parquet read/write in the Repository). No `typer` (no CLI) and no `ruamel.yaml`
-yet (YAML-loading is deferred, TD-3).
+(Parquet read/write in the Repository), **pyyaml** (conf file reading in
+`config/resolution.py`, TD-3 resolved). No `typer` (no CLI) and no `ruamel.yaml`.
 
 Internal modules (as implemented):
 
@@ -52,7 +52,10 @@ algo_core/
 ├── layout.py            # canonical Parquet + lean-data path builders / parsers
 ├── duck.py              # DuckDB connection + Parquet-read helpers
 ├── logging.py           # structlog config (resolve_level, configure_logging, get_logger)
-├── repository/
+├── bars.py              # market-data value objects (Timeframe, Tick, QuoteBar)
+├── atomicio.py          # atomic file writes (temp file + os.replace)
+├── repository/          # __init__ imports DuckDBRepository lazily (PEP 562), so the
+│   │                    #   LEAN container (pyarrow, no duckdb) can import ParquetRepository
 │   ├── base.py          # Repository[M] ABC: put / read_all / exists (typed value objects)
 │   ├── serde.py         # value object <-> Arrow/Parquet (de)serialization
 │   ├── parquet.py       # ParquetRepository (pyarrow writer + reader)
@@ -66,14 +69,14 @@ algo_core/
     ├── paths.py         # conf/ + ALGO_CONF_DIR resolution
     ├── schema.py        # Impact, ParameterSpec
     ├── errors.py        # ConfigError hierarchy (carry exit codes)
-    └── loader.py        # hybrid policy: hard-stop / default-with-log / explicit-null / version
+    ├── loader.py        # hybrid policy: hard-stop / default-with-log / explicit-null / version
+    └── resolution.py    # resolve(): ALGO_* env > conf/<tool>.yaml > conf/algo.yaml > defaults
 ```
 
 **Deferred / future shape (not built):** `config/inherit.py` (`extends:`
 resolution + cycle detection, post-TCC); a startup-log renderer beyond
 `LoadResult.provenance`; the `Repository` query/analytical interface (today the
-port is `put`/`read_all`/`exists`, see TD-14); the layered YAML+env config
-resolution (TD-3). There is no `cli.py` — `algo-core` is a library.
+port is `put`/`read_all`/`exists`, see TD-14). There is no `cli.py` — `algo-core` is a library.
 
 The `Repository` ABC speaks in domain value objects (e.g. `QuoteBar`,
 `SentimentRow`), not engine rows; query parameters are a typed object, never raw

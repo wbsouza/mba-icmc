@@ -138,7 +138,10 @@ stateDiagram-v2
 - F3's `candlestick_pattern` is always `None` — no real detector wired; F3 ABSTAINs every bar.
 - F5/F6's account-risk features (`account_portfolio_at_risk`, `pip_value`,
   `stop_loss_pips`, `margin_per_lot`, ...) use fixed placeholder constants in
-  `algos/{baseline,hybrid}/main.py`, not a real ATR/margin model.
+  `algos/{baseline,hybrid}/main.py`, not a real ATR/margin model. *(Note 2026-09-26: those
+  constants and the feature builders now live in the shared `chain/wiring.py`
+  (`account_features()`/`price_features()`), used by both algorithms and by F7 training.
+  They are still placeholders.)*
 - F7's meta-learner is fit on whatever short window `train_{baseline,hybrid}_meta_learner.py`
   is pointed at — mechanically valid, not statistically meaningful.
 - F4's (hybrid only) per-symbol sentiment is best-effort/ABSTAIN pending TD-48 — only its

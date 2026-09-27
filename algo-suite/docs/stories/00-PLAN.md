@@ -177,8 +177,8 @@ Sharpe, per-`docs/experiments.md`-§7.1 plausibility flag), `significance`
 `--figure`), `figures` (equity/drawdown curves), and `summary` (F2
 aggregation) all exist as real CLI commands (`algo-analyze <command>`),
 tested end to end (73/73 `make check` scenarios green, `make audit` clean).
-This closes the story at `docs/stories/in-progress/05-algo-analyze-metrics-significance/`
-(see its `progress.md` and `docs/stories/planned/05e-integration/progress.md`
+This closes the story now at `docs/stories/done/2026-09-25-algo-analyze-metrics-significance/`
+(see its `progress.md` and `docs/stories/done/2026-09-25-05e-integration/progress.md`
 for what landed and why some of it — `deflated.py` specifically — required
 recovering real but previously-unmerged work rather than fresh building).
 What this does **not** change: the machinery is proven against synthetic/
@@ -251,21 +251,39 @@ installed on this machine — removed. Two system LaTeX packages installed:
 `resumo.tex`). Spec 07 §1 (content fixes to Ch.1/Ch.3 hedge-notes) remains
 blocked on Spec 06.
 
+**Correction (2026-09-26, story-tracking reconciliation):** the 04e (F4) and 04g (F7) lane
+folders sat in `docs/stories/planned/` after their code merged (`ef686f4`/`a1e7b8b`,
+2026-09-25). They are now `done/2026-09-25-04e-algo-backtest-news-context-filter/` and
+`done/2026-09-25-04g-algo-backtest-meta-learner/`. Both run end to end in the LEAN container
+via `algos/hybrid` (Spec 04h). What remains toward submission is data and writing, not
+`algo-*` code:
+- **Spec 08 (in progress):** GDELT Events is materialized locally for 2015-02..07 (+ the
+  2020-01 pilot), and 2015-08 is in progress. GDELT event features exist only for 2015-02 and
+  2020-01. GPR has the raw download only. The coverage rule has not produced a window yet.
+  TD-56 lets experiments start on the first ~6 months anyway. Details are in
+  `in-progress/08-news-event-data-materialization/progress.md`.
+- **Spec 06 (planned, unblocked, not started):** every Chapter 4 results section is still
+  a placeholder. Next step: build event features for the run months, run baseline and hybrid
+  over the out-of-sample months (04h `RUNBOOK.md`), then write.
+- **Spec 07:** §2 build hygiene is done (above). §1 waits on Spec 06.
+- **Spec 04k (planned, optional):** HAS trend candidate for F1 ablation. Not started, and not
+  a blocker.
+
 ## 2. Spec map
 
-**Status as of 2026-09-25** (table below is the original 2026-09-22 plan,
-kept for the dependency ordering it still correctly describes — but 01, 02,
-03 and 05 are now done, and 04 is landed except F4/F7/hybrid, which are
-blocked on running 03's pipeline against real data, not on missing code):
+**Status as of 2026-09-26** (the dependency ordering is the original 2026-09-22 plan. The
+Status column is current. Story folders are under `docs/stories/{done,in-progress,planned}/`):
 
 | # | Spec file | Tool | Depends on | Status |
 |---|---|---|---|---|
 | 01 | `01-algo-download-news-sources.md` | `algo-download` | nothing (parallel to 05) | **done** — GDELT+GPR adapters merged |
 | 02 | `02-algo-transform-news-events.md` | `algo-transform` | 01 output on disk | **done** (2026-09-23) |
-| 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code); never run against real NAS data — that's the actual 04e blocker |
-| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **partial** — F1-F7 (incl. F4/F7, Specs 04e/04g), order executor, audit trail, `chain/terminal.py`, `strategies/{baseline,hybrid}` config + `extends:` loader (Spec 04h) all done and tested; the real LEAN-container wiring (`algos/{baseline,hybrid}/main.py`) is the one remaining piece |
-| 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25) |
-| 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | blocked on 04's F4/F7/hybrid |
+| 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code). Run for real on GDELT: event features built for 2015-02 and 2020-01. More months still needed (Spec 08) |
+| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **done** (2026-09-26). All required lanes are done: 04a order executor, 04b chain mechanics, 04c F1–F3, 04d F5/F6, 04e F4, 04f audit trail, 04g F7, 04h LEAN `algos/{baseline,hybrid}`, plus follow-ups 04i trail-stop fix and 04j money-management gaps. Only the optional 04k (HAS F1 ablation candidate) is still planned |
+| 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25). Lanes 05a–05f are all in `done/` |
+| 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | **unblocked, not started.** Needs real out-of-sample baseline and hybrid runs first, which need Spec 08's event features for the run months |
+| 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |
+| 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** GDELT Events 2015-02..07 local, and 2015-08 running. GPR has the raw file only. Coverage window not derived yet. `prepare-news-data.sh` lacks `VERIFY_ONLY` |
 
 ```mermaid
 flowchart LR
@@ -275,10 +293,16 @@ flowchart LR
     S04 --> S06["06 Ch.4 prose"]
     S05["05 analyze\nmetrics+significance"] -.parallel, now.-> S04
     S05 --> S06
+    S08["08 news data\nmaterialization"] -->|real runs| S06
+    S06 --> S07["07 doc QA"]
+    classDef done fill:#dfd,stroke:#060
     classDef now fill:#dff,stroke:#066
-    class S01,S05 now
+    class S01,S02,S03,S04,S05 done
+    class S06,S08 now
 ```
 
+*(2026-09-26: 01–05 are done, and green nodes above are done. Spec 08, the real-data runs, and
+Spec 06 are the live path. The paragraph below is the original 2026-09-22 guidance.)*
 Specs 01 and 05 have no unmet dependency and can be assigned to two agents in
 parallel today. Specs 02, 03, 04 are strictly sequential (each is a hard blocker
 for the next — do not start one before the prior spec's Definition of Done is

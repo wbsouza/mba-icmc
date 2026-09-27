@@ -61,14 +61,15 @@ flowchart LR
 ## 4. Tool suite (uv workspace)
 
 The code lives under a single **`algo-suite/`** root (the uv workspace), keeping
-the repo root clean (thesis vs software separated). `monografia/` and `PRD.md`
-stay at the repo root, and the design corpus lives under `algo-suite/docs/`.
+the repo root clean (thesis vs software separated). `monografia/` stays at the
+repo root; `PRD.md` and the design corpus live under `algo-suite/`.
 
 ```
 tcc/
-├── PRD.md                    # product: vision, scope, roadmap, phases
 ├── monografia/               # LaTeX thesis (unchanged)
 └── algo-suite/               # CODE ROOT = uv workspace
+    ├── PRD.md                # product: vision, scope, roadmap, phases
+    ├── specs.md              # superseded dated-decision archive (split into PRD + SPECs)
     ├── pyproject.toml        # virtual workspace root: [tool.uv.workspace] members + dev tooling
     ├── .python-version       # 3.11 (LEAN container pin)
     ├── Makefile              # orchestrates all members (install/lint/type/test/check/cov/audit)
@@ -80,8 +81,7 @@ tcc/
     │   └── technical-debt.md     # deferred-debt ledger (blocker + trigger per item)
     ├── conf/                 # OPTIONAL overrides (convention over configuration)
     │   ├── algo.yaml         # global overrides (data_root, log_level)
-    │   ├── <tool>.yaml       # per-tool overrides (e.g. download.yaml)
-    │   └── backtest/<strategy>.yaml
+    │   └── <tool>.yaml       # per-tool overrides (e.g. download.yaml, backtest.yaml)
     ├── data/                 # data root by convention (gitignored content)
     │   ├── raw/ parquet/ lean-data/ runs/
     │   └── README.md
@@ -89,7 +89,8 @@ tcc/
     ├── algo-download/        # download --source dukascopy|gdelt|gpr
     ├── algo-transform/       # raw → canonical Parquet
     ├── algo-score/           # FinBERT/LM sentiment + events → feature Parquet
-    ├── algo-backtest/        # LEAN: parquet→lean-data materializer + baseline + filter chain + config-gen
+    ├── algo-backtest/        # LEAN: parquet→lean-data materializer + baselines + filter chain;
+    │                         #   strategy configs in src/algo_backtest/strategies/<name>/config.yaml
     └── algo-analyze/         # metrics, deflated Sharpe, MCP test, ablations
 ```
 
@@ -214,12 +215,13 @@ deleted.
 
 ## 10. Open items
 
-- `news-downloader` is an untested scaffold (not a proven asset): lift its GDELT
+- ~~`news-downloader` is an untested scaffold (not a proven asset): lift its GDELT
   adapter into `algo-download` and remove the old directory — no parallel-parity
-  gate needed.
-- **Week-1 LEAN spike** before building `algo-backtest`: validate
+  gate needed.~~ Done (TD-12): GDELT re-implemented in `algo-download`, old copy retired.
+- ~~**Week-1 LEAN spike** before building `algo-backtest`: validate
   Parquet → LEAN-zip → `/dev/shm` → run → `trades.parquet` end-to-end with a
-  trivial strategy; pivot to a pure-Python backtester if it fails (PRD §10).
+  trivial strategy; pivot to a pure-Python backtester if it fails (PRD §10).~~ Done:
+  the LEAN path is proven by `algo-backtest`'s testcontainers integration suite.
 - Decide whether `algo-core` hosts the config schema/loader or `algo-backtest` does
   (current design: `algo-core`, since the schema is shared tooling).
 - Recommended-range values for `RiskGuard` parameters (deferred to config
@@ -302,6 +304,15 @@ not be forced into one format:
 | **algo-backtest** | **LEAN** via `lean` CLI + Docker, **TA-Lib** (C lib + wrapper) for `CDL*` patterns/indicators, pydantic v2 (config), typer (config generator) | filter chain = plain dataclasses (§11.3); audit trail → Parquet; converter parquet→LEAN-zip |
 | **algo-analyze** | duckdb, pandas, **numpy**/**scipy** (deflated Sharpe, Monte-Carlo Permutation Test), **matplotlib** | figures feed the monografia (equity curves, coverage matrix, ablation tables) |
 
+**As built (2026-09-26)** — the table above is the planned stack; the declared
+runtime dependencies today are leaner: `algo-core` pydantic, pyarrow, duckdb,
+pyyaml, structlog; `algo-download` httpx, typer; `algo-transform` pyarrow,
+gdeltnews, xlrd, typer; `algo-score` pyarrow, typer (LM lexicon only — no
+transformers/torch, FinBERT not built); `algo-backtest` LEAN run via
+**testcontainers** (no `lean` CLI), lightgbm, scikit-learn, numpy, pyarrow,
+pyyaml, typer, plus `algo-score` (no TA-Lib); `algo-analyze` matplotlib, typer
+(statistics in the standard library), plus `algo-backtest`.
+
 ### 11.5 Dependency boundaries (architecture invariant)
 
 ```mermaid
@@ -311,6 +322,8 @@ graph TD
     SC[algo-score] --> CORE
     BT[algo-backtest] --> CORE
     AN[algo-analyze] --> CORE
+    BT -. value objects + paths .-> SC
+    AN -. metrics reader .-> BT
 
     classDef lib fill:#dff,stroke:#066
     classDef tool fill:#ffd,stroke:#960
@@ -318,7 +331,13 @@ graph TD
     class DL,TR,SC,BT,AN tool
 ```
 
-- **Every tool depends only on `algo-core`.** No tool imports another tool.
+- **Every tool depends on `algo-core`; tool-to-tool imports are the exception.**
+  Two exist today (dotted edges): `algo-backtest` imports `algo-score`'s event/
+  sentiment value objects and path builders so F4 and F7 training read the
+  feature Parquet through the producer's own contract (the package is also copied
+  into the LEAN container), and `algo-analyze` imports
+  `algo_backtest.metrics.metrics_from_artifact` to read a run's `metrics.json`.
+  Neither calls the other tool's pipeline; data still flows through files.
 - Tools communicate **through the Parquet filesystem contract**, not Python
   imports. `algo-transform` reads what `algo-download` wrote on disk; it does not
   import `algo_download`. This keeps each stage independently runnable, testable

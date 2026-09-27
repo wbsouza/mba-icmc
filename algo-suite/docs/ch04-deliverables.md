@@ -16,11 +16,16 @@ verifiably joins `trades.json` by `trade_id`. **This is a wiring smoke test,
 not a methodology result yet**: F3's candlestick pattern is never populated
 (no real detector), F5/F6's account-risk features use fixed placeholder
 economics (no real ATR/margin model), and F7's meta-learner is trained by
-`scripts/train_{baseline,hybrid}_meta_learner.py` on a single short window —
-mechanically valid, not statistically meaningful. F4's per-symbol *sentiment*
+`scripts/train_{baseline,hybrid}_meta_learner.py` on EUR/USD 2015-02-02 →
+2015-07-31 (train + validation; 2015-08-01 → 2016-01-31 held out) with purged
+split boundaries and train/serve feature parity proven in real LEAN — leak-free
+and mechanically valid, not yet the methodology's full walk-forward window.
+F7 models are portable JSON (`f7_meta_learner.json`, provenance embedded;
+`algo-backtest run --model PATH` swaps one in). F4's per-symbol *sentiment*
 half remains best-effort pending TD-48 (real article-text ingestion is
 ~500 GB / ~90 hours for one month at the current `gdelt_ngrams` adapter's
-throughput); only the event-veto half is real. What's left for §4.4's real
+throughput); only the event-veto half is real (GDELT event features with a
+one-day publication lag, so no bar sees a same-day aggregate). What's left for §4.4's real
 result is widening the backtest window and training F7 on a statistically
 meaningful span, not further LEAN-container engineering. See
 `docs/technical-debt.md`'s TD-51 entry for the full closure detail.

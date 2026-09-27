@@ -157,17 +157,16 @@ class StrategySpec:
 # itself before any F1-F7 number is trusted.
 #
 # `baseline`/`hybrid` (2026-09-26, SMOKE TEST -- see technical-debt.md TD-51 and
-# docs/stories/planned/04h-.../progress.md): the config.yaml-driven filter chain wired
-# into a real LEAN algorithm. `baseline` runs F1+F2+F3+F5+F6+F7 (no F4/news); `hybrid`
-# adds F4/news on top of the identical chain (`strategies/hybrid/config.yaml`'s
-# `extends: baseline`). Both share the same known simplifications: F3's candlestick
-# pattern is never populated (no real detector), F5/F6's account-risk features use
-# fixed placeholder economics (no real ATR/margin model), and F7's meta-learner is
-# trained on whatever short window its own `scripts/train_*_meta_learner.py` was
-# pointed at -- not a statistically meaningful model. `hybrid` additionally inherits
-# F4's own documented gap (real GDELT event-intensity veto, best-effort/ABSTAIN
-# sentiment pending TD-48). These prove the chain wiring and order-execution join
-# point work end to end against the real container; neither is a methodology result.
+# docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/progress.md): the
+# config.yaml-driven filter chain on the shared `engine/chain_algorithm.py`. `baseline`
+# runs F1+F2+F3+F5+F6+F7 (no F4/news); `hybrid` adds F4/news on top of the identical
+# chain (`strategies/hybrid/config.yaml`'s `extends: baseline`). Known simplifications:
+# F3's candlestick pattern is never populated (no real detector), F5/F6 use fixed
+# placeholder economics (`chain/wiring.py`), and the bundled F7 models come from the
+# walk-forward split recorded in each model's provenance (2015-02..07 in-sample,
+# 2015-08..2016-01 held out). `hybrid`'s F4 sentiment half stays best-effort/ABSTAIN
+# pending TD-48 (its GDELT event-intensity veto is real). Wiring proof, not a Chapter-4
+# methodology result.
 _F7_MODEL_FILE = "f7_meta_learner.json"
 
 STRATEGIES: dict[str, StrategySpec] = {
