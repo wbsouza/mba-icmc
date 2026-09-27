@@ -3,8 +3,14 @@
 The first end-to-end run of the price pipeline on **real Dukascopy data** — the execution
 pass that exercises every built stage (`algo-download → algo-transform → algo-backtest
 materialize → experiment run → algo-analyze summary`) instead of test fixtures. These are
-**price-only** baselines; the AI news/sentiment hybrid is later work (Stage G, gated on
-`algo-score`). No number here is an AI result.
+**price-only** baselines; at the time of this run the AI news/sentiment hybrid was later
+work gated on `algo-score`. No number here is an AI result.
+
+> **Update (2026-09-26):** the hybrid strategy (F1–F7 filter chain, `algos/hybrid`) is now
+> built and runs in the real LEAN container (Spec 04h) — see `ch04-deliverables.md` and
+> `docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/`. This record is kept
+> as-is: the price-only baseline this hybrid must still beat on a real, wider window
+> (Spec 06/08, in progress).
 
 > **Scope of this record.** This preserves the **reported result + provenance** (the table
 > below, the data window, and the exact commands). It is **not** an archive of the raw run

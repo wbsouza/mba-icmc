@@ -5,9 +5,10 @@ Each item records what it is, what blocks it, and the **trigger** that unblocks 
 
 **Process:** on completing any task, review this file and address anything whose
 trigger is now met; add new deferred items here as they arise (with a blocker and
-a trigger, never just "TODO"). Resolved items move to *Resolved* with a date.
+a trigger, never just "TODO"). This file is not a changelog: once an item is
+resolved, delete its row outright instead of archiving it.
 
-Status: `deferred` (blocked) · `ready` (trigger met, do it now) · `resolved`.
+Status: `deferred` (blocked) · `ready` (trigger met, do it now).
 
 | ID | Item | Blocked by | Revisit when (trigger) | Status |
 |---|---|---|---|---|
@@ -52,130 +53,3 @@ Status: `deferred` (blocked) · `ready` (trigger met, do it now) · `resolved`.
 | TD-57 | Adding `algo-backtest/src/algo_backtest/run.py` to the `mutmut` `only_mutate` scope for the first time (Spec 04h, to cover `_validate_hybrid`) swept in every pre-existing strategy validator (`_validate_baseline_ma`, `_validate_baseline_meanrev`, `_validate_random`, `_validate_perfect_foresight`, `_validate_buyhold`, `_validate_baseline`) and shared helper (`_int_param`, `_float_param`, `_validate_size`), none mutation-tested before. First full differential pass (340 mutants): 202 killed / 68 no-tests (container-launch paths only reachable via `@integration`) / 70 survived; the `_check_keys` `or`→`and` gap was fixed then. **Update 2026-09-26 (3e5b40f):** two of the three boundary survivors are now covered — `validate_run_inputs`'s `>`→`>=` by `strategy_validation.feature`'s "single-day window (from equals to) is accepted" and `lean_data_covers`'s `<=`→`<` by its first/last-day edge outline. Still open: `lean_data_covers`'s `continue`→`break` on an unparseable day-zip filename (no scenario mixes an unparseable filename into the directory) and the ~68 message-text-canary survivors (TD-34 class: the `strategy` diagnostic-label string passed into helpers). The file list in `only_mutate` has since grown (`decision_recorder.py`, `wiring.py`, `training.py`, `f7_model_io.py`, `market_hours.py`); survivor counts above are not re-measured. | same as TD-34 for the canary class (needs a project-wide exact-string-assertion convention decision); the `continue`→`break` survivor is a cheap, unscoped fix | the project decides the canary-message convention (see TD-34), or a hardener task is explicitly scoped to `run.py`'s validators/helpers | deferred |
 | TD-59 | GDELT `event_intensity` residual look-ahead: `algo-score`'s event features apply a one-day publication lag (day D's aggregate visible from 00:00 UTC D+1, `events/grid.py` `PUBLICATION_LAG`, f57c072), but the aggregate is keyed by `event_date` = GDELT `SQLDATE` (when the event happened), not `DATEADDED` (when GDELT published it). Events reported more than one day late are still folded into an already-visible day, so a small residual leak remains. | the canonical per-month GDELT events Parquet (`algo-transform`'s `GdeltEvent` record: `global_event_id`, `event_date`, `event_code`, `goldstein_scale`, `avg_tone`, actor codes, counts, `source_url`) has no `DATEADDED` column — neither the BigQuery export's row mapping (`scripts/bigquery_ctas_export_gdelt_events.py`) nor `algo-transform`'s `decoders/gdelt.py` carries it through, although the materialized BigQuery table itself is `SELECT *` from `gdelt-bq.gdeltv2.events` and so already holds `DATEADDED` | `DATEADDED` is added to `GdeltEvent` and the monthly Parquet re-exported (from the existing BigQuery table — no public-source re-scan); then aggregate by publication day (`DATEADDED`) in `algo_score.events.readers` instead of `SQLDATE` and drop the fixed lag | deferred |
 | TD-60 | `joblib` is now an unused direct dependency: PR #40 (f57c072) replaced `joblib.dump`/`joblib.load` F7 model persistence with portable JSON (`chain/filters/f7_model_io.py`; bundled `algos/{baseline,hybrid}/f7_meta_learner.json`), and no module in `algo-*/src`, `algo-*/tests` or `scripts/` imports `joblib` any more — yet `algo-backtest/pyproject.toml` still declares `"joblib>=1.3"` and the root `pyproject.toml` still carries a mypy `ignore_missing_imports` override for `joblib.*`. Harmless (scikit-learn pulls `joblib` transitively anyway) but misleading about how models are persisted. | — (just out of the file scope of the PR #40 ledger-review pass) | drop the `joblib` line from `algo-backtest/pyproject.toml` + the `joblib.*` mypy override, `uv lock`, and re-run `make check` | ready |
-
-## Resolved
-
-- **TD-51 (2026-09-26)** — Spec 04h's LEAN-container F1-F7 chain is built and run against the
-  pinned `quantconnect/lean:17748` image (which already ships `pyarrow`/`lightgbm`/`scikit-learn`).
-  `algos/baseline/main.py` and `algos/hybrid/main.py` (F4/news, `needs_news_data` mount) share one
-  base, `engine/chain_algorithm.py`; LEAN-free logic and feature definitions live in
-  `chain/wiring.py`, shared with training. `decisions.parquet` (`chain/decision_recorder.py`) joins
-  `trades.json` by `trade_id` on a flat-to-flat LEAN ledger (`use_flat_to_flat_trades`,
-  `trade_grouping.feature`). F7 models persist as portable JSON (`chain/filters/f7_model_io.py`,
-  no `joblib`), trained leak-free by `algo_backtest.training` replaying LEAN market hours
-  (`market_hours.py`; `feature_parity.feature` proves live/training agreement within 1e-9), with
-  a `.manifest.json`, family check on host and in container, and `algo-backtest run --model`.
-  `RiskGuardCaps` rejects positive drawdown limits (the old `closed_trades=0` was F5 vetoing every
-  bar); the news pre-flight checks every decision minute of the window. Evidence: fd79984, f57c072,
-  176fb2b, 3e5b40f, a5a1d72/21b763f (retrained models); `run_baseline_chain.feature`,
-  `run_hybrid_chain.feature`, `news_window.feature`, `f7_model_io.feature`. Remaining smoke-test
-  caveats are tracked separately: F3 detector (TD-45), placeholder F5/F6/F7 constants and config
-  threading (TD-43), enforced stops (TD-46), sentiment ABSTAIN (TD-48), SQLDATE residual (TD-59).
-- **TD-56 (2026-09-26)** — operator decision recorded (536a9e2): Chapter-4 backtest experiments
-  start on the first ~6 months of backfilled data (`2015-02`→`2015-07`) instead of waiting for the
-  full 10-year backfill. `specs.md` §3.2's data-driven coverage rule still arbitrates the reported
-  window; if it rejects the 6-month window, wait for more backfill or report a narrower window.
-- **TD-44 (2026-09-26)** — the all-empty `enrichment`/`metadata` batch that made pyarrow infer a
-  childless struct (rejected by the Parquet writer) and the `{}`-next-to-non-empty round-trip
-  corruption are both closed at the `FilterResultRow` boundary: `chain/audit.py` maps an empty dict
-  to `None` (`enrichment=result.enrichment or None`), fd79984; covered by `audit.feature`'s "A batch
-  whose filter_results carry no enrichment or metadata still writes". `algo_core.repository.serde`
-  itself is unchanged: differently-shaped *non-empty* dicts across one batch still round-trip as
-  the union of keys with `None` fill (verified with pyarrow 2026-09-26) — no crash or value loss.
-- **TD-58 (2026-09-26)** — the stale `mba-tlc` console-script shebang is gone: the shared
-  `algo-suite/.venv` was rebuilt (TD-54's `rm -rf .venv && uv sync`); `.venv/bin/mutmut` now points
-  at the `mba-main` interpreter and `grep -l mba-tlc .venv/bin/*` matches nothing.
-- **TD-5 (2026-09-26, verified)** — `algo-score` outputs are real `ParquetRepository` models:
-  `storage.py` writes `SentimentFeature`/`ArticleScore`/`CurrencySentimentFeature`/
-  `SymbolSentimentFeature`, `events/build.py` writes each event spec's model (code present since
-  4494f03). The placeholder name `SentimentRow` was never introduced; nothing is left to do.
-- **TD-27 (2026-09-26, obsolete)** — the premise no longer matches the code: there is no
-  `ALGO_CONFIG_FILE` knob anywhere in `algo-*/src` (not in git history either); `layout.data_root()`
-  reads only `ALGO_DATA_ROOT` or the workspace default, and schema config resolves via
-  `ALGO_CONF_DIR` + convention names — so no split-brain between two ladders exists. If a
-  single-mounted-file knob is ever introduced, it must feed both `data_root` and `resolve()`.
-- **TD-54 (2026-09-26)** — A long-lived shared `.venv` at `algo-suite/.venv`, reused across
-  several parallel story worktrees on one machine, became stale/corrupted in a way that made
-  `uv run pytest` (and the venv's `pytest` binary called directly) return values that matched
-  neither the current nor a prior version of the code under test — reproduced while debugging
-  Spec 04i's `trail_stop_to_level` fix, cross-confirmed by two independent reviewers each getting
-  a clean 7/7 pass in a disposable worktree with a fresh `uv sync`. Fixed by `rm -rf
-  algo-suite/.venv && uv sync`; exact corruption mechanism not autopsied (venv was already deleted
-  before this was written) — **marked resolved on symptom removal, not root-cause confirmation.**
-  **If a test suite's failure output doesn't match hand-calculated expected values or contradicts
-  a fresh-worktree run, suspect this before a code-level cause** — especially on a machine running
-  multiple story worktrees off one shared venv. **If it recurs: don't `rm -rf` immediately** —
-  first capture `uv pip list`, `python -c "import <pkg>; print(<pkg>.__file__)"` for the affected
-  package, and the venv's `pyvenv.cfg`/`.dist-info` metadata, so the actual corruption mechanism
-  can finally be autopsied instead of rebuilt-and-forgotten a second time.
-- **TD-28 (2026-09-24)** — `algo-transform` now consumes `raw/gdelt_ngrams/...`
-  via the `gdeltnews` package's n-gram reconstruction and writes real article
-  text to `parquet/news/gdelt/year=/month=/data.parquet` (`id`/`text`/
-  `publish_ts`, matching `algo_score.scorers.models.NewsArticle` exactly).
-  `decoders/gdelt_ngrams.py` decodes one raw minute payload; `readers/
-  gdelt_ngrams.py` + `orchestrator.transform_gdelt_ngrams_month` give the same
-  three-state (data/MISSING/corrupt), completeness-gated, write-only-when-
-  complete contract as every other source. `algo-transform run --source
-  gdelt_ngrams --month ...` wired in `cli.py`. Verified against the real
-  library, not assumed: only a non-gzip payload is a decode error; `gdeltnews`
-  itself silently skips a malformed JSON line or a line missing a required
-  field, yielding zero rows rather than raising. Spec 03 (`algo-score`)'s real
-  FinBERT/LM text-sentiment path now has a populated source.
-
-- **TD-12 (2026-09-22)** — GDELT was implemented fresh in `algo-download`
-  against the `DataSource` port and `algo-core` layout, writing raw Events-table
-  zip bytes only under `raw/gdelt/`. GPR was added as the single-file raw index
-  source under `raw/gpr/`. The legacy `algo-download/reference-impl/` scaffold
-  was retired after mining only source facts.
-
-- **TD-22 (2026-05-26)** — atomic artifact writes done + DRY'd. New shared
-  `algo_core.atomicio.write_text_atomic` (temp file + `os.replace`, pinned UTF-8) is the
-  single atomic-text-write path; `artifacts.py` (run/trades/metrics.json), `experiment.py`
-  (experiment.json / experiment-error.json), `algo-analyze` summary CSV, and
-  `cache.local._persist` all use it (three hand-rolled temp+replace copies removed). Covered
-  by `algo-core/.../atomic_write.feature` (complete write replaces; a failed replace keeps
-  the original + leaves no temp). Binary `leandata.write_lean_minute` keeps its own atomic
-  zip write.
-
-- **TD-19 (2026-05-25)** — the real Parquet→QuoteBar→materializer→LEAN round-trip is
-  covered: `algo-backtest/tests/.../parquet_roundtrip.feature` writes QuoteBars through
-  the same `ParquetRepository` algo-transform uses (`put` → `read_all`), materializes
-  them, and replays them in the pinned LEAN container, asserting UTC timing + bid/ask
-  payload. The Parquet read leg the synthetic timezone test skipped is now exercised.
-- **TD-20 (2026-05-25)** — every test in the workspace is Gherkin/pytest-bdd; zero plain
-  `def test_…()` remain in any tool (`.feature` + `tests/steps/`). The standard is in
-  force and the back-migration is complete.
-
-- **TD-9 (2026-05-25)** — `algo-backtest materialize` logs `LoadResult.provenance` at the
-  CLI boundary (`structlog.get_logger("backtest")`, under `run_with_logging`), so a run's
-  effective config is traceable. No `algo-core` CLI (core is a pure library).
-- **TD-18 (2026-05-25)** — the per-market data timezone is now resolved from config end to
-  end: `algo_backtest.config.load_backtest_config()` reads `markets.oanda.data_tz` (default
-  UTC) via `algo_core.config.resolve`, types it as `ZoneInfo`, and the `materialize` CLI
-  passes it into `materialize_month` → `write_lean_minute`. Proven E2E by the
-  materialize CLI scenario (zero-config → UTC) and the typed/override config scenarios.
-
-- **TD-3 (2026-05-25)** — layered config resolution implemented as `algo_core.config.resolve`
-  (`ALGO_*` env > `conf/<tool>.yaml` > `conf/algo.yaml` > schema defaults; zero-config
-  assumes the current `schema_version`), feeding the existing `load()` policy. Hand-rolled
-  (no `pydantic-settings`). **No `algo-core config` CLI** — `algo-core` is a pure library;
-  config schemas and any `config` inspection command live in the *consuming tool*. The first
-  consumer is the algo-backtest `materialize` CLI (Slice B).
-
-- **TD-2 (2026-05-25)** — `ParquetRepository` "single-file" was the intended layout:
-  `algo-transform` writes one `data.parquet` per `year=/month=` partition by
-  constructing the path with `layout.price_path_for(..., resolution, year, month)`;
-  partitioning is path-driven by the caller, one file per partition.
-- **TD-4 (2026-05-25)** — boundary failure-logging: `algo_core.logging.run_with_logging`
-  wraps each tool's CLI; `algo-download`/`algo-transform` `main` call
-  `configure_logging()` then `run_with_logging(app)`, so an unhandled error is
-  logged via structlog (`unhandled_error`) and exits 1, while normal/typer exits
-  pass through. (SentimentRow/QuoteBar split tracked under TD-5.)
-- **TD-7 (2026-05-25)** — `layout._workspace_root(start=...)` is now parameterized
-  and the fail-fast guard is covered by `test_workspace_root`.
-- **TD-15 (2026-05-25)** — `Instrument` is the single source of LEAN identity
-  (`security_type`, `market`, `lot_size`); `layout.price_path_for` /
-  `lean_data_dir_for` derive the path classification from it.
-- **Part of TD-5 (2026-05-25)** — `QuoteBar` is defined in `algo_core.bars` and is
-  the Repository's `M` written by `algo-transform` (proven in its tests + e2e).
-  `SentimentRow` remains (see TD-5 above).
