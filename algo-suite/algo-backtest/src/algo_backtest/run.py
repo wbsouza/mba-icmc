@@ -173,6 +173,7 @@ STRATEGIES: dict[str, StrategySpec] = {
     "baseline-ma": StrategySpec("baseline_ma", _validate_baseline_ma),
     "baseline-meanrev": StrategySpec("baseline_meanrev", _validate_baseline_meanrev),
     "baseline": StrategySpec("baseline", _validate_baseline, model_file=_F7_MODEL_FILE),
+    "baseline-dsha": StrategySpec("baseline", _validate_baseline, model_file=_F7_MODEL_FILE),
     "hybrid": StrategySpec(
         "hybrid", _validate_hybrid, needs_news_data=True, model_file=_F7_MODEL_FILE
     ),
@@ -319,6 +320,7 @@ def run_strategy(
         "start": start.strftime("%Y%m%d"),
         "end": end.strftime("%Y%m%d"),
         "broker_adapter": broker_adapter,
+        "chain_config": strategy,
         **params,
     }
     if spec.needs_news_data:

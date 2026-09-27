@@ -601,3 +601,19 @@ audit completeness (one row per chain run incl. NO_TRADE); determinism
   parameter.
 - Whether TA-Lib `CDL*` runs inside the LEAN algorithm or as a pre-pass (default:
   inside, native indicators preferred; TA-Lib only for candlestick patterns).
+
+### F1 alternative perception source (04k, 2026-09-26)
+
+`StrategyChainConfig.perception` validates `perception_source: ema` (default) or
+`double_smoothed_heikin_ashi`. The latter lives in `perception/`: a pure HA
+transform, a native `PythonIndicator` composing Wilder(6) and LWMA(2), and a
+primary/closed-higher-timeframe wrapper using `TradeBarConsolidator`. Integer
+period overrides live under `double_smoothed_heikin_ashi`; higher timeframe
+minutes defaults to 60 and must exceed 1. No decision consumes an unready reading.
+The exact historical rule is down when smoothed far >= near (ties down), up
+otherwise, using direction-reordered extremes rather than HA body buffers.
+
+`baseline-dsha` extends baseline with this selector and shares its model artifact.
+It is a frozen-model direction-feature ablation through the existing analyzer;
+EMA-gap strength and all other filters remain unchanged. Offline training remains
+EMA-only, so this variant must not be represented as independently trained.

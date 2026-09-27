@@ -166,7 +166,7 @@ def _bundled_models_match() -> None:
 
     algos = Path(algo_backtest.__file__).parent / "algos"
     chain_strategies = {n: s for n, s in STRATEGIES.items() if s.model_file}
-    assert set(chain_strategies) == {"baseline", "hybrid"}
+    assert set(chain_strategies) == {"baseline", "baseline-dsha", "hybrid"}
     for name, spec in chain_strategies.items():
         assert spec.model_file is not None
         families = load_families(algos / spec.algo_dir / spec.model_file)

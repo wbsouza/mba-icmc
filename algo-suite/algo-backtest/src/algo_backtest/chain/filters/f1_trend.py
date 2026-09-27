@@ -1,15 +1,14 @@
 """F1 — trend-regime filter (specs.md §11.3.2, Spec 04c).
 
-"Recommends BUY/SELL aligned with the multi-timeframe trend; vetoes if direction
-conflicts." No upstream perception layer populates `ExecutionState.features` from real
-LEAN indicators yet (`engine/algorithm.py` — future 04a/04h integration work), so this
-filter defines and documents its own minimal feature-key contract, proven here with
-synthetic `ExecutionState` fixtures (`tests/features/f1_trend.feature`).
+Recommends BUY/SELL aligned with the multi-timeframe trend; vetoes direction
+conflicts. The shared chain engine supplies EMA directions by default, or the
+config-selected double-smoothed Heikin-Ashi candidate. It waits for both timeframes
+to be ready before invoking this filter. Trend strength remains the EMA-gap proxy.
 
 **Feature-key contract** (read from `state.features`, all required — a missing key is a
 hard, explained failure per the workspace's fail-fast policy, not a silent default):
 
-- ``trend_direction`` (float): signed slope of the primary-timeframe EMA. Positive =
+- ``trend_direction`` (float): signed direction from the selected perception source. Positive =
   uptrend, negative = downtrend, zero = flat.
 - ``trend_strength`` (float, ``[0, 100]``): an ADX-style trend-strength reading for the
   primary timeframe.

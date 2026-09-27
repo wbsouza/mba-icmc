@@ -1,5 +1,16 @@
 # Spec 04k — algo-backtest: Double-Smoothed Heikin-Ashi Trend Filter as an F1 ablation candidate (lane of Spec 04)
 
+> **Completed 2026-09-26.** The implementation lives in `algo_backtest/perception/`
+> and integrates through the shared `engine/chain_algorithm.py`. It follows
+> QuantConnect's manual `PythonIndicator` standard. The exact source classifier
+> (including tie-as-down) and MT4 period2=2 are preserved. `baseline-dsha` selects
+> the alternative while sharing baseline's frozen EMA-trained F7 model. See
+> `ablation/README.md`, `validation.md` and `lessons-learned.md` for measured evidence.
+> The package `make check` passes; the root workspace gate retains the unrelated
+> pre-existing TD-55 lint blocker. Historical planning/background notes below are
+> retained as the original rationale; their "not started" statements are superseded.
+
+
 > **Naming (2026-09-26):** this candidate was previously called "HAS/JapaDragon" after fx-manager's
 > internal codenames. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
 > name (Clean Code: a name should say what the thing does, not what someone once called it) that

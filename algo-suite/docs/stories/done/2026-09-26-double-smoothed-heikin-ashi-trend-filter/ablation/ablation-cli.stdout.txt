@@ -1,0 +1,26 @@
+[
+  {
+    "delta_total_return": 0.0,
+    "end": "2015-08-07",
+    "hit_rate": 0.0,
+    "max_drawdown": 0.0,
+    "run_id": "20260927T030353-471a785c6df3",
+    "sharpe": 0.0,
+    "start": "2015-08-03",
+    "strategy": "baseline",
+    "symbol": "EURUSD",
+    "total_return": 0.0
+  },
+  {
+    "delta_total_return": 0.0001,
+    "end": "2015-08-07",
+    "hit_rate": 1.0,
+    "max_drawdown": 0.0,
+    "run_id": "20260927T025416-46940d8372d1",
+    "sharpe": 0.0456,
+    "start": "2015-08-03",
+    "strategy": "baseline-dsha",
+    "symbol": "EURUSD",
+    "total_return": 0.0001
+  }
+]

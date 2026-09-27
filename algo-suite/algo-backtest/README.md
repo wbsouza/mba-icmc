@@ -150,3 +150,39 @@ TD-51. Still planned: richer analytics (CPCV, equity curves, `trades.parquet` sc
 read-through caching.
 
 Spec: [`SPEC.md`](SPEC.md).
+
+### Double-smoothed Heikin-Ashi perception ablation
+
+`baseline-dsha` inherits `baseline` and selects
+`perception_source: double_smoothed_heikin_ashi` in its strategy `config.yaml`.
+The default source remains `ema`. The optional `double_smoothed_heikin_ashi`
+mapping accepts integer `period1` (default 6), `period2` (2), and
+`higher_tf_minutes` (60, must exceed the one-minute subscription).
+
+The candidate uses a native LEAN `PythonIndicator`, composing four Wilder moving
+averages, a Heikin-Ashi transform, and four linear-weighted moving averages.
+Direction comes from the reordered near/far extremes: **far >= near means down,
+including ties**. This intentionally preserves the historical classifier even
+though its sign can be counterintuitive. Pass 2 uses the MT4 default 2; the later
+Java implementation's period 1 is not this default. The first ready smoothed
+candle seeds HA open at `(open + close) / 2`; both smoothing passes must be ready.
+Forex QuoteBar midpoint OHLC is converted to TradeBars and fed through LEAN's
+`TradeBarConsolidator`; only completed higher-timeframe bars affect direction.
+
+No chain decision is made until both timeframes are ready. The candidate changes
+only `trend_direction` and `higher_tf_trend_direction`; `trend_strength` remains
+the existing EMA-gap proxy. `baseline-dsha` deliberately uses the same frozen,
+EMA-trained F7 model as `baseline`. Offline training scripts still build EMA
+features: this is a frozen-model input ablation, **not a retrained-model comparison**.
+The shared chain engine also honors this selector for `hybrid` strategy configs.
+
+Run the paired experiment with `experiments/double-smoothed-heikin-ashi.yaml`, or
+run `algo-backtest run` separately with `--strategy baseline` and
+`--strategy baseline-dsha`, the same window and `--param size=0.5`. Pass the two
+result IDs to `algo-analyze ablation --runs <ema-id> --runs <dsha-id>`.
+
+Implementation follows QuantConnect's [custom indicator contract](https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/custom-indicators)
+and [native consolidator](https://github.com/QuantConnect/Lean/blob/master/Common/Data/Consolidators/TradeBarConsolidator.cs).
+The indicator is manually updated and publishes `current`/`on_updated`; do not
+also register it for automatic updates. LEAN streaming initialization and session
+boundaries can differ from the original MT4 historical-array calculations.

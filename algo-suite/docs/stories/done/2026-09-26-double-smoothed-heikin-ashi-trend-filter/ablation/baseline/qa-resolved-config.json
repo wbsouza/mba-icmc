@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "filters": [
+    "f1_trend",
+    "f2_indicator",
+    "f3_pattern",
+    "f5_risk_guard",
+    "f6_capital_mgmt",
+    "f7_meta_learner"
+  ],
+  "meta_learner": {
+    "families": [
+      "trend",
+      "indicator",
+      "pattern"
+    ]
+  }
+}

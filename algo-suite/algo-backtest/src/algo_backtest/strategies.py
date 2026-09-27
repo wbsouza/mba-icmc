@@ -29,13 +29,15 @@ from typing import Any
 
 import yaml
 
+from algo_backtest.perception.config import PerceptionConfig, parse_perception_config
+
 
 @dataclass(frozen=True)
 class StrategyChainConfig:
-    """One strategy's resolved filter chain + meta-learner feature families.
+    """One strategy's resolved filters, feature families and F1 perception source.
 
     ``raw`` is the fully-merged config dict (post-`extends:` composition) — every key,
-    not just the two this module interprets — so a future filter (e.g. F5/F6's own
+    including sections this module does not interpret — so a future filter (e.g. F5/F6's own
     per-strategy threshold overrides) can read its own section without this module
     needing to know its schema in advance.
     """
@@ -45,6 +47,7 @@ class StrategyChainConfig:
     meta_learner_families: tuple[str, ...]
     extends: str | None
     raw: Mapping[str, Any]
+    perception: PerceptionConfig = PerceptionConfig()
 
 
 def strategies_root() -> Path:
@@ -143,5 +146,6 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     families_raw = meta_learner.get("families", ())
     families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
     return StrategyChainConfig(
-        name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged
+        name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
+        perception=parse_perception_config(merged),
     )
