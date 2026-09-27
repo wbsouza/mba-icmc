@@ -22,12 +22,13 @@ Feature: End-of-run broker statement and equity chart
       When I build the statement
       Then closed transaction 1 shows ticket 1, type "<type>", lots "<lots>", item "EURUSD"
       And closed transaction 1 shows open price <entry>, close price <exit>, commission "<commission>", swap "0.00", P/L "<pl>"
+      And closed transaction 1 shows open time "2015.09.01 10:00" and close time "2015.09.01 10:10"
 
       Examples:
         | lot_units | direction | quantity | entry   | exit    | profit  | fees | fill_side | fill_quantity | type | lots | commission | pl      |
         | 100000    | 0         | 44094    | 1.13115 | 1.13129 | 6.17    | 0.0  | buy       | 44094         | buy  | 0.44 | 0.00       | 6.17    |
         | 100000    | 1         | 45896    | 1.08668 | 1.08645 | 10.56   | 0.0  | sell      | -45896        | sell | 0.46 | 0.00       | 10.56   |
-        | 100000    | 0         | 250000   | 1.10000 | 1.09800 | -500.00 | 7.5  | buy       | 250000        | buy  | 2.50 | -7.50      | -500.00 |
+        | 100000    | 0         | 250000   | 1.10007 | 1.09807 | -500.00 | 7.5  | buy       | 250000        | buy  | 2.50 | -7.50      | -500.00 |
         | absent    | 1         | 45896    | 1.08668 | 1.08645 | 10.56   | 0.0  | sell      | -45896        | sell | —    | 0.00       | 10.56   |
 
     Scenario: a trade whose ledger direction contradicts its entry fill is rejected
@@ -51,6 +52,31 @@ Feature: End-of-run broker statement and equity chart
       When I build the statement
       Then the statement lists 3 closed transactions
       And the totals row shows commission "-4.00", swap "0.00" and P/L "100.00"
+      And the closed transactions section states "Deposit/Withdrawal: 0.00    Credit Facility: 0.00    Closed Trade P/L: 96.00"
+
+    Scenario: closed transactions are listed in open-time order, whatever the ledger order
+      Given the closed trades
+        | orders | open_time            | direction | quantity | entry   | exit    | profit | fees |
+        | 5,6    | 2015-09-03T09:00:00Z | 0         | 10000    | 1.10000 | 1.10100 | 10.00  | 0.0  |
+        | 1,2    | 2015-09-01T09:00:00Z | 0         | 10000    | 1.10000 | 1.10100 | 10.00  | 0.0  |
+        | 3,4    | 2015-09-02T09:00:00Z | 1         | 10000    | 1.10200 | 1.10300 | -10.00 | 0.0  |
+      When I build the statement
+      Then the closed transaction tickets are 1, 3, 5
+
+    Scenario: the header line names the account, the strategy and the period end
+      When I build the statement
+      Then the header line is "A/C No: 20260927T000000-deadbeef   Name: baseline / EURUSD   2015.09.01 00:00"
+      And the closed transactions table has the columns "Ticket | Open Time | Type | Lots | Item | Price | S / L | T / P | Close Time | Price | Commission | R/O Swap | Trade P/L"
+
+    Scenario Outline: prices are printed at the quote precision the recorded prices carry
+      When I derive the price precision of <prices>
+      Then the price precision is <decimals>
+
+      Examples:
+        | prices                 | decimals |
+        | 1.08668,1.1            | 5        |
+        | 120.123,119.5          | 3        |
+        | 100,101                | 0        |
 
   Rule: The A/C summary is arithmetic over the artifacts
 
@@ -64,7 +90,7 @@ Feature: End-of-run broker statement and equity chart
       And order 2 filled as "sell" for <exit_units> units
       When I build the statement
       Then the A/C summary shows previous ledger balance "<start_fmt>", closed trade P/L "<closed>", balance "<balance>", floating P/L "<floating>" and equity "<equity>"
-      And the A/C summary shows deposit/withdrawal "0.00"
+      And the A/C summary shows deposit/withdrawal "0.00" and total credit facility "0.00"
 
       Examples:
         | start    | end      | profit  | fees | holdings  | unrealized | exit_units | start_fmt | closed  | balance   | floating | equity    |
@@ -76,6 +102,15 @@ Feature: End-of-run broker statement and equity chart
       Given the engine runtime statistics report equity "$10,011.93"
       When I build the statement
       Then the A/C summary shows engine-reported equity "10,011.93"
+
+    Scenario: the A/C summary is the broker's two-column block
+      When I build the statement
+      Then the A/C summary block rows are
+        | Previous Ledger Balance | 10,000.00 | Floating P/L          | 0.00      |
+        | Closed Trade P/L        | 0.00      | Total Credit Facility | 0.00      |
+        | Deposit/Withdrawal      | 0.00      | Equity                | 10,000.00 |
+        | Balance                 | 10,000.00 | Margin Requirement    | 0.00      |
+        |                         |           | Available Margin      | 10,000.00 |
 
     Scenario Outline: margin requirement is zero when flat, else the engine's current sample or n/a
       Given the engine runtime statistics report holdings "<holdings>" and unrealized "<unrealized>"
@@ -101,9 +136,9 @@ Feature: End-of-run broker statement and equity chart
         | 3,4    | 1         | 10000    | 1.10200 | 1.10300 | -10.00 | 0.0  |
       And the trade plans
         | entry_order_id | direction | stop_loss | take_profits    |
-        | 1              | buy       | 1.09800   | 1.10200,1.10400 |
+        | 1              | buy       | 1.09812   | 1.10234,1.10456 |
       When I build the statement
-      Then closed transaction 1 shows S/L "1.09800" and T/P "1.10200 / 1.10400"
+      Then closed transaction 1 shows S/L "1.09812" and T/P "1.10234 / 1.10456"
       And closed transaction 2 shows S/L "—" and T/P "—"
       And the statement does not say "no trade plan recorded for this run"
 
@@ -121,18 +156,26 @@ Feature: End-of-run broker statement and equity chart
       Then the open trades section says "No transactions"
       And the working orders section says "No transactions"
 
-    Scenario: a position still open at the end is listed with its floating P/L
+    Scenario Outline: a position still open at the end is listed with its floating P/L
       Given the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And the engine account currency is "<account_currency>"
       And the engine runtime statistics report holdings "$5,433.40" and unrealized "$-12.50"
-      And order 7 filled as "sell" for -5000 units
+      And order 7 filled as "sell" for -5000 units at 1.10012
       When I build the statement
-      Then the open trades section lists 1 position of type "sell", 5000 units, lots "0.05", holdings "5,433.40" and floating P/L "-12.50"
+      Then the open trades section lists ticket 7 opened "2015.09.01 10:00" of type "sell", lots "0.05", price "1.10012", current price "<current>", P/L "-12.50"
+      And the open trades section states "Floating P/L: -12.50"
+
+      Examples:
+        | account_currency | current |
+        | USD              | 1.08668 |
+        | EUR              | —       |
 
     Scenario: a stop order still pending at the end is a working order
-      Given order 9 was submitted as "sell" for -10000 units and never filled
-      And the engine order book prices order 9 at stop 1.09500
+      Given the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And order 9 was submitted as "sell" for -10000 units and never filled
+      And the engine order book prices order 9 at stop 1.09512
       When I build the statement
-      Then the working orders section lists ticket 9 of type "sell", 10000 units, status "submitted", price "1.09500"
+      Then the working orders section lists ticket 9 opened "2015.09.01 10:00" of type "sell", lots "0.10", price "1.09512", market price "—"
 
     Scenario: an order the engine rejected is not a working order
       Given order 9 was submitted as "sell" for -10000 units and then marked "invalid"

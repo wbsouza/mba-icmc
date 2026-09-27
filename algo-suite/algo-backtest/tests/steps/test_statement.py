@@ -9,7 +9,7 @@ state in `st_ctx`; the files are written when a When step runs.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,9 +20,13 @@ from algo_backtest.statement import (
     build_statement,
     drawdowns,
     equity_series,
+    format_time,
+    header_line,
     load_run_artifacts,
+    price_precision,
     render_markdown,
     summary_lines,
+    unix_time,
 )
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
@@ -44,6 +48,7 @@ def st_ctx(tmp_path: Path) -> dict[str, Any]:
         "statistics": {}, "portfolio": {}, "runtime": {}, "equity_rows": [],
         "config": None, "provenance": None, "plans": None, "margin": "absent",
         "no_equity_chart": False, "no_order_events": False, "lacking": set(), "corrupt": set(),
+        "account_currency": "USD",
     }
 
 
@@ -54,7 +59,7 @@ def _fill_events(order_id: int, side: str, units: float, price: float) -> list[d
     """A submitted + filled event pair the way LEAN's order-events file records them."""
     common = {
         "orderId": order_id, "symbolValue": "EURUSD", "direction": side, "quantity": units,
-        "time": _EVENT_TIME,
+        "time": _EVENT_TIME, "fillPriceCurrency": "USD",
     }
     submitted = {"orderEventId": 1, "status": "submitted", "fillPrice": 0.0, "fillQuantity": 0.0}
     filled = {"orderEventId": 2, "status": "filled", "fillPrice": price, "fillQuantity": units}
@@ -63,11 +68,11 @@ def _fill_events(order_id: int, side: str, units: float, price: float) -> list[d
 
 def _trade(
     orders: str, direction: int, quantity: float, entry: float, exit_: float, profit: float,
-    fees: float, duration: str = "00:10:00",
+    fees: float, duration: str = "00:10:00", entry_time: str = _ENTRY_TIME,
 ) -> dict[str, Any]:
     """One closed trade in LEAN's ledger shape."""
     return {
-        "id": f"trade-{orders}", "entryTime": _ENTRY_TIME, "entryPrice": entry,
+        "id": f"trade-{orders}", "entryTime": entry_time, "entryPrice": entry,
         "direction": direction, "quantity": quantity, "exitTime": _EXIT_TIME,
         "exitPrice": exit_, "profitLoss": profit, "totalFees": fees, "duration": duration,
         "isWin": profit > 0, "orderIds": [int(o) for o in orders.split(",")],
@@ -111,6 +116,7 @@ def _main_json(st_ctx: dict[str, Any]) -> dict[str, Any]:
     return {
         "statistics": statistics, "runtimeStatistics": runtime, "charts": charts,
         "orders": st_ctx["orders"],
+        "algorithmConfiguration": {"accountCurrency": st_ctx["account_currency"]},
         "totalPerformance": {
             "closedTrades": st_ctx["trades"],
             "portfolioStatistics": {
@@ -232,7 +238,7 @@ def _trades_table(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
             _trade(
                 cells["orders"], int(cells["direction"]), float(cells["quantity"]),
                 float(cells["entry"]), float(cells["exit"]), float(cells["profit"]),
-                float(cells["fees"]),
+                float(cells["fees"]), entry_time=cells.get("open_time", _ENTRY_TIME),
             ),
         )
 
@@ -247,6 +253,18 @@ def _trades_durations(st_ctx: dict[str, Any], datatable: list[list[str]]) -> Non
 @given(parsers.parse('order {order_id:d} filled as "{side}" for {units:g} units'))
 def _order_filled(st_ctx: dict[str, Any], order_id: int, side: str, units: float) -> None:
     st_ctx["events"][order_id] = _fill_events(order_id, side, units, 1.1)
+
+
+@given(parsers.parse('order {order_id:d} filled as "{side}" for {units:g} units at {price:g}'))
+def _order_filled_at(
+    st_ctx: dict[str, Any], order_id: int, side: str, units: float, price: float
+) -> None:
+    st_ctx["events"][order_id] = _fill_events(order_id, side, units, price)
+
+
+@given(parsers.parse('the engine account currency is "{currency}"'))
+def _account_currency(st_ctx: dict[str, Any], currency: str) -> None:
+    st_ctx["account_currency"] = currency
 
 
 @given(
@@ -372,6 +390,11 @@ def _compute_drawdowns(st_ctx: dict[str, Any], values: str) -> None:
     st_ctx["drawdowns"] = drawdowns([float(v) for v in values.split(",")])
 
 
+@when(parsers.parse("I derive the price precision of {prices}"))
+def _derive_precision(st_ctx: dict[str, Any], prices: str) -> None:
+    st_ctx["precision"] = price_precision(float(p) for p in prices.split(","))
+
+
 @when("I run the statement command on that run directory")
 def _run_cli(st_ctx: dict[str, Any]) -> None:
     run_dir = _materialize(st_ctx)
@@ -407,13 +430,19 @@ def _table_rows(section: str) -> list[list[str]]:
 
 def _closed_rows(st_ctx: dict[str, Any]) -> list[list[str]]:
     """Closed Transactions data rows without the totals row."""
-    rows = _table_rows(_section(st_ctx["markdown"], "Closed Transactions"))
+    rows = _table_rows(_section(st_ctx["markdown"], "Closed Transactions:"))
     return [row for row in rows if row[0] != "**Total**"]
 
 
 def _totals_row(st_ctx: dict[str, Any]) -> list[str]:
-    rows = _table_rows(_section(st_ctx["markdown"], "Closed Transactions"))
+    rows = _table_rows(_section(st_ctx["markdown"], "Closed Transactions:"))
     return next(row for row in rows if row[0] == "**Total**")
+
+
+def _header_cells(section: str) -> list[str]:
+    """The header cells of the first table in a section."""
+    line = next(line for line in section.splitlines() if line.startswith("|"))
+    return [cell.strip() for cell in line.strip("|").split("|")]
 
 
 def _summary(st_ctx: dict[str, Any]) -> dict[str, str]:
@@ -431,7 +460,51 @@ def _row_identity(
     st_ctx: dict[str, Any], index: int, ticket: int, side: str, lots: str, item: str
 ) -> None:
     row = _closed_rows(st_ctx)[index - 1]
-    assert row[:5] == [str(ticket), _ENTRY_TIME, side, lots, item], row
+    assert row[:5] == [str(ticket), "2015.09.01 10:00", side, lots, item], row
+
+
+@then(
+    parsers.parse(
+        'closed transaction {index:d} shows open time "{opened}" and close time "{closed}"'
+    )
+)
+def _row_times(st_ctx: dict[str, Any], index: int, opened: str, closed: str) -> None:
+    row = _closed_rows(st_ctx)[index - 1]
+    assert row[1] == opened and row[8] == closed, row
+
+
+@then(parsers.parse("the closed transaction tickets are {tickets}"))
+def _row_order(st_ctx: dict[str, Any], tickets: str) -> None:
+    expected = [t.strip() for t in tickets.split(",")]
+    assert [row[0] for row in _closed_rows(st_ctx)] == expected
+
+
+@then(parsers.parse('the closed transactions section states "{text}"'))
+def _closed_states(st_ctx: dict[str, Any], text: str) -> None:
+    assert text in _section(st_ctx["markdown"], "Closed Transactions:")
+
+
+@then(parsers.parse('the header line is "{text}"'))
+def _header(st_ctx: dict[str, Any], text: str) -> None:
+    assert header_line(st_ctx["statement"]) == text
+    assert text in st_ctx["markdown"]
+
+
+@then(parsers.parse('the closed transactions table has the columns "{columns}"'))
+def _closed_columns(st_ctx: dict[str, Any], columns: str) -> None:
+    expected = [c.strip() for c in columns.split("|")]
+    assert _header_cells(_section(st_ctx["markdown"], "Closed Transactions:")) == expected
+
+
+@then(parsers.parse("the price precision is {decimals:d}"))
+def _precision_is(st_ctx: dict[str, Any], decimals: int) -> None:
+    assert st_ctx["precision"] == decimals
+
+
+@then("the A/C summary block rows are")
+def _summary_block(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    rows = _table_rows(_section(st_ctx["markdown"], "A/C Summary:"))
+    assert rows == [[cell.strip() for cell in row] for row in datatable], rows
 
 
 @then(
@@ -491,12 +564,17 @@ def _summary_arithmetic(
     assert summary["Balance"] == balance, summary
     assert summary["Floating P/L"] == floating, summary
     assert summary["Equity"] == equity, summary
-    assert _section(st_ctx["markdown"], "A/C Summary").count(balance) >= 1
+    assert _section(st_ctx["markdown"], "A/C Summary:").count(balance) >= 1
 
 
-@then(parsers.parse('the A/C summary shows deposit/withdrawal "{value}"'))
-def _summary_deposit(st_ctx: dict[str, Any], value: str) -> None:
+@then(
+    parsers.parse(
+        'the A/C summary shows deposit/withdrawal "{value}" and total credit facility "{credit}"'
+    )
+)
+def _summary_deposit(st_ctx: dict[str, Any], value: str, credit: str) -> None:
     assert _summary(st_ctx)["Deposit/Withdrawal"] == value
+    assert _summary(st_ctx)["Total Credit Facility"] == credit
 
 
 @then(parsers.parse('the A/C summary shows engine-reported equity "{value}"'))
@@ -528,40 +606,48 @@ def _does_not_say(st_ctx: dict[str, Any], text: str) -> None:
 
 @then(parsers.parse('the open trades section says "{text}"'))
 def _open_says(st_ctx: dict[str, Any], text: str) -> None:
-    assert _section(st_ctx["markdown"], "Open Trades").strip() == text
+    assert _section(st_ctx["markdown"], "Open Trades:").strip() == text
 
 
 @then(parsers.parse('the working orders section says "{text}"'))
 def _working_says(st_ctx: dict[str, Any], text: str) -> None:
-    assert _section(st_ctx["markdown"], "Working Orders").strip() == text
+    assert _section(st_ctx["markdown"], "Working Orders:").strip() == text
+
+
+@then(parsers.parse('the open trades section states "{text}"'))
+def _open_states(st_ctx: dict[str, Any], text: str) -> None:
+    assert text in _section(st_ctx["markdown"], "Open Trades:")
 
 
 @then(
     parsers.parse(
-        'the open trades section lists 1 position of type "{side}", {units:g} units, '
-        'lots "{lots}", holdings "{holdings}" and floating P/L "{floating}"'
+        'the open trades section lists ticket {ticket:d} opened "{opened}" of type "{side}", '
+        'lots "{lots}", price "{price}", current price "{current}", P/L "{pl}"'
     )
 )
-def _open_position(
-    st_ctx: dict[str, Any], side: str, units: float, lots: str, holdings: str, floating: str
+def _open_trade(
+    st_ctx: dict[str, Any], ticket: int, opened: str, side: str, lots: str, price: str,
+    current: str, pl: str,
 ) -> None:
-    rows = _table_rows(_section(st_ctx["markdown"], "Open Trades"))
-    assert rows == [["EURUSD", side, f"{units:,.0f}", lots, holdings, floating]], rows
+    rows = _table_rows(_section(st_ctx["markdown"], "Open Trades:"))
+    assert rows[0] == [str(ticket), opened, side, lots, "EURUSD", price, "—", "—", current,
+                       "0.00", "0.00", pl], rows
+    assert rows[1][0] == "**Total**" and rows[1][-1] == pl, rows
+    assert format_time(unix_time(_EVENT_TIME)) == opened
 
 
 @then(
     parsers.parse(
-        'the working orders section lists ticket {ticket:d} of type "{side}", {units:g} units, '
-        'status "{status}", price "{price}"'
+        'the working orders section lists ticket {ticket:d} opened "{opened}" of type "{side}", '
+        'lots "{lots}", price "{price}", market price "{market}"'
     )
 )
 def _working_order(
-    st_ctx: dict[str, Any], ticket: int, side: str, units: float, status: str, price: str
+    st_ctx: dict[str, Any], ticket: int, opened: str, side: str, lots: str, price: str,
+    market: str,
 ) -> None:
-    rows = _table_rows(_section(st_ctx["markdown"], "Working Orders"))
-    assert len(rows) == 1, rows
-    time = datetime.fromtimestamp(_EVENT_TIME, UTC).isoformat()
-    assert rows[0] == [str(ticket), time, side, f"{units:,.0f}", "EURUSD", status, price], rows
+    rows = _table_rows(_section(st_ctx["markdown"], "Working Orders:"))
+    assert rows == [[str(ticket), opened, side, lots, "EURUSD", price, "—", "—", market]], rows
 
 
 @then("the equity series is")
