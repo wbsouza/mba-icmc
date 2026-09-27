@@ -90,7 +90,7 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario: execution is always resolved, defaulting when the section is absent (story 12)
       Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
       When strategy "plain" is loaded
-      Then the loaded strategy's execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0
+      Then the loaded strategy's execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
       And the loaded strategy's raw config records execution.spread_pips 0.0
       And the loaded strategy's parameter "execution.min_hold_bars" comes from "default"
 
@@ -98,7 +98,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
       And "custom" adds a "execution" section {spread_pips: 1.0}
       When strategy "custom" is loaded
-      Then the loaded strategy's execution config is spread_pips 1.0, commission_per_lot 0.0, min_hold_bars 0
+      Then the loaded strategy's execution config is spread_pips 1.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
       And the loaded strategy's raw config records execution.commission_per_lot 0.0
       And the loaded strategy's parameter "execution.spread_pips" comes from "custom/config.yaml"
       And the loaded strategy's parameter "execution.commission_per_lot" comes from "default"
@@ -117,6 +117,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | trail_stops          | []                                           |
         | min_reward_risk      | null                                         |
         | stop_distance_source | fixed                                        |
+        | min_stop_factor      | 1.0                                          |
 
     Scenario: an explicit trade-plan key keeps its file as provenance
       Given a strategy config directory with "planned" filters "f1_trend,f6_capital_mgmt" and families "trend"
@@ -136,6 +137,8 @@ Feature: Strategy-chain config loading (Spec 04h)
         | case                     | section      | key                  | value |
         | stop shrink of 100%      | capital_mgmt | stop_loss_shrink     | 1.0   |
         | unknown stop source      | capital_mgmt | stop_distance_source | structural |
+        | stop factor below one    | capital_mgmt | min_stop_factor      | 0.5   |
+        | negative broker level    | execution    | broker_stop_level_pips | -1  |
         | negative spread          | execution    | spread_pips          | -1    |
         | fractional hold          | execution    | min_hold_bars        | 1.5   |
 
@@ -328,7 +331,10 @@ Feature: Strategy-chain config loading (Spec 04h)
         | baseline      | capital_mgmt | targets                           | [{at_level_ratio: 2.0, close_fraction: 0.5}]   |
         | baseline      | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
         | baseline      | capital_mgmt | min_reward_risk                   | 2.0                                            |
-        | baseline      | capital_mgmt | stop_distance_source              | fixed                                          |
+        | baseline      | capital_mgmt | stop_distance_source              | swing                                          |
+        | baseline      | capital_mgmt | min_stop_factor                   | 1.2                                            |
+        | baseline      | execution    | broker_stop_level_pips            | 0.0                                            |
+        | hybrid        | capital_mgmt | min_stop_factor                   | 1.2                                            |
         | baseline      | capital_mgmt | atr_multiplier                    | 2.0                                            |
         | baseline      | risk_guard   | max_concurrent_trades_per_account | 2                                              |
         | baseline      | execution    | spread_pips                       | 1.0                                            |

@@ -11,7 +11,7 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
     Scenario: an empty section resolves every default
       Given an empty execution section
       When the execution config is parsed for strategy "baseline"
-      Then the parsed execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0
+      Then the parsed execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
 
     Scenario Outline: a partial section overrides only the key it names (<case>)
       Given an execution section with <key> set to <value>
@@ -25,7 +25,7 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
         | ECN commission per lot  | commission_per_lot | 7.0   | spread_pips        | 0.0           |
         | hold at least three bars| min_hold_bars      | 3     | commission_per_lot | 0.0           |
         | integer spread          | spread_pips        | 2     | min_hold_bars      | 0             |
-        | broker stop level       | broker_stop_level_pips | 5.0 | spread_pips      | 0.0           |
+        | broker stop level       | broker_stop_level_pips | 2.5 | spread_pips      | 0.0           |
 
   Rule: An invalid or unknown value fails fast naming the strategy, section and key
 

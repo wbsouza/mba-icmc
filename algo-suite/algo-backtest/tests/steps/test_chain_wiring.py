@@ -17,10 +17,12 @@ from algo_backtest.chain.wiring import (
     PnlWindows,
     account_features,
     build_filters,
+    pip_size_from_price_variation,
     price_features,
 )
 from algo_backtest.rules.risk_guard import RiskGuardCaps
 from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
+from algo_core.instrument import build_instrument
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/chain_wiring.feature")
@@ -43,6 +45,7 @@ class _WiringCtx:
     filters: list[Filter] = field(default_factory=list)
     error: ValueError | None = None
     f5_result: FilterResult | None = None
+    pip_size: float | None = None
 
 
 @pytest.fixture
@@ -72,6 +75,64 @@ def _price_features(
     wiring_ctx.features = price_features(
         price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0
     )
+
+
+@when(
+    parsers.parse(
+        "price features are built for price {price:g}, fast EMA {fast:g}, "
+        "slow EMA {slow:g}, HTF EMA {htf:g} with atr_pips {atr_pips:g}"
+    )
+)
+def _price_features_with_atr(
+    wiring_ctx: _WiringCtx, price: float, fast: float, slow: float, htf: float, atr_pips: float
+) -> None:
+    wiring_ctx.features = price_features(
+        price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0,
+        atr_pips=atr_pips,
+    )
+
+
+@when(
+    parsers.parse(
+        "price features are built for price {price:g}, fast EMA {fast:g}, "
+        "slow EMA {slow:g}, HTF EMA {htf:g} with swing_low_pips {low:g} and "
+        "swing_high_pips {high:g}"
+    )
+)
+def _price_features_with_swings(
+    wiring_ctx: _WiringCtx, price: float, fast: float, slow: float, htf: float, low: float,
+    high: float,
+) -> None:
+    wiring_ctx.features = price_features(
+        price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0,
+        swing_low_pips=low, swing_high_pips=high,
+    )
+
+
+@when(parsers.parse("the pip size is derived from a minimum price variation of {variation:g}"))
+def _pip_size(wiring_ctx: _WiringCtx, variation: float) -> None:
+    wiring_ctx.pip_size = pip_size_from_price_variation(variation)
+
+
+@when(
+    parsers.parse(
+        "deriving the pip size from a minimum price variation of {variation:g} fails"
+    )
+)
+def _pip_size_fails(wiring_ctx: _WiringCtx, variation: float) -> None:
+    with pytest.raises(ValueError) as excinfo:
+        pip_size_from_price_variation(variation)
+    wiring_ctx.error = excinfo.value
+
+
+@then(parsers.parse("the pip size is {pip:g}"))
+def _pip_is(wiring_ctx: _WiringCtx, pip: float) -> None:
+    assert wiring_ctx.pip_size == pytest.approx(pip, rel=1e-12)
+
+
+@then(parsers.parse('it equals the unit_size of instrument "{symbol}"'))
+def _pip_matches_instrument(wiring_ctx: _WiringCtx, symbol: str) -> None:
+    assert wiring_ctx.pip_size == pytest.approx(build_instrument(symbol).unit_size, rel=1e-12)
 
 
 @given(

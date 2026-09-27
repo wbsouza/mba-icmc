@@ -441,16 +441,17 @@ def _loaded_price_features(  # noqa: PLR0913 - one parameter per table column
 @then(
     parsers.parse(
         "the loaded strategy's execution config is spread_pips {spread:g}, "
-        "commission_per_lot {commission:g}, min_hold_bars {hold:d}"
+        "commission_per_lot {commission:g}, min_hold_bars {hold:d}, "
+        "broker_stop_level_pips {level:g}"
     )
 )
 def _loaded_execution(
-    strategies_ctx: _StrategiesCtx, spread: float, commission: float, hold: int
+    strategies_ctx: _StrategiesCtx, spread: float, commission: float, hold: int, level: float
 ) -> None:
     assert strategies_ctx.loaded is not None
     execution = strategies_ctx.loaded.execution
     assert (execution.spread_pips, execution.commission_per_lot) == (spread, commission)
-    assert execution.min_hold_bars == hold
+    assert (execution.min_hold_bars, execution.broker_stop_level_pips) == (hold, level)
 
 
 @then(parsers.parse("the loaded strategy's raw config records {section}.{key} {value}"))

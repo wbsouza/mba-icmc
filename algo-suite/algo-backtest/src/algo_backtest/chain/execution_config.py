@@ -1,7 +1,8 @@
 """The fill-cost and holding-rule parameters of a strategy: its `execution` section.
 
 Story 12 (execution realism, 2026-09-27): the spread every fill pays, the per-lot
-commission and the minimum bars a position is held are strategy parameters — the
+commission, the minimum bars a position is held and the broker's minimum stop distance
+are strategy parameters — the
 optional top-level `execution:` section of `strategies/<name>/config.yaml` (specs.md
 §14.7, Strategy A05) — not code constants and not brokerage-model defaults. The section
 belongs to no filter: the loader always resolves it (like `price_features`), defaulting
@@ -29,8 +30,9 @@ class ExecutionConfig:
     - ``commission_per_lot``: account-currency fee per 1.0 lot traded, per side.
     - ``min_hold_bars``: bars a position must stay open before an opposite signal may
       close it (0 = a reversal closes immediately).
-    - ``broker_stop_level_pips``: the broker's minimum stop distance (MT4 ``STOP_LEVEL``),
-      in pips; F6 floors its stop at ``capital_mgmt.min_stop_factor`` × this (0 = none).
+    - ``broker_stop_level_pips``: the broker's minimum distance between price and a stop
+      or target order, in pips (LEAN does not expose OANDA's, so it is declared here; 0 =
+      no broker minimum). F6 floors the stop at ``capital_mgmt.min_stop_factor`` × this.
     """
 
     spread_pips: float = 0.0

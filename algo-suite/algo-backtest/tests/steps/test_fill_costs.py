@@ -118,6 +118,7 @@ class _Algorithm:
 
     securities: dict[str, _Security] = field(default_factory=dict)
     logs: list[str] = field(default_factory=list)
+    account_currency: str = "USD"
 
     def debug(self, message: str) -> None:
         self.logs.append(message)
@@ -256,12 +257,17 @@ def _slippage_approx_is(ctx: _Ctx, expected: float) -> None:
 
 @given(
     parsers.parse(
-        "a per-lot fee model charging {commission_per_lot:g} per {lot_notional_units:g}-unit lot"
+        "a per-lot fee model charging {commission_per_lot:g} per {lot_notional_units:g}-unit lot "
+        'in "{currency}"'
     )
 )
-def _fee_model(ctx: _Ctx, commission_per_lot: float, lot_notional_units: float) -> None:
+def _fee_model(
+    ctx: _Ctx, commission_per_lot: float, lot_notional_units: float, currency: str
+) -> None:
     ctx.model = _fill_models().PerLotFeeModel(
-        commission_per_lot=commission_per_lot, lot_notional_units=lot_notional_units
+        commission_per_lot=commission_per_lot,
+        lot_notional_units=lot_notional_units,
+        account_currency=currency,
     )
     assert isinstance(ctx.model, _FeeModel), "PerLotFeeModel must subclass LEAN's FeeModel"
 
@@ -305,6 +311,29 @@ def _empty_algorithm(ctx: _Ctx) -> None:
     ctx.algorithm = _Algorithm()
 
 
+@given(parsers.parse('the algorithm\'s account currency is "{currency}"'))
+def _account_currency(ctx: _Ctx, currency: str) -> None:
+    assert ctx.algorithm is not None
+    ctx.algorithm.account_currency = currency
+
+
+def _apply_costs(
+    ctx: _Ctx, spread_pips: float, commission_per_lot: float, lot: float | None, tag: str
+) -> None:
+    """Call apply_fill_costs on the scenario's algorithm, capturing the outcome."""
+    _capture(
+        ctx,
+        lambda: _fill_models().apply_fill_costs(
+            ctx.algorithm,
+            spread_pips=spread_pips,
+            commission_per_lot=commission_per_lot,
+            lot_notional_units=lot,
+            pip_size=None,
+            log_tag=tag,
+        ),
+    )
+
+
 @when(
     parsers.parse(
         "fill costs of {spread_pips:g} spread pips and {commission_per_lot:g} commission per lot "
@@ -312,17 +341,17 @@ def _empty_algorithm(ctx: _Ctx) -> None:
     )
 )
 def _apply(ctx: _Ctx, spread_pips: float, commission_per_lot: float, tag: str) -> None:
-    _capture(
-        ctx,
-        lambda: _fill_models().apply_fill_costs(
-            ctx.algorithm,
-            spread_pips=spread_pips,
-            commission_per_lot=commission_per_lot,
-            lot_notional_units=100_000.0,
-            pip_size=None,
-            log_tag=tag,
-        ),
+    _apply_costs(ctx, spread_pips, commission_per_lot, 100_000.0, tag)
+
+
+@when(
+    parsers.parse(
+        "fill costs of {spread_pips:g} spread pips and {commission_per_lot:g} commission per lot "
+        "are applied without a lot size"
     )
+)
+def _apply_no_lot(ctx: _Ctx, spread_pips: float, commission_per_lot: float) -> None:
+    _apply_costs(ctx, spread_pips, commission_per_lot, None, "T")
 
 
 @when(
@@ -367,6 +396,15 @@ def _all_fee(ctx: _Ctx) -> None:
     assert ctx.error is None, ctx.error
     cls = _fill_models().PerLotFeeModel
     assert all(isinstance(s.fee_model, cls) for s in _securities(ctx)), _securities(ctx)
+
+
+@then(parsers.parse('every fee model charges in the algorithm\'s account currency "{currency}"'))
+def _fee_currency(ctx: _Ctx, currency: str) -> None:
+    assert ctx.error is None, ctx.error
+    assert ctx.algorithm is not None
+    assert ctx.algorithm.account_currency == currency
+    for security in _securities(ctx):
+        assert security.fee_model.account_currency == currency, security
 
 
 @then("no security carries a per-lot fee model")

@@ -117,7 +117,7 @@ def main() -> None:
     config = load_strategy_chain_config("hybrid")
     assert config.f7 is not None, "strategy 'hybrid' does not list f7_meta_learner"
     rows = build_training_rows(
-        bars, event_intensity, perception=config.perception,
+        bars, event_intensity, instrument=instrument, perception=config.perception,
         price_features_config=config.price_features,
         horizon_minutes=config.f7.label_horizon_minutes,
     )

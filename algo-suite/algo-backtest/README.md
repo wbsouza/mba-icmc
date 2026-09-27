@@ -19,8 +19,12 @@ score → **backtest** → analyze.
 - Emits, per run: `run.json` (manifest), `trades.json` (LEAN closed-trade ledger),
   `metrics.json` and LEAN's result JSON; the chain strategies (`baseline`, `hybrid`)
   also write `decisions.parquet` (bar-level audit, joined to `trades.json` by
-  `trade_id`). The target `trades.parquet` schema, equity-curve export and
-  `parameters.txt` are not built yet (see `SPEC.md` §2).
+  `trade_id`). Every run then ends with a broker-style **`statement.md`** (closed
+  transactions, open trades, working orders, A/C summary, performance, parameters
+  with provenance) and an **`equity.png`** equity/drawdown chart, both built purely
+  from those artifacts (`statement.py`) and regenerable with `algo-backtest statement
+  --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
+  (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.
 
@@ -29,7 +33,7 @@ score → **backtest** → analyze.
 | Direction | Item |
 |---|---|
 | In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` also reads `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
-| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, and `decisions.parquet` for `baseline`/`hybrid` |
+| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, `statement.md` + `equity.png` (end-of-run statement and chart), and `decisions.parquet` for `baseline`/`hybrid` |
 
 ## CLI
 
@@ -45,10 +49,17 @@ uv run algo-backtest lean-smoke
 # Run the baseline strategy (fast/slow SMA crossover) over a window and report the
 # closed-trade count (needs materialized data + Docker):
 uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2014-05-07 --to 2014-05-09
-#   -> writes run.json + trades.json + metrics.json to runs/<strategy>/<stamp>/, and
-#      prints: metrics: total_return=… sharpe=… max_drawdown=… hit_rate=…
+#   -> writes run.json + trades.json + metrics.json to runs/<strategy>/<stamp>/, prints
+#      metrics: total_return=… sharpe=… max_drawdown=… hit_rate=…, then writes the
+#      broker-style statement.md + equity.png there and prints its A/C summary lines.
 # Re-extract the four Chapter-4 metrics from a finished run's artifacts:
 uv run algo-backtest metrics --run <results-dir>
+# Regenerate statement.md + equity.png for a finished run (any run on disk, including
+# ones that predate the statement); --out DIR writes them elsewhere. Exits 2 naming the
+# file when run.json / trades.json / main.json / main-order-events.json is missing or
+# malformed. S/L and T/P columns show "—" and the statement says "no trade plan
+# recorded for this run" until the plan-driven executor writes trade-plans.json:
+uv run algo-backtest statement --run <results-dir> [--out DIR]
 # Run a reproducible experiment (the Chapter-4 experiment contract): every run in the
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
 # windows materialized + Docker; re-running replaces the whole experiment tree):
@@ -60,7 +71,9 @@ uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 -
 #   Every strategy takes cash — the price-only baselines and the engine controls too — so a
 #   control and a chain strategy are compared from the same deposit (story 12, TD-65):
 uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param fast=20 --param slow=60 --param size=0.5 --param cash=10000
-uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000
+uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000 --param entry_probability=0.02 --param exit_probability=0.05 --param long_probability=0.5
+#   random's per-bar entry/exit probabilities and its BUY share (0.5 = unbiased coin) are
+#   run parameters too: no behaviour number is a literal in any bundled algorithm.
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
 #   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the A05 trade plan), meta_learner (F7
