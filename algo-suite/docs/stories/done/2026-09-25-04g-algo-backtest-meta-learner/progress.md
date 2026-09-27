@@ -23,3 +23,22 @@
       variable-latency) — new debt TD-50, deferred (needs a file-scoped mutmut timeout or a
       fit-seam refactor, out of this story's differential-pass budget).
 - [x] `lessons-learned.md` written, story moved to `docs/stories/done/`
+
+## Closure (recorded 2026-09-26)
+
+Definition of done met by `a1e7b8b` (2026-09-25): `lightgbm` declared in
+`algo-backtest/pyproject.toml`, F7 implements `Filter`
+(`algo-backtest/src/algo_backtest/chain/filters/f7_meta_learner.py`), walk-forward split training
+covered by `algo-backtest/tests/features/f7_meta_learner.feature`. The story folder stayed in
+`planned/` by oversight and was moved to `done/` on 2026-09-26.
+
+Later changes to F7 (not part of this story, listed so this record isn't read as current):
+- `e04de19` (2026-09-25, PR #25 review): the logistic combiner is now fit on `split.validation`,
+  not on the family models' own training rows (that was in-sample leakage). It fails fast when
+  the validation span is single-class.
+- Spec 04h (`../2026-09-26-04h-algo-backtest-hybrid-integration/`, PR #40): models are
+  persisted as portable, pickle-free JSON (`chain/filters/f7_model_io.py`,
+  `tests/features/f7_model_io.feature`), because the LEAN container's library versions can't
+  load a pickle. They are trained by `algo-backtest/scripts/train_{baseline,hybrid}_meta_learner.py`
+  and loaded by `algos/{baseline,hybrid}/main.py`. `walk_forward_split` now drops rows whose
+  15-minute label crosses a split boundary (`176fb2b`).

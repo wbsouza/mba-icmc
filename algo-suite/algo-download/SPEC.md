@@ -218,8 +218,8 @@ brokerage — Phase 6, in `algo-backtest`.)
 Config is **optional and read-only** in this tool. With none, convention
 defaults apply (symbols/span come from the CLI). A future `conf/download.yaml`
 may list sources/symbols/span, and cross-cutting settings (`data_root`, logging)
-come from `conf/algo.yaml` / `ALGO_*` env — but **file/env layering is deferred
-(TD-3)** and is **not** implemented by this slice. `algo-download` does **not**
+come from `conf/algo.yaml` / `ALGO_*` env — file/env layering now exists in
+`algo-core` (`config.resolve`, TD-3) but this tool does **not** use it yet. `algo-download` does **not**
 introduce config loading on its own.
 
 There is **no machine-managed `state:` block**. Operator config is never mutated

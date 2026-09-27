@@ -207,6 +207,27 @@ def _two_decision_rows(audit_ctx: _AuditCtx, first: str, second: str) -> None:
         audit_ctx.rows.append(decision_row_from_outcome(outcome, trade_id=trade_id))
 
 
+@given("a single decision row with a filter_result that has no enrichment or metadata")
+def _single_row_no_enrichment(audit_ctx: _AuditCtx) -> None:
+    """Regression: `FilterResult`'s own dataclass default is an empty dict for both
+    fields -- the common case for most filters (F1/F2/F3 typically enrich nothing).
+    A batch where every row's dict is empty crashed pyarrow's Parquet writer with
+    "Cannot write struct type '...' with no child field" (Spec 04h, first hit against
+    a real `algos/baseline/main.py` run once `decisions.parquet` was actually written
+    for the first time; fixed by `_filter_result_row`'s `or None` mapping).
+    """
+    state = ExecutionState(
+        timestamp=datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
+        pair="EURUSD",
+        features={"trend_ok": True},
+        filter_results=[
+            FilterResult(filter_name="trend", recommendation=Recommendation.BUY, reason="uptrend")
+        ],
+    )
+    outcome = ChainOutcome(decision=Decision.BUY, state=state)
+    audit_ctx.rows.append(decision_row_from_outcome(outcome, trade_id="trade-003"))
+
+
 @given("a single NO_TRADE decision row")
 def _single_no_trade_row(audit_ctx: _AuditCtx) -> None:
     """One NO_TRADE row, proving a null `trade_id` round-trips through real Parquet.

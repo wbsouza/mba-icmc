@@ -64,3 +64,26 @@ Feature: Strategy parameter validation
       Given strategy "baseline-meanrev" with params window=1 band=0.001 size=0.5
       When I validate the run inputs expecting failure
       Then validation fails saying the window must be at least 2
+
+  Rule: The run window is inclusive on both ends
+
+    Scenario: a single-day window (from equals to) is accepted
+      Given strategy "buyhold" with params size=0.5
+      When I validate the run inputs for the window 2014-05-07 to 2014-05-07
+      Then validation passes
+
+    Scenario: a from-date after the to-date is rejected
+      Given strategy "buyhold" with params size=0.5
+      When I validate the run inputs for the window 2014-05-08 to 2014-05-07 expecting failure
+      Then validation fails naming "must not be after"
+
+    Scenario Outline: lean-data coverage counts a day-zip on the window's <edge> day
+      Given materialized lean-data day-zips for EURUSD on <days>
+      Then lean-data covers 2014-05-07 to 2014-05-09 is <covered>
+
+      Examples:
+        | edge            | days                   | covered |
+        | last            | 20140509               | true    |
+        | first           | 20140507               | true    |
+        | day after last  | 20140510               | false   |
+        | day before first| 20140506               | false   |

@@ -21,15 +21,26 @@ from pydantic import BaseModel
 
 
 class FilterResultRow(BaseModel):
-    """One `FilterResult` mirrored into a `DecisionRow.filter_results` struct entry."""
+    """One `FilterResult` mirrored into a `DecisionRow.filter_results` struct entry.
+
+    `enrichment`/`metadata` are `| None`, not always `dict`: pyarrow infers a Parquet
+    struct type from the batch's dicts, and a *childless* struct (every row's dict
+    empty, e.g. F1/F2/F3's usual case) fails to write outright
+    ("Cannot write struct type 'metadata' with no child field to Parquet") — confirmed
+    against a real `algos/baseline/main.py` run (Spec 04h) once `decisions.parquet` was
+    actually written for the first time. `_filter_result_row` maps an empty dict to
+    `None` at this boundary so the column infers `null` (an all-empty batch) or a
+    real struct with proper per-row nulls (a mixed batch) — both writable — while a
+    `FilterResult.enrichment`/`.metadata` with real keys is unaffected.
+    """
 
     filter_name: str
     recommendation: str
     reason: str
     confidence: float | None
     veto: bool
-    enrichment: dict[str, object]
-    metadata: dict[str, object]
+    enrichment: dict[str, object] | None
+    metadata: dict[str, object] | None
 
 
 class DecisionRow(BaseModel):
@@ -63,15 +74,20 @@ def _hash_features(features: dict[str, object]) -> str:
 
 
 def _filter_result_row(result: FilterResult) -> FilterResultRow:
-    """Map one chain-internal `FilterResult` dataclass onto its persistence row shape."""
+    """Map one chain-internal `FilterResult` dataclass onto its persistence row shape.
+
+    `or None`: an empty `enrichment`/`metadata` dict (F1/F2/F3's common case — most
+    filters set neither) becomes `None` here, not `{}` — see `FilterResultRow`'s own
+    docstring for why a childless-struct Parquet column is unwritable.
+    """
     return FilterResultRow(
         filter_name=result.filter_name,
         recommendation=result.recommendation.value,
         reason=result.reason,
         confidence=result.confidence,
         veto=result.veto,
-        enrichment=result.enrichment,
-        metadata=result.metadata,
+        enrichment=result.enrichment or None,
+        metadata=result.metadata or None,
     )
 
 

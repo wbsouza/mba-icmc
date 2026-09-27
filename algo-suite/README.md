@@ -4,7 +4,7 @@ The trading-tools source tree for the TCC *"Algorithmic Trading Enhanced by AI"*
 (MBA in AI & Big Data, ICMC/USP). A modular pipeline of self-describing
 `algo-<action>` tools wired as a single [uv](https://docs.astral.sh/uv/)
 workspace. The dissertation lives in `../monografia/`; product and design docs
-in `../PRD.md` and `docs/`.
+in `PRD.md` and `docs/`.
 
 ## Pipeline
 
@@ -18,7 +18,7 @@ algo-download → algo-transform → algo-score → algo-backtest → algo-analy
 | [`algo-core`](algo-core/) | shared lib: `Instrument`, storage layout, DuckDB, config, Repository + Cache ports | base | — (library) |
 | [`algo-download`](algo-download/) | bulk download per source (Dukascopy, GDELT, GPR) → `raw/` | 1 | `algo-download` |
 | [`algo-transform`](algo-transform/) | raw → canonical Parquet; coverage + currency-strength | 1 | `algo-transform` |
-| [`algo-score`](algo-score/) | FinBERT + Loughran–McDonald sentiment (per-currency) + events → feature Parquet | 2 | `algo-score` |
+| [`algo-score`](algo-score/) | Loughran–McDonald sentiment (per-currency; FinBERT planned) + GDELT/GPR events → feature Parquet | 2 | `algo-score` |
 | [`algo-backtest`](algo-backtest/) | materialize `lean-data/`, LightGBM meta-learner, deterministic filter chain on LEAN | 3–4 | `algo-backtest` |
 | [`algo-analyze`](algo-analyze/) | metrics, deflated Sharpe, Monte-Carlo Permutation Test, ablations | 5 | `algo-analyze` |
 
@@ -29,7 +29,8 @@ and a `tests/` tree of Gherkin features.
 
 - [uv](https://docs.astral.sh/uv/) (>= 0.10)
 - Python 3.11 (pinned in `.python-version`; matches the LEAN container)
-- Docker (later, for the LEAN engine and containerized runs)
+- Docker (for LEAN backtests and the `integration`-marked tests; the pinned
+  `quantconnect/lean:17748` image is ~10 GB)
 - **Allure CLI** — *optional*, only for `make report` (the graphical BDD report).
   It is a Java tool; install via npm or the official tarball, **not** apt:
   ```bash
@@ -72,10 +73,10 @@ environment (ALGO_*)  >  conf/<tool>.yaml  >  conf/algo.yaml  >  defaults
 
 Env always wins, so a container overrides anything. See [`conf/README.md`](conf/README.md).
 
-> **Status:** this is the *designed* convention. `algo-core` today provides the
-> schema-driven **loader policy** and the `conf/` **path resolution**; actually
-> reading/merging the YAML files and applying the env-override layer is **not yet
-> built — TD-3**. Until then a tool hands the loader an already-parsed dict.
+> **Status:** implemented as `algo_core.config.resolve` (TD-3): it reads/merges the
+> YAML files, applies the `ALGO_*` env layer, then enforces the schema-driven
+> **loader policy**. Consumers today: `algo-backtest` (`conf/backtest.yaml`) and
+> `algo-analyze` (`conf/analyze.yaml`).
 
 ## Data
 
@@ -107,9 +108,12 @@ LEAN runs locally (Apache 2.0); no QuantConnect cloud cost.
 
 ## Status
 
-Workspace skeleton: all six tools install and their CLIs respond; `algo-core`
-exposes the storage-layout and config conventions. No business logic yet.
-Implementation proceeds tool by tool, starting with `algo-core`, test-first (BDD).
+All six packages are implemented and tested (BDD): Dukascopy/GDELT/GPR download,
+canonical Parquet transform, LM sentiment + GDELT/GPR event features, LEAN
+backtests (price-only baselines plus the F1–F7 `baseline`/`hybrid` filter-chain
+strategies — still wiring smoke tests, see `docs/technical-debt.md` TD-51), and
+`algo-analyze` metrics/significance/ablation/figures. Current Chapter-4 status:
+[`docs/ch04-deliverables.md`](docs/ch04-deliverables.md).
 
 ## Conventions
 

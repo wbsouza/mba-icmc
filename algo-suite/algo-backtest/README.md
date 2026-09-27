@@ -9,13 +9,18 @@ score → **backtest** → analyze.
   store once (read-through), then reuses it across the whole backtest sweep — the
   hot path never reconverts per run (see `../docs/parquet-evaluation.md`).
 - Trains the per-family **LightGBM sub-models** and the **logistic meta-learner**
-  that produce the calibrated probability `p̂ₜ`.
+  that produce the calibrated probability `p̂ₜ` — offline, via
+  `scripts/train_{baseline,hybrid}_meta_learner.py`, persisted as a portable
+  (pickle-free) `f7_meta_learner.json` with its training provenance embedded.
 - Applies a **deterministic filter chain** (trend, indicator, pattern,
   market-activity, news-context, risk-guard, capital, terminal threshold) that
   converts `p̂ₜ` into the trade decision, persisting every filter's contribution
   to an audit trail.
-- Emits, per run: `trades.parquet` (ledger), `decisions.parquet` (bar-level
-  audit), equity curve and `parameters.txt`.
+- Emits, per run: `run.json` (manifest), `trades.json` (LEAN closed-trade ledger),
+  `metrics.json` and LEAN's result JSON; the chain strategies (`baseline`, `hybrid`)
+  also write `decisions.parquet` (bar-level audit, joined to `trades.json` by
+  `trade_id`). The target `trades.parquet` schema, equity-curve export and
+  `parameters.txt` are not built yet (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.
 
@@ -23,8 +28,8 @@ score → **backtest** → analyze.
 
 | Direction | Item |
 |---|---|
-| In | canonical Parquet + `lean-data/` execution store; strategy `../conf/backtest/<strategy>.yaml` |
-| Out | `runs/<run-id>/` with `trades.parquet`, `decisions.parquet`, equity curve, `parameters.txt` |
+| In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` also reads `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
+| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, and `decisions.parquet` for `baseline`/`hybrid` |
 
 ## CLI
 
@@ -48,8 +53,17 @@ uv run algo-backtest metrics --run <results-dir>
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
 # windows materialized + Docker; re-running replaces the whole experiment tree):
 uv run algo-backtest experiment run --spec experiments/baseline-smoke.yaml
+# The config.yaml-driven F1-F7 chain strategies (wiring smoke tests, see Status):
+uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5
+uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5
+#   hybrid first checks that GDELT event features cover every decision minute (through
+#   --to + 1 day 00:00 UTC) and, if not, exits 2 printing the `algo-score events` command.
+#   --model PATH runs with a different F7 model JSON (families must match the strategy).
+# Train an F7 model offline (train / validation / held-out test spans):
+uv run python scripts/train_baseline_meta_learner.py --from 2015-02-02 \
+    --train-end 2015-06-30 --validation-end 2015-07-31 --test-end 2016-01-31
 # result aggregation is now built: `uv run algo-analyze summary` (Stage F2, Spec 05)
-# planned: hybrid strategy (F3); --cv cpcv|walkforward
+# planned: --cv cpcv|walkforward
 ```
 
 Experiment specs (the reproducible contract) live in `../experiments/*.yaml`: a named set
@@ -58,9 +72,11 @@ The schema is closed — unknown keys are rejected.
 
 ## Config
 
-Strategy definitions live in `../conf/backtest/<strategy>.yaml` (the filter
-chain, thresholds, risk parameters). Cross-cutting from `../conf/algo.yaml` or
-`ALGO_*` env.
+Chain-strategy definitions live in `src/algo_backtest/strategies/<name>/config.yaml`
+(the filter chain and meta-learner families; `hybrid` `extends: baseline`). Per-run
+strategy parameters are `--param key=value` (e.g. `size` for `baseline`/`hybrid`).
+Backtest settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) resolve from `../conf/backtest.yaml`,
+`../conf/algo.yaml` or `ALGO_*` env.
 
 ## Testing
 
@@ -95,9 +111,8 @@ runs a deterministic **fast/slow SMA crossover** (long-only, single position, fi
 sizing) over a window via `run.py`, with inputs validated up front. A small **strategy
 registry** (`run.py`) lets a second strategy plug into the same run path with its own
 closed parameter set — **`baseline-meanrev`**, an SMA mean-reversion (counter-trend)
-baseline, is the second one. Both are **price-only**: the news/sentiment hybrid is later
-work, gated on the scoring subsystem (`algo-score`) — nothing here is labelled or scored as
-that AI hybrid. Each run persists
+baseline, is the second one. Both are **price-only** rule baselines, distinct from the
+F1-F7 chain strategies (`baseline`, `hybrid`) described below. Each run persists
 raw artifacts (`run.json` manifest + `trades.json` ledger + `metrics.json` alongside
 LEAN's result JSON, `artifacts.py`, written from a single parse of the result JSON — the
 sweep never re-reads it) and reports the **first four Chapter-4 metrics** — total return,
@@ -117,9 +132,21 @@ integration tests run a one-run experiment on the real engine for **both** regis
 strategies (baseline-ma and baseline-meanrev), proving the multi-strategy comparison path
 (Stage F3). Result aggregation into the Chapter-4 table is done in **algo-analyze**
 (`algo-analyze summary`, Stage F2 — merged). LEAN runs **locally** (Apache 2.0); no
-QuantConnect cloud cost. Still planned: the **real news/sentiment hybrid strategy**
-(Stage G, gated on `algo-score` — not built here, and not to be confused with the
-price-only baselines); richer analytics (CPCV, deflated Sharpe, equity curves,
-`trades.parquet` schema); read-through caching.
+QuantConnect cloud cost.
+
+**Chain strategies (Spec 04h).** `run --strategy baseline` (F1+F2+F3+F5+F6+F7) and
+`run --strategy hybrid` (the same chain plus F4/news) run the config.yaml-driven filter
+chain inside the real pinned LEAN container: `algos/{baseline,hybrid}/main.py` are thin
+subclasses of `engine/chain_algorithm.py` (shared LEAN glue), with the LEAN-free logic
+in `chain/wiring.py`. `chain/decision_recorder.py` writes `decisions.parquet`, whose
+`trade_id` joins `trades.json` (LEAN's ledger configured flat-to-flat). F7 models are
+trained offline by `scripts/train_*_meta_learner.py` over LEAN's delivered bar stream
+(`training.py`, `market_hours.py`), with train/serve feature parity proven in real LEAN.
+The bundled models were trained on EUR/USD 2015-02-02 → 2015-07-31 (train +
+validation), holding out 2015-08-01 → 2016-01-31. These are **wiring smoke tests, not
+methodology results** — F3 has no real pattern detector, F5/F6 use placeholder
+economics, F4's sentiment half is best-effort (TD-48); see `docs/technical-debt.md`
+TD-51. Still planned: richer analytics (CPCV, equity curves, `trades.parquet` schema);
+read-through caching.
 
 Spec: [`SPEC.md`](SPEC.md).

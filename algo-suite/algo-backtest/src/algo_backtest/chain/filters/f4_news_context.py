@@ -30,11 +30,13 @@ null-disableable the same way RiskGuard's caps are.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
+from algo_backtest.months import BAR_DURATION, months_between
 from algo_core.config import Impact, ParameterSpec, resolve
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
@@ -150,14 +152,103 @@ def load_news_context_index(
     )
 
 
+# A minute bar is decided at its *end* (LEAN's `self.time` in on_data), so a run over the
+# inclusive [start, end] days evaluates F4 at decision minutes start 00:01 ... (end + 1)
+# 00:00 UTC — one minute past the last requested day, possibly in the next month's
+# partition. This is the single coverage contract preflight, loading and remediation use.
+
+
+def decision_window(start: date, end: date) -> tuple[datetime, datetime]:
+    """First and last F4 decision minute of a run over the inclusive [start, end] days."""
+    first = datetime.combine(start, time(), UTC) + BAR_DURATION
+    last = datetime.combine(end + timedelta(days=1), time(), UTC)
+    return first, last
+
+
+def news_build_command(start: date, end: date) -> str:
+    """The `algo-score events` invocation that covers a [start, end] run's decision window."""
+    first, last = decision_window(start, end)
+    return f"algo-score events --kind gdelt --from {first.date()} --to {last.date()}"
+
+
+def news_coverage_problems(data_root: Path, pair: str, start: date, end: date) -> list[str]:
+    """Why the event features cannot serve a [start, end] run (empty when they can).
+
+    Checks what F4 will actually look up, not just which files exist: every partition
+    the decision window touches must exist, and *every* decision minute in the window —
+    first to last, interior included — must carry an event_intensity (a partition built
+    through `end` alone lacks the final bar's `end + 1` 00:00 decision; one built in
+    pieces can have interior gaps). The event grid covers every UTC minute, so this is
+    exact regardless of which minutes LEAN later delivers. Lets the `run` CLI reject the
+    run on the host before a LEAN container starts.
+    """
+    first, last = decision_window(start, end)
+    missing = [
+        str(event_feature_path(data_root, _EVENT_KIND, year, month))
+        for year, month in months_between(first.date(), last.date())
+        if not event_feature_path(data_root, _EVENT_KIND, year, month).exists()
+    ]
+    if missing:
+        return [f"missing GDELT event-feature partitions {missing}"]
+    covered = load_news_context_window(data_root, pair, start, end).event_intensity
+    uncovered = [minute for minute in _minutes(first, last) if minute not in covered]
+    if not uncovered:
+        return []
+    if len(uncovered) == 1:
+        return [f"no GDELT event_intensity at decision minute {uncovered[0].isoformat()}"]
+    return [
+        f"no GDELT event_intensity at {len(uncovered)} decision minutes (first "
+        f"{uncovered[0].isoformat()}, last {uncovered[-1].isoformat()})"
+    ]
+
+
+def _minutes(first: datetime, last: datetime) -> Iterator[datetime]:
+    """Every minute from `first` through `last`, inclusive, lazily (multi-year windows)."""
+    minute = first
+    while minute <= last:
+        yield minute
+        minute += BAR_DURATION
+
+
+def load_news_context_window(
+    data_root: Path, pair: str, start: date, end: date
+) -> NewsContextIndex:
+    """Merge every partition a [start, end] run's decision window touches into one index.
+
+    `load_news_context_index` is scoped to a single (year, month) partition; the
+    decision window (`decision_window`) may cross month boundaries — including into the
+    month after `end` for the final bar's `end + 1` 00:00 decision.
+    `sentiment_source_present` is true only if *every* touched month had its sentiment
+    Parquet — claiming a source for the whole run when some months lacked one would
+    mislabel those months' audit rows.
+
+    Raises:
+        ValueError: if any touched month's GDELT event-feature Parquet is missing.
+    """
+    first, last = decision_window(start, end)
+    event_intensity: dict[datetime, float] = {}
+    sentiment_polarity: dict[tuple[datetime, str], float] = {}
+    sentiment_everywhere = True
+    for year, month in months_between(first.date(), last.date()):
+        index = load_news_context_index(data_root, pair, year, month)
+        event_intensity.update(index.event_intensity)
+        sentiment_polarity.update(index.sentiment_polarity)
+        sentiment_everywhere = sentiment_everywhere and index.sentiment_source_present
+    return NewsContextIndex(
+        event_intensity=event_intensity,
+        sentiment_polarity=sentiment_polarity,
+        sentiment_source_present=sentiment_everywhere,
+    )
+
+
 def _event_intensity_at(index: NewsContextIndex, timestamp: datetime) -> float:
     """Read the required event_intensity for `timestamp`, failing fast if uncovered."""
     intensity = index.event_intensity.get(timestamp)
     if intensity is None:
         raise ValueError(
             f"{_FILTER_NAME}: no GDELT event_intensity for timestamp {timestamp!r} — the "
-            "materialized month partition does not cover this minute; rebuild it via "
-            "`algo-score events --kind gdelt`."
+            "materialized partitions do not cover this decision minute; rebuild them via "
+            "`algo-score events --kind gdelt` through the day after the run's last day."
         )
     return intensity
 

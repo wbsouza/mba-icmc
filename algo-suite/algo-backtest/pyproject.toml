@@ -53,7 +53,16 @@ only_mutate = [
     "src/algo_backtest/chain/filters/f4_news_context.py",
     # Spec 04g (F7 meta-learner)
     "src/algo_backtest/chain/filters/f7_meta_learner.py",
-    # Spec 04h (terminal decision + strategy config extends composition)
+    # Spec 04h (terminal decision + strategy config extends composition,
+    # decision-recorder trade_id bookkeeping, hybrid strategy registration)
     "src/algo_backtest/chain/terminal.py",
     "src/algo_backtest/strategies.py",
+    "src/algo_backtest/chain/decision_recorder.py",
+    "src/algo_backtest/run.py",
+    # PR #40 review follow-up: shared chain wiring, F7 training data + portable model
+    # persistence, LEAN market hours.
+    "src/algo_backtest/chain/wiring.py",
+    "src/algo_backtest/training.py",
+    "src/algo_backtest/chain/filters/f7_model_io.py",
+    "src/algo_backtest/market_hours.py",
 ]
