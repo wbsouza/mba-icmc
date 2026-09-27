@@ -55,7 +55,7 @@ class ExecutionAlgorithm(QCAlgorithm):  # noqa: F405
         *,
         spread_pips: float = 0.0,
         commission_per_lot: float = 0.0,
-        lot_notional_units: float = 100_000.0,
+        lot_notional_units: float | None = None,
         pip_size: float | None = None,
     ) -> None:
         """Apply the brokerage model, then the configured fill costs, then build the executor.
@@ -72,7 +72,9 @@ class ExecutionAlgorithm(QCAlgorithm):  # noqa: F405
         line. Zero (the default) keeps the brokerage adapter's own model for that cost.
         ``pip_size`` is derived per security from LEAN's ``minimum_price_variation``
         (pip = 10 × tick for fractional-pip FX quotes, ``costs.pip_size_for``) unless
-        given explicitly; ``lot_notional_units`` is the standard 100,000-unit FX lot.
+        given explicitly. ``lot_notional_units`` is the strategy's
+        ``capital_mgmt.lot_notional_units`` and is required (fail fast) whenever
+        ``commission_per_lot`` is positive — no lot size is assumed here.
         """
         build_brokerage_adapter(broker_adapter_name).apply(self)
         apply_fill_costs(

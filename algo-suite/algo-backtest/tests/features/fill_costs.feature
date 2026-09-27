@@ -93,15 +93,16 @@ Feature: Fill costs — pip-spread slippage and per-lot commission
       When LEAN asks the model for the slippage approximation of an order of 25000.0 units
       Then the slippage approximation is 0.00005
 
-    Scenario Outline: the fee model returns the pro-rata commission as an account-currency fee
-      Given a per-lot fee model charging <commission_per_lot> per <lot_notional_units>-unit lot
+    Scenario Outline: the fee model returns the pro-rata commission in the given account currency
+      Given a per-lot fee model charging <commission_per_lot> per <lot_notional_units>-unit lot in "<currency>"
       When LEAN asks the model for the fee of an order of <quantity> units
-      Then the order fee is <expected> "USD"
+      Then the order fee is <expected> "<currency>"
 
       Examples:
-        | commission_per_lot | lot_notional_units | quantity  | expected |
-        | 7.0                | 100000.0           | 25000.0   | 1.75     |
-        | 7.0                | 100000.0           | -50000.0  | 3.5      |
+        | commission_per_lot | lot_notional_units | quantity  | currency | expected |
+        | 7.0                | 100000.0           | 25000.0   | USD      | 1.75     |
+        | 7.0                | 100000.0           | -50000.0  | USD      | 3.5      |
+        | 5.0                | 100000.0           | 20000.0   | EUR      | 1.0      |
 
   Rule: Fill costs are applied to every subscribed security, and zero leaves LEAN's defaults
 
@@ -113,8 +114,28 @@ Feature: Fill costs — pip-spread slippage and per-lot commission
       And the "EURUSD" slippage model uses pip size 0.0001
       And the "USDJPY" slippage model uses pip size 0.01
       And every security carries a per-lot fee model
+      And every fee model charges in the algorithm's account currency "USD"
       And the log has a "T_FILL_COSTS|model=slippage" line for each security
       And the log has a "T_FILL_COSTS|model=fee" line for each security
+
+    Scenario: the fee model follows the algorithm's account currency, not a fixed one
+      Given an algorithm subscribed to "EURUSD" with minimum price variation 0.00001
+      And the algorithm's account currency is "EUR"
+      When fill costs of 0.0 spread pips and 7.0 commission per lot are applied under tag "T"
+      Then every fee model charges in the algorithm's account currency "EUR"
+
+    Scenario: a commission without a lot size fails fast before any model is touched
+      Given an algorithm subscribed to "EURUSD" with minimum price variation 0.00001
+      When fill costs of 1.0 spread pips and 7.0 commission per lot are applied without a lot size
+      Then applying fill costs fails naming "lot_notional_units"
+      And no security carries a pip-spread slippage model
+      And no security carries a per-lot fee model
+
+    Scenario: a spread alone needs no lot size
+      Given an algorithm subscribed to "EURUSD" with minimum price variation 0.00001
+      When fill costs of 1.0 spread pips and 0.0 commission per lot are applied without a lot size
+      Then every security carries a pip-spread slippage model
+      And no security carries a per-lot fee model
 
     Scenario: an explicit pip size overrides the derived one
       Given an algorithm subscribed to "EURUSD" with minimum price variation 0.00001

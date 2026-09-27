@@ -463,8 +463,10 @@ ablation.
 init_execution(broker_adapter, spread_pips=…, commission_per_lot=…)` installs, on every
 subscribed security, a slippage model charging half the spread per side
 (`spread_pips / 2 × pip_size`, in price units) and a fee model charging the per-lot rate
-pro rata on the absolute filled quantity against the 100,000-unit standard lot (e.g. 7
-USD/lot on 25,000 units → 1.75 USD per side). Zero for either keeps the brokerage
+pro rata on the absolute filled quantity against the strategy's
+`capital_mgmt.lot_notional_units` (e.g. 7 USD/lot on 25,000 units of a 100,000-unit lot →
+1.75 USD per side), in the algorithm's account currency; a commission without a lot size
+is a hard stop, the engine assumes no lot size. Zero for either keeps the brokerage
 adapter's default model for that cost, so a strategy without an `execution` section
 behaves as before. The pip size is derived per security from LEAN's
 `SymbolProperties.minimum_price_variation` — pip = 10 × tick for fractional-pip FX
