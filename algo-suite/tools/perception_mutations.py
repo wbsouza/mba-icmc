@@ -1,7 +1,7 @@
 """Story 04k mutation gate, using isolated imports and the real native BDD probe.
 
 Run ``uv run python tools/perception_mutations.py [--native]`` from algo-suite.
-The default covers pure config/HA; --native also covers LEAN adapters. The
+The default covers config, HA and offline replay; --native adds LEAN adapters. The
 existing harness supplies mutation operators and a process memory limit.
 """
 
@@ -40,7 +40,8 @@ raise SystemExit(pytest.main(sys.argv[2:]))
 """
     command = [sys.executable, "-B", "-c", expression, str(scratch),
                str(TESTS / "test_double_smoothed_heikin_ashi.py"),
-               str(TESTS / "test_perception_hardening.py"), "-q", "-m",
+               str(TESTS / "test_perception_hardening.py"),
+               str(TESTS / "test_offline_dsha.py"), "-q", "-m",
                "" if native else "not integration", "-p", "no:cacheprovider",
                "--basetemp", str(scratch / "pytest-results")]
     command, preexec = cap_memory(command)
@@ -63,7 +64,7 @@ def main() -> int:
     parser.add_argument("--native", action="store_true")
     parser.add_argument("--report", type=Path, default=ROOT / "build/perception-mutations.json")
     args = parser.parse_args()
-    names = ["config.py", "heikin_ashi.py"]
+    names = ["config.py", "heikin_ashi.py", "offline.py"]
     if args.native:
         names += ["lean_indicator.py", "multi_timeframe.py", "../engine/chain_algorithm.py"]
     records = []
@@ -90,7 +91,8 @@ def main() -> int:
                 cast(Callable[[ast.AST], None], mutant.apply)(tree)
                 target.write_text(ast.unparse(ast.fix_missing_locations(tree)))
                 try:
-                    code, output = run(scratch, name not in {"config.py", "heikin_ashi.py"})
+                    native = name not in {"config.py", "heikin_ashi.py", "offline.py"}
+                    code, output = run(scratch, native)
                 finally:
                     target.write_text(text)
                 verdict = "killed" if code == 1 else "survived" if code == 0 else "error"

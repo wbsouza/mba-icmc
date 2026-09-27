@@ -1,6 +1,8 @@
 # Spec 04k — algo-backtest: Double-Smoothed Heikin-Ashi Trend Filter as an F1 ablation candidate (lane of Spec 04)
 
-> **Completed 2026-09-26.** The implementation lives in `algo_backtest/perception/`
+> **Completed 2026-09-26, including the PR #43 training/parity follow-up.**
+> Offline DSHA reads the same config and is verified against real LEAN; the prior
+> TD-62 deferral is superseded. The implementation lives in `algo_backtest/perception/`
 > and integrates through the shared `engine/chain_algorithm.py`. It follows
 > QuantConnect's manual `PythonIndicator` standard. The exact source classifier
 > (including tie-as-down) and MT4 period2=2 are preserved. `baseline-dsha` selects
@@ -160,7 +162,8 @@ Checked directly against `QuantConnect/Lean` on GitHub (not assumed from the MQL
   a pandas/numpy reimplementation of Wilder smoothing or LWMA; LEAN's own tested indicators are
   the correct dependency here, and matching LEAN's own moving-average semantics (warm-up,
   `IsReady`, rolling-window bookkeeping) is exactly what should be inherited rather than
-  reinvented.
+  reinvented. The offline training exception in §4 step 5 reproduces these
+  semantics in host Python and must be verified against the native implementation.
 - **Higher-timeframe consolidation**: LEAN's `TradeBarConsolidator` + `RegisterIndicator` (or the
   `consolidate()`/`Resolution` helpers) is the native mechanism for "run an indicator on a coarser
   bar than the subscription resolution" — the direct LEAN-idiomatic replacement for
@@ -198,13 +201,16 @@ substance here, not left as a vague caveat):
 4. Wire both candidates through `algo-analyze`'s existing ablation-table machinery (already built,
    `docs/stories/done/2026-09-24-ablation-table`) — no new ablation infrastructure needed, just a
    second config variant to run through it.
-5. **Train/serve parity — deferred for retraining (TD-62).** PR #43 correctly
-   identified that `training.py` currently generates EMA features only. This completed
-   implementation holds baseline's EMA-trained F7 model fixed and changes its live
-   direction inputs for an input ablation. It does not claim DSHA train/serve parity.
-   Before a DSHA-retrained comparison, implement offline feature generation and prove
-   parity against native LEAN smoothing and closed-bar timing. A second hand-written
-   moving-average engine is not added to this frozen-model story.
+5. **Train/serve parity — required in this implementation (PR #43).** Read the
+   same resolved strategy perception config in offline training and live execution.
+   Add a host-importable Wilder → HA → LWMA pipeline and closed-bar higher-timeframe
+   aggregation for `training.py`. Match native seeding, midpoint OHLC, readiness,
+   session gaps and fill-forward behavior. Prove matching decision timestamps and
+   features against real LEAN for the default and overridden periods/timeframes.
+   The existing frozen EMA-trained-model ablation remains a separate experiment;
+   implementing DSHA training features does not silently replace its model.
+   Baseline/hybrid keep EMA when the selector is absent. Exact ties remain down
+   per §2; ABSTAIN is not implemented and stays deferred in TD-61.
 6. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
    input/output pairs (hand-computed, same style as `trail_stop.feature`), the §2 classification
    rule's tie-handling (`smoothedFar >= smoothedNear` → down, ported byte-exact per the §2 decision
@@ -241,8 +247,8 @@ substance here, not left as a vague caveat):
 - Double-Smoothed-Heikin-Ashi-based `trend_direction`/`higher_tf_trend_direction` implementation
   built on LEAN's native `WilderMovingAverage`/`LinearWeightedMovingAverage`, not a hand-rolled
   reimplementation, live/backtest side.
-- Frozen EMA-trained F7 model shared by both candidates; DSHA offline training/parity
-  explicitly deferred as TD-62 before any retrained-model comparison (§4 step 5).
+- Config-selected offline DSHA features and real LEAN train/serve parity (§4 step 5).
+  Preserve the shared frozen model for the existing input-ablation experiment.
 - Config-selectable alongside (not replacing) the default perception source.
 - Wired through the existing ablation-table machinery; at least one ablation run comparing both
   candidates exists.

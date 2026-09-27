@@ -172,8 +172,10 @@ Forex QuoteBar midpoint OHLC is converted to TradeBars and fed through LEAN's
 No chain decision is made until both timeframes are ready. The candidate changes
 only `trend_direction` and `higher_tf_trend_direction`; `trend_strength` remains
 the existing EMA-gap proxy. `baseline-dsha` deliberately uses the same frozen,
-EMA-trained F7 model as `baseline`. Offline training scripts still build EMA
-features: this is a frozen-model input ablation, **not a retrained-model comparison**.
+EMA-trained F7 model as `baseline`. Its committed ablation is a frozen-model input
+ablation, **not a retrained-model comparison**. Offline training supports both
+sources through the same resolved strategy config; this does not replace the
+shared frozen model automatically.
 The shared chain engine also honors this selector for `hybrid` strategy configs.
 
 Run the paired experiment with `experiments/double-smoothed-heikin-ashi.yaml`, or
@@ -186,6 +188,32 @@ and [native consolidator](https://github.com/QuantConnect/Lean/blob/master/Commo
 The indicator is manually updated and publishes `current`/`on_updated`; do not
 also register it for automatic updates. LEAN streaming initialization and session
 boundaries can differ from the original MT4 historical-array calculations.
+
+### Training the DSHA candidate
+
+`build_training_rows(..., perception=config.perception)` uses the resolved
+strategy selector and periods. The default remains EMA. DSHA training uses a pure
+Python Wilder → HA → LWMA replay over the same delivered/fill-forward bar stream.
+Higher-timeframe buckets use OANDA exchange-local wall time, and rows wait for
+both timeframes to become ready. Native parity scenarios compare every decision
+bar and feature with real LEAN, including gaps, flat ties, and custom periods.
+
+From `algo-suite/algo-backtest`, use the existing baseline trainer with the
+candidate config and a separate output artifact:
+
+```sh
+uv run python scripts/train_baseline_meta_learner.py --strategy baseline-dsha \
+  --symbol EURUSD --from 2015-02-02 --train-end 2015-06-30 \
+  --validation-end 2015-07-31 --test-end 2016-01-31 --out /tmp/dsha-f7.json
+```
+
+`--out` is required for `baseline-dsha`; the existing default output remains for
+baseline training. Both training scripts include the resolved strategy config in
+model provenance. To evaluate the separately trained candidate, use
+`algo-backtest run --strategy baseline-dsha --model /tmp/dsha-f7.json` with the
+normal symbol/window/size arguments and a held-out evaluation window. No new
+trained model or performance claim is included in this story. Ties remain down;
+ABSTAIN-on-tie is still the separate TD-61 research question.
 
 ### Resolved strategy config artifact
 

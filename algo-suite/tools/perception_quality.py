@@ -25,6 +25,7 @@ ALLOWED = {
     "__init__": set(),
     "config": set(),
     "heikin_ashi": set(),
+    "offline": {"algo_backtest.perception.heikin_ashi"},
     "lean_indicator": {"algo_backtest.perception.heikin_ashi", "QuantConnect.Indicators"},
     "multi_timeframe": {
         "algo_backtest.perception.heikin_ashi",

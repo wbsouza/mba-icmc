@@ -266,7 +266,7 @@ via `algos/hybrid` (Spec 04h). What remains toward submission is data and writin
   a placeholder. Next step: build event features for the run months, run baseline and hybrid
   over the out-of-sample months (04h `RUNBOOK.md`), then write.
 - **Spec 07:** §2 build hygiene is done (above). §1 waits on Spec 06.
-- **Spec 04k (done, 2026-09-26):** native Double-Smoothed Heikin-Ashi F1 candidate,
+- **Spec 04k (done, including offline parity):** native Double-Smoothed Heikin-Ashi F1 candidate,
   selected by `baseline-dsha`; frozen-model ablation and gauntlet evidence in
   `done/2026-09-26-double-smoothed-heikin-ashi-trend-filter/`. Package gate green;
   root workspace lint retains the pre-existing TD-55 blocker.
@@ -281,7 +281,7 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 01 | `01-algo-download-news-sources.md` | `algo-download` | nothing (parallel to 05) | **done** — GDELT+GPR adapters merged |
 | 02 | `02-algo-transform-news-events.md` | `algo-transform` | 01 output on disk | **done** (2026-09-23) |
 | 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code). Run for real on GDELT: event features built for 2015-02 and 2020-01. More months still needed (Spec 08) |
-| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **done** (2026-09-26). All required lanes are done: 04a order executor, 04b chain mechanics, 04c F1–F3, 04d F5/F6, 04e F4, 04f audit trail, 04g F7, 04h LEAN `algos/{baseline,hybrid}`, plus follow-ups 04i trail-stop fix and 04j money-management gaps. Optional 04k (Double-Smoothed Heikin-Ashi F1 ablation candidate) is also done, with frozen-model ablation evidence |
+| 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **done** (2026-09-26). All required lanes are done: 04a order executor, 04b chain mechanics, 04c F1–F3, 04d F5/F6, 04e F4, 04f audit trail, 04g F7, 04h LEAN `algos/{baseline,hybrid}`, plus follow-ups 04i trail-stop fix and 04j money-management gaps. Optional 04k is done with frozen-model ablation evidence and PR #43's config-selected offline training/native parity |
 | 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25). Lanes 05a–05f are all in `done/` |
 | 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | **unblocked, not started.** Needs real out-of-sample baseline and hybrid runs first, which need Spec 08's event features for the run months |
 | 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |

@@ -615,8 +615,15 @@ otherwise, using direction-reordered extremes rather than HA body buffers.
 
 `baseline-dsha` extends baseline with this selector and shares its model artifact.
 It is a frozen-model direction-feature ablation through the existing analyzer;
-EMA-gap strength and all other filters remain unchanged. Offline training remains
-EMA-only, so this variant must not be represented as independently trained.
+EMA-gap strength and all other filters remain unchanged. The committed experiment
+uses the frozen baseline model and must not be represented as independently trained.
+Offline `build_training_rows` accepts the same resolved `PerceptionConfig`; its
+host Wilder/HA/LWMA replay gates rows on both timeframes' readiness and consolidates
+in OANDA exchange-local wall time. `feature_parity.feature` verifies timestamps
+and features against real LEAN for default and custom periods, gaps and ties.
+The baseline trainer accepts `--strategy baseline-dsha` with required `--out`
+for a separate artifact; hybrid training reads its own resolved config. Both
+record the resolved config in model provenance. No replacement model is bundled.
 
 ### Resolved strategy config artifact
 

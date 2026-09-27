@@ -1,6 +1,6 @@
 {
   "summary": {
-    "killed": 23,
+    "killed": 49,
     "survived": 0,
     "error": 0
   },
@@ -81,6 +81,162 @@
       "file": "heikin_ashi.py",
       "line": 49,
       "mutation": "arith@L49: Add flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 50,
+      "mutation": "compare@L50: Lt flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 61,
+      "mutation": "compare@L61: Lt flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 72,
+      "mutation": "compare@L72: Eq flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 100,
+      "mutation": "compare@L100: Lt flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 133,
+      "mutation": "compare@L133: Gt flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 143,
+      "mutation": "compare@L143: Lt flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 151,
+      "mutation": "boolop@L151: And flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 77,
+      "mutation": "not@L77: remove not",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 155,
+      "mutation": "not@L155: remove not",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 39,
+      "mutation": "arith@L39: Div flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 41,
+      "mutation": "arith@L41: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 42,
+      "mutation": "arith@L42: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 63,
+      "mutation": "arith@L63: Div flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 66,
+      "mutation": "arith@L66: Add flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 66,
+      "mutation": "arith@L66: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 66,
+      "mutation": "arith@L66: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 66,
+      "mutation": "arith@L66: Sub flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 79,
+      "mutation": "arith@L79: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 79,
+      "mutation": "arith@L79: Add flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 80,
+      "mutation": "arith@L80: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 83,
+      "mutation": "arith@L83: Mult flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 84,
+      "mutation": "arith@L84: Div flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 116,
+      "mutation": "arith@L116: Add flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 136,
+      "mutation": "arith@L136: Sub flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 136,
+      "mutation": "arith@L136: Sub flip",
+      "verdict": "killed"
+    },
+    {
+      "file": "offline.py",
+      "line": 143,
+      "mutation": "arith@L143: Add flip",
       "verdict": "killed"
     },
     {

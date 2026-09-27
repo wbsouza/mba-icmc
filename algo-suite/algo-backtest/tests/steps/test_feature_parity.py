@@ -11,6 +11,8 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from algo_backtest.leandata import write_lean_minute
+from algo_backtest.perception.config import parse_perception_config
+from algo_backtest.strategies import load_strategy_chain_config
 from algo_backtest.training import (
     HORIZON_MINUTES,
     build_training_rows,
@@ -102,7 +104,7 @@ def _run_probe(ctx: dict[str, Any], lean_backtest: Any, tmp_path: Path, day: str
         algo_dir=_ALGOS / "feature_parity",
         results_dir=results,
         data_mounts={_LEAN_SUBPATH: ctx["symbol_dir"]},
-        parameters={"day": day},
+        parameters={"day": day, **ctx.get("perception_parameters", {})},
     )
 
 
@@ -119,9 +121,48 @@ def _live(ctx: dict[str, Any]) -> dict[datetime, dict[str, float]]:
     return live
 
 
+def _training_rows(ctx: dict[str, Any]) -> list:
+    """Resolve the same config and smoothing overrides passed to the native probe."""
+    parameters = ctx.get("perception_parameters", {})
+    raw = dict(load_strategy_chain_config(parameters.get("chain_config", "baseline")).raw)
+    if "smoothing" in parameters:
+        raw["double_smoothed_heikin_ashi"] = json.loads(parameters["smoothing"])
+    return build_training_rows(ctx["bars"], perception=parse_perception_config(raw))
+
+
+@given(parsers.parse('training and live perception use strategy "{strategy}"'))
+def _select_perception(ctx: dict[str, Any], strategy: str) -> None:
+    ctx["perception_parameters"] = {"chain_config": strategy}
+
+
+@given(parsers.parse(
+    "DSHA smoothing uses periods {first:d}/{second:d} and {minutes:d}-minute buckets"
+))
+def _smoothing(ctx: dict[str, Any], first: int, second: int, minutes: int) -> None:
+    ctx["perception_parameters"]["smoothing"] = json.dumps({
+        "period1": first, "period2": second, "higher_tf_minutes": minutes,
+    })
+
+
+@given("all materialized quotes have a constant midpoint")
+def _flat_quotes(ctx: dict[str, Any], tmp_path: Path) -> None:
+    ctx["bars"] = [QuoteBar(
+        timestamp=bar.timestamp, bid_open=1.38, bid_high=1.38, bid_low=1.38, bid_close=1.38,
+        ask_open=1.3801, ask_high=1.3801, ask_low=1.3801, ask_close=1.3801, tick_count=1,
+    ) for bar in ctx["bars"]]
+    write_lean_minute(tmp_path, build_instrument("EURUSD"), ctx["bars"], data_tz=ZoneInfo("UTC"))
+
+
+@then("every ready DSHA training and live direction is down on ties")
+def _ties_down(ctx: dict[str, Any]) -> None:
+    keys = ("trend_direction", "higher_tf_trend_direction")
+    for features in [*list(_live(ctx).values()), *[row.features for row in _training_rows(ctx)]]:
+        assert all(features[key] == -1.0 for key in keys)
+
+
 @then("the live algorithm's first decision bar is the first training row's bar")
 def _same_warmup(ctx: dict[str, Any]) -> None:
-    rows = build_training_rows(ctx["bars"])
+    rows = _training_rows(ctx)
     assert min(_live(ctx)) == rows[0].timestamp
 
 
@@ -137,7 +178,7 @@ def _parity(ctx: dict[str, Any], digits: int) -> None:
     The only live bars without a training row are the final `HORIZON_MINUTES` delivered
     bars (no label yet) — any other missing or extra timestamp is a failure.
     """
-    rows = {row.timestamp: row.features for row in build_training_rows(ctx["bars"])}
+    rows = {row.timestamp: row.features for row in _training_rows(ctx)}
     live = _live(ctx)
     unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
     assert set(live) - unlabeled == set(rows), (

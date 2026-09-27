@@ -67,4 +67,5 @@ only_mutate = [
     # Spec 04k pure perception; LEAN adapters require make check-perception.
     "src/algo_backtest/perception/config.py",
     "src/algo_backtest/perception/heikin_ashi.py",
+    "src/algo_backtest/perception/offline.py",
 ]

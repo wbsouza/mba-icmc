@@ -35,8 +35,8 @@ clean code commit, requiring and hashing engine-written atomic sidecars for both
 
 Changing perception while retaining the original EMA-trained model is a valid
 frozen-model input ablation, but not a retrained-model evaluation. Making that
-scope explicit avoided quietly introducing a second training implementation of
-Wilder/LWMA or claiming train/serve parity that was never demonstrated for it.
+scope explicit separates the historical frozen-model experiment from the
+config-selected DSHA training capability added during review.
 The tiny observed return difference is only a smoke result.
 
 Existing workspace debt should remain visible. The package gate passed, while
@@ -45,9 +45,11 @@ TD-60 removal of obsolete direct joblib metadata was small and was completed.
 
 Review follow-up also exposed a concurrent documentation branch, PR #43. Merging
 its ancestry into this PR and resolving the directory move preserves TD-61 and
-prevents a later merge from resurrecting the planned story. Its training-parity
-proposal is now explicitly TD-62, a prerequisite for a DSHA-retrained comparison;
-the implemented frozen-model ablation does not pretend to satisfy that work.
+prevents a later merge from resurrecting the planned story. I initially deferred
+its training-parity requirement as TD-62, but that narrowed the agreed story scope.
+The user corrected this: offline generation and native parity belong in this same
+implementation. A frozen-model ablation can be valid evidence without satisfying
+a separate training-capability requirement; do not conflate the two.
 Resolved TD-60 was removed from the active ledger per its delete-not-archive rule.
 
 Native acceptance now transports measured JSON into host BDD assertions. A log
@@ -57,3 +59,14 @@ architecture check also runs in the normal package gate. The atomic config artif
 CLI diagnostic name, hybrid EMA default, and QA provenance/warm-up asymmetry have
 host scenarios. Real DSHA output is additionally passed through F1 to verify the
 conflict veto and the deliberately mixed DSHA-direction/EMA-strength trend score.
+
+The native parity scenarios exposed a boundary invisible with 60-minute buckets:
+LEAN's quote-bar times are exchange-local even when the algorithm clock is UTC.
+Rounding UTC happens to agree for whole-hour periods, but shifts 7- and 90-minute
+buckets. Convert training timestamps using the pinned OANDA exchange timezone
+before consolidating. Compare custom configurations, not only the default.
+
+A mutation changing an OR to AND survived because two nullable bucket fields
+always changed together. Replacing them with one optional (start, candle) tuple
+removed the redundant state and the equivalent mutant instead of adding a test
+that broke the object's invariant merely to satisfy the tool.

@@ -48,7 +48,8 @@ check-perception-architecture: ## Check pure/native perception dependency bounda
 	uv run python tools/perception_quality.py --architecture-only
 
 check-perception: ## Run perception coverage, native LEAN assertions, CRAP and mutations (Docker)
-	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py --cov=algo_backtest.perception --cov-report=json:build/perception-host-coverage.json
+	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py algo-backtest/tests/steps/test_offline_dsha.py --cov=algo_backtest.perception --cov-report=json:build/perception-host-coverage.json
 	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py -m integration --basetemp=build/perception-native
+	uv run pytest algo-backtest/tests/steps/test_feature_parity.py -m integration
 	uv run python tools/perception_quality.py --coverage build/perception-host-coverage.json --native-lines-dir build/perception-native --merged-coverage build/perception-coverage.json
 	uv run python tools/perception_mutations.py --native

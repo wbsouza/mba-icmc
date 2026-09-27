@@ -66,3 +66,14 @@ The exact native warm-up boundary is checked from measured native output by
 `make check-perception`, since the default offline gate has no LEAN runtime.
 Native integration tests and the workspace/complexity/mutation gates remain separate
 mandatory stages; this script's pass does not claim those stages passed.
+
+## Offline training parity (PR #43 requirement)
+
+Run `make check-perception`: it now includes `feature_parity.feature` against the
+pinned LEAN container. Require identical decision timestamps (excluding only the
+last label-horizon bars) and all price features within nine decimal places for
+EMA and DSHA. Cases must include missing minutes, the daily exchange break,
+constant-price ties, and 7-/90-minute non-default higher timeframes. The host
+training entry point must require a separate output for `baseline-dsha` and read
+its resolved config. The committed frozen-model ablation stays a historical
+input-ablation experiment, not evidence of a newly trained model's performance.

@@ -17,4 +17,18 @@ multi_timeframe.py:MultiTimeframeHeikinAshi.update CC=1 coverage=100.0% CRAP=1.0
 multi_timeframe.py:MultiTimeframeHeikinAshi._on_consolidated CC=1 coverage=100.0% CRAP=1.000
 multi_timeframe.py:MultiTimeframeHeikinAshi.is_ready CC=2 coverage=100.0% CRAP=2.000
 multi_timeframe.py:MultiTimeframeHeikinAshi.features CC=2 coverage=100.0% CRAP=2.000
+offline.py:_decimal CC=1 coverage=100.0% CRAP=1.000
+offline.py:OfflineDoubleSmoothedHeikinAshi.__init__ CC=1 coverage=100.0% CRAP=1.000
+offline.py:OfflineDoubleSmoothedHeikinAshi.update CC=4 coverage=100.0% CRAP=4.000
+offline.py:OfflineDoubleSmoothedHeikinAshi._smooth_first CC=3 coverage=100.0% CRAP=3.000
+offline.py:OfflineDoubleSmoothedHeikinAshi.is_ready CC=1 coverage=100.0% CRAP=1.000
+offline.py:OfflineDoubleSmoothedHeikinAshi.smoothed_values CC=5 coverage=100.0% CRAP=5.000
+offline.py:OfflineDoubleSmoothedHeikinAshi.direction CC=1 coverage=100.0% CRAP=1.000
+offline.py:OfflineMultiTimeframeHeikinAshi.__init__ CC=2 coverage=100.0% CRAP=2.000
+offline.py:OfflineMultiTimeframeHeikinAshi.update CC=1 coverage=100.0% CRAP=1.000
+offline.py:OfflineMultiTimeframeHeikinAshi._aggregate CC=2 coverage=100.0% CRAP=2.000
+offline.py:OfflineMultiTimeframeHeikinAshi._rounded_time CC=2 coverage=100.0% CRAP=2.000
+offline.py:OfflineMultiTimeframeHeikinAshi._close_elapsed CC=3 coverage=100.0% CRAP=3.000
+offline.py:OfflineMultiTimeframeHeikinAshi.is_ready CC=2 coverage=100.0% CRAP=2.000
+offline.py:OfflineMultiTimeframeHeikinAshi.features CC=2 coverage=100.0% CRAP=2.000
 Perception architecture and CRAP gate: PASS
