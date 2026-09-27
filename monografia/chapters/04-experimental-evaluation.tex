@@ -1,4 +1,5 @@
 \chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
+\providecommand{\pending}{\textit{pending}}
 
 This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 27, 2026. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison. Two rounds of September-2015 replays have run. The first round, executed on September 26, closed no trades and is diagnosed in Section~\ref{subsec:zero-trade}. The second round, executed on September 27 after the amendment of Section~\ref{subsec:strategy-config}, closed about one thousand trades per strategy and is reported in Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results}. The chapter remains an implementation and execution report; it does not establish H1.
 
@@ -112,6 +113,45 @@ Artifacts of the first round are kept in the directory \path{2026-09-26-six-mont
 
 The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, and paired analysis of decision and trade evidence. Story 11 delivered the corrected inference software of Section~\ref{subsec:rule-significance}; each empirical use of it still requires audited daily equity, cost metadata, actual selection history and block settings registered before evaluation. The wider validation study, additional pairs, and feature ablations remain separate work. The sections below report what the second round produced and stay incomplete where their required evidence does not yet exist.
 
+\subsection{Execution model for the confirmation reruns} \label{subsec:execution-model}
+
+The execution caveats of Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results} are removed by the execution-realism story, which turns the F6 section of the strategy descriptor into an actual trade plan and adds a top-level \path{execution} section for fill costs. Every value below is a YAML key with recorded provenance; none is a code constant. The plan follows strategy A05 of the reference FX manager described in Section~\ref{sec:execution-engine}. Relative to the pilot of Table~\ref{tab:pilot-parameters}, the reruns change the following, and only the following.
+
+\begin{itemize}
+    \item \textbf{Account.} The starting deposit stays at \$10,000 through the \path{cash} run parameter. The \path{size} parameter no longer exists for the chain strategies; every order is sized from the F6 plan.
+    \item \textbf{Stop first.} The base stop distance comes from \path{stop_distance_source}, which may be \path{fixed} (\path{stop_loss_pips}), \path{atr} (\path{atr_multiplier} times the bar's ATR over \path{price_features.atr_period}) or \path{swing} (the distance to the rolling swing low or high over \path{price_features.swing_lookback_bars}); the bundled descriptors select \path{swing}. The base distance is shrunk toward entry by \path{stop_loss_shrink} of 0.20 and floored at the larger of \path{min_stop_pips} (5) and \path{min_stop_factor} of 1.2 times the declared \path{broker_stop_level_pips}.
+    \item \textbf{Lot from risk.} The lot follows from \path{risk_per_trade} of 0.03 and the stop distance, through \path{pip_value_per_lot} (\$10) and \path{lot_notional_units} (100,000). The lot that the pilot computed and ignored is now the quantity actually ordered.
+    \item \textbf{Targets and trailing stop.} \path{targets} holds one level at 2.0 times the stop distance closing 0.5 of the position; the remainder rides the trailing stop. \path{trail_stops} holds one step: once price has moved 0.5 of the stop distance in the trade's favor, the stop moves to $-0.66$ times the stop distance from entry. A signal whose first-target reward-to-risk ratio falls below \path{min_reward_risk} of 2.0 is vetoed by F6 before entry.
+    \item \textbf{Concurrency.} \path{max_concurrent_trades_per_account} in the F5 section is lowered from 5 to 2, the A05 limit.
+    \item \textbf{Fill costs.} \path{spread_pips} of 1.0 is charged as half-spread slippage on every fill, on top of the quote bars; \path{commission_per_lot} is 0.0 for the reference broker and stays a declared parameter. The pilot's effective cost was the 0.3-pip median spread of the quote bars alone.
+    \item \textbf{Exits.} Entries are market orders; the stop is a stop-market order and each target a limit order, placed together with the entry and paired so that the fill of one cancels the other. \path{close_on_veto} is false: a later filter veto leaves an open position to its stop, targets, trailing stop and \path{min_hold_bars} (0), so the planned exits govern the trade. In the pilot, by contrast, positions were opened and closed solely by per-bar chain decisions.
+\end{itemize}
+
+The hybrid descriptor inherits the whole F5, F6 and \path{execution} sections from the baseline and adds only its F4 section, so both variants face identical execution assumptions by construction. The resolved values are written to every run's \path{strategy-config.json} and the plan of each entry to \path{trade-plans.json}. The September--November 2015 reruns under this model use the frozen September-26 six-month models and are the pilot check of the execution machinery, not the experiment; they are reported in Section~\ref{sec:confirmation-results}.
+
+\subsection{One-year protocol} \label{subsec:one-year-protocol}
+
+The main experiment was registered on September 27, 2026, before any 2016 bar was simulated, and uses one complete collected year. GDELT 2.0 collection starts on February 18, 2015, so February 2015 is thin and March 2015 is the first fully collected month. Table~\ref{tab:one-year-splits} gives the allocation. Family models are fitted on March 2 to December 31, 2015; the logistic combiner is calibrated on January 2016; February 2016 is the trainer's held-out partition and is not replayed; the simulation runs from March 1 to October 31, 2016 as one continuous run per strategy from \$10,000 under the execution model of Section~\ref{subsec:execution-model}, with the baseline and the hybrid run in parallel over the same bars. The simulation ends with October 2016 because a month enters the protocol only once its GDELT completion marker exists, and November 2016 was still being ingested when the protocol was registered.
+
+\begin{table}[htbp]
+\centering
+\caption{Chronological allocation for the one-year protocol, registered before simulation.}
+\label{tab:one-year-splits}
+\small
+\begin{tabular}{p{4.0cm}p{4.6cm}p{4.4cm}}
+\toprule
+\textbf{Stage} & \textbf{Inclusive dates} & \textbf{Role} \\
+\midrule
+Family fitting & March 2--December 31, 2015 & LightGBM parameters \\
+Combiner calibration & January 1--31, 2016 & Logistic stacking; threshold grid recorded \\
+Trainer held-out partition & February 1--29, 2016 & No fitting; not a replay result \\
+Simulation & March 1--October 31, 2016 & One continuous run per strategy, \$10,000, A05 plan \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The threshold rule is pre-registered so that the January reading cannot be used to search: $\theta_{\text{high}}/\theta_{\text{low}}$ stay at 0.55/0.45 with the gate off unless the January-2016 validation hit rate at those thresholds falls below 0.5, in which case the deviation and its cause are reported; the full grid is recorded either way as \path{threshold-calibration.json}, as for the pilot. No decision in this chapter has read a 2016 bar, so the simulation span is an untouched window for the frozen one-year models, for the thresholds and for the gate setting, subject to the disclosure that the gate setting itself originated in the September-2015 inspection of Section~\ref{subsec:zero-trade}.
+
 \section{Data Coverage} \label{sec:coverage-results}
 
 \textit{To be added in the final version.} This section will report the coverage matrix reconciled against the completed BigQuery months; at this snapshot the canonical GDELT event months carry completion markers from February 2015 through August 2016, nineteen months in all, but the reconciliation of missing days and quarantined rows has not been run.
@@ -160,6 +200,68 @@ The machinery is proven: decisions become trades, the deposit is honored, and ev
 The hybrid closed 1,069 trades and ended at $+0.51\%$, with the same 1.5\% maximum drawdown and a 62\% win rate (Table~\ref{tab:september-replay}). Its decision profile differs from the baseline in 196 fewer BUY and 449 more SELL decisions over the same 23,367 bars that reached F7, with an identical F1 veto count because F1 is upstream of any news input. The news-context filter F4 abstained on all 23,367 hybrid bars: there is no sentiment source in this pilot, and no GDELT event-intensity veto fired in September. The hybrid's difference from the baseline therefore comes only from the news family's input to the combiner, not from the event gate. This is a narrower construct than the joint effect described in Section~\ref{subsec:workflow-stages}, and it is narrower still than the sentiment-augmented hybrid the research design proposes.
 
 The execution caveats listed for the baseline apply unchanged to the hybrid, which inherits the F5, F6 and F7 sections and the two run parameters. The observed difference of about \$56 on a \$10,000 account over roughly one thousand near-zero-cost minute-scale trades is not interpreted here. No paired inference has been run: the stationary-bootstrap and deflated-Sharpe procedures of Section~\ref{subsec:rule-significance} require the daily equity series, documented cost treatment, the actual selection history (which now includes the gate decision and the threshold grid of Table~\ref{tab:threshold-calibration}) and pre-registered block settings, none of which has been assembled for these runs. A difference in a development window, under unrealistic execution, is not evidence for or against H1.
+
+\section{Confirmation Reruns Under the Execution Model} \label{sec:confirmation-results}
+
+\textit{Figures pending: the runs described here had not completed at this snapshot; every cell marked \pending{} is filled from the corresponding run directory and cites its run identifier.} Two sets of runs are reported. The first replays September, October and November 2015 with the frozen September-26 six-month models under the execution model of Section~\ref{subsec:execution-model}; it checks that stops, partial closes, trailing steps and fill costs behave as configured and gives the first cost-bearing reading of the pilot models, but September remains development data and the three months are a machinery check, not the experiment. The second is the one-year protocol of Section~\ref{subsec:one-year-protocol}. Profit factor is gross profit divided by gross loss over closed trades; net profit or loss and maximum drawdown are in account currency and as a fraction of the starting deposit.
+
+\begin{table}[htbp]
+\centering
+\caption{September--November 2015 reruns under the execution model, frozen six-month models, \$10,000 per run. Run identifiers: \pending{}.}
+\label{tab:confirmation-2015}
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+\textbf{Month} & \textbf{Strategy} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} & \textbf{Max DD} & \textbf{Profit factor} \\
+\midrule
+Sept.\ 2015 & baseline & \pending & \pending & \pending & \pending & \pending \\
+Sept.\ 2015 & hybrid   & \pending & \pending & \pending & \pending & \pending \\
+Oct.\ 2015  & baseline & \pending & \pending & \pending & \pending & \pending \\
+Oct.\ 2015  & hybrid   & \pending & \pending & \pending & \pending & \pending \\
+Nov.\ 2015  & baseline & \pending & \pending & \pending & \pending & \pending \\
+Nov.\ 2015  & hybrid   & \pending & \pending & \pending & \pending & \pending \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{One-year protocol: continuous simulation March 1--October 31, 2016, one-year models, \$10,000 per strategy. Run identifiers: \pending{}.}
+\label{tab:one-year-results}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Strategy} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} & \textbf{Max DD} & \textbf{Profit factor} \\
+\midrule
+baseline & \pending & \pending & \pending & \pending & \pending \\
+hybrid   & \pending & \pending & \pending & \pending & \pending \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Monthly returns of the one-year simulation, as a percentage of the equity at the start of each month. Source: each run's \texttt{equity.csv}.}
+\label{tab:one-year-monthly}
+\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+\textbf{Strategy} & \textbf{Mar} & \textbf{Apr} & \textbf{May} & \textbf{Jun} & \textbf{Jul} & \textbf{Aug} & \textbf{Sep} & \textbf{Oct} \\
+\midrule
+baseline & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
+hybrid   & \pending & \pending & \pending & \pending & \pending & \pending & \pending & \pending \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-consolidated.png}{\includegraphics[width=\textwidth]{img/equity-consolidated.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Consolidated equity chart pending: \path{equity-consolidated.png} produced by the equity-curve consolidation command over the one-year runs.}\vspace{2em}}}}
+\caption{Consolidated equity curves of the baseline and hybrid over the one-year simulation, from \$10,000, under the execution model of Section~\ref{subsec:execution-model}. Source: \texttt{equity-consolidated.png} from the runs' \texttt{equity.csv} files (run identifiers \pending{}).}
+\label{fig:equity-consolidated}
+\end{figure}
+
+The paired comparison of the two one-year runs, its uncertainty under the stationary bootstrap and the deflated Sharpe ratio of Section~\ref{subsec:rule-significance} are computed only after these tables are complete, with the selection history recorded above (gate decision, pilot threshold grid, January-2016 threshold grid) declared as the trial count.
 
 \section{Ablations} \label{sec:ablations}
 
