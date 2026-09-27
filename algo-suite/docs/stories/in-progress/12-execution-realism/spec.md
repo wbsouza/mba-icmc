@@ -37,3 +37,32 @@ moving the stop to entry − 66% × SL distance, intermediate partial close 50%.
 
 Structural (swing/breakout) stop levels — the stop distance is fixed pips or ATR here;
 F9–F14 extended filters; live trading.
+
+## Registered protocol (2026-09-27, with the user) — decided before any 2016 bar is simulated
+
+GDELT 2.0 collection starts 2015-02-18, so February 2015 is thin; the first fully
+collected month is March 2015. The main experiment uses one complete collected year:
+
+| Span | Use |
+|---|---|
+| 2015-03-02 → 2015-12-31 | family models (LightGBM) |
+| 2016-01-01 → 2016-01-31 | combiner calibration; threshold grid recorded |
+| 2016-02-01 → 2016-02-29 | trainer's held-out partition, no replay |
+| 2016-03-01 → 2016-09-30 | one continuous simulation per strategy, $10,000, A05 plan |
+
+Pre-registered threshold rule: keep θ = 0.55/0.45 with the regime gate off unless the
+January-2016 validation hit rate at 0.55/0.45 is below 0.5; the full grid is recorded
+either way (`threshold-calibration.json`). The Sept–Nov 2015 rerun with the frozen
+2026-09-26 six-month models is the pilot check of the execution machinery, not the
+experiment. Job scripts: `data/training/2026-09-27-execution-realism/run.sh` and
+`data/training/2026-09-28-one-year-protocol/run.sh` (local, gitignored).
+
+## Execution decisions taken during integration
+
+- `execution.close_on_veto` defaults to **false**: with true, every planned trade in the
+  sine-cycle fixture was closed one minute after entry by F1's direction-conflict veto,
+  cancelling its stop and targets. A05 did not close on a signal change (only its
+  USD/JPY variant did); the stop, targets, trail and `min_hold_bars` govern exits.
+- Stop and limit orders carry no tag: the pinned LEAN image cannot bind
+  `StopMarketOrder(Symbol, float, float, str)` from Python; the plan log lines identify
+  the orders instead.

@@ -16,5 +16,5 @@ Wave 3 (lead):
 - [ ] Integration scenarios: stop fill, target partial close, trail move, spread cost
 - [ ] Rerun 2015-09 baseline + hybrid from $10,000 with A05 values; Oct–Nov confirmation
 - [ ] Gauntlet: CRAP, mutation pass, QA script and procedure
-- [ ] Docs: SPEC, READMEs, technical-debt (TD-46, TD-51 execution part, TD-65), thesis §3, story 09 follow-up
+- [ ] Docs: SPEC, READMEs, thesis §3, story 09 follow-up (TD-46 and TD-65 rows deleted as resolved; the debt ledger had no TD-51 row)
 - [ ] PR
