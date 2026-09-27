@@ -268,7 +268,9 @@ via `algos/hybrid` (Spec 04h). What remains toward submission is data and writin
 - **Spec 07:** §2 build hygiene is done (above). §1 waits on Spec 06.
 - **Spec 04k (done, including offline parity):** native Double-Smoothed Heikin-Ashi F1 candidate,
   selected by `baseline-dsha`; frozen-model ablation and gauntlet evidence in
-  `done/2026-09-26-double-smoothed-heikin-ashi-trend-filter/`. Package gate green;
+  `done/2026-09-26-double-smoothed-heikin-ashi-trend-filter/`. Its spec explicitly
+  records the second-round offline training, exchange-local timing fix and native
+  parity evidence; no DSHA-retrained performance result is claimed. Package gate green;
   root workspace lint retains the pre-existing TD-55 blocker.
 
 ## 2. Spec map

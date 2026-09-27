@@ -13,6 +13,39 @@
 > retained as the original rationale; their "not started" statements are superseded.
 
 
+## Second-round implementation — PR #43 training/parity completed
+
+The first implementation supplied native DSHA inference and a frozen-model input
+ablation. The second round, implemented in commit `9c4fc84`, also completes the
+offline training/parity requirement from PR #43 in this same story:
+
+- **Offline features:** `perception/offline.py` reproduces Wilder → shared HA →
+  LWMA and closed higher-timeframe aggregation without loading LEAN. Training
+  reads the same resolved perception selector and periods as the live algorithm.
+- **Readiness and timing:** training omits rows until both timeframes are ready,
+  preserves the existing label horizon and delivered/fill-forward bar stream,
+  and consolidates in OANDA exchange-local time. Native tests exposed and fixed
+  the UTC bucket mismatch for custom 7- and 90-minute periods.
+- **Training entry points:** the baseline trainer accepts `--strategy baseline-dsha`
+  with required `--out` for a separate model artifact. Hybrid training reads its
+  own resolved config. Both embed the resolved config in model provenance.
+- **Native parity evidence:** five new DSHA scenarios compare decision timestamps
+  and every price feature against real LEAN to nine decimal places: default
+  settings, missing minutes, flat ties, and two custom configurations. The three
+  existing EMA/news parity scenarios also pass.
+- **Completion and gates:** TD-62's deferral is superseded and its resolved ledger
+  row removed. The expanded gauntlet includes offline coverage, native parity,
+  and mutations: 418 package scenarios, 17 native scenarios, 49/49 mutations
+  killed, maximum CRAP 6. See [validation](validation.md) and the
+  [native parity report](native-parity-report.txt) for scope and evidence.
+
+The committed ablation still uses the shared frozen EMA-trained model; this round
+adds the ability to train a separate DSHA model, not a newly trained model or a
+retrained-model performance result. Exact ties still classify **down**; no ABSTAIN
+mode was introduced (TD-61 remains deferred). `trend_score` still combines DSHA
+direction with EMA-gap strength. The [tool contract](../../../../algo-backtest/SPEC.md)
+and [usage guide](../../../../algo-backtest/README.md) document the resulting API.
+
 > **Naming (2026-09-26):** this candidate was previously called "HAS/JapaDragon" after fx-manager's
 > internal codenames. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
 > name (Clean Code: a name should say what the thing does, not what someone once called it) that
