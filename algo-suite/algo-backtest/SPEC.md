@@ -535,16 +535,17 @@ disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
 feeds F6 — plus, since story 12 (execution realism, 2026-09-27), the fx-manager A05
 trade plan with defaults for every key: `stop_loss_shrink` in [0, 1), `min_stop_pips`,
+`min_stop_factor` (≥ 1, × `execution.broker_stop_level_pips`; the floor is the larger),
 `targets[]` of `{at_level_ratio, close_fraction}` with strictly increasing levels and
 fractions summing to at most 1, `trail_stops[]` of `{at_level_ratio, to_level_ratio}`,
-`min_reward_risk` (`null` = no veto), `stop_distance_source` `fixed`|`atr` and
+`min_reward_risk` (`null` = no veto), `stop_distance_source` `fixed`|`atr`|`swing` and
 `atr_multiplier`; `capital_mgmt_mapping` writes the effective values back, unknown keys
 fail fast) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
 `label_horizon_minutes` (F7; the gate is the dissertation's `r_t` agreement,
 switchable; the horizon is the training label's look-ahead, default 15). A top-level
 `execution` section tied to no filter (`chain/execution_config.py`, story 12) carries
-the fill costs and holding rule — `spread_pips`, `commission_per_lot`, `min_hold_bars`,
-all defaulting to the frictionless case — and is always resolved, like `price_features`.
+the fill costs, holding rule and broker stop level — `spread_pips`, `commission_per_lot`,
+`min_hold_bars`, `broker_stop_level_pips`, all defaulting to the frictionless case — and is always resolved, like `price_features`.
 Sections with defaults may be omitted; the loader writes the effective values back into the
 resolved config so every run's `strategy-config.json` and `strategy-config.yaml` show what
 was used, and `strategy-provenance.json` attributes each to its config.yaml or `default`. A filter listed without

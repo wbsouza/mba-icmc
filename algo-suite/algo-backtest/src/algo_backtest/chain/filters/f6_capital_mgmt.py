@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, fields
-from typing import Any, Literal
+from typing import Any, Literal, cast, get_args
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
 from algo_backtest.chain.params import (
@@ -49,7 +49,11 @@ from algo_backtest.rules.risk_math import calculate_lot_size
 
 _FILTER_NAME = "f6_capital_mgmt"
 _SECTION = "capital_mgmt"
-_STOP_SOURCES: frozenset[str] = frozenset({"fixed", "atr"})
+# Where the base stop distance comes from: the configured `stop_loss_pips`, the bar's ATR
+# times `atr_multiplier`, or the structural distance to the rolling swing low/high
+# (`price_features.swing_lookback_bars`, features `swing_low_pips`/`swing_high_pips`).
+StopDistanceSource = Literal["fixed", "atr", "swing"]
+_STOP_SOURCES: frozenset[str] = frozenset(get_args(StopDistanceSource))
 # Tolerance on the close-fraction sum so `[0.3, 0.3, 0.4]`-style YAML is not rejected on
 # a last-bit floating-point rounding while `[0.6, 0.6]` still is.
 _SUM_TOLERANCE = 1e-9
@@ -113,16 +117,19 @@ class CapitalMgmtConfig:
     - ``assumed_leverage``: leverage used to derive margin per lot from notional.
     - ``stop_loss_shrink``: fraction the base stop distance is shrunk toward entry, in
       [0, 1) (A05 `stopLossDecrease` 0.20).
-    - ``min_stop_pips``: floor on the shrunk stop distance, in pips (>= 0; A05: 1.2 ×
-      the broker's stop level).
+    - ``min_stop_pips``: floor on the shrunk stop distance, in pips (>= 0).
+    - ``min_stop_factor``: multiplier on the broker's minimum stop distance
+      (``execution.broker_stop_level_pips``), >= 1 (A05 ``STOP_LEVEL_FACTOR`` 1.2); the
+      effective floor is max(min_stop_pips, min_stop_factor × broker_stop_level_pips).
     - ``targets``: take-profit levels, ``at_level_ratio`` strictly increasing; empty =
       no target order.
     - ``trail_stops``: trailing-stop steps, ``at_level_ratio`` strictly increasing; empty
       = no trailing.
     - ``min_reward_risk``: minimum final-target distance / stop distance before entry
       (> 0), or ``None`` = no reward:risk veto.
-    - ``stop_distance_source``: ``"fixed"`` (``stop_loss_pips``) or ``"atr"``
-      (``atr_multiplier`` × the bar's ATR in pips).
+    - ``stop_distance_source``: ``"fixed"`` (``stop_loss_pips``), ``"atr"``
+      (``atr_multiplier`` × the bar's ATR in pips) or ``"swing"`` (the distance to the
+      rolling swing low/high; A05's structural template stop).
     - ``atr_multiplier``: ATR multiple for the ``"atr"`` source (> 0).
     """
 
@@ -133,10 +140,11 @@ class CapitalMgmtConfig:
     assumed_leverage: float
     stop_loss_shrink: float = 0.0
     min_stop_pips: float = 0.0
+    min_stop_factor: float = 1.0
     targets: tuple[TargetLevel, ...] = _DEFAULT_TARGETS
     trail_stops: tuple[TrailStop, ...] = ()
     min_reward_risk: float | None = None
-    stop_distance_source: Literal["fixed", "atr"] = "fixed"
+    stop_distance_source: StopDistanceSource = "fixed"
     atr_multiplier: float = 2.0
 
 
@@ -312,6 +320,23 @@ def _min_reward_risk(
     return value
 
 
+def _min_stop_factor(section: Section, *, strategy: str) -> float:
+    """`min_stop_factor` (>= 1: the broker's stop level can only be widened), default 1.0.
+
+    Raises:
+        ValueError: the value is not a number or is below 1.
+    """
+    if "min_stop_factor" not in section:
+        return 1.0
+    value = require_number(section, "min_stop_factor", section=_SECTION, strategy=strategy)
+    if value < 1.0:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.min_stop_factor must be >= 1 (a multiplier on the "
+            f"broker's minimum stop distance), got {value!r}"
+        )
+    return value
+
+
 def parse_capital_mgmt_config(section: Section, *, strategy: str) -> CapitalMgmtConfig:
     """F6's parameters from a strategy config.yaml `capital_mgmt` section (fail fast).
 
@@ -326,9 +351,12 @@ def parse_capital_mgmt_config(section: Section, *, strategy: str) -> CapitalMgmt
     sizing = _sizing_keys(section, strategy=strategy)
     explicit_targets = _parse_targets(section, strategy=strategy)
     targets = explicit_targets if explicit_targets is not None else _DEFAULT_TARGETS
-    source = optional_choice(
-        section, "stop_distance_source", default="fixed", choices=_STOP_SOURCES,
-        section=_SECTION, strategy=strategy,
+    source = cast(
+        StopDistanceSource,
+        optional_choice(
+            section, "stop_distance_source", default="fixed", choices=_STOP_SOURCES,
+            section=_SECTION, strategy=strategy,
+        ),
     )
     return CapitalMgmtConfig(
         **sizing,
@@ -339,10 +367,11 @@ def parse_capital_mgmt_config(section: Section, *, strategy: str) -> CapitalMgmt
         min_stop_pips=require_non_negative(
             section, "min_stop_pips", default=0.0, section=_SECTION, strategy=strategy
         ),
+        min_stop_factor=_min_stop_factor(section, strategy=strategy),
         targets=targets,
         trail_stops=_parse_trail_stops(section, strategy=strategy),
         min_reward_risk=_min_reward_risk(section, targets, strategy=strategy),
-        stop_distance_source="atr" if source == "atr" else "fixed",
+        stop_distance_source=source,
         atr_multiplier=optional_positive(
             section, "atr_multiplier", default=2.0, section=_SECTION, strategy=strategy
         ),

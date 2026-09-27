@@ -16,8 +16,8 @@ Feature: F6 — capital-management filter
   `capital_mgmt` section of the strategy config.yaml (2026-09-27 amendment, story 09),
   never code constants. Story 12 (execution realism) grows the same section with the
   fx-manager A05 trade-plan keys (specs.md §14.5–14.7): `stop_loss_shrink`,
-  `min_stop_pips`, `targets[]`, `trail_stops[]`, `min_reward_risk`, `stop_distance_source`
-  and `atr_multiplier`. Each has a default so a pre-story-12 section keeps loading; the
+  `min_stop_pips`, `min_stop_factor`, `targets[]`, `trail_stops[]`, `min_reward_risk`,
+  `stop_distance_source` (`fixed`, `atr` or `swing`) and `atr_multiplier`. Each has a default so a pre-story-12 section keeps loading; the
   effective values are written back into the resolved config via `capital_mgmt_mapping`.
 
   Rule: F6 enriches state with the proposed lot size and passes when margin is sufficient
@@ -116,6 +116,7 @@ Feature: F6 — capital-management filter
         | min_reward_risk      | null                                          |
         | stop_distance_source | fixed                                         |
         | atr_multiplier       | 2.0                                           |
+        | min_stop_factor      | 1.0                                           |
         | risk_per_trade       | 0.03                                          |
 
     Scenario Outline: a plan key set explicitly overrides only itself (<case>)
@@ -136,6 +137,8 @@ Feature: F6 — capital-management filter
         | reward:risk floor           | min_reward_risk      | 2.0                                                                                     | stop_loss_shrink | 0.0           |
         | reward:risk explicitly off  | min_reward_risk      | null                                                                                    | atr_multiplier   | 2.0           |
         | ATR-derived stop            | stop_distance_source | atr                                                                                     | atr_multiplier   | 2.0           |
+        | structural swing stop (A05) | stop_distance_source | swing                                                                                   | min_stop_factor  | 1.0           |
+        | A05 broker stop-level factor| min_stop_factor      | 1.2                                                                                     | min_stop_pips    | 0.0           |
         | wider ATR multiple          | atr_multiplier       | 3.5                                                                                     | min_stop_pips    | 0.0           |
 
     Scenario: the effective mapping parses back into the same config (YAML-safe lists, not tuples)
@@ -177,7 +180,9 @@ Feature: F6 — capital-management filter
         | trail levels not increasing            | trail_stops          | [{at_level_ratio: 1.0, to_level_ratio: 0.0}, {at_level_ratio: 0.5, to_level_ratio: -0.66}] | capital_mgmt.trail_stops[1].at_level_ratio must exceed     |
         | reward:risk of zero                    | min_reward_risk      | 0                                                                                       | capital_mgmt.min_reward_risk must be > 0                      |
         | reward:risk not a number               | min_reward_risk      | two                                                                                     | capital_mgmt.min_reward_risk must be a number                 |
-        | unknown stop source                    | stop_distance_source | swing                                                                                   | capital_mgmt.stop_distance_source must be one of ['atr', 'fixed'] |
+        | unknown stop source                    | stop_distance_source | structural                                                                              | capital_mgmt.stop_distance_source must be one of ['atr', 'fixed', 'swing'] |
+        | stop-level factor below one            | min_stop_factor      | 0.9                                                                                     | capital_mgmt.min_stop_factor must be >= 1                     |
+        | stop-level factor not a number         | min_stop_factor      | broker                                                                                  | capital_mgmt.min_stop_factor must be a number                 |
         | ATR multiplier of zero                 | atr_multiplier       | 0                                                                                       | capital_mgmt.atr_multiplier must be > 0                       |
         | unknown key                            | take_profit_pips     | 40                                                                                      | capital_mgmt has unknown keys ['take_profit_pips']            |
 

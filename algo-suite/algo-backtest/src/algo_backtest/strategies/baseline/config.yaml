@@ -65,9 +65,11 @@ capital_mgmt:
   # Fraction the base stop distance is shrunk toward entry, in [0, 1) — A05
   # `openOrderByHasArrowOnTrend80SL.stopLossDecrease` = 20 %.
   stop_loss_shrink: 0.20
-  # Floor on the shrunk stop distance, in pips — A05 uses 1.2 × the broker STOP_LEVEL;
-  # 5 pips stands in for that broker constant in the backtest.
+  # Floors on the shrunk stop distance: an absolute one in pips, and a multiplier on the
+  # broker's minimum stop distance (execution.broker_stop_level_pips) — A05
+  # `STOP_LEVEL_FACTOR` = 1.2. The effective floor is the larger of the two.
   min_stop_pips: 5.0
+  min_stop_factor: 1.2
   # Take-profit levels as multiples of the stop distance and the fraction of the position
   # closed at each; the fractions sum to at most 1 (the rest rides the trailing stop) —
   # A05 `finalTargetFactor` 2.0, `finalTargetLotPercentage` 50 %.
@@ -81,9 +83,11 @@ capital_mgmt:
   # Minimum final-target distance / stop distance before F6 lets a signal through; null
   # disables the veto. 2.0 = the A05 final target itself.
   min_reward_risk: 2.0
-  # Where the base stop distance comes from: fixed (stop_loss_pips) or atr (atr_multiplier
-  # × the bar's ATR in pips, price_features.atr_period). A05 used fixed template stops.
-  stop_distance_source: fixed
+  # Where the base stop distance comes from: fixed (stop_loss_pips), atr (atr_multiplier ×
+  # the bar's ATR in pips, price_features.atr_period) or swing (the distance to the rolling
+  # swing low/high over price_features.swing_lookback_bars — A05's structural template
+  # stop, which the shrink then tightens).
+  stop_distance_source: swing
   atr_multiplier: 2.0
 
 # F7 — the terminal threshold rule. theta_high/theta_low are calibrated on the validation
@@ -108,3 +112,6 @@ execution:
   spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (A05 broker ~1 pip)
   commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (A05 broker: none)
   min_hold_bars: 0          # bars a position must stay open before an opposite signal closes it
+  # The broker's minimum distance between price and a stop/target order, in pips (OANDA's
+  # is not exposed by LEAN, so it is declared). F6 floors the stop at min_stop_factor × this.
+  broker_stop_level_pips: 0.0

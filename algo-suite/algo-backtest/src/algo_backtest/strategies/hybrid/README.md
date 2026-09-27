@@ -47,9 +47,9 @@ and `strategy-config.yaml` next to its results (the YAML is ready to seed a vari
 | F3 pattern | `pattern` | `bullish_patterns`, `bearish_patterns` (optional; default vocabularies) |
 | F4 news context (hybrid only) | `news_context` | `event_intensity_veto_threshold`, `sentiment_direction_threshold` (`null` disables a half) |
 | F5 risk guard | `risk_guard` | `portfolio_at_risk_cap`, `daily_drawdown_limit`, `weekly_drawdown_limit`, `max_concurrent_trades_per_account`, `max_leverage` (`null` disables one) |
-| F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` (required); the A05 trade plan (story 12, all optional): `stop_loss_shrink` 0.0 in [0, 1), `min_stop_pips` 0.0, `targets` `[{at_level_ratio: 2.0, close_fraction: 1.0}]` (levels strictly increasing, fractions sum ≤ 1), `trail_stops` `[]` (`at_level_ratio`, `to_level_ratio`), `min_reward_risk` `null` (= off), `stop_distance_source` `fixed`\|`atr`, `atr_multiplier` 2.0 |
+| F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` (required); the A05 trade plan (story 12, all optional): `stop_loss_shrink` 0.0 in [0, 1), `min_stop_pips` 0.0, `min_stop_factor` 1.0 (≥ 1, × `execution.broker_stop_level_pips`), `targets` `[{at_level_ratio: 2.0, close_fraction: 1.0}]` (levels strictly increasing, fractions sum ≤ 1), `trail_stops` `[]` (`at_level_ratio`, `to_level_ratio`), `min_reward_risk` `null` (= off), `stop_distance_source` `fixed`\|`atr`\|`swing`, `atr_multiplier` 2.0 |
 | F7 threshold rule | `meta_learner` | `families`, `theta_high`, `theta_low`, `regime_gate`, `label_horizon_minutes` 15 (optional) |
-| Execution (no filter) | `execution` | `spread_pips` 0.0, `commission_per_lot` 0.0, `min_hold_bars` 0 (all optional; the fill costs and holding rule the executor applies, story 12) |
+| Execution (no filter) | `execution` | `spread_pips` 0.0, `commission_per_lot` 0.0, `min_hold_bars` 0, `broker_stop_level_pips` 0.0 (all optional; the fill costs and holding rule the executor applies, story 12) |
 
 `regime_gate: true` is the dissertation's rule (BUY needs F1's bull regime, SELL its
 bear regime); `false` trades on p̂ alone. Since 2026-09-27 (story 09) the bundled
