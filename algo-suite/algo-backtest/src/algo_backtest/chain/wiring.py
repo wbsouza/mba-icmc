@@ -17,7 +17,10 @@ travels in the features as `atr_pips` (LEAN's `AverageTrueRange` live, `training
 offline) and the swing levels as `swing_low_pips` / `swing_high_pips` (LEAN's Minimum /
 Maximum live, `training.swing_levels` offline), so F6 can derive the stop distance from
 volatility or structure instead of a fixed value. Pips come from the instrument on both
-sides (`pip_size_from_price_variation`, `Instrument.unit_size`), never from a literal.
+sides (`pip_size_from_price_variation`, `Instrument.unit_size`), never from a literal. F6
+additionally takes the `execution` section's `spread_pips` and `broker_stop_level_pips`:
+its trade plan adds the spread to every target and trail level and floors the stop at
+the broker's stop level.
 """
 
 from __future__ import annotations
@@ -253,7 +256,9 @@ _BUILDERS: dict[str, _Builder] = {
         caps=_section(c.risk_guard, "risk_guard", c)
     ),
     "f6_capital_mgmt": lambda c, m, n: CapitalMgmtFilter(
-        risk_per_trade=_section(c.capital_mgmt, "capital_mgmt", c).risk_per_trade
+        config=_section(c.capital_mgmt, "capital_mgmt", c),
+        spread_pips=c.execution.spread_pips,
+        broker_stop_level_pips=c.execution.broker_stop_level_pips,
     ),
     "f7_meta_learner": lambda c, m, n: F7MetaLearnerFilter(
         meta_learner=m, config=_section(c.f7, "meta_learner", c)

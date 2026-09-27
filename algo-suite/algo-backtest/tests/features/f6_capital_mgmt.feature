@@ -1,15 +1,29 @@
 Feature: F6 — capital-management filter
-  Wires `rules/risk_math.py`'s fixed-fractional lot-size formula into the deterministic
-  filter chain, enriching `state.features` with the proposed lot size (specs.md §11.3.1's
-  enrichment example) and vetoing if the position would require more margin than is
-  available. No upstream filter populates ATR/balance state yet, so this module defines
-  and proves its own minimal `state.features` contract:
+  Builds the fx-manager trade plan (specs.md §14.5–14.7, Strategy A05) for the bar and
+  enriches `state.features` with it for the executor: the stop distance per side (fixed
+  pips, ATR × multiplier or the structural swing level; shrunk toward entry by
+  `stop_loss_shrink`; floored at `max(min_stop_pips, min_stop_factor × broker stop
+  level)`), the fixed-fractional lot from `rules/risk_math.py`, every target and trailing
+  step in pips with the spread added exactly as `rules/trail_stop.py` (the formulas
+  confirmed against the fx-manager / spockfx-engine source), and the reward:risk ratio.
+  It vetoes when the plan's reward:risk falls below `min_reward_risk` or the lot would
+  need more margin than is available. Every number traces to a `capital_mgmt` or
+  `execution` YAML key or to a market feature; nothing is a code constant.
+
+  `state.features` contract (the account keys always; the market keys per source):
 
     - "account_balance" (float): current account balance
     - "pip_value" (float): monetary value of one pip per 1.0 lot
-    - "stop_loss_pips" (float): ATR-derived stop-loss distance, in pips
     - "margin_per_lot" (float): margin required per 1.0 lot at the current instrument/leverage
     - "available_margin" (float): currently free margin in the account
+    - "atr_pips" (float): the bar's ATR in pips — `stop_distance_source: atr`
+    - "swing_low_pips" / "swing_high_pips" (float): distance to the structural stop for a
+      long / a short — `stop_distance_source: swing`
+
+  Enrichment: `proposed_lot_size` (kept for compatibility) and `trade_plan`, a plain
+  JSON-safe dict: {"lot_size", "spread_pips", "long": {"stop_pips", "targets": [{"pips",
+  "close_fraction"}], "trail_stops": [{"at_pips", "to_pips"}], "reward_risk"}, "short":
+  {…same…}}.
 
   `risk_per_trade` (specs.md §14.7: 3% for Strategy A05) and the sizing economics the
   chain feeds F6 (stop distance, pip value, lot notional, assumed leverage) are F6's own
@@ -20,42 +34,201 @@ Feature: F6 — capital-management filter
   `stop_distance_source` (`fixed`, `atr` or `swing`) and `atr_multiplier`. Each has a default so a pre-story-12 section keeps loading; the
   effective values are written back into the resolved config via `capital_mgmt_mapping`.
 
-  Rule: F6 enriches state with the proposed lot size and passes when margin is sufficient
+  Rule: The stop distance per side follows stop_distance_source, then shrinks, then floors
 
-    Scenario: a well-margined account computes and passes its proposed lot size
-      Given synthetic capital-mgmt features: balance 10000.0, pip value 1.0, stop-loss 20.0 pips, margin per lot 100.0, available margin 2000.0
-      And a risk per trade of 0.03
+    Background:
+      Given a complete five-key capital_mgmt section
+      And the capital_mgmt section sets risk_per_trade to 0.01
+      And account features: balance 10000, pip value 10, margin per lot 3000, available margin 10000
+
+    Scenario Outline: the stop distance and lot follow the source, the shrink and the floors (<case>)
+      Given the capital_mgmt section sets stop_distance_source to <source>
+      And the capital_mgmt section sets stop_loss_pips to <stop>
+      And the capital_mgmt section sets stop_loss_shrink to <shrink>
+      And the capital_mgmt section sets min_stop_pips to <min_stop>
+      And the capital_mgmt section sets min_stop_factor to <min_factor>
+      And the capital_mgmt section sets atr_multiplier to <atr_mult>
+      And market features atr_pips <atr_pips>, swing_low_pips <swing_low>, swing_high_pips <swing_high>
+      And an execution spread of 0 pips and a broker stop level of <broker> pips
       When F6 applies to the state
       Then F6's result does not veto
-      And F6's filter name is "f6_capital_mgmt"
-      And F6's recommendation is "ABSTAIN"
-      And F6's reason mentions "sufficient margin"
-      And F6 enriches "proposed_lot_size" with 15.0
+      And F6's long plan has stop_pips <long_stop>
+      And F6's short plan has stop_pips <short_stop>
+      And F6's trade plan has lot_size <lot>
+      And F6 enriches "proposed_lot_size" with <lot>
+      And F6's reason mentions "<source>"
 
-    Scenario: available margin exactly equal to required margin does not veto
-      Given synthetic capital-mgmt features: balance 10000.0, pip value 1.0, stop-loss 20.0 pips, margin per lot 100.0, available margin 1500.0
-      And a risk per trade of 0.03
+      Examples: fixed source, shrunk toward entry and floored
+        | case                                   | source | stop | shrink | min_stop | min_factor | broker | atr_mult | atr_pips | swing_low | swing_high | long_stop | short_stop | lot        |
+        | A05 shrink of 20% above the floor      | fixed  | 20   | 0.2    | 5        | 1.0        | 0      | 2.0      | -        | -         | -          | 16        | 16         | 0.625      |
+        | no shrink keeps the configured stop    | fixed  | 20   | 0      | 0        | 1.0        | 0      | 2.0      | -        | -         | -          | 20        | 20         | 0.5        |
+        | min_stop_pips floors an over-shrunk stop | fixed | 20   | 0.8    | 5        | 1.0        | 0      | 2.0      | -        | -         | -          | 5         | 5          | 2          |
+        | broker stop level × factor floors it   | fixed  | 20   | 0.8    | 0        | 1.2        | 5      | 2.0      | -        | -         | -          | 6         | 6          | 1.6666667  |
+        | the higher of the two floors wins      | fixed  | 20   | 0.8    | 7        | 1.2        | 5      | 2.0      | -        | -         | -          | 7         | 7          | 1.4285714  |
+
+      Examples: atr source, the bar's ATR times the multiplier
+        | case                                   | source | stop | shrink | min_stop | min_factor | broker | atr_mult | atr_pips | swing_low | swing_high | long_stop | short_stop | lot        |
+        | 12-pip ATR at 2× gives a 24-pip stop   | atr    | 20   | 0      | 0        | 1.0        | 0      | 2.0      | 12       | -         | -          | 24        | 24         | 0.4166667  |
+        | ATR stop is shrunk like a fixed one    | atr    | 20   | 0.25   | 0        | 1.0        | 0      | 1.5      | 12       | -         | -          | 13.5      | 13.5       | 0.7407407  |
+        | a tiny ATR is floored, not traded raw  | atr    | 20   | 0      | 5        | 1.0        | 0      | 2.0      | 1        | -         | -          | 5         | 5          | 2          |
+
+      Examples: swing source, one structural level per side and the lot from the wider stop
+        | case                                   | source | stop | shrink | min_stop | min_factor | broker | atr_mult | atr_pips | swing_low | swing_high | long_stop | short_stop | lot        |
+        | far swing low, near swing high         | swing  | 20   | 0.2    | 5        | 1.0        | 0      | 2.0      | -        | 30        | 10         | 24        | 8          | 0.4166667  |
+        | near swing low is floored, high is not | swing  | 20   | 0      | 5        | 1.0        | 0      | 2.0      | -        | 3         | 15         | 5         | 15         | 0.6666667  |
+
+    Scenario: a zero ATR with no floor cannot size a trade and fails fast naming the keys
+      Given the capital_mgmt section sets stop_distance_source to atr
+      And the capital_mgmt section sets min_stop_pips to 0
+      And market features atr_pips 0, swing_low_pips -, swing_high_pips -
+      And an execution spread of 0 pips and a broker stop level of 0 pips
+      When F6 applies to the state
+      Then applying F6 fails naming "stop_distance_source: atr"
+      And applying F6 fails naming "min_stop_pips"
+
+  Rule: Targets and trailing steps are pips from entry with the spread added as fx-manager does
+
+    Background:
+      Given a complete five-key capital_mgmt section
+      And the capital_mgmt section sets risk_per_trade to 0.01
+      And account features: balance 10000, pip value 10, margin per lot 3000, available margin 10000
+
+    Scenario Outline: targets and trailing steps carry the spread (<case>)
+      Given the capital_mgmt section sets stop_loss_pips to <stop>
+      And the capital_mgmt section sets stop_loss_shrink to <shrink>
+      And the capital_mgmt section sets targets to [{at_level_ratio: <target>, close_fraction: <close>}]
+      And the capital_mgmt section sets trail_stops to [{at_level_ratio: <trail_at>, to_level_ratio: <trail_to>}]
+      And an execution spread of <spread> pips and a broker stop level of 0 pips
       When F6 applies to the state
       Then F6's result does not veto
-      And F6 enriches "proposed_lot_size" with 15.0
+      And F6's trade plan has spread_pips <spread>
+      And F6's <side> plan target 1 is <target_pips> pips closing <close> of the position
+      And F6's <side> plan trail 1 arms at <at_pips> pips and moves the stop to <to_pips> pips
+      And F6's <side> plan has reward_risk <reward_risk>
+      And F6's reason mentions "reward:risk"
+
+      Examples: the spread widens the target, the arming level and the destination
+        | case                                    | side  | stop | shrink | target | close | trail_at | trail_to | spread | target_pips | at_pips | to_pips | reward_risk |
+        | no spread: pure multiples of the stop   | long  | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 0      | 40          | 10      | 0       | 2.0         |
+        | one pip of spread on a 20-pip stop      | long  | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 1      | 43          | 11.5    | 1       | 2.15        |
+        | 2.5 pips of spread, same plan           | short | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 2.5    | 47.5        | 13.75   | 2.5     | 2.375       |
+        | A05 plan on the shrunk 16-pip stop      | long  | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
+        | A05 plan is symmetric for the short side| short | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
+        | positive to-ratio locks in profit       | long  | 20   | 0      | 1.5    | 1.0   | 1.0      | 0.1      | 1      | 32.5        | 22      | 3       | 1.625       |
+
+    Scenario: a swing plan carries a different stop, target, trail and reward:risk per side
+      Given the capital_mgmt section sets stop_distance_source to swing
+      And the capital_mgmt section sets stop_loss_shrink to 0.2
+      And the capital_mgmt section sets min_stop_pips to 5
+      And the capital_mgmt section sets targets to [{at_level_ratio: 2.0, close_fraction: 0.5}]
+      And the capital_mgmt section sets trail_stops to [{at_level_ratio: 0.5, to_level_ratio: -0.66}]
+      And market features atr_pips -, swing_low_pips 30, swing_high_pips 10
+      And an execution spread of 1 pips and a broker stop level of 0 pips
+      When F6 applies to the state
+      Then F6's result does not veto
+      And F6's long plan has stop_pips 24
+      And F6's long plan target 1 is 51 pips closing 0.5 of the position
+      And F6's long plan trail 1 arms at 13.5 pips and moves the stop to -14.84 pips
+      And F6's long plan has reward_risk 2.125
+      And F6's short plan has stop_pips 8
+      And F6's short plan target 1 is 19 pips closing 0.5 of the position
+      And F6's short plan trail 1 arms at 5.5 pips and moves the stop to -4.28 pips
+      And F6's short plan has reward_risk 2.375
+      And F6's trade plan has lot_size 0.4166667
+
+    Scenario: two targets and two trailing steps are all carried, in order
+      Given the capital_mgmt section sets targets to [{at_level_ratio: 1.0, close_fraction: 0.5}, {at_level_ratio: 2.0, close_fraction: 0.5}]
+      And the capital_mgmt section sets trail_stops to [{at_level_ratio: 0.5, to_level_ratio: -0.66}, {at_level_ratio: 1.0, to_level_ratio: 0.0}]
+      And an execution spread of 1 pips and a broker stop level of 0 pips
+      When F6 applies to the state
+      Then F6's long plan target 1 is 22 pips closing 0.5 of the position
+      And F6's long plan target 2 is 43 pips closing 0.5 of the position
+      And F6's long plan trail 1 arms at 11.5 pips and moves the stop to -12.2 pips
+      And F6's long plan trail 2 arms at 22 pips and moves the stop to 1 pips
+      And F6's long plan has reward_risk 1.1
+      And F6's trade plan is JSON-serialisable
+
+    Scenario: no targets means no reward:risk to report
+      Given the capital_mgmt section sets targets to []
+      And an execution spread of 1 pips and a broker stop level of 0 pips
+      When F6 applies to the state
+      Then F6's result does not veto
+      And F6's long plan has reward_risk null
+      And F6's short plan has reward_risk null
+      And F6's trade plan is JSON-serialisable
+
+  Rule: F6 vetoes when the first target's reward:risk falls below min_reward_risk
+
+    Background:
+      Given a complete five-key capital_mgmt section
+      And account features: balance 10000, pip value 10, margin per lot 3000, available margin 10000
+      And an execution spread of 0 pips and a broker stop level of 0 pips
+
+    Scenario Outline: the reward:risk floor is enforced against the first target (<case>)
+      Given the capital_mgmt section sets targets to [{at_level_ratio: <target>, close_fraction: 1.0}]
+      And the capital_mgmt section sets min_reward_risk to <minimum>
+      When F6 applies to the state
+      Then F6's veto flag is <veto>
+      And F6's long plan has reward_risk <reward_risk>
+      And F6's reason mentions "<mentions>"
+
+      Examples:
+        | case                                  | target | minimum | reward_risk | veto  | mentions                                |
+        | ratio equal to the floor passes       | 2.0    | 2.0     | 2.0         | false | sufficient margin                       |
+        | ratio above the floor passes          | 2.0    | 1.5     | 2.0         | false | reward:risk                             |
+        | ratio below the floor vetoes          | 2.0    | 2.5     | 2.0         | true  | capital_mgmt.min_reward_risk 2.5        |
+        | the veto names the measured ratio     | 1.5    | 2.0     | 1.5         | true  | long 1.5                                |
+        | no floor lets a poor ratio through    | 1.5    | null    | 1.5         | false | reward:risk                             |
 
   Rule: F6 vetoes when the proposed lot size would need more margin than is available
 
-    Scenario: an under-margined account vetoes despite computing a lot size
-      Given synthetic capital-mgmt features: balance 10000.0, pip value 1.0, stop-loss 20.0 pips, margin per lot 100.0, available margin 1000.0
-      And a risk per trade of 0.03
+    Background:
+      Given a complete five-key capital_mgmt section
+      And an execution spread of 0 pips and a broker stop level of 0 pips
+
+    Scenario Outline: the margin veto is unchanged by the plan (<case>)
+      Given account features: balance 10000, pip value 1, margin per lot 100, available margin <available>
       When F6 applies to the state
-      Then F6's result vetoes
+      Then F6's veto flag is <veto>
       And F6's filter name is "f6_capital_mgmt"
       And F6's recommendation is "ABSTAIN"
-      And F6's reason mentions "margin"
+      And F6's reason mentions "<mentions>"
       And F6 enriches "proposed_lot_size" with 15.0
+      And F6's trade plan has lot_size 15.0
 
-  Rule: A missing required feature key fails fast, naming the missing key
+      Examples:
+        | case                                            | available | veto  | mentions            |
+        | a well-margined account passes                  | 2000      | false | sufficient margin   |
+        | available margin exactly equal to required passes | 1500    | false | sufficient margin   |
+        | an under-margined account vetoes                | 1000      | true  | insufficient margin |
+
+  Rule: A missing feature fails fast, naming the key and the source that needs it
+
+    Background:
+      Given a complete five-key capital_mgmt section
+      And an execution spread of 0 pips and a broker stop level of 0 pips
+
+    Scenario Outline: a source-specific market feature is required (<case>)
+      Given the capital_mgmt section sets stop_distance_source to <source>
+      And account features: balance 10000, pip value 10, margin per lot 3000, available margin 10000
+      And market features atr_pips <atr_pips>, swing_low_pips <swing_low>, swing_high_pips <swing_high>
+      When F6 applies to the state
+      Then applying F6 fails naming "<missing>"
+      And applying F6 fails naming "stop_distance_source: <source>"
+
+      Examples:
+        | case                              | source | atr_pips | swing_low | swing_high | missing         |
+        | atr source without atr_pips       | atr    | -        | -         | -          | atr_pips        |
+        | swing source without swing_low    | swing  | -        | -         | 10         | swing_low_pips  |
+        | swing source without swing_high   | swing  | -        | 30        | -          | swing_high_pips |
+
+    Scenario: the fixed source needs no market feature at all
+      Given account features: balance 10000, pip value 10, margin per lot 3000, available margin 10000
+      When F6 applies to the state
+      Then F6's result does not veto
 
     Scenario: available_margin missing from state.features fails fast
-      Given synthetic capital-mgmt features missing "available_margin"
-      And a risk per trade of 0.03
+      Given account features missing "available_margin"
       When F6 applies to the state
       Then applying F6 fails naming "available_margin"
 
@@ -111,6 +284,7 @@ Feature: F6 — capital-management filter
         | key                  | default                                       |
         | stop_loss_shrink     | 0.0                                           |
         | min_stop_pips        | 0.0                                           |
+        | min_stop_factor      | 1.0                                           |
         | targets              | [{at_level_ratio: 2.0, close_fraction: 1.0}]  |
         | trail_stops          | []                                            |
         | min_reward_risk      | null                                          |
@@ -138,7 +312,6 @@ Feature: F6 — capital-management filter
         | reward:risk explicitly off  | min_reward_risk      | null                                                                                    | atr_multiplier   | 2.0           |
         | ATR-derived stop            | stop_distance_source | atr                                                                                     | atr_multiplier   | 2.0           |
         | structural swing stop (A05) | stop_distance_source | swing                                                                                   | min_stop_factor  | 1.0           |
-        | A05 broker stop-level factor| min_stop_factor      | 1.2                                                                                     | min_stop_pips    | 0.0           |
         | wider ATR multiple          | atr_multiplier       | 3.5                                                                                     | min_stop_pips    | 0.0           |
 
     Scenario: the effective mapping parses back into the same config (YAML-safe lists, not tuples)
@@ -151,7 +324,7 @@ Feature: F6 — capital-management filter
 
   Rule: An invalid or unknown trade-plan value fails fast naming the strategy, section and key
 
-    Scenario Outline: <case>
+    Scenario Outline: an invalid trade-plan value fails fast (<case>)
       Given a complete five-key capital_mgmt section
       And the capital_mgmt section sets <key> to <value>
       When parsing the capital-mgmt config for strategy "baseline" fails

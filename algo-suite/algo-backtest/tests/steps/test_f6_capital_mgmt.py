@@ -1,7 +1,9 @@
-"""Steps for f6_capital_mgmt.feature — the F6 filter's own synthetic `state.features` contract."""
+"""Steps for f6_capital_mgmt.feature — the F6 trade plan from a `capital_mgmt` section, an
+`execution` spread / broker stop level and the bar's account + market features."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -19,21 +21,23 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/f6_capital_mgmt.feature")
 
-_ALL_FEATURE_KEYS = {
+_ACCOUNT_FEATURES = {
     "account_balance": 10000.0,
     "pip_value": 1.0,
-    "stop_loss_pips": 20.0,
     "margin_per_lot": 100.0,
     "available_margin": 2000.0,
 }
+# The Examples cell that means "this market feature is absent from the bar".
+_ABSENT = "-"
 
 
 @dataclass
 class _F6Ctx:
-    """Per-scenario `state.features` + risk_per_trade + the outcome of applying F6."""
+    """Per-scenario section + execution values + `state.features`, and F6's outcome."""
 
     features: dict[str, Any] = field(default_factory=dict)
-    risk_per_trade: float | None = None
+    spread_pips: float = 0.0
+    broker_stop_level_pips: float = 0.0
     result: FilterResult | None = None
     error: Exception | None = None
     section: dict[str, Any] = field(default_factory=dict)
@@ -48,93 +52,178 @@ def f6_ctx() -> _F6Ctx:
 
 @given(
     parsers.parse(
-        "synthetic capital-mgmt features: balance {balance:g}, pip value {pip_value:g}, "
-        "stop-loss {stop_loss_pips:g} pips, margin per lot {margin_per_lot:g}, "
-        "available margin {available_margin:g}"
+        "account features: balance {balance:g}, pip value {pip_value:g}, "
+        "margin per lot {margin_per_lot:g}, available margin {available_margin:g}"
     )
 )
-def _features(
+def _account_features(
     f6_ctx: _F6Ctx,
     balance: float,
     pip_value: float,
-    stop_loss_pips: float,
     margin_per_lot: float,
     available_margin: float,
 ) -> None:
-    f6_ctx.features = {
-        "account_balance": balance,
-        "pip_value": pip_value,
-        "stop_loss_pips": stop_loss_pips,
-        "margin_per_lot": margin_per_lot,
-        "available_margin": available_margin,
-    }
+    f6_ctx.features.update(
+        account_balance=balance, pip_value=pip_value, margin_per_lot=margin_per_lot,
+        available_margin=available_margin,
+    )
 
 
-@given(parsers.parse('synthetic capital-mgmt features missing "{missing_key}"'))
-def _features_missing(f6_ctx: _F6Ctx, missing_key: str) -> None:
-    f6_ctx.features = {k: v for k, v in _ALL_FEATURE_KEYS.items() if k != missing_key}
+@given(parsers.parse('account features missing "{missing_key}"'))
+def _account_features_missing(f6_ctx: _F6Ctx, missing_key: str) -> None:
+    f6_ctx.features.update({k: v for k, v in _ACCOUNT_FEATURES.items() if k != missing_key})
 
 
-@given(parsers.parse("a risk per trade of {risk:g}"))
-def _risk_per_trade(f6_ctx: _F6Ctx, risk: float) -> None:
-    f6_ctx.risk_per_trade = risk
+@given(
+    parsers.parse(
+        "market features atr_pips {atr}, swing_low_pips {swing_low}, swing_high_pips {swing_high}"
+    )
+)
+def _market_features(f6_ctx: _F6Ctx, atr: str, swing_low: str, swing_high: str) -> None:
+    """The source-specific features; a `-` cell leaves that key out of the bar entirely."""
+    for key, cell in (
+        ("atr_pips", atr), ("swing_low_pips", swing_low), ("swing_high_pips", swing_high)
+    ):
+        if cell != _ABSENT:
+            f6_ctx.features[key] = float(cell)
+
+
+@given(
+    parsers.parse(
+        "an execution spread of {spread:g} pips and a broker stop level of {broker:g} pips"
+    )
+)
+def _execution_values(f6_ctx: _F6Ctx, spread: float, broker: float) -> None:
+    f6_ctx.spread_pips, f6_ctx.broker_stop_level_pips = spread, broker
 
 
 @when("F6 applies to the state")
 def _apply(f6_ctx: _F6Ctx) -> None:
-    assert f6_ctx.risk_per_trade is not None
+    """Parse the scenario's section (fail fast there is a bug in the scenario, not F6),
+    build the filter as wiring does, apply it to the bar."""
+    config = parse_capital_mgmt_config(f6_ctx.section, strategy="scenario")
     state = ExecutionState(
         timestamp=datetime(2024, 1, 1, tzinfo=UTC), pair="EURUSD", features=dict(f6_ctx.features)
     )
-    capital_filter = CapitalMgmtFilter(risk_per_trade=f6_ctx.risk_per_trade)
+    capital_filter = CapitalMgmtFilter(
+        config=config, spread_pips=f6_ctx.spread_pips,
+        broker_stop_level_pips=f6_ctx.broker_stop_level_pips,
+    )
     try:
         f6_ctx.result = capital_filter.apply(state)
     except (KeyError, ValueError) as exc:
         f6_ctx.error = exc
 
 
-@then("F6's result does not veto")
-def _no_veto(f6_ctx: _F6Ctx) -> None:
+def _result(f6_ctx: _F6Ctx) -> FilterResult:
+    """The applied result, failing loudly if F6 raised instead."""
     assert f6_ctx.error is None, f"unexpected error: {f6_ctx.error}"
     assert f6_ctx.result is not None
-    assert f6_ctx.result.veto is False
+    return f6_ctx.result
+
+
+def _plan(f6_ctx: _F6Ctx) -> dict[str, Any]:
+    """The `trade_plan` enrichment."""
+    plan = _result(f6_ctx).enrichment["trade_plan"]
+    assert isinstance(plan, dict)
+    return plan
+
+
+def _side(f6_ctx: _F6Ctx, side: str) -> dict[str, Any]:
+    """The plan's `long` / `short` sub-dict."""
+    sub = _plan(f6_ctx)[side]
+    assert isinstance(sub, dict)
+    return sub
+
+
+@then("F6's result does not veto")
+def _no_veto(f6_ctx: _F6Ctx) -> None:
+    assert _result(f6_ctx).veto is False, _result(f6_ctx).reason
 
 
 @then("F6's result vetoes")
 def _veto(f6_ctx: _F6Ctx) -> None:
-    assert f6_ctx.error is None, f"unexpected error: {f6_ctx.error}"
-    assert f6_ctx.result is not None
-    assert f6_ctx.result.veto is True
+    assert _result(f6_ctx).veto is True
+
+
+@then(parsers.parse("F6's veto flag is {flag}"))
+def _veto_flag(f6_ctx: _F6Ctx, flag: str) -> None:
+    assert _result(f6_ctx).veto is yaml.safe_load(flag), _result(f6_ctx).reason
 
 
 @then(parsers.parse('F6 enriches "{key}" with {expected:g}'))
 def _enriches(f6_ctx: _F6Ctx, key: str, expected: float) -> None:
-    assert f6_ctx.result is not None
-    assert f6_ctx.result.enrichment[key] == pytest.approx(expected)
+    assert _result(f6_ctx).enrichment[key] == pytest.approx(expected)
+
+
+@then(parsers.parse("F6's trade plan has {key} {expected:g}"))
+def _plan_has(f6_ctx: _F6Ctx, key: str, expected: float) -> None:
+    assert _plan(f6_ctx)[key] == pytest.approx(expected)
+
+
+@then(parsers.parse("F6's {side} plan has stop_pips {expected:g}"))
+def _side_stop(f6_ctx: _F6Ctx, side: str, expected: float) -> None:
+    assert _side(f6_ctx, side)["stop_pips"] == pytest.approx(expected)
+
+
+@then(parsers.parse("F6's {side} plan has reward_risk {expected}"))
+def _side_reward_risk(f6_ctx: _F6Ctx, side: str, expected: str) -> None:
+    """`null` = no target to measure against; otherwise a ratio compared approximately."""
+    value = _side(f6_ctx, side)["reward_risk"]
+    wanted = yaml.safe_load(expected)
+    assert value == (pytest.approx(wanted) if wanted is not None else None)
+
+
+@then(
+    parsers.parse(
+        "F6's {side} plan target {index:d} is {pips:g} pips closing {fraction:g} of the position"
+    )
+)
+def _side_target(f6_ctx: _F6Ctx, side: str, index: int, pips: float, fraction: float) -> None:
+    target = _side(f6_ctx, side)["targets"][index - 1]
+    assert target == {"pips": pytest.approx(pips), "close_fraction": pytest.approx(fraction)}
+
+
+@then(
+    parsers.parse(
+        "F6's {side} plan trail {index:d} arms at {at_pips:g} pips and moves the stop to "
+        "{to_pips:g} pips"
+    )
+)
+def _side_trail(f6_ctx: _F6Ctx, side: str, index: int, at_pips: float, to_pips: float) -> None:
+    step = _side(f6_ctx, side)["trail_stops"][index - 1]
+    assert step == {"at_pips": pytest.approx(at_pips), "to_pips": pytest.approx(to_pips)}
+
+
+@then("F6's trade plan is JSON-serialisable")
+def _plan_json_safe(f6_ctx: _F6Ctx) -> None:
+    """The executor and the decisions audit trail carry the plan as plain JSON."""
+    plan = _plan(f6_ctx)
+    assert json.loads(json.dumps(plan)) == plan
+    assert set(plan) == {"lot_size", "spread_pips", "long", "short"}
+    for side in ("long", "short"):
+        assert set(plan[side]) == {"stop_pips", "targets", "trail_stops", "reward_risk"}
 
 
 @then(parsers.parse('F6\'s reason mentions "{fragment}"'))
 def _reason_mentions(f6_ctx: _F6Ctx, fragment: str) -> None:
-    assert f6_ctx.result is not None
-    assert fragment in f6_ctx.result.reason
+    assert fragment in _result(f6_ctx).reason, _result(f6_ctx).reason
 
 
 @then(parsers.parse('F6\'s filter name is "{name}"'))
 def _filter_name(f6_ctx: _F6Ctx, name: str) -> None:
-    assert f6_ctx.result is not None
-    assert f6_ctx.result.filter_name == name
+    assert _result(f6_ctx).filter_name == name
 
 
 @then(parsers.parse('F6\'s recommendation is "{reco}"'))
 def _recommendation(f6_ctx: _F6Ctx, reco: str) -> None:
-    assert f6_ctx.result is not None
-    assert f6_ctx.result.recommendation == Recommendation(reco)
+    assert _result(f6_ctx).recommendation == Recommendation(reco)
 
 
-@then(parsers.parse('applying F6 fails naming "{missing_key}"'))
-def _apply_fails(f6_ctx: _F6Ctx, missing_key: str) -> None:
-    assert f6_ctx.error is not None
-    assert missing_key in str(f6_ctx.error)
+@then(parsers.parse('applying F6 fails naming "{fragment}"'))
+def _apply_fails(f6_ctx: _F6Ctx, fragment: str) -> None:
+    assert f6_ctx.error is not None, "F6 did not fail"
+    assert fragment in str(f6_ctx.error), str(f6_ctx.error)
 
 
 _SECTION_KEYS = (
