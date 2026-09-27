@@ -122,19 +122,22 @@ Feature: F2 indicator filter
         | empty: all defaults   | {}                                               | 50      | 0         |
         | custom midline        | {rsi_midline: 55}                                | 55      | 0         |
         | both overridden       | {rsi_midline: 45, macd_hist_threshold: 0.0001}   | 45      | 0.0001    |
+        | midline just above 0  | {rsi_midline: 0.5}                               | 0.5     | 0         |
+        | midline just below 100| {rsi_midline: 99.5}                              | 99.5    | 0         |
 
     Scenario Outline: an invalid indicator section fails fast (<case>)
       Given an indicator section <section>
       When parsing the indicator config for strategy "baseline" fails
-      Then the indicator config failure names "<names>"
+      Then the indicator config failure names "<failure>"
 
       Examples:
-        | case                     | section                       | names               |
-        | midline at 0             | {rsi_midline: 0}              | rsi_midline         |
-        | midline at 100           | {rsi_midline: 100}            | rsi_midline         |
-        | midline as a string      | {rsi_midline: mid}            | rsi_midline         |
-        | negative threshold       | {macd_hist_threshold: -0.1}   | macd_hist_threshold |
-        | unknown key              | {stochastic_period: 14}       | stochastic_period   |
+        | case                     | section                       | failure                                                                        |
+        | midline at 0             | {rsi_midline: 0}              | strategy 'baseline': indicator.rsi_midline must be strictly inside (0, 100), got 0.0   |
+        | midline at 100           | {rsi_midline: 100}            | strategy 'baseline': indicator.rsi_midline must be strictly inside (0, 100), got 100.0 |
+        | midline as a string      | {rsi_midline: mid}            | strategy 'baseline': indicator.rsi_midline must be a number, got 'mid'         |
+        | threshold as a string    | {macd_hist_threshold: thin}   | strategy 'baseline': indicator.macd_hist_threshold must be a number, got 'thin' |
+        | negative threshold       | {macd_hist_threshold: -0.1}   | strategy 'baseline': indicator.macd_hist_threshold must be >= 0                |
+        | unknown key              | {stochastic_period: 14}       | strategy 'baseline': indicator has unknown keys ['stochastic_period']          |
 
     Scenario Outline: the configured midline decides bullish vs bearish (<case>)
       Given an indicator section <section>
@@ -151,3 +154,5 @@ Feature: F2 indicator filter
         | 48 is not bearish against midline 45    | {rsi_midline: 45}              | 48  | -0.4      | NEUTRAL        |
         | histogram inside the threshold band     | {macd_hist_threshold: 0.5}     | 60  | 0.4       | NEUTRAL        |
         | histogram beyond the threshold band     | {macd_hist_threshold: 0.5}     | 60  | 0.6       | BUY            |
+        | negative histogram inside the band      | {macd_hist_threshold: 0.5}     | 40  | -0.4      | NEUTRAL        |
+        | negative histogram beyond the band      | {macd_hist_threshold: 0.5}     | 40  | -0.6      | SELL           |

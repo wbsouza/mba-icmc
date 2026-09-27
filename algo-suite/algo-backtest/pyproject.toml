@@ -35,14 +35,6 @@ source_paths = ["src"]
 # tests/steps/test_training_perception_config.py exec-loads scripts/train_*_meta_learner.py
 # by path, so the mutated scratch tree needs a copy of scripts/ for the stats run to pass.
 also_copy = ["scripts"]
-# TEMPORARY (hardener pass in progress; removed before hand-off): restrict the test command
-# to the step files covering the story-09 config code while the tree is mid-refactor.
-pytest_add_cli_args_test_selection = [
-    "tests/steps/test_f7_meta_learner.py", "tests/steps/test_f4_news_context.py",
-    "tests/steps/test_f6_capital_mgmt.py", "tests/steps/test_risk_guard.py",
-    "tests/steps/test_strategies.py", "tests/steps/test_chain_wiring.py",
-    "tests/steps/test_strategy_validation.py", "tests/steps/test_filter_chain_mechanics.py",
-]
 # Hardener passes for this package, scoped to each story's differential file(s):
 # Spec 04b (filter-chain mechanics), Spec 04c (F1-F3 price filters),
 # Spec 04d (risk & capital-management filters F5/F6),
@@ -82,4 +74,5 @@ only_mutate = [
     # Story 09 amendment (per-filter config.yaml sections, F7 regime gate, cash param):
     # shared fail-fast section parsing.
     "src/algo_backtest/chain/params.py",
+    "src/algo_backtest/chain/price_features.py",
 ]
