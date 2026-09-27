@@ -117,3 +117,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["matplotlib.*"]
 ignore_missing_imports = true
+
+[tool.coverage.report]
+# The module guard only runs under `python -m`; it is not behavior the BDD suite can reach.
+exclude_also = ['if __name__ == "__main__":']

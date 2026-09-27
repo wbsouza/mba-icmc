@@ -1,13 +1,15 @@
 # Global plan — remaining work to TCC final submission
 
-**Scientific-review follow-up (2026-09-26):**
-[Story 11 — statistical inference corrections](planned/11-statistical-inference-corrections/spec.md)
-is planned and blocks significance claims: implement probability-valued DSR,
-consistent portfolio-return inputs, paired time-series inference, and reporting
-migration. Training and pilot replay can continue. Passing existing analyzer
-tests does not close these scientific-validity findings.
+**Statistical correction completed (2026-09-27):**
+[Story 11](done/11-statistical-inference-corrections/spec.md) implements schema-v2
+DSR probability, strict daily portfolio-return inputs, paired stationary-bootstrap
+mean-return inference and legacy-output inventory. Independent formula/simulation
+checks, the gauntlet and saved-run QA are archived with the story. The September
+baseline and hybrid both completed with zero trades; corrected inference is
+unavailable for their flat equity. Broader experimental readiness and H1 remain
+open; software completion does not authorize a significance claim.
 
-## Current execution workflow — September 26, 2026 evening
+## Current execution workflow — September 27, 2026
 
 [The experimental workflow](../experimental-workflow.md) is the stage-by-stage
 execution contract: register protocol → acquire → verify coverage → prepare
@@ -15,16 +17,17 @@ features/LEAN data → freeze splits → fit family models → calibrate combine
 freeze artifacts → verify engine/cost assumptions → held-out replay → audit and
 analyze → extend and report. A completed tool is not a completed experiment.
 
-- **09, in progress:** both six-month pilot models are saved; baseline September
-  replay completed with zero trades and requires diagnosis; hybrid replay waits
-  for September event completion. See the [pilot record](in-progress/09-six-month-training-september-pilot/progress.md).
+- **09, in progress:** both six-month pilot models are saved; both September
+  replays completed with zero trades and require diagnosis. See the
+  [pilot record](in-progress/09-six-month-training-september-pilot/progress.md).
 - **10, planned:** [experiment readiness](planned/10-experiment-validation-readiness/progress.md)
   owns coverage, execution assumptions, validation design, and claim review.
-- **11, planned:** statistical corrections block significance claims.
+- **11, done:** corrected inference software and validation are complete;
+  actual empirical claims still require audited inputs and Task 10 readiness.
 - **06, in progress:** Chapter 3 now documents all stages; Chapter 4 setup and
   pilot limitations are updated; empirical comparisons remain incomplete.
-- **08, in progress:** the active local root has completed GDELT February–August
-  2015; September is partial. Coverage-rule and full-window readiness are not
+- **08, in progress:** the active local root has GDELT completion markers through
+  September 2015. Coverage-rule and full-window readiness are not
   established by these completion markers.
 
 Earlier dated entries below are historical unless explicitly updated here.
@@ -318,10 +321,10 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25). Lanes 05a–05f are all in `done/` |
 | 06 | `06-monografia-chapter04.md` | `monografia` | 08–11 evidence | **in progress.** Setup/workflow and limitations updated; paired results, inference, and figures remain incomplete |
 | 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |
-| 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** Local GDELT February–August complete; September partial. Coverage reconciliation, GPR evidence, and full-window readiness remain open |
-| 09 | [Six-month training and September pilot](in-progress/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **in progress.** Models saved; baseline replay needs zero-trade review; hybrid queued |
+| 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** Local GDELT completion markers through September 2015. Coverage reconciliation, GPR evidence, and full-window readiness remain open |
+| 09 | [Six-month training and September pilot](in-progress/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **in progress.** Models saved; baseline and hybrid September replays completed with zero trades and need diagnosis |
 | 10 | [Experiment validation readiness](planned/10-experiment-validation-readiness/progress.md) | research protocol + all tools | 08, 09, 11 evidence | **planned.** Coverage, execution, validation, and claim readiness |
-| 11 | [Statistical inference corrections](planned/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **planned.** Correct DSR semantics and dependence-aware significance before reporting inferential results |
+| 11 | [Statistical inference corrections](done/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **done** (2026-09-27). Schema-v2 DSR probability, paired stationary bootstrap, legacy inventory and independent validation archived; empirical use waits on audited inputs (Task 10) and on an evaluation window long enough for calibrated paired inference: both registered block rules failed at 90–180 days |
 
 ```mermaid
 flowchart LR

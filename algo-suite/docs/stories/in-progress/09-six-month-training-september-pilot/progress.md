@@ -1,5 +1,16 @@
 # Six-month training and September pilot
 
+## Follow-up — 2026-09-27
+
+The supervisor completed at 22:45 PDT on September 26 with exit code 0.
+Baseline `20260927T044836-4cd12c922200` and hybrid
+`20260927T053156-4f2ebf081eaf` both completed with zero trades. Story 11's
+[saved-run evidence](../../done/11-statistical-inference-corrections/evidence/pilot-sources.json)
+verifies 30 recorded daily portfolio returns per run and unchanged source hashes.
+Flat equity makes DSR and paired uncertainty unavailable. This pilot story stays
+in progress: diagnose inactivity and complete its audit before extending or
+interpreting the experiment. The earlier snapshot below is retained as history.
+
 ## Decision — 2026-09-26
 
 The user requested training now on the first six available months, an initial

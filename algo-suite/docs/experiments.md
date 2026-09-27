@@ -25,18 +25,20 @@ the trainer's held-out partition, and September for the first simulation.
 - The F7 model JSON records training dates, row counts, input hashes, code
   revision, and package versions. Pass the frozen artifact with `--model`;
   record its hash and exact command alongside each result.
-- The analyzer currently reads `trades.json`. Its trade-sequence figures use
+- The analyzer's descriptive trade-sequence figures read `trades.json` and use
   per-trade notional returns, not actual portfolio-equity compounding; label
-  them accordingly until portfolio-series reporting is implemented.
+  them accordingly. Inference uses actual LEAN equity on the explicit daily
+  UTC grid; see the analyzer README for `inference-inputs.json`.
 - `trades.parquet`, `parameters.txt`, `--cv`, automatic rolling refits, CPCV,
   and per-fold orchestration are target contracts, not implemented CLI options.
 - Strategy names in the experiment catalog are a research plan, not proof of
   implementation. Baseline, hybrid, and baseline-dsha are available; extended
   feature/filter variants need their own configurations and evidence.
-- [Story 11](stories/planned/11-statistical-inference-corrections/spec.md)
-  blocks DSR/significance claims. Legacy analyzer outputs are exploratory until
-  corrected and independently validated; do not compare DSR probabilities to
-  Sharpe-scale thresholds or treat pooled trade shuffling as time-series inference.
+- [Story 11](stories/done/11-statistical-inference-corrections/spec.md)
+  implements schema-v2 DSR and paired stationary-bootstrap inference. Legacy
+  outputs remain exploratory. Missing equity coverage, costs or trial-history
+  metadata makes corrected inference unavailable; software completion alone
+  does not authorize a significance claim.
 
 ## 2. Experiment → command → Chapter 4 artifact
 
@@ -48,13 +50,21 @@ section). "Cmd" lists the producing commands; "Artifact" is the Chapter 4 output
 | 0 | **Engine sanity checks** (validate the backtester itself before trusting any signal) | known-answer strategies | `algo-backtest run --strategy {buyhold,random,perfect_foresight} --symbol EURUSD` → `algo-analyze metrics` | **Table** sanity bounds: buy-and-hold Sharpe ≈ 0 (FX no drift); random ≈ 0 with ~50% hit rate; perfect-foresight very high Sharpe, ≈ 0 drawdown. A baseline Sharpe is only trusted once these land where expected. |
 | 1 | Calibrate price-only **baseline** on EUR/USD | LightGBM hyperparameters | `algo-backtest run --strategy baseline --symbol EURUSD` → `algo-analyze metrics --run <id>` | **Table** baseline metrics (Sharpe, max drawdown) + **equity-curve figure** |
 | 2 | Evaluate **full hybrid vs baseline** on EUR/USD | presence/absence of news | `algo-backtest run --strategy hybrid --symbol EURUSD` → `algo-analyze ablation --runs baseline --runs hybrid` | **Table** hybrid-vs-baseline (Sharpe, drawdown, hit rate) + overlaid equity curves |
-| 3 | **Replicate Exp 2 on USD/JPY** | currency pair | `algo-backtest run --strategy hybrid --symbol USDJPY` → `algo-analyze ablation --runs baseline_jpy --runs hybrid_jpy` + `significance --runs baseline_jpy --runs hybrid_jpy` | **Table** USD/JPY metrics + statistical-test result |
+| 3 | **Replicate Exp 2 on USD/JPY** | currency pair | `algo-backtest run --strategy hybrid --symbol USDJPY` → `algo-analyze ablation --runs baseline_jpy --runs hybrid_jpy` + `significance --runs baseline_jpy --runs hybrid_jpy --block-length <L> --block-rule <registered-rule>` | **Table** USD/JPY metrics + statistical-test result |
 | 4 | **Ablation: feature-family contributions** | news sub-family activated | `algo-backtest run --strategy hybrid_{ta,ind,pat,news}` → `algo-analyze ablation --runs ...` (repeat `--runs` per run) | **Table** marginal contribution per feature family |
 | 5 | **Compare vs Zhang (2025)** | validation protocol | `algo-analyze metrics --run hybrid` (deflated Sharpe) | **Table** this-work vs Zhang (cost-adjusted + deflated Sharpe) |
 | 6 | **Filter ablation: Core vs A/B/C/D** | extended filter set F8–F14 | `algo-backtest run --strategy {core,A,B,C,D}` → `algo-analyze ablation --runs core --runs A --runs B --runs C --runs D` | **Table** Core vs variants (Sharpe, drawdown, turnover) + **bar figure** |
 | 7 | **F9 sensitivity** | `k_ATR`, `alpha_ADF` | `algo-backtest run --strategy f9_sweep_*` → `algo-analyze metrics` | **Table/figure** trades-per-year, win-rate vs F9 params |
 | 8 | **F10/F11 threshold sweep** | `theta_conf`, `theta_mag` | `algo-backtest run --strategy f1011_sweep_*` → `algo-analyze metrics` | **Figure** news-contribution vs threshold |
 | 9 | **F12 consensus test** | `m ∈ {2,3,4}` | `algo-backtest run --strategy f12_m{2,3,4}` → `algo-analyze metrics` | **Table** false-positive rate vs consensus `m` |
+
+The command catalog assumes complete run contracts. For `metrics`, pass an
+actual `--selection selection.json` to obtain DSR; omitting it intentionally
+reports unavailable selection history. For `significance`, supply the registered
+primary `--block-length` and repeat it for every sensitivity length, plus
+`--block-rule`, `--resamples` and `--seed`. The placeholder L is not a recommended
+setting or permission to tune on evaluation results. Archive all schema-v2
+outputs separately from legacy files, starting with `inference-inventory`.
 
 ## 3. Figures inventory (Chapter 4)
 
@@ -75,9 +85,11 @@ For each experiment, the Chapter 4 subsection follows the same skeleton:
 
 1. **Setup** — the resolved `strategy-config.json`, frozen model hash, and recorded command, pair, window.
 2. **Result** — the metrics table + figure (from `algo-analyze`), with `run-id`.
-3. **Significance** — deflated Sharpe and the Monte-Carlo Permutation Test
-   p-value (Exp 2/3/5/6), so a headline number is never reported without its
-   selection-bias-corrected counterpart.
+3. **Inference** — DSR probability with registered selection history, and paired
+   stationary-bootstrap mean-return effect, confidence interval and two-sided
+   p-value. Preserve unavailable reasons; never substitute a legacy statistic.
+   Declare block lengths and inspect every sensitivity result, not just the
+   smallest p-value. This mean-return test does not test Sharpe superiority.
 4. **Interpretation** — what the marginal contribution means for hypothesis H1.
 
 The "overfiltering" discussion (methodology §subsec:extended-filters) is written
@@ -96,7 +108,7 @@ the statistical method. Store rejected/failed runs and the search history too.
 
 | Hypothesis | Decided by |
 |---|---|
-| **H1** — hybrid beats price-only after costs, risk-adjusted | Exp 2 (EUR/USD) + Exp 3 (USD/JPY), deflated Sharpe + MCP test |
+| **H1** — hybrid beats price-only after costs, risk-adjusted | Exp 2 (EUR/USD) + Exp 3 (USD/JPY); descriptive risk-adjusted metrics, DSR when supported, and paired mean-return uncertainty (not a Sharpe-superiority test) |
 | Feature-family value | Exp 4 |
 | Position vs prior art | Exp 5 (vs Zhang 2025) |
 | Quality-gate value / overfiltering | Exp 6–9 |
@@ -114,7 +126,7 @@ The earlier bands (~0.5–1.5 as plausible, above 2 as suspicious, and an expect
 positive GPR contribution) are withdrawn as decision criteria. They neither
 establish a universal Sharpe limit nor determine the sign of an effect in this
 sample. In particular, a probability-valued DSR cannot exceed 1 and must never
-be assessed using a Sharpe-scale cutoff. Story 11 removes the legacy CLI rule.
+be assessed using a Sharpe-scale cutoff. Schema v2 removes the legacy CLI rule.
 
 A result inside a literature range does not validate this pipeline; a result
 outside it is not automatically invalid. Audit coverage, leakage, costs,

@@ -1,0 +1,42 @@
+[
+  {
+    "run": "runs/baseline/20260927T044836-4cd12c922200",
+    "hashes": {
+      "run.json": "3aa195967b2f4354c87b35fe0be4062c1f1a228d5bc9f891c82c5cd83c9610ac",
+      "main.json": "ba4584b5bfa51435ea144f9143e4c84946cd705015f20c7eca97fb70ca683820",
+      "metrics.json": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908"
+    },
+    "metadata_provenance": "Reconstructed only on disposable copy from saved run dates and zero-fill equity; no selection history invented",
+    "contract": {
+      "source": "main.json",
+      "frequency": "calendar-day",
+      "timezone": "UTC",
+      "annualization": 365,
+      "risk_free_daily": 0,
+      "symbol": "EURUSD",
+      "start": "2015-09-01",
+      "end": "2015-10-01",
+      "costs": "Recorded engine equity; no fills and no recorded trading fees. Execution-cost economics remain unvalidated."
+    }
+  },
+  {
+    "run": "runs/hybrid/20260927T053156-4f2ebf081eaf",
+    "hashes": {
+      "run.json": "31272cca1a9bdf58b4e175bd739a15902f778695e9ac682097ce586ea82d4ba9",
+      "main.json": "19009199c258c11dc0da4f68b9792dc139f52f89e98fea008d95399ad92f6819",
+      "metrics.json": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908"
+    },
+    "metadata_provenance": "Reconstructed only on disposable copy from saved run dates and zero-fill equity; no selection history invented",
+    "contract": {
+      "source": "main.json",
+      "frequency": "calendar-day",
+      "timezone": "UTC",
+      "annualization": 365,
+      "risk_free_daily": 0,
+      "symbol": "EURUSD",
+      "start": "2015-09-01",
+      "end": "2015-10-01",
+      "costs": "Recorded engine equity; no fills and no recorded trading fees. Execution-cost economics remain unvalidated."
+    }
+  }
+]

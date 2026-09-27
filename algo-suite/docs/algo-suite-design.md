@@ -91,7 +91,7 @@ tcc/
     ├── algo-score/           # FinBERT/LM sentiment + events → feature Parquet
     ├── algo-backtest/        # LEAN: parquet→lean-data materializer + baselines + filter chain;
     │                         #   strategy configs in src/algo_backtest/strategies/<name>/config.yaml
-    └── algo-analyze/         # metrics, deflated Sharpe, MCP test, ablations
+    └── algo-analyze/         # metrics, DSR probability, paired block bootstrap, ablations
 ```
 
 Each tool dir also holds its own **`SPEC.md`** (the technical spec, colocated
@@ -115,7 +115,7 @@ volumes in Docker.
 | `algo-transform` | raw payloads → canonical Parquet (`year=YYYY/month=MM/`); coverage matrix | 1 | §3.6.3, §7 |
 | `algo-score` | sentiment (FinBERT + Loughran–McDonald) + event scores → minute-bucketed feature Parquet | 2 | §3.7 |
 | `algo-backtest` | Parquet→`lean-data/` materializer (durable; optional `/dev/shm` accel), LightGBM sub-models + logistic meta-learner, deterministic filter chain (the "reference trend strategy" = the chain config), config generator | 3 (baseline = price families), 4 (hybrid = + news family) | §3.8, §3.10 |
-| `algo-analyze` | per-run metrics, deflated Sharpe, Monte-Carlo Permutation Test, ablation tables, audit-trail queries | 5 | §3.11, §11.3.4 |
+| `algo-analyze` | per-run metrics, DSR probability, paired stationary-bootstrap mean-return test, ablation tables, audit-trail queries | 5 | §3.11, §11.3.4 |
 
 ### Key structural decisions
 
@@ -177,7 +177,7 @@ suite); each tool's `Makefile` runs its own.
 - **`algo-suite/algo-backtest/SPEC.md`** ← §6 (LEAN), §11 (perception/execution chain),
   the risk/sizing rule logic, §17 (config YAML).
 - **`algo-suite/algo-analyze/SPEC.md`** ← §11.3.4 (audit trail), §3.11 (validation /
-  deflated Sharpe / MCP test).
+  DSR probability / paired stationary bootstrap; Story 11).
 - **`algo-suite/algo-core/SPEC.md`** ← shared abstractions + §14.9 (config schema/loader).
 
 The original `specs.md` stays in place at the repo root as the dated
@@ -302,7 +302,7 @@ not be forced into one format:
 | **algo-transform** | **polars**, **pyarrow**, `lzma`+`struct` (decode Dukascopy `.bi5`), duckdb (coverage matrix) | raw → canonical Parquet; tick→minute QuoteBar resampling |
 | **algo-score** | **transformers** + **torch** (FinBERT: ProsusAI/finbert, yiyanghkust/finbert-tone), LM master dictionary CSV, duckdb | optional CUDA; optional **onnxruntime** for faster CPU inference; scores cached to Parquet keyed by article id+timestamp |
 | **algo-backtest** | **LEAN** via `lean` CLI + Docker, **TA-Lib** (C lib + wrapper) for `CDL*` patterns/indicators, pydantic v2 (config), typer (config generator) | filter chain = plain dataclasses (§11.3); audit trail → Parquet; converter parquet→LEAN-zip |
-| **algo-analyze** | duckdb, pandas, **numpy**/**scipy** (deflated Sharpe, Monte-Carlo Permutation Test), **matplotlib** | figures feed the monografia (equity curves, coverage matrix, ablation tables) |
+| **algo-analyze** | duckdb, pandas, **numpy** (paired stationary bootstrap; stdlib `NormalDist` for DSR), **matplotlib** | figures feed the monografia (equity curves, coverage matrix, ablation tables) |
 
 **As built (2026-09-26)** — the table above is the planned stack; the declared
 runtime dependencies today are leaner: `algo-core` pydantic, pyarrow, duckdb,
@@ -684,9 +684,10 @@ enumerated in each spec's §7.
   explicit-disable vs missing, schema-version mismatch, filter veto
   short-circuit, audit-trail completeness (one row per chain run), tmpfs cache
   rebuild, LEAN determinism across runs.
-- **algo-analyze**: deflated Sharpe with <N trials, MCP test reproducibility
-  (fixed permutation seed), empty run, NO_TRADE-only run, drawdown on zero
-  positions.
+- **algo-analyze**: DSR probability against independent fixtures, paired
+  stationary-bootstrap reproducibility (fixed seed, registered block lengths),
+  unavailable inference on flat equity, empty run, NO_TRADE-only run, drawdown
+  on zero positions.
 - **algo-core**: `Instrument` equality/precision, Parquet path round-trip, config
   provenance log correctness, `extends:` cycle detection (§14.9.5).
 
@@ -954,7 +955,7 @@ programming, vectorization, or columnar/RAM I/O — to minimize CPU and I/O.
 | `algo-transform` | **CPU + I/O** (decode `.bi5` LZMA, resample 5–10 GB ticks) | **polars lazy/streaming**, fully vectorized resampling (no Python per-tick loop); columnar Parquet + zstd; **incremental**: only transform new partitions (skip written = DP over partitions); chunked to bound memory |
 | `algo-score` | **model inference** (FinBERT over ~1 M articles) | **score cache = memoization** keyed by `(article_id, model_version)` — the dominant win, avoids re-inference; **dedupe identical texts by hash before inference**; batched inference; optional GPU/onnxruntime |
 | `algo-backtest` | **per-bar CPU** (~2 M bars × pairs through the chain) + LEAN data I/O | **all reusable derived data precomputed once** into the durable `lean-data/` store (price-derived indicators + consolidated decision features) → **zero recompute and zero reconvert per run** across the sweep; **perception cached as Parquet** → zero model calls in the loop; optional **tmpfs `/dev/shm`** copy → RAM I/O for hot reads; incremental/rolling indicators only where a feature is genuinely cheaper live than materialized; flat, allocation-aware inner loop |
-| `algo-analyze` | **scan + resampling** (2 M-row audit trail, 1000× permutation test) | DuckDB columnar **predicate pushdown** (filter `NO_TRADE` before load); vectorized numpy for the permutation test; cache intermediate aggregates; load only engaged trades |
+| `algo-analyze` | **scan + resampling** (2 M-row audit trail, 999× paired block bootstrap) | DuckDB columnar **predicate pushdown** (filter `NO_TRADE` before load); vectorized numpy index matrix for the stationary bootstrap; cache intermediate aggregates; load only engaged trades |
 | `algo-core` | not a hot path | config loaded once at startup; helpers are thin |
 
 Principles applied: **cache/memoize** anything expensive and reused

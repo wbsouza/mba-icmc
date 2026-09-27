@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from algo_analyze.significance import MCPResult, mcp_test
+from algo_analyze.legacy_iid import MCPResult, mcp_test
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/significance.feature")

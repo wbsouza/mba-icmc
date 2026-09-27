@@ -233,6 +233,7 @@ def run(
     manifest = RunManifest(
         strategy=strategy, symbol=symbol, start=start.isoformat(), end=end.isoformat(),
         params=params, success=result.success, closed_trades=result.closed_trades,
+        broker_adapter=config.broker_adapter,
     )
     closed_trades = results_doc["totalPerformance"]["closedTrades"]
     write_run_artifacts(results_dir, manifest, closed_trades, metrics)

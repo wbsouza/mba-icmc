@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any, cast
 
-from radon.complexity import cc_visit  # type: ignore[import-untyped]
+from quality_common import function_scores
 
 PACKAGE = Path(__file__).resolve().parents[1] / "algo-backtest/src/algo_backtest/perception"
 # The pure transform/config remain host-importable. Only the runtime adapters may
@@ -73,21 +73,6 @@ def covered_file(files: dict[str, Any], path: Path) -> dict[str, Any]:
     if len(matches) != 1:
         raise ValueError(f"{path.name}: expected one coverage record, found {len(matches)}")
     return cast(dict[str, Any], matches[0])
-
-
-def function_scores(source: str, data: dict[str, Any]) -> list[tuple[str, int, float, float]]:
-    """Calculate CRAP = CC² × (1 - line coverage)³ + CC for each function."""
-    executed = set(data["executed_lines"])
-    statements = executed | set(data["missing_lines"])
-    functions = [block for block in cc_visit(source) if not hasattr(block, "methods")]
-    scores = []
-    for function in functions:
-        lines = statements.intersection(range(function.lineno, function.endline + 1))
-        coverage = len(lines & executed) / len(lines) if lines else 1.0
-        complexity = function.complexity
-        crap = complexity**2 * (1 - coverage)**3 + complexity
-        scores.append((function.fullname, complexity, coverage, crap))
-    return scores
 
 
 def merge_native_coverage(coverage_path: Path, native_dir: Path, output: Path) -> None:

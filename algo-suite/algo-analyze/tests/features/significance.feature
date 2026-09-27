@@ -1,8 +1,9 @@
-Feature: Monte-Carlo permutation significance test
-  A pure function compares two strategies' trade-return samples with Aronson's
-  Monte-Carlo Permutation Test. It is deterministic when seeded, fails fast
-  rather than under-sampling, and remains library-level only until the later
-  integration lane wires the CLI.
+Feature: Legacy Monte-Carlo permutation test (opt-in library only)
+  `legacy_iid.mcp_test` pools two trade-return samples and shuffles individual
+  observations, which assumes exchangeable, independent observations. Story 11
+  retired it from the CLI: schema-v2 inference uses the paired stationary
+  bootstrap in `significance.py`. These scenarios keep the legacy function
+  deterministic and fail-fast; they do not validate it as time-series inference.
 
   # significance-mcp-01
   Scenario: Fixed seed produces a reproducible p-value
@@ -71,3 +72,11 @@ Feature: Monte-Carlo permutation significance test
     And boolean permutation settings
     When the permutation test is computed
     Then it raises an error containing "n_permutations"
+
+  # significance-mcp-09
+  Scenario: A negative seed fails fast like the schema-v2 bootstrap
+    Given baseline returns 0.010, 0.012
+    And comparison returns 0.030, 0.033
+    And 100 permutations with seed -1
+    When the permutation test is computed
+    Then it raises an error containing "seed"

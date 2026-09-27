@@ -104,6 +104,7 @@ def _run_from_write_run_artifacts(fctx: dict[str, Any]) -> None:
         RunManifest(
             strategy="baseline-ma", symbol="EURUSD", start="2014-05-07", end="2014-05-09",
             params={}, success=True, closed_trades=2,
+            broker_adapter="oanda",
         ),
         closed_trades=[
             {"entryPrice": 1.1000, "quantity": 10000, "profitLoss": 55.0},

@@ -43,8 +43,12 @@ Two distinct artifacts, by design: **`trades.parquet`** is the trade ledger
 
 **Implemented today** (the table above is the target contract): `algo-backtest run`
 writes `run.json` (manifest), `trades.json` (LEAN's closed-trade ledger, the interim
-stand-in for `trades.parquet`) and `metrics.json` next to LEAN's own result JSON under
-`runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
+stand-in for `trades.parquet`), `inference-inputs.json` (the analyzer's portfolio-return
+contract: `main.json` source, calendar-day UTC grid, 365 periods, zero daily risk-free,
+`costs: brokerage:<resolved adapter>`, symbol and exclusive-end window; its SHA-256 and
+the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adapter` so
+`algo-analyze` can refuse an edited sidecar) and `metrics.json` next to LEAN's own result
+JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
 `hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
 `trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). The
 `trades.parquet` schema (§6.1), equity-curve export and `parameters.txt` are not built
@@ -125,7 +129,9 @@ algo_backtest/
 ├── market_hours.py         # IMPLEMENTED — lean_delivers(): LEAN's Forex-oanda-[*] market hours
 │                           #   (lean_market_hours_forex_oanda.json, copied from the pinned image)
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
-│                           #   (manifest) + trades.json (ledger) + metrics.json; metrics.json last
+│                           #   (manifest, incl. inference_inputs_sha256 + broker_adapter) +
+│                           #   trades.json (ledger) + inference-inputs.json (analyzer contract)
+│                           #   + metrics.json; metrics.json last
 │                           #   as the completeness marker (Slices E1+E2). Each trades.json entry
 │                           #   gains a normalized fractional `return` field (profitLoss / abs(
 │                           #   entryPrice * quantity)) when those raw LEAN fields are present and

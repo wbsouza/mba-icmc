@@ -256,6 +256,7 @@ def _execute_run(
         start=run.start.isoformat(), end=run.end.isoformat(),
         params=dict(run.params),
         success=result.success, closed_trades=result.closed_trades,
+        broker_adapter=broker_adapter,
     )
     closed_trades = results_doc["totalPerformance"]["closedTrades"]
     write_run_artifacts(results_dir, manifest, closed_trades, metrics)

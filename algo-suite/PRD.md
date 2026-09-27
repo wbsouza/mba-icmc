@@ -41,7 +41,7 @@ older schedule dates below are historical.
   empirical work runs to the **2026-09-01** final submission (~3 months), scope
   freeze ~late August (Full vs Medium).
 - **Key result test:** **hybrid − baseline delta**, deflated and
-  permutation-tested — not the absolute baseline level (a flat/negative
+  paired-block-bootstrap-tested — not the absolute baseline level (a flat/negative
   unleveraged-FX baseline is expected).
 - **Top risks:** LEAN integration (**retired** — a testcontainers suite validates
   the Parquet→lean-data→engine path and the UTC/START-indexed timezone), Dukascopy
@@ -169,7 +169,7 @@ flowchart LR
 | `algo-transform` | raw → canonical Parquet; minute QuoteBars; coverage + currency-strength | [algo-transform](algo-transform/SPEC.md) |
 | `algo-score` | FinBERT + LM sentiment (per-currency) + events → feature Parquet | [algo-score](algo-score/SPEC.md) |
 | `algo-backtest` | LEAN engine, deterministic filter chain, risk/sizing, audit trail | [algo-backtest](algo-backtest/SPEC.md) |
-| `algo-analyze` | metrics, deflated Sharpe, MCP test, ablations, thesis figures | [algo-analyze](algo-analyze/SPEC.md) |
+| `algo-analyze` | metrics, deflated Sharpe, paired mean-return test, ablations, thesis figures | [algo-analyze](algo-analyze/SPEC.md) |
 
 ## 6. Delivery roadmap — demoable phases
 
@@ -183,7 +183,7 @@ present to the advisor, and the Full/Medium freeze has a clean fallback.
 | **2** | `algo-score` | per-currency sentiment + event features aligned to price | §3.7 |
 | **3** | `algo-backtest` (baseline) | **price-only Sharpe + equity curve** (Experiment 1) | §3.8, §3.10 |
 | **4** | `algo-backtest` (filter chain) | **hybrid vs baseline** (Experiments 2–5) | §3.8 |
-| **5** | `algo-analyze` | ablations, deflated Sharpe, MCP test (Experiments 6–9) | §3.11 |
+| **5** | `algo-analyze` | ablations, deflated Sharpe, paired mean-return test (Experiments 6–9) | §3.11 |
 | **6** *(stretch)* | `algo-backtest` (live mode) | **paper execution** against OANDA demo via LEAN's Oanda brokerage — same deterministic chain, live data feed | future / post-freeze |
 
 **Phase 6 is a stretch goal, off the TCC freeze critical path.** The architecture
@@ -207,8 +207,16 @@ rules paying the spread); see `algo-suite/docs/first-baseline-results.md`. So th
 now news ingestion (GDELT/GPR) → `algo-score` (sentiment/features) → the real news-aware
 hybrid strategy (Stage G). No price-only result is labelled "hybrid".
 
+**Statistical correction (Story 11).** Analyzer schema v2 separates descriptive
+engine Sharpe from probability-valued DSR using daily portfolio-return moments
+and explicit search history. Paired stationary-bootstrap inference estimates a
+mean-return difference with an interval, not Sharpe superiority. Registered
+block settings, adequate history and source/cost metadata are required. Legacy
+outputs remain exploratory; missing inputs yield unavailable diagnostics.
+Software validation does not close the broader experiment-readiness gates.
+
 **Correction (2026-09-25).** Phase 5 (`algo-analyze`) is now fully built and
-tested (metrics + deflated Sharpe + MCP significance + ablation + figures +
+tested (metrics + legacy Sharpe adjustment + legacy MCP significance + ablation + figures +
 summary, PR #21, 73/73 tests green), not just the F2 summary table. Phase 2
 (`algo-score`) and the GDELT/GPR side of Phase 1 are also built (code-level,
 tested on fixtures) — `algo_download/adapters/{gdelt,gpr}/` and the full
@@ -258,7 +266,7 @@ gantt
     section Hybrid strategy
     hybrid (Stage G, Experiments 2-5)              :crit, c1, after b1, 12d
     section Analysis
-    deflated Sharpe + MCP + ablations + prose      :c2b, after c1, 12d
+    DSR probability + paired bootstrap + ablations + prose      :c2b, after c1, 12d
     section Freeze & submit
     Scope freeze (Full vs Medium)                :crit, milestone, 2026-08-24, 0d
     Final submission                             :crit, milestone, 2026-09-01, 0d

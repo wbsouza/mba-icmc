@@ -21,9 +21,15 @@ The [workflow](../../../experimental-workflow.md) defines each exit gate.
   decision/trade joins, and model hashes. Freeze models for subsequent windows.
 - [ ] Generate paired metrics/figures, applicable significance and ablations,
   and replication evidence. A completed tool does not satisfy this checkbox.
-- [ ] Complete [Story 11](../11-statistical-inference-corrections/spec.md):
+- [x] Complete [Story 11](../../done/11-statistical-inference-corrections/spec.md):
   correct DSR semantics, consistent return frequency, paired time-series
-  inference, and legacy-output migration before making significance claims.
+  inference, and legacy-output migration are implemented and independently tested.
+- [ ] Supply audited portfolio/cost metadata, actual selection history and registered
+  block settings for each empirical comparison; software completion does not
+  establish inferential availability or close the scientific-readiness gate.
+- [ ] Choose an evaluation window long enough for size-calibrated paired inference, or
+  register a studentized alternative (TD-62): Story 11's extension studies show the
+  stationary bootstrap is not calibrated at 90–180 daily observations.
 - [ ] Reproduce reported results from recorded commands and artifacts, then
   update Chapter 4 and the limitations/future-work account in Chapter 5.
 

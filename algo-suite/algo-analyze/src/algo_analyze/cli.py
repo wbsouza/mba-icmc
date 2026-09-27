@@ -17,16 +17,14 @@ import structlog
 import typer
 from algo_core.logging import configure_logging, run_with_logging
 
-from algo_analyze._trades import trade_returns
 from algo_analyze.ablation import AblationRow, build_ablation_table
 from algo_analyze.config import AnalyzeConfig, load_analyze_config
-from algo_analyze.deflated import deflated_sharpe
 from algo_analyze.figures import (
     ablation_bars_figure,
     drawdown_curve_figure,
     equity_curve_figure,
 )
-from algo_analyze.significance import DEFAULT_ALPHA, MCPResult, mcp_test
+from algo_analyze.reports import metrics_report, migration_inventory, significance_report
 
 app = typer.Typer(
     name="algo-analyze",
@@ -34,14 +32,6 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-
-# Plausibility band from docs/experiments.md §7.1: a deflated Sharpe above this, after
-# costs, sits above the FinDPO anchor and the literature's plausible range — investigate
-# (leakage, cost model, look-ahead) before reporting it, don't just cite it.
-_DEFLATED_SHARPE_INVESTIGATE_ABOVE = 2.0
-
-_DEFAULT_MCP_PERMUTATIONS = 1000
-_DEFAULT_MCP_SEED = 42
 
 # Module-level Option singletons: a list-typed param default can't be an inline call (ruff
 # B008 — mutable param type), so the typer.Option lives here and is referenced below.
@@ -94,75 +84,58 @@ def summary(
 @app.command()
 def metrics(
     run: str = typer.Option(..., "--run", help="Run identifier under <data_root>/runs/."),
-    trials: int = typer.Option(
-        1, "--trials", help="Number of independent strategy trials searched (for deflation)."
-    ),
+    selection: str = typer.Option("", "--selection", help="Explicit selection-history JSON."),
 ) -> None:
-    """Print headline metrics plus the deflated Sharpe ratio for one run.
-
-    Deflation assumes a normal return distribution (skew 0, kurtosis 3) unless the run
-    has fewer than two closed trades, in which case the headline Sharpe is reported
-    undeflated with an explicit caveat rather than failing — empirical skew/kurtosis
-    estimation from the trade series is a later refinement (see SPEC.md open items).
-    """
-    from algo_backtest.metrics import metrics_from_artifact
-
+    """Print schema-v2 descriptive metrics and DSR probability or unavailable reason."""
     config = _configured("analyze")
-    run_dir = config.data_root / "runs" / run
     try:
-        headline = metrics_from_artifact(run_dir / "metrics.json")
-        returns = trade_returns(run_dir)
+        result = metrics_report(
+            config.data_root / "runs" / run, Path(selection) if selection else None
+        )
     except (FileNotFoundError, ValueError) as exc:
         _fail(exc)
-
-    result: dict[str, object] = {
-        **headline.as_dict(),
-        "n_trades": len(returns),
-        "n_trials": trials,
-    }
-    flags: list[str] = []
-    if len(returns) < 2:
-        result["deflated_sharpe"] = None
-        result["note"] = "fewer than 2 closed trades; deflated Sharpe not computed"
-    else:
-        try:
-            deflated = deflated_sharpe(
-                observed_sharpe=headline.sharpe, n_returns=len(returns), n_trials=trials
-            )
-        except ValueError as exc:
-            _fail(exc)
-        result["deflated_sharpe"] = deflated
-        if deflated > _DEFLATED_SHARPE_INVESTIGATE_ABOVE:
-            flags.append(
-                f"deflated Sharpe {deflated:.4f} > {_DEFLATED_SHARPE_INVESTIGATE_ABOVE}: "
-                "investigate before reporting (docs/experiments.md §7.1)"
-            )
-    result["flags"] = flags
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
+
+
+_BLOCK_LENGTHS = typer.Option(
+    ..., "--block-length", help="Primary then sensitivity lengths; repeat."
+)
 
 
 @app.command()
 def significance(
     runs: list[str] = _SIGNIFICANCE_RUNS_OPTION,
-    permutations: int = typer.Option(
-        _DEFAULT_MCP_PERMUTATIONS, "--permutations", help="Number of Monte-Carlo permutations."
-    ),
-    seed: int = typer.Option(_DEFAULT_MCP_SEED, "--seed", help="Fixed permutation seed."),
+    block_length: list[int] = _BLOCK_LENGTHS,
+    block_rule: str = typer.Option(..., "--block-rule", help="Prior rule/development source."),
+    resamples: int = typer.Option(999, "--resamples", help="Stationary bootstrap draws, >=100."),
+    seed: int = typer.Option(42, "--seed", help="Nonnegative deterministic seed."),
 ) -> None:
-    """Run the Monte-Carlo Permutation Test between two runs' trade-return samples."""
+    """Compare paired daily portfolio means using a null-centered stationary bootstrap."""
     if len(runs) != 2:
         _fail(ValueError(f"--runs requires exactly two run identifiers, got {len(runs)}: {runs}"))
-
     config = _configured("analyze")
-    run_a, run_b = runs
     try:
-        returns_a = trade_returns(config.data_root / "runs" / run_a)
-        returns_b = trade_returns(config.data_root / "runs" / run_b)
-        result = mcp_test(returns_a, returns_b, n_permutations=permutations, seed=seed)
+        result = significance_report(
+            config.data_root,
+            runs[0],
+            runs[1],
+            block_lengths=block_length,
+            n_resamples=resamples,
+            seed=seed,
+            block_rule=block_rule,
+        )
     except (FileNotFoundError, ValueError) as exc:
         _fail(exc)
+    typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
-    typer.echo(json.dumps(_mcp_result_dict(result, run_a, run_b, seed), indent=2, sort_keys=True))
+
+@app.command("inference-inventory")
+def inference_inventory() -> None:
+    """List legacy runs and missing prerequisites without modifying historical artifacts."""
+    # Per-run failures are classified inside migration_inventory (status: invalid); an
+    # exception escaping here is a programming error and belongs to the logging boundary.
+    config = _configured("analyze")
+    typer.echo(json.dumps(migration_inventory(config.data_root), indent=2, sort_keys=True))
 
 
 @app.command()
@@ -171,9 +144,7 @@ def ablation(
     baseline: str = typer.Option(
         "", "--baseline", help="Baseline run identifier (default: the first --runs value)."
     ),
-    figure: bool = typer.Option(
-        False, "--figure", help="Also render an ablation bar-chart PDF."
-    ),
+    figure: bool = typer.Option(False, "--figure", help="Also render an ablation bar-chart PDF."),
     out: str = typer.Option(
         "", "--out", help="Figure output path (default: <data_root>/analysis/ablation.pdf)."
     ),
@@ -239,20 +210,6 @@ def _ablation_row_dict(row: AblationRow) -> dict[str, object]:
         "max_drawdown": row.max_drawdown,
         "hit_rate": row.hit_rate,
         "delta_total_return": row.delta_total_return,
-    }
-
-
-def _mcp_result_dict(result: MCPResult, run_a: str, run_b: str, seed: int) -> dict[str, object]:
-    """Convert an MCP result to a JSON-serializable dict, recording the run pair + seed."""
-    return {
-        "run_a": run_a,
-        "run_b": run_b,
-        "p_value": result.p_value,
-        "reject_null": result.reject_null,
-        "alpha": DEFAULT_ALPHA,
-        "observed_difference": result.observed_difference,
-        "n_permutations": result.n_permutations,
-        "seed": seed,
     }
 
 
