@@ -95,6 +95,12 @@ class ChainAlgorithm(ExecutionAlgorithm):
         end = parse_yyyymmdd(self._required("end"))
         self._size = float(self._required("size"))
         cash = float(self._required("cash"))
+        if cash <= 0:
+            raise ValueError(
+                f"{self.strategy_name}: cash ({cash}) must be positive — the account's starting "
+                "deposit; run.py validates this on the host, so a non-positive value here means "
+                "the algorithm was launched outside `algo-backtest run`"
+            )
         broker_adapter = self._required("broker_adapter")
         self.set_cash(cash)
         self.debug(f"{self.log_tag}_STARTING_CASH={cash}")

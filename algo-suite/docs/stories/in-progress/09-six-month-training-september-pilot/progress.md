@@ -57,7 +57,31 @@ September replay job (frozen 2026-09-26 models, amended chain): local
 `data/training/2026-09-27-f7-ungated-september/` — `run.sh`, `status.txt`,
 `exit-status.txt`, `model-hashes.txt`, `git-revision.txt`, `baseline-september.log`,
 `hybrid-september.log`; LEAN artifacts land in the pilot's shared data root under
-`data/runs/<strategy>/<stamp>/`. Results are appended below once the job exits.
+`data/runs/<strategy>/<stamp>/`. Results (job exited 0 at 03:16 PDT, 2026-09-27; git revision at launch
+`709b9bd` + the uncommitted amendment, models unchanged — SHA-256
+`1a6fd37e…4e831e` baseline, `a6dda4c2…06af9b7` hybrid; `qa_check.py` PASS on both):
+
+| Run | Run ID | Closed trades | Decisions BUY / SELL / HOLD / F1-vetoed | Start → end equity | Net | Max DD | Win rate |
+|---|---|---|---|---|---|---|---|
+| baseline | `baseline/20260927T094856-5d34ecde9301` | 1,032 | 1,976 / 3,222 / 18,169 / 8,145 | $10,000 → $9,995.38 | −0.05% | 1.5% | 60% |
+| hybrid | `hybrid/20260927T100447-5e124bec56dc` | 1,069 | 1,780 / 3,671 / 17,916 / 8,145 | $10,000 → $10,051.41 | +0.51% | 1.5% | 62% |
+
+The machinery now trades: every BUY/SELL decision joins a LEAN trade (11,429 and
+11,708 decision rows carry a `trade_id`), the account starts from the requested
+$10,000, and every parameter is in the run's `strategy-config.json`. F4 ABSTAINed on
+all 23,367 hybrid bars (no sentiment source, no event-intensity veto in September), so
+the hybrid's difference from baseline comes only from the news family's input to F7.
+Average win ≈ 0.01% and average loss ≈ 0.02% per trade with ~1,000 trades in a month:
+these are minute-scale, near-zero-fee flips, not an economic result — TD-51's execution
+economics (fixed 20-pip stop, no spread model in the fill, size 0.5) still apply, and no
+paired inference has been run. Yesterday's zero-trade runs (`…T044836`, `…T053156`)
+remain on disk for the audit trail.
+
+Defect found by the QA procedure: the run's `strategy-config.json` (written inside the
+LEAN container by `write_text_atomic`) came out root-owned with mode 0600, unreadable
+on the host. Fixed in `algo_core.atomicio` (the published file now gets the ordinary
+umask mode; scenario in `atomic_write.feature`); the two September run folders were
+made readable with an unprivileged `chmod` container.
 
 ## Zero-trade diagnosis — 2026-09-27
 

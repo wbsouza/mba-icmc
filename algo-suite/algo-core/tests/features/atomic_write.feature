@@ -17,3 +17,10 @@ Feature: Atomic text writes
       When I atomically write "new" expecting failure
       Then the file still contains "original"
       And no temporary files remain in the directory
+
+  Rule: The published file gets ordinary permissions, not the temp file's owner-only mode
+
+    Scenario: an atomically written file is as readable as a plainly written one
+      Given a target path in a not-yet-existing directory
+      When I atomically write "hello world"
+      Then the file's permission bits equal those of a plainly written sibling file
