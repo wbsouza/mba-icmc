@@ -135,7 +135,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         perception: PerceptionConfig | None = None,
         price_features_config: PriceFeatureConfig | None = None,
     ) -> None:
-        """Subscribe EMA/RSI/MACD with the strategy's periods and, when selected, construct
+        """Subscribe EMA/RSI/MACD/ATR with the strategy's periods and, when selected, construct
         the native HA perception. Omitted arguments mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
         periods = price_features_config or PriceFeatureConfig()
@@ -156,10 +156,22 @@ class ChainAlgorithm(ExecutionAlgorithm):
             self._symbol, periods.macd_fast, periods.macd_slow, periods.macd_signal,
             MovingAverageType.EXPONENTIAL, minute,  # noqa: F405
         )
+        self._atr = self.atr(self._symbol, periods.atr_period, MovingAverageType.WILDERS, minute)  # noqa: F405
+
+    def _pip_size(self) -> float:
+        """The pair's pip in price units: LEAN's minimum price variation x 10.
+
+        The 5-digit FX convention — a broker quotes EURUSD to 0.00001 (the "pipette")
+        and a pip is 0.0001; likewise 0.001 -> 0.01 for a 3-digit JPY pair. Training
+        (`training.build_training_rows(pip_size=...)`) must use the same value.
+        """
+        return self.securities[self._symbol].symbol_properties.minimum_price_variation * 10
 
     def _indicators_ready(self) -> bool:
         """Whether every indicator the features contract reads has warmed up."""
-        indicators = (self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd)
+        indicators = (
+            self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd, self._atr,
+        )
         return all(indicator.is_ready for indicator in indicators) and (
             self._trend_perception is None or self._trend_perception.is_ready
         )
@@ -186,6 +198,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             ema_htf=self._ema_htf.current.value,
             rsi=self._rsi.current.value,
             macd_hist=self._macd.current.value - self._macd.signal.current.value,
+            atr_pips=self._atr.current.value / self._pip_size(),
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())

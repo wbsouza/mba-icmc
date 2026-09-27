@@ -9,7 +9,9 @@ from algo_backtest.strategies import load_strategy_chain_config
 from AlgorithmImports import *  # noqa: F403
 from engine.chain_algorithm import ChainAlgorithm  # noqa: E402
 
-_PRICE_KEYS = ("trend_direction", "trend_strength", "higher_tf_trend_direction", "rsi", "macd_hist")
+_PRICE_KEYS = (
+    "trend_direction", "trend_strength", "higher_tf_trend_direction", "rsi", "macd_hist", "atr_pips",
+)
 
 
 class main(ChainAlgorithm):  # noqa: N801
