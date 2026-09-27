@@ -34,7 +34,37 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
 
     Scenario: Without an ATR reading the features carry no atr_pips key rather than an invented one
       When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000
-      Then the features carry none of "atr_pips"
+      Then the features carry none of "atr_pips, swing_low_pips, swing_high_pips"
+
+    Scenario Outline: The swing distances are carried under swing_low_pips / swing_high_pips exactly as given (<case>)
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000 with swing_low_pips <low> and swing_high_pips <high>
+      Then feature "swing_low_pips" is <low>
+      And feature "swing_high_pips" is <high>
+      And the features carry none of "atr_pips"
+
+      Examples:
+        | case               | low  | high |
+        | price near the low | 2.5  | 38   |
+        | price at the high  | 40   | 0    |
+
+  Rule: The pip is the instrument's price-movement unit, never a literal
+    Live, LEAN's symbol properties give the minimum price variation (the 5-digit
+    "pipette"); the pip is ten of those by the FX quoting convention. Offline, the
+    Instrument's unit_size is the same pip.
+
+    Scenario Outline: A pip is ten times LEAN's minimum price variation (<pair>)
+      When the pip size is derived from a minimum price variation of <variation>
+      Then the pip size is <pip>
+      And it equals the unit_size of instrument "<pair>"
+
+      Examples:
+        | pair   | variation | pip    |
+        | EURUSD | 0.00001   | 0.0001 |
+        | USDJPY | 0.001     | 0.01   |
+
+    Scenario: A non-positive minimum price variation fails fast
+      When deriving the pip size from a minimum price variation of 0 fails
+      Then building fails naming "minimum price variation"
 
   Rule: Account features follow the F5/F6 contract
 

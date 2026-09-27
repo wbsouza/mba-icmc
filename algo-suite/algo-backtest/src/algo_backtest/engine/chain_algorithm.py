@@ -39,6 +39,7 @@ from algo_backtest.chain.wiring import (
     build_filters,
     file_sha256,
     parse_yyyymmdd,
+    pip_size_from_price_variation,
     price_features,
 )
 from algo_backtest.container_paths import DECISIONS_FILE
@@ -135,8 +136,9 @@ class ChainAlgorithm(ExecutionAlgorithm):
         perception: PerceptionConfig | None = None,
         price_features_config: PriceFeatureConfig | None = None,
     ) -> None:
-        """Subscribe EMA/RSI/MACD/ATR with the strategy's periods and, when selected, construct
-        the native HA perception. Omitted arguments mean the documented defaults."""
+        """Subscribe EMA/RSI/MACD/ATR and the swing Minimum/Maximum with the strategy's
+        periods and, when selected, construct the native HA perception. Omitted arguments
+        mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
         periods = price_features_config or PriceFeatureConfig()
         self._trend_perception = None
@@ -157,20 +159,28 @@ class ChainAlgorithm(ExecutionAlgorithm):
             MovingAverageType.EXPONENTIAL, minute,  # noqa: F405
         )
         self._atr = self.atr(self._symbol, periods.atr_period, MovingAverageType.WILDERS, minute)  # noqa: F405
+        # Field.LOW / Field.HIGH: a forex subscription is QuoteBars, for which LEAN's
+        # default MIN/MAX selector would be the close (Value), not the bar's low/high.
+        lookback = periods.swing_lookback_bars
+        self._swing_low = self.min(self._symbol, lookback, minute, Field.LOW)  # noqa: F405
+        self._swing_high = self.max(self._symbol, lookback, minute, Field.HIGH)  # noqa: F405
 
     def _pip_size(self) -> float:
-        """The pair's pip in price units: LEAN's minimum price variation x 10.
+        """The pair's pip in price units, from the security's symbol properties.
 
-        The 5-digit FX convention — a broker quotes EURUSD to 0.00001 (the "pipette")
-        and a pip is 0.0001; likewise 0.001 -> 0.01 for a 3-digit JPY pair. Training
-        (`training.build_training_rows(pip_size=...)`) must use the same value.
+        LEAN's ``minimum_price_variation`` is the pipette (0.00001 on EURUSD, 0.001 on
+        USDJPY); ``pip_size_from_price_variation`` applies the ten-pipettes-per-pip
+        convention, giving the same value as the offline ``Instrument.unit_size`` that
+        ``training.build_training_rows(instrument=...)`` uses.
         """
-        return self.securities[self._symbol].symbol_properties.minimum_price_variation * 10
+        properties = self.securities[self._symbol].symbol_properties
+        return pip_size_from_price_variation(float(properties.minimum_price_variation))
 
     def _indicators_ready(self) -> bool:
         """Whether every indicator the features contract reads has warmed up."""
         indicators = (
             self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd, self._atr,
+            self._swing_low, self._swing_high,
         )
         return all(indicator.is_ready for indicator in indicators) and (
             self._trend_perception is None or self._trend_perception.is_ready
@@ -191,6 +201,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             daily_pnl_fraction=daily,
             weekly_pnl_fraction=weekly,
         )
+        pip = self._pip_size()
         market = price_features(
             price=price,
             ema_fast=self._ema_fast.current.value,
@@ -198,7 +209,9 @@ class ChainAlgorithm(ExecutionAlgorithm):
             ema_htf=self._ema_htf.current.value,
             rsi=self._rsi.current.value,
             macd_hist=self._macd.current.value - self._macd.signal.current.value,
-            atr_pips=self._atr.current.value / self._pip_size(),
+            atr_pips=self._atr.current.value / pip,
+            swing_low_pips=(price - self._swing_low.current.value) / pip,
+            swing_high_pips=(self._swing_high.current.value - price) / pip,
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())

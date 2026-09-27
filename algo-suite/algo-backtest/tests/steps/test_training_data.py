@@ -24,6 +24,7 @@ from algo_backtest.training import (
     load_m1_bars,
     mid,
     save_model,
+    swing_levels,
 )
 from algo_core.bars import QuoteBar
 from algo_core.instrument import build_instrument
@@ -44,6 +45,8 @@ _LIVE_PRICE_KEYS = {
     "macd_hist",
     "candlestick_pattern",
     "atr_pips",
+    "swing_low_pips",
+    "swing_high_pips",
 }
 
 
@@ -60,6 +63,7 @@ class _TrainCtx:
     manifest: dict[str, object] = field(default_factory=dict)
     splits: list[WalkForwardSplit] = field(default_factory=list)
     atr: list[float] = field(default_factory=list)
+    swings: list[tuple[float, float]] = field(default_factory=list)
     filled_at: datetime | None = None
 
 
@@ -135,18 +139,18 @@ def _load_fails(train_ctx: _TrainCtx, start: str, end: str) -> None:
 @when(parsers.parse("price-only training rows are built for the window {start} to {end}"))
 def _price_rows(train_ctx: _TrainCtx, start: str, end: str) -> None:
     bars = load_m1_bars(train_ctx.root, _EURUSD, date.fromisoformat(start), date.fromisoformat(end))
-    train_ctx.rows = build_training_rows(bars)
+    train_ctx.rows = build_training_rows(bars, instrument=_EURUSD)
 
 
 @when("news training rows are built")
 def _news_rows(train_ctx: _TrainCtx) -> None:
-    train_ctx.rows = build_training_rows(train_ctx.bars, train_ctx.intensity)
+    train_ctx.rows = build_training_rows(train_ctx.bars, train_ctx.intensity, instrument=_EURUSD)
 
 
 @when("building news training rows fails")
 def _news_rows_fail(train_ctx: _TrainCtx) -> None:
     with pytest.raises(ValueError) as excinfo:
-        build_training_rows(train_ctx.bars, train_ctx.intensity)
+        build_training_rows(train_ctx.bars, train_ctx.intensity, instrument=_EURUSD)
     train_ctx.error = excinfo.value
 
 
@@ -268,7 +272,7 @@ def _shaped_bars(train_ctx: _TrainCtx, count: int, first: str, shape: str) -> No
 
 @when("training rows are built from those bars")
 def _rows_from_bars(train_ctx: _TrainCtx) -> None:
-    train_ctx.rows = build_training_rows(train_ctx.bars)
+    train_ctx.rows = build_training_rows(train_ctx.bars, instrument=_EURUSD)
 
 
 @then(parsers.parse("every row's label is {label:d}"))
@@ -286,7 +290,7 @@ def _label_times(train_ctx: _TrainCtx) -> None:
 def _split(bars: list[QuoteBar]) -> WalkForwardSplit:
     """The fixed three-day walk-forward split these scenarios use."""
     return walk_forward_split(
-        build_training_rows(bars),
+        build_training_rows(bars, instrument=_EURUSD),
         train_end=date(2015, 2, 23),
         validation_end=date(2015, 2, 24),
         test_end=date(2015, 2, 25),
@@ -430,19 +434,49 @@ def _atr(train_ctx: _TrainCtx, period: int) -> None:
     train_ctx.atr = atr_series(train_ctx.bars, period)
 
 
+@when(parsers.parse("the swing levels are computed with a look-back of {lookback:d} bars"))
+def _swings(train_ctx: _TrainCtx, lookback: int) -> None:
+    train_ctx.swings = swing_levels(train_ctx.bars, lookback)
+
+
 @when(
     parsers.parse(
-        "training rows are built with every period minimal, atr_period {atr_period:d}, "
-        "a 1-bar horizon and pip size {pip_size:g}"
+        'training rows are built for instrument "{symbol}" with every period minimal, '
+        "atr_period {atr_period:d}, swing_lookback_bars {lookback:d} and a 1-bar horizon"
     )
 )
-def _atr_rows(train_ctx: _TrainCtx, atr_period: int, pip_size: float) -> None:
+def _atr_rows(train_ctx: _TrainCtx, symbol: str, atr_period: int, lookback: int) -> None:
     train_ctx.rows = build_training_rows(
         train_ctx.bars,
-        price_features_config=PriceFeatureConfig(**_MINIMAL_PERIODS, atr_period=atr_period),
+        instrument=build_instrument(symbol),
+        price_features_config=PriceFeatureConfig(
+            **_MINIMAL_PERIODS, atr_period=atr_period, swing_lookback_bars=lookback
+        ),
         horizon_minutes=1,
-        pip_size=pip_size,
     )
+
+
+@then(
+    parsers.parse(
+        "the swing low at bar {bar:d} is {low:g} and the swing high is {high:g}"
+    )
+)
+def _swing_at(train_ctx: _TrainCtx, bar: int, low: float, high: float) -> None:
+    assert train_ctx.swings[bar - 1] == (low, high), train_ctx.swings
+
+
+@then(
+    parsers.parse(
+        "the row for bar {bar:d} has swing_low_pips {low:g} and swing_high_pips {high:g} "
+        "to {digits:d} decimal places"
+    )
+)
+def _row_swings(train_ctx: _TrainCtx, bar: int, low: float, high: float, digits: int) -> None:
+    row = next(r for r in train_ctx.rows if r.timestamp == train_ctx.bars[bar - 1].timestamp)
+    got = [row.features["swing_low_pips"], row.features["swing_high_pips"]]
+    assert all(isinstance(value, float) for value in got), row.features
+    rounded = [round(float(value), digits) for value in got if isinstance(value, float)]
+    assert rounded == [round(low, digits), round(high, digits)], row.features
 
 
 @then(parsers.parse("the ATR at bar {bar:d} is {atr:g} to {digits:d} decimal places"))

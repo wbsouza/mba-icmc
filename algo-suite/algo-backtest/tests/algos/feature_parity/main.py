@@ -10,7 +10,8 @@ from AlgorithmImports import *  # noqa: F403
 from engine.chain_algorithm import ChainAlgorithm  # noqa: E402
 
 _PRICE_KEYS = (
-    "trend_direction", "trend_strength", "higher_tf_trend_direction", "rsi", "macd_hist", "atr_pips",
+    "trend_direction", "trend_strength", "higher_tf_trend_direction", "rsi", "macd_hist",
+    "atr_pips", "swing_low_pips", "swing_high_pips",
 )
 
 

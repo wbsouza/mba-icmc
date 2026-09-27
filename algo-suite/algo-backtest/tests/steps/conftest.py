@@ -258,7 +258,7 @@ def _train_fixture_model(bctx: dict[str, Any], strategy: str, tmp_path: Path) ->
     bars = load_m1_bars(bctx["data_root"], _EURUSD, start, test_end)
     news = strategy == "hybrid"
     intensity = load_event_intensity(bctx["data_root"], start, test_end) if news else None
-    rows = build_training_rows(bars, intensity)
+    rows = build_training_rows(bars, intensity, instrument=_EURUSD)
     split = walk_forward_split(
         rows, train_end=date(2014, 5, 6), validation_end=date(2014, 5, 7), test_end=test_end
     )

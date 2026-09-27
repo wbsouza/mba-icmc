@@ -496,10 +496,12 @@ methodology result — see `docs/technical-debt.md`'s TD-51 entry.
 `config.yaml` carries every configurable filter's own section, parsed by that
 filter's `parse_*_config(section, *, strategy)` into a typed value on
 `StrategyChainConfig` and handed to the filter by `chain/wiring.py`: `price_features`
-(the EMA/RSI/MACD periods F1/F2/F7 share plus `atr_period`, the Wilder ATR the chain
-carries as `atr_pips` — ATR over LEAN's minimum price variation × 10 — for F6's
-volatility stop distance, story 12; every key defaults; recorded in the model's
-provenance and checked by `run --model`), `indicator` (F2: `rsi_midline`,
+(the EMA/RSI/MACD periods F1/F2/F7 share plus `atr_period` and `swing_lookback_bars`,
+the Wilder ATR and the look-back Minimum/Maximum the chain carries as `atr_pips`,
+`swing_low_pips` and `swing_high_pips` — in the instrument's pips, LEAN's minimum price
+variation × 10 live and `Instrument.unit_size` offline — for F6's stop distances, story
+12; every key defaults; recorded in the model's provenance and checked by
+`run --model`), `indicator` (F2: `rsi_midline`,
 `macd_hist_threshold`; defaults), `pattern` (F3: `bullish_patterns`,
 `bearish_patterns`; defaults), `news_context`
 (F4: `event_intensity_veto_threshold`, `sentiment_direction_threshold`, `null`

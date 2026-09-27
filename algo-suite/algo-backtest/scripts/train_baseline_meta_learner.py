@@ -115,7 +115,8 @@ def main() -> None:
     config = load_strategy_chain_config(args.strategy)
     assert config.f7 is not None, f"strategy {args.strategy!r} does not list f7_meta_learner"
     rows = build_training_rows(
-        bars, perception=config.perception, price_features_config=config.price_features,
+        bars, instrument=instrument, perception=config.perception,
+        price_features_config=config.price_features,
         horizon_minutes=config.f7.label_horizon_minutes,
     )
     split = walk_forward_split(
