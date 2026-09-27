@@ -12,9 +12,17 @@ class InferenceUnavailable(ValueError):
 
 
 def return_moments(returns: Sequence[float]) -> dict[str, float | int]:
-    """Estimate sample Sharpe (ddof=1), and uncorrected standardized central moments."""
-    if len(returns) < 4 or not all(math.isfinite(x) for x in returns):
-        raise ValueError("moments require at least four finite daily returns")
+    """Estimate the moments Eq. 2 consumes from one nonannualized daily return series.
+
+    Conventions (deliberate, documented in SPEC §5): ``observed_sharpe`` divides the mean
+    by the sample SD (ddof=1); ``skew`` and ``kurtosis`` are the uncorrected standardized
+    central moments m3/m2^1.5 and m4/m2^2 (ddof=0, Pearson kurtosis, normal = 3).
+    Fewer than four returns is insufficient evidence (unavailable), not invalid data.
+    """
+    if len(returns) < 4:
+        raise InferenceUnavailable("moments require at least four daily returns")
+    if not all(math.isfinite(x) for x in returns):
+        raise ValueError("moments require finite daily returns")
     centered, average, scale = _scaled_center(returns)
     variance = mean([x**2 for x in centered])
     sharpe = (average / scale) / stdev(centered)

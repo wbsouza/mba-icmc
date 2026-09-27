@@ -96,9 +96,9 @@ def _validate_permutation_count(n_permutations: int) -> None:
 
 
 def _validate_seed(seed: int) -> None:
-    """Validate the deterministic random seed."""
-    if isinstance(seed, bool) or not isinstance(seed, int):
-        raise ValueError("seed must be an integer")
+    """Validate the deterministic random seed (same posture as the schema-v2 bootstrap)."""
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ValueError("seed must be a nonnegative integer")
 
 
 def _mean(values: Sequence[float]) -> float:

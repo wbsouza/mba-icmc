@@ -27,6 +27,9 @@ The [workflow](../../../experimental-workflow.md) defines each exit gate.
 - [ ] Supply audited portfolio/cost metadata, actual selection history and registered
   block settings for each empirical comparison; software completion does not
   establish inferential availability or close the scientific-readiness gate.
+- [ ] Choose an evaluation window long enough for size-calibrated paired inference, or
+  register a studentized alternative (TD-62): Story 11's extension studies show the
+  stationary bootstrap is not calibrated at 90–180 daily observations.
 - [ ] Reproduce reported results from recorded commands and artifacts, then
   update Chapter 4 and the limitations/future-work account in Chapter 5.
 

@@ -16,13 +16,19 @@ validation, gauntlet and final acceptance gates passed. See [quality evidence](e
 
 - [Registered method and simulation](method-design.md): daily UTC actual equity,
   classical DSR with declared selection history, paired stationary bootstrap.
-- [Independent validation](evidence/README.md): five 80-digit reference checks;
-  primary null rejection 6% and 7% under registered 8.775% tolerance; primary
-  effect-0.002 power 100% and 94%; all 7,200 p/interval decisions agree.
+- [Independent validation](evidence/README.md): six 80-digit reference checks;
+  primary null rejection 6% and 7% under registered 8.775% tolerance at n=1200;
+  primary effect-0.002 power 100% and 94%; all decisions coherent. Two block-length
+  rules registered for 90–180-day windows both failed the size gate (reported in
+  full); calibrated confirmatory paired inference needs a longer window or TD-62.
 - [Saved-run smoke script](evidence/smoke-saved-runs.sh): both September pilot
   runs completed, each with zero trades and 30 recorded daily portfolio returns.
-  Corrected statistics are unavailable (zero variance/degenerate differences;
-  twenty-day blocks also lack sufficient history). No performance claim follows.
+  Corrected statistics are unavailable (zero variance/degenerate differences at
+  L=3 and L=1). No performance claim follows.
+- Review follow-up (September 27): candle close confirmed as the LEAN mark from
+  engine source and the engine `Return` series, which is now cross-checked;
+  ledger-computed selection dispersion; per-scenario error/unavailable channels;
+  161/161 mutants killed; see [lessons-learned](lessons-learned.md).
 - [Local inventory](evidence/local-inventory.json) and
   [pilot inventory](evidence/pilot-inventory.json) preserve legacy outputs and list
   missing metadata. Metadata is reconstructed only on temporary smoke copies;

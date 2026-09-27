@@ -66,7 +66,10 @@ class RunManifest:
     params: dict[str, str]
     success: bool
     closed_trades: int
-    broker_adapter: str = "unknown"
+    # Config-selected fill/fee/spread model; recorded into inference-inputs.json as the
+    # cost convention so a paired comparison can prove both arms shared it. Required:
+    # an unknown cost model must never be silently labeled.
+    broker_adapter: str
 
 
 @dataclass(frozen=True)

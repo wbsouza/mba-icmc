@@ -131,12 +131,10 @@ def significance(
 @app.command("inference-inventory")
 def inference_inventory() -> None:
     """List legacy runs and missing prerequisites without modifying historical artifacts."""
+    # Per-run failures are classified inside migration_inventory (status: invalid); an
+    # exception escaping here is a programming error and belongs to the logging boundary.
     config = _configured("analyze")
-    try:
-        result = migration_inventory(config.data_root)
-    except (FileNotFoundError, ValueError) as exc:
-        _fail(exc)
-    typer.echo(json.dumps(result, indent=2, sort_keys=True))
+    typer.echo(json.dumps(migration_inventory(config.data_root), indent=2, sort_keys=True))
 
 
 @app.command()

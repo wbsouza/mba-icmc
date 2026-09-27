@@ -72,3 +72,11 @@ Feature: Legacy Monte-Carlo permutation test (opt-in library only)
     And boolean permutation settings
     When the permutation test is computed
     Then it raises an error containing "n_permutations"
+
+  # significance-mcp-09
+  Scenario: A negative seed fails fast like the schema-v2 bootstrap
+    Given baseline returns 0.010, 0.012
+    And comparison returns 0.030, 0.033
+    And 100 permutations with seed -1
+    When the permutation test is computed
+    Then it raises an error containing "seed"

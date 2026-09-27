@@ -156,6 +156,25 @@ def boundary_accepted(boundary_probability: float) -> None:
 @given("a portfolio with exact daily equity of 100 110 110 99 100", target_fixture="equity_path")
 def equity_path(tmp_path: Any) -> Any:
     """Record engine equity including a genuine flat daily period."""
+    return _write_equity(tmp_path, [[1577836800 + i * 86400, value]
+                                    for i, value in enumerate((100, 110, 110, 99, 100))])
+
+
+@given("a portfolio with exact daily candles closing at 100 110 110 99 100",
+       target_fixture="equity_path")
+def candle_path(tmp_path: Any) -> Any:
+    """Record LEAN-shaped end-stamped candles whose open is the previous day's close."""
+    closes = (100, 110, 110, 99, 100)
+    rows = []
+    for i, close in enumerate(closes):
+        open_ = closes[max(i - 1, 0)]
+        rows.append([1577836800 + i * 86400, open_, max(open_, close) + 5,
+                     min(open_, close) - 5, close])
+    return _write_equity(tmp_path, rows)
+
+
+def _write_equity(tmp_path: Any, values: list[list[float]]) -> Any:
+    """Write a four-return run directory around the supplied equity rows."""
     import json
 
     metadata = dict(source="main.json", frequency="calendar-day", timezone="UTC",
@@ -164,8 +183,6 @@ def equity_path(tmp_path: Any) -> Any:
     (tmp_path / "inference-inputs.json").write_text(json.dumps(metadata))
     (tmp_path / "run.json").write_text(json.dumps(dict(
         success=True, symbol="EURUSD", start="2020-01-01", end="2020-01-04")))
-    values = [[1577836800 + i * 86400, value]
-              for i, value in enumerate((100, 110, 110, 99, 100))]
     (tmp_path / "main.json").write_text(json.dumps({
         "charts": {"Strategy Equity": {"series": {"Equity": {"values": values}}}}}))
     return tmp_path

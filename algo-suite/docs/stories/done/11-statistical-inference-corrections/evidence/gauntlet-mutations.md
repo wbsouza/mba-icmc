@@ -1,8 +1,8 @@
 # Hardener evidence
 
-The final gate killed **149 of 149 mutants**, with zero surviving mutants,
+The final gate killed **161 of 161 mutants**, with zero surviving mutants,
 errors, exemptions or claimed equivalents. The final unmodified suite passed
-143 BDD scenarios. A negative control replaced the copied DSR result with
+159 BDD scenarios. A negative control replaced the copied DSR result with
 `-9999.0`; the CLI probability assertion failed, establishing that the test
 process exercised the copied production code.
 
@@ -24,11 +24,15 @@ inconclusive errors, never kills. Runs use two workers; each test process has
 | Cleaner source and strengthened tests | 148 | 148 | 140 | 8 | 0 |
 | Corrected probability grid and boundary tests | 149 | 49 | 148 | 1 | 0 |
 | Final high-alpha regression | 149 | 1 | 149 | 0 | 0 |
+| Review follow-up (candle close, engine `Return` cross-check, ledger, unavailable moments) | 161 | 114 | 161 | 0 | 0 |
 
 The third pass reran every mutant in the changed significance module and the
 remaining two survivors in unchanged modules; it retained 100 prior kills only
-where whole-file hashes matched. The final pass replayed the last survivor and
-retained 148 hash-matched kills. All intermediate per-mutant outcomes remain in
+where whole-file hashes matched. The fourth pass replayed the last survivor and
+retained 148 hash-matched kills. The review follow-up changed `deflated.py`,
+`portfolio.py` and `reports.py`, so every mutant in those files (114) ran fresh;
+the 47 `significance.py` kills were reused because that file's hash was unchanged
+(`gauntlet-mutations-pass4.json` is the prior final report). All intermediate per-mutant outcomes remain in
 the adjacent JSON reports. Assertions were added rather than weakened.
 
 The resulting BDD cases independently constrain nonnormal DSR references,

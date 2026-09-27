@@ -2,6 +2,7 @@
 
 import json
 import math
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,21 +13,19 @@ from algo_analyze.reports import metrics_report, migration_inventory, significan
 from algo_analyze.significance import paired_block_test
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from .test_portfolio_inference import write_portfolio
-
 scenarios("../features/inference_validation.feature")
 
 
 @pytest.fixture
-def evidence(tmp_path: Path) -> dict[str, Any]:
+def evidence(tmp_path: Path, portfolio_factory: Callable[..., None]) -> dict[str, Any]:
     """Keep every corrupt artifact isolated from saved experiments."""
-    return {"root": tmp_path, "run": tmp_path / "runs" / "one"}
+    return {"root": tmp_path, "run": tmp_path / "runs" / "one", "write": portfolio_factory}
 
 
 @given("valid inference evidence")
 def valid_evidence(evidence: dict[str, Any]) -> None:
     """Supply a complete calendar and explicit registered selection history."""
-    write_portfolio(evidence["run"])
+    evidence["write"](evidence["run"])
     path = evidence["run"] / "selection.json"
     path.write_text(json.dumps(dict(n_trials=10, trial_count=20, interim_looks=1,
                                    trial_sharpe_std=.02, frequency="calendar-day",
@@ -45,12 +44,36 @@ def _change_equity(data: dict[str, Any], change: str) -> None:
         "text equity": lambda: rows[0].__setitem__(1, "100"),
         "zero equity": lambda: rows[0].__setitem__(1, 0),
         "overflow return": lambda: rows[0].__setitem__(1, 1e-320),
-        "candle points": lambda: series.update(values=[
-            [row[0], row[1], row[1] + 2, row[1] - 2, row[1] + 1] for row in rows]),
+        "candle points": lambda: series.update(values=_candles(rows)),
         "duplicate": lambda: rows.insert(10, rows[10]),
+        "consistent Return series": lambda: _add_return_series(data, rows, 0.0),
+        "mismatching Return series": lambda: _add_return_series(data, rows, 1e-4),
+        "text Return percent": lambda: data["charts"]["Strategy Equity"]["series"].update(
+            Return={"values": [[rows[1][0], "0.1"]]}),
+        "malformed Return point": lambda: data["charts"]["Strategy Equity"]["series"].update(
+            Return={"values": [[rows[1][0], 0.1, 0.2]]}),
         "missing charts": lambda: data.pop("charts"),
     }
     changes[change]()
+
+
+def _candles(rows: list[list[float]]) -> list[list[float]]:
+    """Build LEAN-shaped end-stamped candles: open is the previous mark, close is this one."""
+    candles = []
+    for previous, row in zip([rows[0], *rows[:-1]], rows, strict=True):
+        open_, close = previous[1], row[1]
+        candles.append([row[0], open_, max(open_, close) + 1, min(open_, close) - 1, close])
+    return candles
+
+
+def _add_return_series(data: dict[str, Any], rows: list[list[float]], error: float) -> None:
+    """Add LEAN's daily Return series (percent, 7 significant digits) with an optional error."""
+    values = []
+    for previous, row in zip(rows, rows[1:], strict=False):
+        percent = float(f"{(row[1] / previous[1] - 1) * 100:.7g}")
+        values.append([row[0], percent])
+    values[5][1] += error
+    data["charts"]["Strategy Equity"]["series"]["Return"] = {"values": values, "unit": "%"}
 
 
 def _change_metadata(data: dict[str, Any], change: str) -> None:
@@ -63,9 +86,23 @@ def _change_metadata(data: dict[str, Any], change: str) -> None:
     }
     if change.startswith("missing "):
         data.pop(change.removeprefix("missing "))
+    elif change in _LEDGERS:
+        data.clear()
+        data.update(_LEDGERS[change])
     else:
         key, value = changes[change]
         data[key] = value
+
+
+_LEDGER_META = {"n_trials": 2, "interim_looks": 1, "frequency": "calendar-day",
+                "provenance": "registered ledger"}
+_LEDGERS: dict[str, Any] = {
+    "ledger with text sharpe": {**_LEDGER_META, "trials": [0.01, "0.02", 0.03]},
+    "ledger with NaN sharpe": {**_LEDGER_META, "trials": [0.01, float("nan"), 0.03]},
+    "single trial ledger": {**_LEDGER_META, "trials": [{"daily_sharpe": 0.01}]},
+    "ledger below declared n_trials": {**_LEDGER_META, "n_trials": 5, "trials": [0.01, 0.02]},
+    "ledger with text n_trials": {**_LEDGER_META, "n_trials": "2", "trials": [0.01, 0.02]},
+}
 
 
 @given(parsers.parse("artifact {artifact} has {change}"))
@@ -75,8 +112,8 @@ def changed_artifact(evidence: dict[str, Any], artifact: str, change: str) -> No
     if change == "absent":
         path.unlink()
         return
-    if change in ("invalid JSON", "nonobject"):
-        path.write_text("{" if change == "invalid JSON" else "[]")
+    if change in ("invalid JSON", "nonobject", "scalar JSON"):
+        path.write_text({"invalid JSON": "{", "nonobject": "[]", "scalar JSON": "3"}[change])
         return
     data = json.loads(path.read_text())
     if artifact == "main.json":
@@ -100,13 +137,40 @@ def analyze_evidence(evidence: dict[str, Any]) -> None:
         evidence["error"] = str(exc)
 
 
-@then(parsers.parse('the evidence outcome is "{outcome}"'))
-def outcome(evidence: dict[str, Any], outcome: str) -> None:
-    """Keep malformed artifacts on the error channel and missing data unavailable."""
+@given("the run window covers only three daily returns")
+def three_returns(evidence: dict[str, Any]) -> None:
+    """Shrink the declared window and manifest to four midnight endpoints."""
+    run = evidence["run"]
+    for name, end in (("run.json", "2020-01-03"), ("inference-inputs.json", "2020-01-04")):
+        data = json.loads((run / name).read_text())
+        data["end"] = end
+        (run / name).write_text(json.dumps(data))
+
+
+@then(parsers.parse('the evidence is "{outcome}" mentioning "{diagnostic}"'))
+def channel(evidence: dict[str, Any], outcome: str, diagnostic: str) -> None:
+    """Assert the channel (error vs unavailable report) and the diagnostic on that channel."""
     if outcome == "error":
-        assert "error" in evidence
+        assert "result" not in evidence, evidence.get("result")
+        assert diagnostic in evidence["error"]
     else:
-        assert evidence.get("result", {}).get("status") == "unavailable"
+        assert "error" not in evidence, evidence.get("error")
+        assert evidence["result"]["status"] == "unavailable"
+        assert diagnostic in evidence["result"]["reason"]
+
+
+@then("the evidence reproduces the line-series moments")
+def candle_moments(evidence: dict[str, Any]) -> None:
+    """Candle close must give exactly the returns an [epoch,value] export gives."""
+    from algo_analyze.deflated import return_moments
+    from algo_analyze.portfolio import load_portfolio_returns
+
+    reference = evidence["root"] / "line-reference"
+    evidence["write"](reference)
+    expected = return_moments(load_portfolio_returns(reference).returns)
+    assert evidence["result"]["status"] == "available"
+    assert evidence["result"]["moments"]["observed_sharpe"] == expected["observed_sharpe"]
+    assert evidence["result"]["moments"]["kurtosis"] == expected["kurtosis"]
 
 
 @then(parsers.parse('the evidence diagnostic includes "{diagnostic}"'))
@@ -117,7 +181,7 @@ def diagnosis(evidence: dict[str, Any], diagnostic: str) -> None:
 
 @then("the evidence has 120 daily observations and a finite probability")
 def valid_result(evidence: dict[str, Any]) -> None:
-    """Candle open is the bucket-start mark; later OHLC fields are ignored."""
+    """Valid evidence yields the full daily grid and a finite probability."""
     result = evidence["result"]
     assert result["status"] == "available"
     assert result["moments"]["n_returns"] == 120
@@ -128,7 +192,7 @@ def valid_result(evidence: dict[str, Any]) -> None:
 def mismatched_costs(evidence: dict[str, Any]) -> None:
     """Same timestamps do not excuse incompatible net-return conventions."""
     other = evidence["root"] / "other"
-    write_portfolio(other, 1.)
+    evidence["write"](other, 1.)
     contract = other / "inference-inputs.json"
     data = json.loads(contract.read_text())
     data["costs"] = "different fees"
@@ -144,7 +208,7 @@ def mismatched_costs(evidence: dict[str, Any]) -> None:
 def unavailable_sensitivity(evidence: dict[str, Any]) -> None:
     """Keep all prespecified sensitivity entries even when one has too few blocks."""
     other = evidence["root"] / "other"
-    write_portfolio(other, 1.)
+    evidence["write"](other, 1.)
     evidence["result"] = significance_report(evidence["run"], other, block_lengths=[5, 20],
                                              n_resamples=199, seed=7, block_rule="development rule")
 

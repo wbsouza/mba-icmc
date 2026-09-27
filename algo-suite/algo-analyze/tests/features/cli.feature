@@ -46,6 +46,25 @@ Feature: algo-analyze CLI wires the library modules together
       Then the command exits 2
       And the error names "exactly two"
 
+  Rule: inference-inventory classifies every saved run without writing to it
+
+    Scenario: legacy, corrected-ready and corrupt runs are each labeled
+      Given engine equity and selection history for CLI run "inv-ready"
+      And a completed run "inv-legacy" with sharpe 0.2 and trade returns 0.01, 0.02
+      And a completed run "inv-corrupt" whose run manifest is not JSON
+      When I run "algo-analyze inference-inventory"
+      Then the command exits 0
+      And the inventory lists "inv-ready" as unavailable for "selection history"
+      And the inventory lists "inv-legacy" as unavailable for "inference-inputs.json"
+      And the inventory lists "inv-corrupt" as invalid for "invalid JSON"
+      And no saved run artifact was modified
+
+  Rule: the console entry point wires logging and the app
+
+    Scenario: version is printed through the installed entry point
+      When I run the console entry point with "version"
+      Then the entry point exits 0 and prints the package version
+
   Rule: ablation prints a contribution table and can render a figure
 
     Scenario: two runs produce a known delta against the baseline

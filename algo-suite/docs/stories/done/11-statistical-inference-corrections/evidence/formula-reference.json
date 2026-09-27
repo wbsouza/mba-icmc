@@ -63,5 +63,18 @@
     "production_probability": 0.4626150186713311,
     "absolute_error": 3.552713678800501e-15,
     "pass_tolerance_1e_12": true
+  },
+  {
+    "observed_sharpe": 0.2,
+    "n_returns": 100,
+    "skew": 0.0,
+    "kurtosis": 3.0,
+    "n_trials": 10,
+    "trial_sharpe_std": 0.1,
+    "expected_threshold_80_digits": "0.15745983013457500306813026544595611721311749510707372130447671351524703541153381",
+    "expected_probability_80_digits": "0.66242814683078126795601090204234317673256476042937207374251513140895258451576182",
+    "production_probability": 0.6624281468307812,
+    "absolute_error": 0.0,
+    "pass_tolerance_1e_12": true
   }
 ]

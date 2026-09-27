@@ -1,5 +1,5 @@
 {
-  "block_rule": "Integration diagnostic only; not trading inference",
+  "block_rule": "L=3 is the largest length satisfying the ten-block guard for 30 days; L=1 is the IID comparator; no length is size-calibrated at this n (method-design extensions); integration diagnostic only, not trading inference",
   "legacy_notice": "pre-v2 deflated_sharpe adjustments and pooled-trade p-values are exploratory",
   "n_resamples": 499,
   "portfolio_a": {
@@ -35,22 +35,22 @@
     "timezone": "UTC"
   },
   "prespecified_block_lengths": [
-    1,
-    20
+    3,
+    1
   ],
   "primary": {
-    "block_length": 1,
+    "block_length": 3,
     "reason": "degenerate paired difference; cannot estimate uncertainty",
     "status": "unavailable"
   },
-  "run_a": "/tmp/story11-real-smoke.XnkmAz/runs/baseline",
-  "run_b": "/tmp/story11-real-smoke.XnkmAz/runs/hybrid",
+  "run_a": "baseline",
+  "run_b": "hybrid",
   "schema_version": 2,
   "seed": 20260927,
   "sensitivity": [
     {
-      "block_length": 20,
-      "reason": "need >=30 observations and >=10 expected blocks",
+      "block_length": 1,
+      "reason": "degenerate paired difference; cannot estimate uncertainty",
       "status": "unavailable"
     }
   ],

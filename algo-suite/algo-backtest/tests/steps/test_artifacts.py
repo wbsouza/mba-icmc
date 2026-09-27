@@ -31,6 +31,7 @@ def _finished_run(art_ctx: dict[str, Any], n: int) -> None:
     art_ctx["manifest"] = RunManifest(
         strategy="baseline-ma", symbol="EURUSD", start="2014-05-07", end="2014-05-09",
         params={"fast": "3", "slow": "8", "size": "0.5"}, success=True, closed_trades=n,
+        broker_adapter="oanda",
     )
 
 
@@ -51,7 +52,7 @@ def _run_json(art_ctx: dict[str, Any], strategy: str, symbol: str) -> None:
     contract = json.loads(art_ctx["artifacts"].inference_inputs_json.read_text())
     assert contract["symbol"] == symbol
     assert contract["end"] == "2014-05-10"
-    assert contract["costs"] == "brokerage:unknown"
+    assert contract["costs"] == "brokerage:oanda"
     assert len(doc["inference_inputs_sha256"]) == 64
 
 
@@ -71,7 +72,7 @@ def _baseline_manifest(closed_trades: int) -> RunManifest:
     """A minimal manifest for the normalization scenarios (its contents are unchecked)."""
     return RunManifest(
         strategy="baseline-ma", symbol="EURUSD", start="2014-05-07", end="2014-05-09",
-        params={}, success=True, closed_trades=closed_trades,
+        params={}, success=True, closed_trades=closed_trades, broker_adapter="oanda",
     )
 
 

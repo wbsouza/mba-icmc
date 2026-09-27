@@ -1,48 +1,65 @@
 Feature: Inference rejects malformed evidence instead of fabricating certainty
-  Scenario Outline: Artifact schema and coverage are validated explicitly
+  Scenario Outline: Artifact schema and coverage are validated on a declared channel
+    Invalid evidence is an error (CLI exit 2); valid evidence that cannot support
+    inference is an explicit unavailable report. The channel is part of the contract.
+
     Given valid inference evidence
     And artifact <artifact> has <change>
     When the evidence is analyzed
-    Then the evidence diagnostic includes "<diagnostic>"
+    Then the evidence is "<outcome>" mentioning "<diagnostic>"
     Examples:
-      | artifact | change | diagnostic |
-      | main.json | invalid JSON | invalid JSON |
-      | main.json | nonobject | JSON object |
-      | main.json | absent | missing main.json |
-      | main.json | missing charts | lacks Strategy Equity |
-      | main.json | nonlist values | must be a list |
-      | main.json | malformed point | equity points require |
-      | main.json | boolean timestamp | integer Unix seconds |
-      | main.json | text equity | must be numeric |
-      | main.json | zero equity | finite and positive |
-      | main.json | overflow return | derived portfolio returns |
-      | run.json | unsuccessful | successful run manifest |
-      | run.json | missing symbol | string start, end, symbol |
-      | run.json | reversed dates | end must be after start |
-      | inference-inputs.json | wrong timezone | calendar-day UTC |
-      | inference-inputs.json | empty costs | nonempty costs |
-      | selection.json | missing n_trials | selection manifest requires |
-      | selection.json | wrong frequency | nonannualized calendar-day |
-      | selection.json | boolean n_trials | positive integer |
-      | selection.json | excessive n_trials | cannot exceed |
-      | selection.json | empty provenance | provenance must be nonempty |
+      | artifact | change | outcome | diagnostic |
+      | main.json | invalid JSON | error | invalid JSON |
+      | main.json | nonobject | error | JSON object |
+      | main.json | absent | unavailable | missing main.json |
+      | main.json | missing charts | unavailable | lacks Strategy Equity |
+      | main.json | nonlist values | error | must be a list |
+      | main.json | malformed point | error | equity points require |
+      | main.json | boolean timestamp | error | integer Unix seconds |
+      | main.json | text equity | error | must be numeric |
+      | main.json | zero equity | error | finite and positive |
+      | main.json | overflow return | error | derived portfolio returns |
+      | main.json | duplicate | error | ordered and unique |
+      | main.json | mismatching Return series | error | engine daily Return series |
+      | main.json | text Return percent | error | Return points require |
+      | main.json | malformed Return point | error | Return points require |
+      | run.json | unsuccessful | error | successful run manifest |
+      | run.json | missing symbol | error | string start, end, symbol |
+      | run.json | reversed dates | error | end must be after start |
+      | inference-inputs.json | wrong timezone | error | calendar-day UTC |
+      | inference-inputs.json | empty costs | error | nonempty costs |
+      | selection.json | missing n_trials | error | selection manifest requires |
+      | selection.json | wrong frequency | error | nonannualized calendar-day |
+      | selection.json | boolean n_trials | error | positive integer |
+      | selection.json | excessive n_trials | error | cannot exceed |
+      | selection.json | empty provenance | error | provenance must be nonempty |
+      | selection.json | scalar JSON | error | JSON object |
+      | selection.json | ledger with text sharpe | error | finite daily_sharpe |
+      | selection.json | ledger with NaN sharpe | error | finite daily_sharpe |
+      | selection.json | single trial ledger | error | at least two trials |
+      | selection.json | ledger below declared n_trials | error | cannot exceed |
+      | selection.json | ledger with text n_trials | error | positive integer |
 
-  Scenario: Candle open is used for the bucket-start portfolio mark
+  Scenario: Candle rows use the end-stamped close as the daily mark
+    LEAN stamps each equity candlestick with its END time and schedules a
+    sample at every midnight, so the close of the midnight candle is the mark.
+
     Given valid inference evidence
     And artifact main.json has candle points
     When the evidence is analyzed
+    Then the evidence reproduces the line-series moments
+
+  Scenario: A consistent engine Return series is accepted
+    Given valid inference evidence
+    And artifact main.json has consistent Return series
+    When the evidence is analyzed
     Then the evidence has 120 daily observations and a finite probability
 
-  Scenario Outline: Invalid artifacts and unavailable inference use distinct channels
+  Scenario: Fewer than four daily returns leave DSR unavailable, not invalid
     Given valid inference evidence
-    And artifact <artifact> has <change>
+    And the run window covers only three daily returns
     When the evidence is analyzed
-    Then the evidence outcome is "<outcome>"
-    Examples:
-      | artifact | change | outcome |
-      | main.json | absent | unavailable |
-      | main.json | duplicate | error |
-      | run.json | unsuccessful | error |
+    Then the evidence is "unavailable" mentioning "at least four"
 
   Scenario: Portfolio pairs cannot mix cost assumptions
     Given valid inference evidence

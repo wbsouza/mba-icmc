@@ -24,6 +24,25 @@ BURN_IN = 300
 RESAMPLES = 499
 BLOCK_LENGTHS = (1, 10, 20, 40)
 NULL_BOUND = 0.05 + 3 * math.sqrt(0.05 * 0.95 / REPLICATIONS)
+# Registered extensions (method-design.md): candidate block-length rules at thesis-scale
+# windows, each with its own scenario-index range so every study reproduces independently.
+EXTENSION_OBSERVATIONS = (90, 180)
+
+
+def rule_block_length(n: int) -> int:
+    """First candidate rule, L = max(1, floor(n^(1/3)))."""
+    return max(1, math.floor(round(math.pow(n, 1 / 3), 9)))
+
+
+def guard_block_length(n: int) -> int:
+    """Second candidate rule, the maximal feasible length under the ten-block guard."""
+    return max(1, n // 10)
+
+
+EXTENSION_RULES = (
+    ("floor(n^(1/3))", rule_block_length, 6),
+    ("floor(n/10)", guard_block_length, 18),
+)
 
 
 def wilson(successes: int, count: int) -> list[float]:
@@ -37,29 +56,33 @@ def wilson(successes: int, count: int) -> list[float]:
 
 
 def paired_sample(
-    rng: np.random.Generator, phi: float, effect: float,
+    rng: np.random.Generator, phi: float, effect: float, observations: int = OBSERVATIONS,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Generate the registered stationary AR(1) difference and shared baseline."""
-    n = OBSERVATIONS + BURN_IN
+    n = observations + BURN_IN
     innovations = rng.normal(0, 0.01 * math.sqrt(1 - phi**2), n)
     differences = np.empty(n)
     differences[0] = rng.normal(0, 0.01)
     for index in range(1, n):
         differences[index] = phi * differences[index - 1] + innovations[index]
-    baseline = rng.normal(0, 0.01, OBSERVATIONS)
+    baseline = rng.normal(0, 0.01, observations)
     return baseline, baseline + differences[BURN_IN:] + effect
 
 
-def scenario(phi: float, effect: float, scenario_index: int) -> list[dict[str, object]]:
-    """Evaluate all sensitivity settings with identical samples and bootstrap seeds."""
-    rejections = dict.fromkeys(BLOCK_LENGTHS, 0)
-    disagreements = dict.fromkeys(BLOCK_LENGTHS, 0)
+def scenario(
+    phi: float, effect: float, scenario_index: int,
+    observations: int = OBSERVATIONS, block_lengths: tuple[int, ...] = BLOCK_LENGTHS,
+    primary: int = 20,
+) -> list[dict[str, object]]:
+    """Evaluate all declared settings with identical samples and bootstrap seeds."""
+    rejections = dict.fromkeys(block_lengths, 0)
+    disagreements = dict.fromkeys(block_lengths, 0)
     seeds = np.random.SeedSequence([SEED, scenario_index]).spawn(REPLICATIONS)
     for seed in seeds:
         rng = np.random.default_rng(seed)
-        a, b = paired_sample(rng, phi, effect)
+        a, b = paired_sample(rng, phi, effect, observations)
         bootstrap_seed = int(rng.integers(0, 2**32))
-        for length in BLOCK_LENGTHS:
+        for length in block_lengths:
             result = paired_block_test(
                 a.tolist(), b.tolist(), block_length=length,
                 n_resamples=RESAMPLES, seed=bootstrap_seed,
@@ -67,23 +90,26 @@ def scenario(phi: float, effect: float, scenario_index: int) -> list[dict[str, o
             rejections[length] += result.reject_null
             lower, upper = result.confidence_interval
             disagreements[length] += result.reject_null != (lower > 0 or upper < 0)
-    return [summarize(phi, effect, length, rejections[length], disagreements[length])
-            for length in BLOCK_LENGTHS]
+    return [summarize(phi, effect, length, rejections[length], disagreements[length],
+                      observations, primary)
+            for length in block_lengths]
 
 
 def summarize(
     phi: float, effect: float, length: int, rejections: int, disagreements: int,
+    observations: int = OBSERVATIONS, primary: int = 20,
 ) -> dict[str, object]:
-    """Report every outcome, with gates applied only to the registered primary setting."""
+    """Report every outcome; gates apply only to the registered primary setting."""
     rate = rejections / REPLICATIONS
     gate = None
-    if length == 20 and effect == 0:
+    if length == primary and effect == 0:
         gate = rate <= NULL_BOUND
-    if length == 20 and effect == 0.002:
+    if length == primary and effect == 0.002 and observations == OBSERVATIONS:
         gate = rate > 0.8
+    role = "IID comparator" if length == 1 else "primary" if length == primary else "sensitivity"
     return {
-        "phi": phi, "mean_effect": effect, "block_length": length,
-        "role": "IID comparator" if length == 1 else "primary" if length == 20 else "sensitivity",
+        "phi": phi, "mean_effect": effect, "n_observations": observations,
+        "block_length": length, "role": role,
         "rejections": rejections, "replications": REPLICATIONS,
         "rejection_rate": rate, "wilson_95_interval": wilson(rejections, REPLICATIONS),
         "registered_gate_pass": gate, "p_interval_disagreements": disagreements,
@@ -135,6 +161,7 @@ def main() -> None:
         (0.15, 500, -0.5, 4.0, 20, 0.08),
         (-0.05, 1200, 0.3, 5.0, 50, 0.04),
         (0.25, 1250, -1.0, 6.0, 100, 0.1),
+        (0.2, 100, 0.0, 3.0, 10, 0.1),
     ]]
     (destination / "formula-reference.json").write_text(json.dumps(fixtures, indent=2) + "\n")
     rows = []
@@ -143,10 +170,30 @@ def main() -> None:
         results = scenario(phi, effect, index)
         rows.extend(results)
         print(json.dumps(results), flush=True)
+    extension = [(n, phi, effect) for n in EXTENSION_OBSERVATIONS
+                 for phi in (0.0, 0.6) for effect in (0.0, 0.001, 0.002)]
+    for name, rule_function, first_index in EXTENSION_RULES:
+        for offset, (n, phi, effect) in enumerate(extension, start=first_index):
+            rule = rule_function(n)
+            results = scenario(phi, effect, offset, n, (1, rule), rule)
+            for row in results:
+                row["block_length_rule"] = name
+            rows.extend(results)
+            print(json.dumps(results), flush=True)
     config = {
         "seed": SEED, "replications": REPLICATIONS, "observations": OBSERVATIONS,
         "burn_in": BURN_IN, "resamples": RESAMPLES, "block_lengths": BLOCK_LENGTHS,
         "primary_block_length": 20, "null_gate_bound": NULL_BOUND,
+        "extensions": [
+            {
+                "block_length_rule": name,
+                "observations": EXTENSION_OBSERVATIONS,
+                "rule_lengths": {n: rule_function(n) for n in EXTENSION_OBSERVATIONS},
+                "scenario_indices": list(range(first, first + len(extension))),
+                "gates": "null rejection <= null_gate_bound at the rule length; power reported",
+            }
+            for name, rule_function, first in EXTENSION_RULES
+        ],
         "marginal_difference_sd": 0.01, "baseline_sd": 0.01,
         "seed_construction": "SeedSequence([20260927, scenario_index]).spawn(300)",
         "numpy_version": np.__version__, "production_source_sha256": sources,

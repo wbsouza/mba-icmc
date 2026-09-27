@@ -45,7 +45,7 @@ PY
 for family in baseline hybrid; do
     ALGO_DATA_ROOT="$work" uv run algo-analyze metrics --run "$family" > "$evidence/pilot-$family-v2.json" 2> "$evidence/pilot-$family.stderr.txt"
 done
-ALGO_DATA_ROOT="$work" uv run algo-analyze significance --runs baseline --runs hybrid --block-length 1 --block-length 20 --block-rule 'Integration diagnostic only; not trading inference' --resamples 499 --seed 20260927 > "$evidence/pilot-paired-v2.json" 2> "$evidence/pilot-paired.stderr.txt"
+ALGO_DATA_ROOT="$work" uv run algo-analyze significance --runs baseline --runs hybrid --block-length 3 --block-length 1 --block-rule 'L=3 is the largest length satisfying the ten-block guard for 30 days; L=1 is the IID comparator; no length is size-calibrated at this n (method-design extensions); integration diagnostic only, not trading inference' --resamples 499 --seed 20260927 > "$evidence/pilot-paired-v2.json" 2> "$evidence/pilot-paired.stderr.txt"
 uv run python - "$pilot" "$evidence" <<'PY'
 import hashlib
 import json
@@ -63,9 +63,11 @@ for family in ('baseline', 'hybrid'):
     assert 'zero return variance' in result['reason']
     assert result['portfolio']['n_observations'] == 30
 paired = json.loads((evidence / 'pilot-paired-v2.json').read_text())
-assert paired['primary']['status'] == 'unavailable'
+assert paired['primary']['block_length'] == 3 and paired['primary']['status'] == 'unavailable'
 assert 'degenerate' in paired['primary']['reason']
+assert paired['sensitivity'][0]['block_length'] == 1
 assert paired['sensitivity'][0]['status'] == 'unavailable'
-assert 'expected blocks' in paired['sensitivity'][0]['reason']
+assert 'degenerate' in paired['sensitivity'][0]['reason']
+assert paired['run_a'] == 'baseline' and paired['run_b'] == 'hybrid'
 print('PASS: two saved LEAN runs, 30 actual daily returns, unavailable flat-equity inference; original hashes unchanged')
 PY

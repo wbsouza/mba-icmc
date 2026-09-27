@@ -10,16 +10,19 @@ file through a separately archived producer manifest:
 
 ```json
 {"source":"main.json","frequency":"calendar-day","timezone":"UTC",
- "annualization":365,"risk_free_daily":0,"costs":"engine fees and execution slippage included",
+ "annualization":365,"risk_free_daily":0,"costs":"brokerage:oanda",
  "symbol":"EURUSD","start":"2015-09-01","end":"2015-10-01"}
 ```
 
 Dates delimit return intervals: start is the initial midnight equity endpoint;
 end is exclusive relative to the inclusive `run.json` evaluation dates. They must
 match the run symbol and full window. The loader reads LEAN's actual marked-to-market
-`charts/Strategy Equity/series/Equity/values` (`[epoch,value]` or candle open at the
-bucket start), retaining
-flat periods. Every exact UTC midnight endpoint must exist. No weekend filling,
+`charts/Strategy Equity/series/Equity/values` (`[epoch,value]` or the candle **close**:
+LEAN stamps each equity candlestick with its end time and schedules a sample at every
+midnight, so the midnight close is the mark), retaining flat periods. When the export
+also carries LEAN's daily `Return` series, every derived return must agree with it to
+1e-8; a mismatch is an input error, never a silent choice of a different mark.
+Every exact UTC midnight endpoint must exist. No weekend filling,
 interpolation, trimming, or trade-ledger substitution is allowed. Downsampled engine
 charts without those endpoints are unavailable: rerun with a complete equity export.
 Changing analysis does not itself require model retraining. Source and contract SHA256
@@ -34,13 +37,16 @@ Selection ledger example (the analyzer computes dispersion from the search recor
  "trials":[{"run_id":"candidate-01","daily_sharpe":0.02}]}
 ```
 
-`n_trials` is effective independent count; `trial_count` retains actual searched
-variants. The ledger form computes and hashes the across-trial SD of nonannualized
-daily Sharpe, never one strategy's standard error. A legacy manifest form remains
-accepted only for explicitly registered external histories and is labeled
-`source_kind: declared`; computed ledgers are labeled `source_kind: computed`.
-One registered trial permits null dispersion and uses
-PSR against zero. Return moments use sample SD (ddof1) for SR and uncorrected central
+`n_trials` is the effective independent count and stays a declared research judgment;
+`trial_count` and `trial_sharpe_std` are computed from the ledger (across-trial SD of
+nonannualized daily Sharpe, never one strategy's standard error) and the ledger file is
+hashed. `interim_looks`, `frequency` and `provenance` must be declared in either form;
+nothing is defaulted. A declared manifest without `trials` remains accepted only for
+explicitly registered external histories and is labeled `source_kind: declared`;
+ledgers are labeled `source_kind: computed`. One registered trial permits null
+dispersion and uses PSR against zero. Fewer than four daily returns is insufficient
+evidence and reports `status: unavailable`; nonfinite equity is an input error.
+Return moments use sample SD (ddof1) for SR and uncorrected central
 moments for skew/Pearson kurtosis. DSR implements Bailey–López de Prado (2014), Eq2,
 including the expected-maximum selection threshold. Its classical asymptotic assumptions
 do not establish validity for serially dependent returns.
@@ -52,12 +58,21 @@ circular ordered continuation, and common indices for both arms. The estimand is
 mean daily net return difference (challenger minus baseline); the two-sided null is
 zero mean difference. Centered paired differences generate the null distribution.
 The plus-one absolute-tail p-value and symmetric basic confidence interval invert
-the same empirical error distribution (including the Monte Carlo correction).
+the same empirical error distribution (including the Monte Carlo correction). The
+interval is not studentized: its coverage is approximate when the bootstrap error
+distribution is skewed, which fat-tailed return differences can be (technical-debt
+TD-62 tracks a bootstrap-t variant).
 The first length is primary; all others are sensitivity results, never a minimum-p
 selection. Require at least 30 observations and ten expected blocks. Constant paired
 differences, including all-zero differences, are unavailable because uncertainty cannot
 be estimated. Stationarity, weak dependence and adequate finite moments remain assumptions.
-Predeclare lengths on development data, before examining evaluation outcomes.
+Predeclare lengths on development data, before examining evaluation outcomes, and
+pass the primary as the first `--block-length`. A length with fewer than ten expected
+blocks is reported unavailable, never silently shortened. Two block-length rules were
+registered and evaluated for 90–180-day windows and **both failed the size gate**
+(Story 11 `method-design.md`); at those lengths this procedure is not size-calibrated,
+so a confirmatory paired claim needs a materially longer window (n=1200 passed at
+L=20) or a studentized variant (TD-62). The analyzer reports the diagnostics regardless.
 
 Primary method sources: [DSR](https://www.davidhbailey.com/dhbpapers/deflated-sharpe.pdf),
 [Politis & Romano (1994)](https://users.ssc.wisc.edu/~behansen/718/Politis%20Romano.pdf).

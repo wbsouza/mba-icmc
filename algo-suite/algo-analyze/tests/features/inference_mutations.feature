@@ -43,6 +43,11 @@ Feature: Independently constrained statistical equations
     When its portfolio returns are loaded
     Then the four daily returns are 0.1 0 -0.1 and 1/99
 
+  Scenario: End-stamped candles yield the same daily returns as line points
+    Given a portfolio with exact daily candles closing at 100 110 110 99 100
+    When its portfolio returns are loaded
+    Then the four daily returns are 0.1 0 -0.1 and 1/99
+
   Scenario: Pair alignment rejects timestamps independently of identical metadata
     Given two portfolio series with identical metadata but different timestamps
     When the pair alignment is validated

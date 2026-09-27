@@ -103,6 +103,20 @@ def _completed_run_with_total_return(
     _write_trades(run_dir, [0.01, 0.02])
 
 
+@given(parsers.parse('a completed run "{run_id}" whose run manifest is not JSON'))
+def _corrupt_manifest_run(cctx: dict[str, Any], run_id: str) -> None:
+    """Create a run whose metrics exist but whose run.json cannot be parsed."""
+    run_dir = _run_dir(cctx, run_id)
+    _write_metrics(run_dir, sharpe=0.1)
+    _write_trades(run_dir, [0.01])
+    (run_dir / "run.json").write_text("{")
+    (run_dir / "inference-inputs.json").write_text(json.dumps({
+        "source": "main.json", "frequency": "calendar-day", "timezone": "UTC",
+        "annualization": 365, "risk_free_daily": 0, "costs": "brokerage:fixture",
+        "symbol": "EURUSD", "start": "2020-01-01", "end": "2020-04-30",
+    }))
+
+
 @given(parsers.parse('a run "{run_id}" without a metrics artifact'))
 def _run_without_metrics(cctx: dict[str, Any], run_id: str) -> None:
     """Create a run directory that intentionally lacks metrics.json."""
@@ -119,7 +133,53 @@ def _invoke(cctx: dict[str, Any], command: str) -> None:
     """Run a full `algo-analyze ...` command line through the CLI runner."""
     args = command.split()
     assert args[0] == "algo-analyze", command
+    cctx["snapshot"] = _artifact_digests(cctx)
     cctx["result"] = CliRunner().invoke(app, args[1:])
+
+
+def _artifact_digests(cctx: dict[str, Any]) -> dict[str, str]:
+    """Hash every file under the data root so a command can be proven read-only."""
+    import hashlib
+
+    return {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(cctx["data_root"].rglob("*")) if p.is_file()}
+
+
+@when(parsers.parse('I run the console entry point with "{argument}"'))
+def _entry_point(cctx: dict[str, Any], argument: str, monkeypatch: pytest.MonkeyPatch,
+                 capsys: pytest.CaptureFixture[str]) -> None:
+    """Call the installed `main()` exactly as the console script would."""
+    from algo_analyze.cli import main
+
+    monkeypatch.setattr("sys.argv", ["algo-analyze", argument])
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    cctx["entry_exit"] = exit_info.value.code
+    cctx["entry_out"] = capsys.readouterr().out
+
+
+@then("the entry point exits 0 and prints the package version")
+def _entry_version(cctx: dict[str, Any]) -> None:
+    """The console script must exit cleanly and print exactly the installed version."""
+    from importlib.metadata import version as pkg_version
+
+    assert cctx["entry_exit"] == 0
+    assert cctx["entry_out"].strip() == pkg_version("algo-analyze")
+
+
+@then(parsers.parse('the inventory lists "{run_id}" as {status} for "{reason}"'))
+def _inventory_entry(cctx: dict[str, Any], run_id: str, status: str, reason: str) -> None:
+    """Every discovered run carries a status and a reason naming the missing prerequisite."""
+    payload = json.loads(cctx["result"].output)
+    entry = next(r for r in payload["runs"] if r["run"] == f"runs/{run_id}")
+    assert entry["status"] == status, entry
+    assert reason in entry["reason"], entry
+
+
+@then("no saved run artifact was modified")
+def _read_only(cctx: dict[str, Any]) -> None:
+    """Byte-for-byte proof that the command never writes into historical run directories."""
+    assert _artifact_digests(cctx) == cctx["snapshot"]
 
 
 @when(parsers.parse('I run "{command}"'))

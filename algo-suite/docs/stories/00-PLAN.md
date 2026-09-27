@@ -324,7 +324,7 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** Local GDELT completion markers through September 2015. Coverage reconciliation, GPR evidence, and full-window readiness remain open |
 | 09 | [Six-month training and September pilot](in-progress/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **in progress.** Models saved; baseline and hybrid September replays completed with zero trades and need diagnosis |
 | 10 | [Experiment validation readiness](planned/10-experiment-validation-readiness/progress.md) | research protocol + all tools | 08, 09, 11 evidence | **planned.** Coverage, execution, validation, and claim readiness |
-| 11 | [Statistical inference corrections](done/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **done** (2026-09-27). Schema-v2 DSR probability, paired stationary bootstrap, legacy inventory and independent validation archived; empirical use waits on audited inputs (Task 10) |
+| 11 | [Statistical inference corrections](done/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **done** (2026-09-27). Schema-v2 DSR probability, paired stationary bootstrap, legacy inventory and independent validation archived; empirical use waits on audited inputs (Task 10) and on an evaluation window long enough for calibrated paired inference: both registered block rules failed at 90–180 days |
 
 ```mermaid
 flowchart LR

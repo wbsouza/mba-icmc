@@ -20,7 +20,7 @@ ALLOWED = {
     "portfolio": {"__future__", "hashlib", "json", "math", "dataclasses", "datetime",
                   "pathlib", "typing", "algo_analyze.deflated"},
     "reports": {
-        "__future__", "json", "dataclasses", "pathlib", "statistics", "typing",
+        "__future__", "math", "dataclasses", "pathlib", "statistics", "typing",
         "algo_backtest.metrics", "algo_analyze.deflated", "algo_analyze.portfolio",
         "algo_analyze.significance",
     },

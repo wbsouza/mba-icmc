@@ -35,6 +35,7 @@ def _completed_run(actx: dict[str, Any], run_id: str, total_return: float) -> No
             params={},
             success=True,
             closed_trades=2,
+            broker_adapter="oanda",
         ),
         closed_trades=[{"return": 0.01}, {"return": 0.02}],
         metrics=Metrics(

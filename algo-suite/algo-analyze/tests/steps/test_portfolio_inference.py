@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -16,45 +16,6 @@ from pytest_bdd import given, parsers, scenarios, then, when
 scenarios("../features/portfolio_inference.feature")
 
 
-def write_portfolio(path: Path, offset: float = 0.0) -> None:
-    """Write actual engine-shape equity, deliberately unrelated to trade returns."""
-    path.mkdir(parents=True, exist_ok=True)
-    start = datetime(2020, 1, 1, tzinfo=UTC)
-    values, equity = [], 100000.0
-    for i in range(121):
-        values.append([int((start + timedelta(days=i)).timestamp()), equity])
-        equity *= 1 + 0.005 * np.sin(i * 0.71 + offset) + 0.001 + offset * 0.0001
-    artifacts = {
-        "main.json": {"charts": {"Strategy Equity": {"series": {"Equity": {"values": values}}}}},
-        "run.json": {
-            "success": True,
-            "symbol": "EURUSD",
-            "start": "2020-01-01",
-            "end": "2020-04-29",
-        },
-        "metrics.json": {
-            "sharpe": 99.0,
-            "total_return": 0.1,
-            "max_drawdown": -0.1,
-            "hit_rate": 0.5,
-        },
-        "trades.json": [{"return": 100}] * (2 if offset else 7),
-        "inference-inputs.json": {
-            "source": "main.json",
-            "frequency": "calendar-day",
-            "timezone": "UTC",
-            "annualization": 365,
-            "risk_free_daily": 0,
-            "costs": "brokerage:fixture",
-            "symbol": "EURUSD",
-            "start": "2020-01-01",
-            "end": "2020-04-30",
-        },
-    }
-    for name, value in artifacts.items():
-        (path / name).write_text(json.dumps(value))
-
-
 @pytest.fixture
 def pctx(tmp_path: Path) -> dict[str, Any]:
     """Allocate isolated paired artifacts."""
@@ -62,10 +23,10 @@ def pctx(tmp_path: Path) -> dict[str, Any]:
 
 
 @given("complete paired engine portfolios")
-def portfolios(pctx: dict[str, Any]) -> None:
+def portfolios(pctx: dict[str, Any], portfolio_factory: Callable[..., None]) -> None:
     """Use deterministic, nondegenerate paired portfolios."""
-    write_portfolio(pctx["a"])
-    write_portfolio(pctx["b"], 1.0)
+    portfolio_factory(pctx["a"])
+    portfolio_factory(pctx["b"], 1.0)
     pctx["original"] = {
         str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in pctx["root"].rglob("*.json")
     }

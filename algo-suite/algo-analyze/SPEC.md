@@ -61,8 +61,12 @@ run window. Start is the initial midnight endpoint; end is the midnight immediat
 after the inclusive `run.json` end date. Successful run identity must match.
 
 Read actual marked-to-market `charts/Strategy Equity/series/Equity/values`, using
-line values or candle close values. Require ordered unique finite positive equity
-and every exact daily boundary, including recorded flat periods. Derive simple net
+line values or candle close values: LEAN's `SampleEquity(time)` documents `time` as
+the candlestick end time and its "Daily Sampling" schedule fires at midnight, so the
+midnight close is the mark. When LEAN's daily `Return` series is present, each derived
+return must agree with it within 1e-8 or the artifact is invalid. Require ordered
+unique finite positive equity and every exact daily boundary, including recorded
+flat periods. Derive simple net
 portfolio returns, reject nonfinite derived values, and align by timestamps plus
 pair/window/cost conventions. No imputation, trade-index pairing or array truncation.
 Missing endpoints make inference unavailable. Simulation reruns may be necessary
@@ -88,8 +92,12 @@ null-centered daily return differences, challenger minus baseline. Geometric blo
 lengths have declared expectation; circular within-block ordering and common indices
 preserve pairing. The estimand is mean net return, null zero, two-sided. The plus-one
 absolute-tail p-value and symmetric confidence interval invert the same empirical
-error distribution. They do not test Sharpe superiority. Require at least 30 returns
-and ten expected blocks. Constant differences yield unavailable uncertainty.
+error distribution; the interval is not studentized, so its coverage is approximate
+under skewed bootstrap errors (TD-62). They do not test Sharpe superiority. Require
+at least 30 returns and ten expected blocks. Constant differences yield unavailable
+uncertainty. No block-length rule is registered for 90–180-day windows: both
+prospectively registered candidates failed the size gate (Story 11 method design), so
+confirmatory use at those lengths requires a longer window or TD-62.
 
 Register primary and sensitivity block lengths before examining evaluation outcomes;
 record all outcomes, block rule, seed, resamples, observations and expected blocks.
@@ -117,9 +125,11 @@ There is no default trial count, normal-moment assumption, or DSR plausibility b
 
 ## 7. Error handling and acceptance
 
-Incomplete equity/selection history, zero variance and insufficient blocks report
-`status: unavailable` with a reason. Invalid data or incompatible windows produce
-an actionable CLI error (exit 2); they are never silently repaired. Descriptive
+Incomplete equity/selection history, fewer than four daily returns, zero variance
+and insufficient blocks report `status: unavailable` with a reason. Invalid data,
+incompatible windows, malformed selection ledgers and disagreement with the engine
+`Return` series produce an actionable CLI error (exit 2); they are never silently
+repaired. Every malformed-input scenario asserts its channel explicitly. Descriptive
 metrics remain available when inference is unavailable. Missing `metrics.json`
 is an input error. Logging goes to stderr; JSON goes to stdout.
 

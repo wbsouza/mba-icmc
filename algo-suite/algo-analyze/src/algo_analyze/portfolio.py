@@ -22,12 +22,17 @@ class PortfolioReturns:
     metadata: dict[str, Any]
 
 
-def read_object(path: Path) -> dict[str, Any]:
-    """Read an object artifact and translate malformed JSON to a diagnostic."""
+def read_json(path: Path) -> Any:
+    """Read a JSON artifact and translate malformed JSON to a diagnostic."""
     try:
-        value = json.loads(path.read_text())
+        return json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid JSON in {path}: {exc}") from exc
+
+
+def read_object(path: Path) -> dict[str, Any]:
+    """Read a JSON artifact that must be an object."""
+    value = read_json(path)
     if not isinstance(value, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return value
@@ -77,15 +82,16 @@ def _match_manifest(run_dir: Path, data: dict[str, Any]) -> None:
 
 
 def _point(row: Any) -> tuple[int, float]:
-    """Read LEAN line or candle points at the bucket-start mark.
+    """Read LEAN line [epoch,value] or candle [epoch,open,high,low,close] points.
 
-    LEAN stamps candle rows at the start of their aggregation bucket.  The open
-    is therefore the mark at the timestamp; the close is a later intra-bucket
-    observation and cannot represent an exact midnight endpoint.
+    LEAN's ``SampleEquity(time)`` documents ``time`` as the candlestick END time and
+    builds the bar from every equity update since the previous sample, so the close
+    is the portfolio mark at the timestamp. A scheduled "Daily Sampling" event fires
+    at midnight, which is why every backtest carries an exact midnight close.
     """
     if not isinstance(row, list) or len(row) not in (2, 5):
         raise ValueError("equity points require [epoch,value] or [epoch,open,high,low,close]")
-    timestamp, value = row[0], row[1] if len(row) == 5 else row[-1]
+    timestamp, value = row[0], row[-1]
     if type(timestamp) is not int:
         raise ValueError("equity timestamp must be integer Unix seconds")
     if type(value) not in (int, float):
@@ -95,13 +101,14 @@ def _point(row: Any) -> tuple[int, float]:
     return timestamp, float(value)
 
 
-def _equity(path: Path) -> dict[int, float]:
-    """Read engine equity without accepting closed-trade substitutes or duplicate points."""
+def _equity(path: Path) -> tuple[dict[int, float], dict[int, float]]:
+    """Read engine equity and, when exported, LEAN's own daily Return series (percent)."""
     if not path.exists():
         raise InferenceUnavailable("missing main.json engine portfolio equity; rerun simulation")
     data = read_object(path)
     try:
-        values = data["charts"]["Strategy Equity"]["series"]["Equity"]["values"]
+        series = data["charts"]["Strategy Equity"]["series"]
+        values = series["Equity"]["values"]
     except (KeyError, TypeError) as exc:
         raise InferenceUnavailable("main.json lacks Strategy Equity/Equity values") from exc
     if not isinstance(values, list):
@@ -110,14 +117,31 @@ def _equity(path: Path) -> dict[int, float]:
     timestamps = [point[0] for point in points]
     if timestamps != sorted(set(timestamps)):
         raise ValueError("engine equity timestamps must be ordered and unique")
-    return dict(points)
+    return dict(points), _daily_performance(series)
+
+
+def _daily_performance(series: Any) -> dict[int, float]:
+    """Read LEAN's ``Return`` series (daily performance, percent) when the export has one."""
+    values = series.get("Return", {}).get("values", []) if isinstance(series, dict) else []
+    return dict(_performance_point(row) for row in values)
+
+
+def _performance_point(row: Any) -> tuple[int, float]:
+    """Read one ``[epoch, percent]`` daily-performance point."""
+    if not isinstance(row, list) or len(row) != 2 or type(row[0]) is not int:
+        raise ValueError("engine Return points require [epoch,percent]")
+    if type(row[1]) not in (int, float) or not math.isfinite(row[1]):
+        raise ValueError("engine Return points require [epoch,percent]")
+    return row[0], float(row[1])
 
 
 def load_portfolio_returns(run_dir: Path) -> PortfolioReturns:
     """Select exact UTC midnight endpoints; missing days are never imputed or dropped."""
     metadata = _contract(run_dir)
     grid = _daily_grid(metadata)
-    returns = _daily_returns(grid, _equity(run_dir / "main.json"))
+    equity, performance = _equity(run_dir / "main.json")
+    returns = _daily_returns(grid, equity)
+    _check_engine_performance(grid[1:], returns, performance)
     metadata = {
         **metadata,
         "source_sha256": source_hash(run_dir / "main.json"),
@@ -155,6 +179,28 @@ def _daily_returns(grid: tuple[int, ...], equity: dict[int, float]) -> tuple[flo
     if not all(math.isfinite(value) for value in returns):
         raise ValueError("derived portfolio returns must be finite")
     return returns
+
+
+ENGINE_RETURN_TOLERANCE = 1e-8
+
+
+def _check_engine_performance(
+    timestamps: tuple[int, ...], returns: tuple[float, ...], performance: dict[int, float]
+) -> None:
+    """Require derived returns to agree with the engine's daily Return series where exported.
+
+    LEAN samples ``Return`` once per day from the same midnight equity, rounded to a few
+    significant digits, so a mismatch beyond ``ENGINE_RETURN_TOLERANCE`` means the wrong
+    mark (or the wrong day) was selected; it is never silently accepted.
+    """
+    for timestamp, derived in zip(timestamps, returns, strict=True):
+        if timestamp not in performance:
+            continue
+        if abs(derived - performance[timestamp] / 100) > ENGINE_RETURN_TOLERANCE:
+            day = datetime.fromtimestamp(timestamp, UTC).date().isoformat()
+            raise ValueError(
+                f"derived return on {day} disagrees with the engine daily Return series"
+            )
 
 
 def align_portfolios(a: PortfolioReturns, b: PortfolioReturns) -> None:

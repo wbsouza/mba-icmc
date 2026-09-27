@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import json
+import math
 from dataclasses import asdict
 from pathlib import Path
 from statistics import stdev
@@ -19,6 +19,7 @@ from algo_analyze.deflated import (
 from algo_analyze.portfolio import (
     align_portfolios,
     load_portfolio_returns,
+    read_json,
     source_hash,
 )
 from algo_analyze.significance import paired_block_test, validate_block_settings
@@ -30,15 +31,7 @@ def _selection(path: Path | None) -> dict[str, Any]:
     """Load a computed trial ledger or an explicitly declared external history."""
     if path is None or not path.exists():
         raise InferenceUnavailable("selection history absent; supply --selection manifest.json")
-    raw = json.loads(path.read_text())
-    if isinstance(raw, list):
-        data = _selection_from_ledger(raw)
-    elif isinstance(raw, dict) and isinstance(raw.get("trials"), list):
-        data = _selection_from_ledger(raw["trials"], raw)
-    elif isinstance(raw, dict):
-        data = {**raw, "source_kind": "declared"}
-    else:
-        raise ValueError("selection history must be an object or trial ledger")
+    data = _load_selection(path)
     required = {
         "n_trials",
         "trial_sharpe_std",
@@ -56,31 +49,35 @@ def _selection(path: Path | None) -> dict[str, Any]:
     return data
 
 
-def _selection_from_ledger(
-    trials: list[Any], metadata: dict[str, Any] | None = None
-) -> dict[str, Any]:
-    """Compute DSR selection dispersion from an auditable trial ledger."""
-    values = []
-    for trial in trials:
-        value = trial.get("daily_sharpe") if isinstance(trial, dict) else trial
-        if type(value) not in (int, float) or not isinstance(value, (int, float)):
-            raise ValueError("selection ledger requires finite daily_sharpe values")
-        values.append(float(value))
+def _load_selection(path: Path) -> dict[str, Any]:
+    """Parse a selection file as a trial ledger (``trials`` list) or a declared manifest."""
+    raw = read_json(path)
+    if not isinstance(raw, dict):
+        raise ValueError("selection history must be a JSON object: declared manifest or ledger")
+    if isinstance(raw.get("trials"), list):
+        return _selection_from_ledger(raw)
+    return {**raw, "source_kind": "declared"}
+
+
+def _selection_from_ledger(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Compute across-trial dispersion from the ledger; counts and provenance stay declared."""
+    values = [_ledger_sharpe(trial) for trial in manifest["trials"]]
     if len(values) < 2:
         raise ValueError("selection ledger requires at least two trials")
-    result = dict(metadata or {})
-    result.update(
-        n_trials=result.get("n_trials", len(values)),
-        trial_count=len(values),
-        trial_sharpe_std=stdev(values),
-        frequency=result.get("frequency", "calendar-day"),
-        provenance=result.get("provenance", "computed from trial ledger"),
-        interim_looks=result.get("interim_looks", 1),
-        source_kind="computed",
-    )
-    if result["n_trials"] > len(values):
-        raise ValueError("effective n_trials cannot exceed trial ledger length")
-    return result
+    return {
+        **manifest,
+        "trial_count": len(values),
+        "trial_sharpe_std": stdev(values),
+        "source_kind": "computed",
+    }
+
+
+def _ledger_sharpe(trial: Any) -> float:
+    """Read one nonannualized daily Sharpe from a ledger row (number or ``daily_sharpe``)."""
+    value = trial.get("daily_sharpe") if isinstance(trial, dict) else trial
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise ValueError("selection ledger requires finite daily_sharpe values")
+    return float(value)
 
 
 def _validate_selection_counts(data: dict[str, Any]) -> None:
