@@ -932,7 +932,7 @@ def render_markdown(statement: Statement) -> str:
         "# Account Statement", "", f"**{header_line(statement)}**", "",
         f"Period: {statement.start} .. {statement.end} UTC · Broker adapter: "
         f"{statement.broker_adapter} · Starting deposit: {money(statement.starting_deposit)} · "
-        f"Generated: {datetime.now(UTC).strftime(TIME_FORMAT)} UTC",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}",
     ]
     sections = [
         header, _closed_section(statement), _open_section(statement),
