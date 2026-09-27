@@ -170,7 +170,6 @@ def _sizing_inputs(economics: CapitalMgmtConfig, price: float) -> dict[str, obje
     notional = economics.lot_notional_units * price
     return {
         "pip_value": economics.pip_value_per_lot,
-        "stop_loss_pips": economics.stop_loss_pips,
         "margin_per_lot": notional / economics.assumed_leverage,
     }
 

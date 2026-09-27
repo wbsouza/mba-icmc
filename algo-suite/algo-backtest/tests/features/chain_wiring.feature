@@ -103,23 +103,22 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
 
     Scenario Outline: The F6 sizing inputs come from the capital_mgmt section, not constants (<case>)
       Given a flat account worth 10000
-      When account features are built at price <price> with capital_mgmt stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
-      Then feature "stop_loss_pips" is <stop>
-      And feature "pip_value" is <pip>
+      When account features are built at price <price> with capital_mgmt pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
+      Then feature "pip_value" is <pip>
       And feature "margin_per_lot" is <margin>
 
       Examples:
-        | case                 | price | stop | pip | lot    | lev | margin |
-        | standard lot at 30x  | 1.1   | 20   | 10  | 100000 | 30  | 3666.6666667 |
-        | mini lot at 50x      | 1.25  | 15   | 1   | 10000  | 50  | 250    |
-        | unlevered            | 2.0   | 5    | 10  | 100000 | 1   | 200000 |
-        | zero price           | 0     | 20   | 10  | 100000 | 30  | 0      |
+        | case                 | price | pip | lot    | lev | margin |
+        | standard lot at 30x  | 1.1   | 10  | 100000 | 30  | 3666.6666667 |
+        | mini lot at 50x      | 1.25  | 1   | 10000  | 50  | 250    |
+        | unlevered            | 2.0   | 10  | 100000 | 1   | 200000 |
+        | zero price           | 0     | 10  | 100000 | 30  | 0      |
 
     Scenario: A strategy without F6 gets no sizing inputs rather than invented ones
       Given a flat account worth 10000
       When account features are built at price 1.1000 without a capital_mgmt section
       Then feature "account_balance" is 10000
-      And the features carry none of "pip_value, stop_loss_pips, margin_per_lot"
+      And the features carry none of "pip_value, margin_per_lot"
 
   Rule: PnL anchors reset at each new UTC day and ISO week
 
