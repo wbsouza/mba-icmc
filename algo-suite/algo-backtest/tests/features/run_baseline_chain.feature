@@ -84,23 +84,27 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
 
     @integration
     Scenario: planned stop fills at the configured distance
+      The fixture's ask peaks 1.5 pips above the short entry the model takes at the sine
+      top (entry slips half the 1-pip spread), so the stop must sit inside that reach: a
+      1-pip stop is touched at the next peak, four hours on; a 2-pip stop never would be.
+      The exit slips the other half-spread, hence the 2-pip tolerance on the fill.
       Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09
       And a baseline F7 model trained on it: train through 2014-05-06, validate on 2014-05-07, test 2014-05-08 to 2014-05-09
       And an external strategies directory with "planned-stop" extending baseline with these capital_mgmt overrides:
-        | key                  | value |
-        | stop_distance_source | fixed |
-        | stop_loss_pips       | 2     |
-        | stop_loss_shrink     | 0.0   |
-        | min_stop_pips        | 0.0   |
-        | risk_per_trade       | 0.003 |
-        | targets              | []    |
-        | trail_stops          | []    |
-        | min_reward_risk      | null  |
+        | key                  | value  |
+        | stop_distance_source | fixed  |
+        | stop_loss_pips       | 1      |
+        | stop_loss_shrink     | 0.0    |
+        | min_stop_pips        | 0.0    |
+        | risk_per_trade       | 0.0015 |
+        | targets              | []     |
+        | trail_stops          | []     |
+        | min_reward_risk      | null   |
       When I run planned-stop from that directory over the 2014-05-08 to 2014-05-09 test span with cash 10000 and that model
       Then the strategy run exits successfully
       And trade-plans.json is written under the run's results directory with at least 1 plan
-      And every plan's stop_loss is 2 pips of 0.0001 from its entry_price within 1e-9
-      And at least one closed trade exited within 1 pip of 0.0001 of its plan's stop_loss
+      And every plan's stop_loss is 1 pips of 0.0001 from its entry_price within 1e-9
+      And at least one closed trade exited within 2 pip of 0.0001 of its plan's stop_loss
 
     @integration
     Scenario: the intermediate target closes half the position
