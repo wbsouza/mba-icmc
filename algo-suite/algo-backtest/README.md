@@ -57,6 +57,10 @@ uv run algo-backtest experiment run --spec experiments/baseline-smoke.yaml
 uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
 uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
 #   size = fraction of equity per position (0, 1]; cash = the account's starting deposit.
+#   Every strategy takes cash — the price-only baselines and the engine controls too — so a
+#   control and a chain strategy are compared from the same deposit (story 12, TD-65):
+uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param fast=20 --param slow=60 --param size=0.5 --param cash=10000
+uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
 #   (F4), risk_guard (F5), capital_mgmt (F6), meta_learner (F7 thresholds, regime_gate,
@@ -82,14 +86,16 @@ uv run python scripts/train_baseline_meta_learner.py --from 2015-02-02 \
 ```
 
 Experiment specs (the reproducible contract) live in `../experiments/*.yaml`: a named set
-of runs, each pinning `strategy/symbol/from/to` and a `params` block (`fast/slow/size`).
+of runs, each pinning `strategy/symbol/from/to` and a `params` block (e.g.
+`fast/slow/size/cash`; every strategy's block includes `cash`).
 The schema is closed — unknown keys are rejected.
 
 ## Config
 
 Chain-strategy definitions live in `src/algo_backtest/strategies/<name>/config.yaml`
 (the filter chain and meta-learner families; `hybrid` `extends: baseline`). Per-run
-strategy parameters are `--param key=value` (e.g. `size` for `baseline`/`hybrid`).
+strategy parameters are `--param key=value` (`size` + `cash` for `baseline`/`hybrid`;
+`cash`, the starting deposit, is common to every strategy).
 Backtest settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) resolve from `../conf/backtest.yaml`,
 `../conf/algo.yaml` or `ALGO_*` env.
 

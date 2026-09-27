@@ -6,10 +6,12 @@ the result. A small strategy registry (not a plugin framework — a dict of entr
 each strategy to its bundled algorithm and its parameter validator, so a second strategy is
 added without touching the run path.
 
-Each strategy carries its own parameters (baseline-ma: fast/slow/size; baseline-meanrev:
-window/band/size; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
-size/cash, `cash` being the account's starting deposit), validated by that strategy and
-passed to its algorithm verbatim.
+Each strategy carries its own parameters (baseline-ma: fast/slow/size/cash;
+baseline-meanrev: window/band/size/cash; buyhold/perfect_foresight: size/cash; random:
+size/seed/cash; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
+size/cash), validated by that strategy and passed to its algorithm verbatim. `cash` is the
+account's starting deposit and is common to every strategy (story 12, TD-65), so a chain
+strategy and an engine control can be compared from the same deposit.
 `baseline`/`hybrid` additionally drive the real F1-F7 filter chain; `hybrid` (Spec 04h)
 adds F4/news to `baseline`'s price-only chain, so it alone needs a second data mount —
 `StrategySpec.needs_news_data` marks that in the registry instead of special-casing the
@@ -95,11 +97,12 @@ def _validate_size(params: Params, strategy: str) -> None:
 
 
 def _validate_baseline_ma(params: Params) -> None:
-    """baseline-ma params: fast >= 1, fast < slow, size in (0, 1]."""
-    _check_keys(params, {"fast", "slow", "size"}, "baseline-ma")
+    """baseline-ma params: fast >= 1, fast < slow, size in (0, 1], cash > 0."""
+    _check_keys(params, {"fast", "slow", "size", "cash"}, "baseline-ma")
     fast = _int_param(params, "fast", "baseline-ma")
     slow = _int_param(params, "slow", "baseline-ma")
     _validate_size(params, "baseline-ma")
+    _validate_cash(params, "baseline-ma")
     if fast < 1:
         raise ValueError(f"fast period ({fast}) must be a positive integer")
     if fast >= slow:
@@ -107,11 +110,12 @@ def _validate_baseline_ma(params: Params) -> None:
 
 
 def _validate_baseline_meanrev(params: Params) -> None:
-    """baseline-meanrev params: window >= 2, band > 0, size in (0, 1]."""
-    _check_keys(params, {"window", "band", "size"}, "baseline-meanrev")
+    """baseline-meanrev params: window >= 2, band > 0, size in (0, 1], cash > 0."""
+    _check_keys(params, {"window", "band", "size", "cash"}, "baseline-meanrev")
     window = _int_param(params, "window", "baseline-meanrev")
     band = _float_param(params, "band", "baseline-meanrev")
     _validate_size(params, "baseline-meanrev")
+    _validate_cash(params, "baseline-meanrev")
     if window < 2:
         raise ValueError(f"window ({window}) must be at least 2")
     if band <= 0:
@@ -119,7 +123,7 @@ def _validate_baseline_meanrev(params: Params) -> None:
 
 
 def _validate_cash(params: Params, strategy: str) -> None:
-    """The chain strategies' starting deposit: the account's initial cash, strictly positive."""
+    """Every strategy's starting deposit: the account's initial cash, strictly positive."""
     cash = _float_param(params, "cash", strategy)
     if cash <= 0:
         raise ValueError(
@@ -136,22 +140,25 @@ def _validate_chain_params(params: Params, strategy: str) -> None:
 
 
 def _validate_buyhold(params: Params) -> None:
-    """buyhold params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size"}, "buyhold")
+    """buyhold params: size in (0, 1], cash > 0 (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size", "cash"}, "buyhold")
     _validate_size(params, "buyhold")
+    _validate_cash(params, "buyhold")
 
 
 def _validate_random(params: Params) -> None:
-    """random params: size in (0, 1], seed any integer (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size", "seed"}, "random")
+    """random params: size in (0, 1], seed any integer, cash > 0 (docs/experiments.md #0)."""
+    _check_keys(params, {"size", "seed", "cash"}, "random")
     _validate_size(params, "random")
     _int_param(params, "seed", "random")
+    _validate_cash(params, "random")
 
 
 def _validate_perfect_foresight(params: Params) -> None:
-    """perfect_foresight params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size"}, "perfect_foresight")
+    """perfect_foresight params: size in (0, 1], cash > 0 (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size", "cash"}, "perfect_foresight")
     _validate_size(params, "perfect_foresight")
+    _validate_cash(params, "perfect_foresight")
 
 
 @dataclass(frozen=True)

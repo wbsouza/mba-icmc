@@ -515,7 +515,11 @@ is a hard stop before the first bar, as are an unknown filter name, F7 keys in
 the integer 2. `hybrid` inherits F5/F6/F7's sections from
 `baseline` through `extends:` and adds only `news_context`, so both variants face
 identical execution assumptions. The chain strategies take two run parameters,
-`--param size=<fraction>` and `--param cash=<starting deposit>`; the LEAN
+`--param size=<fraction>` and `--param cash=<starting deposit>`; `cash` is also a
+required parameter of every code-registered strategy (`baseline-ma`, `baseline-meanrev`,
+`buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), so no bundled
+algorithm hard-codes a deposit and a control is compared from the same account as the
+chain strategy; the LEAN
 container no longer reads `conf/backtest.yaml` for any filter value (the former
 `load_*_config()` loaders and `chain/wiring.py` constants are gone — TD-43 closed).
 `tests/features/strategies.feature`, `chain_wiring.feature` and each filter's own

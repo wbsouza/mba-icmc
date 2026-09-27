@@ -1,7 +1,7 @@
 Feature: Load a backtest experiment spec
   An experiment spec is the reproducible Chapter-4 experiment contract: a named set of
   runs, each pinning a strategy, symbol, window and parameters (an explicit nested params
-  block: fast/slow/size). The schema is closed — required keys must be present and unknown
+  block: fast/slow/size/cash). The schema is closed — required keys must be present and unknown
   keys are rejected. Loading is purely structural validation — running is a separate
   concern (experiment_run.feature).
 
@@ -9,13 +9,13 @@ Feature: Load a backtest experiment spec
 
     Scenario: a spec loads each run with its id, strategy, window and params
       Given an experiment spec with runs:
-        | id            | strategy    | symbol | from       | to         | fast | slow | size |
-        | eurusd-may    | baseline-ma | EURUSD | 2014-05-07 | 2014-05-09 | 3    | 8    | 0.5  |
-        | eurusd-june   | baseline-ma | EURUSD | 2014-06-07 | 2014-06-09 | 5    | 20   | 0.25 |
+        | id            | strategy    | symbol | from       | to         | fast | slow | size | cash  |
+        | eurusd-may    | baseline-ma | EURUSD | 2014-05-07 | 2014-05-09 | 3    | 8    | 0.5  | 10000 |
+        | eurusd-june   | baseline-ma | EURUSD | 2014-06-07 | 2014-06-09 | 5    | 20   | 0.25 | 5000  |
       When I load the experiment
       Then the experiment has 2 runs
       And run "eurusd-may" runs baseline-ma on EURUSD over 2014-05-07 to 2014-05-09
-      And run "eurusd-june" has params fast 5, slow 20 and size 0.25
+      And run "eurusd-june" has params fast 5, slow 20, size 0.25 and cash 5000
 
   Rule: An invalid experiment spec is rejected up front (fail fast)
 

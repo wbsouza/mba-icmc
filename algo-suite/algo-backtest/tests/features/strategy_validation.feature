@@ -4,72 +4,82 @@ Feature: Strategy parameter validation
   Each registered strategy owns a closed parameter set. `baseline-ma`/`baseline-meanrev`
   are price-only baselines; `buyhold`/`random`/`perfect_foresight` (Spec 04h, docs/
   experiments.md #0) are the engine-sanity-check strategies — none here claims a news/
-  sentiment signal.
+  sentiment signal. Every strategy, code-registered or YAML-resolved, takes `cash` — the
+  account's starting deposit (story 12, TD-65) — so a control and a chain strategy can be
+  compared from the same deposit.
 
-  Rule: Each strategy accepts its own valid parameters
+  Rule: Each strategy accepts its own closed parameter set, cash included
 
-    Scenario: baseline-ma accepts fast below slow and a valid size
-      Given strategy "baseline-ma" with params fast=3 slow=8 size=0.5
+    Scenario Outline: <strategy> accepts <params>
+      Given strategy "<strategy>" with params <params>
       When I validate the run inputs
       Then validation passes
 
-    Scenario: baseline-meanrev accepts a window, a positive band and a valid size
-      Given strategy "baseline-meanrev" with params window=20 band=0.001 size=0.5
-      When I validate the run inputs
-      Then validation passes
+      Examples: the code-registered baselines and engine controls
+        | strategy          | params                                 |
+        | baseline-ma       | fast=3 slow=8 size=0.5 cash=10000      |
+        | baseline-meanrev  | window=20 band=0.001 size=0.5 cash=10000 |
+        | buyhold           | size=0.5 cash=10000                    |
+        | random            | size=0.5 seed=42 cash=10000            |
+        | perfect_foresight | size=0.5 cash=10000                    |
+        | buyhold           | size=1 cash=250.5                      |
+        | random            | size=0.5 seed=-7 cash=0.5              |
 
-    Scenario: buyhold accepts a valid size
-      Given strategy "buyhold" with params size=0.5
-      When I validate the run inputs
-      Then validation passes
-
-    Scenario: random accepts a valid size and seed
-      Given strategy "random" with params size=0.5 seed=42
-      When I validate the run inputs
-      Then validation passes
-
-    Scenario: perfect_foresight accepts a valid size
-      Given strategy "perfect_foresight" with params size=0.5
-      When I validate the run inputs
-      Then validation passes
-
-    Scenario Outline: the chain strategies accept a valid size and a positive starting cash (<strategy>)
-      Given strategy "<strategy>" with params size=0.5 cash=<cash>
-      When I validate the run inputs
-      Then validation passes
-
-      Examples:
-        | strategy      | cash   |
-        | baseline      | 10000  |
-        | baseline-dsha | 10000  |
-        | hybrid        | 10000  |
-        | baseline      | 250.5  |
-        | baseline      | 0.5    |
+      Examples: the config.yaml chain strategies
+        | strategy      | params              |
+        | baseline      | size=0.5 cash=10000 |
+        | baseline-dsha | size=0.5 cash=10000 |
+        | hybrid        | size=0.5 cash=10000 |
+        | baseline      | size=0.5 cash=250.5 |
+        | baseline      | size=0.5 cash=0.5   |
 
   Rule: An unknown strategy or invalid parameters are rejected (fail fast)
 
     Scenario: an unknown strategy is rejected
-      Given strategy "bogus" with params size=0.5
+      Given strategy "bogus" with params size=0.5 cash=10000
       When I validate the run inputs expecting failure
       Then validation fails naming the unknown strategy
 
     Scenario: params that are not the strategy's exact set are rejected
-      Given strategy "baseline-meanrev" with params fast=3 slow=8 size=0.5
+      Given strategy "baseline-meanrev" with params fast=3 slow=8 size=0.5 cash=10000
       When I validate the run inputs expecting failure
       Then validation fails saying the params must be exactly the strategy's set
 
-    Scenario Outline: the chain strategies reject a non-positive or non-numeric starting cash (<strategy>, cash=<cash>)
-      Given strategy "<strategy>" with params size=0.5 cash=<cash>
+    Scenario Outline: <strategy> rejects a non-positive or non-numeric starting cash (<params>)
+      Given strategy "<strategy>" with params <params>
       When I validate the run inputs expecting failure
       Then validation fails naming "cash"
       And validation fails naming "<strategy>"
 
+      Examples: the code-registered baselines and engine controls
+        | strategy          | params                                |
+        | baseline-ma       | fast=3 slow=8 size=0.5 cash=0         |
+        | baseline-meanrev  | window=20 band=0.001 size=0.5 cash=-1 |
+        | buyhold           | size=0.5 cash=0                       |
+        | random            | size=0.5 seed=42 cash=lots            |
+        | perfect_foresight | size=0.5 cash=-100                    |
+
+      Examples: the config.yaml chain strategies
+        | strategy      | params              |
+        | baseline      | size=0.5 cash=0     |
+        | baseline      | size=0.5 cash=-100  |
+        | hybrid        | size=0.5 cash=lots  |
+        | baseline-dsha | size=0.5 cash=0     |
+
+    Scenario Outline: <strategy> without a starting cash is rejected as an incomplete param set
+      Given strategy "<strategy>" with params <params>
+      When I validate the run inputs expecting failure
+      Then validation fails saying the params must be exactly the strategy's set
+      And validation fails naming "cash"
+
       Examples:
-        | strategy      | cash  |
-        | baseline      | 0     |
-        | baseline      | -100  |
-        | hybrid        | lots  |
-        | baseline-dsha | 0     |
+        | strategy          | params                        |
+        | baseline-ma       | fast=3 slow=8 size=0.5        |
+        | baseline-meanrev  | window=20 band=0.001 size=0.5 |
+        | buyhold           | size=0.5                      |
+        | random            | size=0.5 seed=42              |
+        | perfect_foresight | size=0.5                      |
+        | baseline          | size=0.5                      |
 
     Scenario Outline: the chain strategies reject an out-of-range size naming the strategy (<strategy>)
       Given strategy "<strategy>" with params size=<size> cash=10000
@@ -83,40 +93,35 @@ Feature: Strategy parameter validation
         | hybrid        | 0    |
         | baseline-dsha | -0.1 |
 
-    Scenario: a chain strategy without a starting cash is rejected as an incomplete param set
-      Given strategy "baseline" with params size=0.5
-      When I validate the run inputs expecting failure
-      Then validation fails saying the params must be exactly the strategy's set
-
     Scenario: buyhold rejects an out-of-range size
-      Given strategy "buyhold" with params size=1.5
+      Given strategy "buyhold" with params size=1.5 cash=10000
       When I validate the run inputs expecting failure
       Then validation fails naming "size"
 
     Scenario: random rejects a non-integer seed
-      Given strategy "random" with params size=0.5 seed=notanumber
+      Given strategy "random" with params size=0.5 seed=notanumber cash=10000
       When I validate the run inputs expecting failure
       Then validation fails naming "seed"
 
     Scenario: baseline-meanrev with a non-positive band is rejected
-      Given strategy "baseline-meanrev" with params window=20 band=0 size=0.5
+      Given strategy "baseline-meanrev" with params window=20 band=0 size=0.5 cash=10000
       When I validate the run inputs expecting failure
       Then validation fails saying the band must be positive
 
     Scenario: baseline-meanrev with a too-small window is rejected
-      Given strategy "baseline-meanrev" with params window=1 band=0.001 size=0.5
+      Given strategy "baseline-meanrev" with params window=1 band=0.001 size=0.5 cash=10000
       When I validate the run inputs expecting failure
       Then validation fails saying the window must be at least 2
 
   Rule: The run window is inclusive on both ends
 
     Scenario: a single-day window (from equals to) is accepted
-      Given strategy "buyhold" with params size=0.5
+      Given strategy "buyhold" with params size=0.5 cash=10000
       When I validate the run inputs for the window 2014-05-07 to 2014-05-07
       Then validation passes
 
     Scenario: a from-date after the to-date is rejected
-      Given strategy "buyhold" with params size=0.5
+      Given strategy "buyhold" with params size=0.5 cash=10000
       When I validate the run inputs for the window 2014-05-08 to 2014-05-07 expecting failure
       Then validation fails naming "must not be after"
 
@@ -137,10 +142,10 @@ Feature: Strategy parameter validation
     Then validation fails naming "baseline-dsha"
 
     Examples:
-      | params       |
-      | wrong=0.5    |
-      | size=wrong   |
-      | size=1.5     |
+      | params                |
+      | wrong=0.5 cash=10000  |
+      | size=wrong cash=10000 |
+      | size=1.5 cash=10000   |
 
   Rule: A model must have been trained on the strategy's price-feature parameters
 

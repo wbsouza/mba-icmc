@@ -6,6 +6,9 @@
 # Each run writes runs/experiments/<experiment>/<id>/ (run.json, trades.json,
 # metrics.json) and one flat row in runs/experiments/<experiment>/experiment.json.
 #
+# `size` is the fraction of equity per position; `cash` the account's starting deposit
+# (every strategy takes it — story 12, TD-65).
+#
 # Requires the window materialized first:
 #   uv run algo-backtest materialize --symbol EURUSD --year 2014 --month 5
 #
@@ -22,3 +25,4 @@ runs:
       fast: 3
       slow: 8
       size: 0.5
+      cash: 10000

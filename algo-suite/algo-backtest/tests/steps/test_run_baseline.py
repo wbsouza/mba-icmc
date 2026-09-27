@@ -98,13 +98,14 @@ def _run_cli(bctx: dict[str, Any], command: str) -> None:
     bctx["cli"] = CliRunner().invoke(app, command.split()[1:])
 
 
-@when("I run baseline-ma over 2014-05-07 to 2014-05-09 with fast 3 and slow 8")
+@when("I run baseline-ma over 2014-05-07 to 2014-05-09 with fast 3, slow 8 and cash 10000")
 def _run_baseline(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         ["run", "--strategy", "baseline-ma", "--symbol", "EURUSD",
          "--from", "2014-05-07", "--to", "2014-05-09",
-         "--param", "fast=3", "--param", "slow=8", "--param", "size=0.5"],
+         "--param", "fast=3", "--param", "slow=8", "--param", "size=0.5",
+         "--param", "cash=10000"],
     )
 
 
@@ -139,6 +140,12 @@ def _from_to(bctx: dict[str, Any]) -> None:
 def _size_range(bctx: dict[str, Any]) -> None:
     out = bctx["cli"].output
     assert "size" in out and "(0, 1]" in out
+
+
+@then("the error says cash must be positive")
+def _cash_positive(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    assert "cash" in out and "must be positive" in out
 
 
 @then("the error says the fast period must be positive")

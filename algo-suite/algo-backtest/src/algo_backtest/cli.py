@@ -173,8 +173,9 @@ def run(
     """Run a single strategy over a window and report success + closed-trade count.
 
     Parameters are strategy-specific, passed as repeated `--param key=value` and validated
-    by the strategy (baseline-ma: fast/slow/size; baseline-meanrev: window/band/size). For
-    multi-strategy comparison use `experiment run`.
+    by the strategy (baseline-ma: fast/slow/size/cash; baseline-meanrev: window/band/size/cash;
+    every strategy takes cash, the account's starting deposit). For multi-strategy
+    comparison use `experiment run`.
     """
     import json as _json
     from datetime import datetime

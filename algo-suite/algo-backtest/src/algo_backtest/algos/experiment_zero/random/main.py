@@ -36,11 +36,19 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         end = self._required("end")
         self._size = float(self._required("size"))
         seed = int(self._required("seed"))
+        cash = float(self._required("cash"))
+        if cash <= 0:
+            raise ValueError(
+                f"{self.strategy_name}: cash ({cash}) must be positive — the account's starting "
+                "deposit; run.py validates this on the host, so a non-positive value here means "
+                "the algorithm was launched outside `algo-backtest run`"
+            )
         broker_adapter = self._required("broker_adapter")
 
         self.set_start_date(int(start[:4]), int(start[4:6]), int(start[6:8]))
         self.set_end_date(int(end[:4]), int(end[4:6]), int(end[6:8]))
-        self.set_cash(100_000)
+        self.set_cash(cash)
+        self.debug(f"RANDOM_STARTING_CASH={cash}")
         self._symbol = self.add_forex(
             symbol, Resolution.MINUTE, Market.OANDA, False  # noqa: F405
         ).symbol
