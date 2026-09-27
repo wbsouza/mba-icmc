@@ -64,7 +64,8 @@ def _min_hold_bars(section: Section, *, strategy: str) -> int:
 
 def _close_on_veto(section: Section, *, strategy: str) -> bool:
     """`close_on_veto` as a YAML boolean, defaulting to false (A05: a signal change does
-    not close a planned trade; its stop, targets, trail and min-hold exits do); `1`/`"yes"` and the like fail.
+    not close a planned trade; its stop, targets, trail and min-hold exits do);
+    `1`/`"yes"` and the like fail.
 
     Raises:
         ValueError: the value is not `true`/`false`.
