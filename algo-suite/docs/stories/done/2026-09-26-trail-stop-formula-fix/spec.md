@@ -4,7 +4,7 @@
 lane covers a defect found in already-ported money-management code, not new filter-chain scope.
 **Depends on:** nothing — `rules/trail_stop.py` already exists and is already ported (Spec 04's
 `00-PLAN`/`specs.md` §14.5 fx-manager port map). **Blocks:** trusting `trail_stop.py`'s test suite;
-soft-blocks Spec 04j (money-management gaps) and Spec 04k (HAS trend-filter ablation), since both
+soft-blocks Spec 04j (money-management gaps) and Spec 04k (Double-Smoothed Heikin-Ashi trend-filter ablation), since both
 build on the same `rules/` package and both would inherit an unverified test suite if run before
 this lane closes.
 **Order:** small, standalone — no parallel-lane conflicts; touches only `rules/trail_stop.py`,
