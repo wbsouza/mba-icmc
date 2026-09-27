@@ -3,7 +3,7 @@
 Wave 1 (parallel worktrees, merged by the lead):
 - [x] A — `capital_mgmt` plan keys + `execution` section + parsers + provenance + `strategy-config.yaml` artifact + YAML/README/SPEC
 - [x] C — spread slippage + per-lot commission models from `execution`, pure math with BDD
-- [ ] E — `price_features.atr_period`, ATR indicator + `atr_pips` feature, offline parity
+- [x] E — `price_features.atr_period`, ATR indicator + `atr_pips` feature, offline parity
 - [x] F — controls and legacy baselines take `cash` (TD-65 resolved), experiment specs
 
 Wave 2:
