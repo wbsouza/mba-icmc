@@ -108,23 +108,23 @@ Feature: OrderExecutor translates a Decision into a LEAN order and a normalized 
 
     Scenario: the plan's stop and targets are submitted as stop-market and limit orders
       Given a fake algorithm that fills every order
-      When OrderExecutor places a stop for -150000 units at 1.0984 tagged "plan-stop"
-      And OrderExecutor places a limit for -75000 units at 1.1035 tagged "plan-target-1"
-      Then the fake algorithm holds a stop-market order for -150000 at 1.0984 tagged "plan-stop"
-      And the fake algorithm holds a limit order for -75000 at 1.1035 tagged "plan-target-1"
+      When OrderExecutor places a stop for -150000 units at 1.0984
+      And OrderExecutor places a limit for -75000 units at 1.1035
+      Then the fake algorithm holds a stop-market order for -150000 at 1.0984
+      And the fake algorithm holds a limit order for -75000 at 1.1035
       And the executor reports 2 open orders for the symbol
 
     Scenario: a trailing move updates the stop ticket's price and a partial exit its quantity
       Given a fake algorithm that fills every order
-      And OrderExecutor placed a stop for -150000 units at 1.0984 tagged "plan-stop"
+      And OrderExecutor placed a stop for -150000 units at 1.0984
       When OrderExecutor moves that stop to 1.0990
       And OrderExecutor resizes that stop to -75000
       Then the stop ticket's price is 1.0990 and its quantity -75000
 
     Scenario: cancelling the plan's working orders cancels each ticket by id
       Given a fake algorithm that fills every order
-      And OrderExecutor placed a stop for -150000 units at 1.0984 tagged "plan-stop"
-      And OrderExecutor placed a limit for -75000 units at 1.1035 tagged "plan-target-1"
+      And OrderExecutor placed a stop for -150000 units at 1.0984
+      And OrderExecutor placed a limit for -75000 units at 1.1035
       When OrderExecutor cancels every open order for the symbol
       Then every fake ticket is cancelled
       And the executor reports 0 open orders for the symbol

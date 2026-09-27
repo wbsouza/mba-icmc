@@ -140,13 +140,20 @@ class OrderExecutor:
         event = self._pending.pop(ticket.order_id, None)
         return self._normalize(decision, ticket.order_id, SizingContext(size=abs(quantity)), event)
 
-    def place_stop(self, symbol: Any, quantity: float, stop_price: float, tag: str) -> int:
-        """Submit a stop-market order (the plan's protective stop); returns its order id."""
-        return int(self._algorithm.stop_market_order(symbol, quantity, stop_price, tag).order_id)
+    def place_stop(self, symbol: Any, quantity: float, stop_price: float) -> int:
+        """Submit a stop-market order (the plan's protective stop); returns its order id.
 
-    def place_limit(self, symbol: Any, quantity: float, limit_price: float, tag: str) -> int:
-        """Submit a limit order (one take-profit level); returns its order id."""
-        return int(self._algorithm.limit_order(symbol, quantity, limit_price, tag).order_id)
+        Three positional arguments only: the pinned LEAN image cannot bind
+        ``StopMarketOrder(Symbol, float, float, str)`` when a tag string is passed
+        positionally (verified in-container, story 12), so orders carry no tag and the
+        plan's log lines identify them instead.
+        """
+        return int(self._algorithm.stop_market_order(symbol, quantity, stop_price).order_id)
+
+    def place_limit(self, symbol: Any, quantity: float, limit_price: float) -> int:
+        """Submit a limit order (one take-profit level); returns its order id. No tag, see
+        `place_stop`."""
+        return int(self._algorithm.limit_order(symbol, quantity, limit_price).order_id)
 
     def update_stop_price(self, order_id: int, stop_price: float) -> None:
         """Move a working stop order to `stop_price` (LEAN `OrderTicket.update_stop_price`)."""

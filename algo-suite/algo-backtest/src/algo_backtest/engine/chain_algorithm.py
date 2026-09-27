@@ -352,9 +352,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         position = float(self.portfolio[self._symbol].quantity)
         entry = fill.fill_price
         stop = stop_price(entry, side.stop_pips, self._pip, direction)
-        stop_id = self.order_executor.place_stop(
-            self._symbol, stop_quantity_for(position), stop, "plan-stop"
-        )
+        stop_id = self.order_executor.place_stop(self._symbol, stop_quantity_for(position), stop)
         levels = target_prices(entry, side.targets, self._pip, direction)
         exits = target_quantities(position, side.targets, self._lot_step)
         placed = [
@@ -362,7 +360,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             for (price, fraction), exit_quantity in zip(levels, exits, strict=True)
         ]
         target_ids = tuple(
-            self.order_executor.place_limit(self._symbol, qty, price, f"plan-target-{i + 1}")
+            self.order_executor.place_limit(self._symbol, qty, price)
             for i, (price, _fraction, qty) in enumerate(placed)
         )
         self._position = PlannedPosition(
