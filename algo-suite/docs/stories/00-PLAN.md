@@ -1,5 +1,12 @@
 # Global plan — remaining work to TCC final submission
 
+**Scientific-review follow-up (2026-09-26):**
+[Story 11 — statistical inference corrections](planned/11-statistical-inference-corrections/spec.md)
+is planned and blocks significance claims: implement probability-valued DSR,
+consistent portfolio-return inputs, paired time-series inference, and reporting
+migration. Training and pilot replay can continue. Passing existing analyzer
+tests does not close these scientific-validity findings.
+
 **Purpose.** This is the single entry point for autonomous agents (swarmforge or
 otherwise) picking up work on the empirical side of the TCC. It states what is
 already done, what remains, in what order, and which spec file owns each piece.
@@ -288,6 +295,7 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | **unblocked, not started.** Needs real out-of-sample baseline and hybrid runs first, which need Spec 08's event features for the run months |
 | 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |
 | 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** GDELT Events 2015-02..07 local, and 2015-08 running. GPR has the raw file only. Coverage window not derived yet. `prepare-news-data.sh` lacks `VERIFY_ONLY` |
+| 11 | [Statistical inference corrections](planned/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **planned.** Correct DSR semantics and dependence-aware significance before reporting inferential results |
 
 ```mermaid
 flowchart LR
