@@ -1,8 +1,9 @@
 {
   "scope": "real completed-run artifact QA; native and quality gates separate",
+  "code_revision": "9eced901ec93d04bf3f7f41b03b47f20edaa7d38",
   "runs": [
     {
-      "run_id": "baseline/20260927T030353-471a785c6df3",
+      "run_id": "baseline/20260927T034032-491a4f65303c",
       "manifest": {
         "strategy": "baseline",
         "symbol": "EURUSD",
@@ -19,12 +20,11 @@
         "metrics.json": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908",
         "trades.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
         "decisions.parquet": "fb8dabd2a9a66eb1fc91680083205bb0429256eed49551c82b5433609485d994",
-        "log.txt": "1d872ed10c9351c0bddf43ab294e18ae54eeeda061a6678e4df5b25f8176926a",
-        "strategy-config.json": "d2fd1934d8697b37d8317381bf8d5bc73f568281edb12c4d532419ed8b804dd4"
+        "log.txt": "9e6cb2bbba3340712aba78e747a8e39efaac52d74caf5575e36b8a8eb6396390",
+        "strategy-config.json": "ac87e0ee0ae3b3fdade7deec30bd4327c5f1b6a9c41d37198cf0f9f26172a66c"
       },
       "model_sha256": "21bcfbf53aed9556317a84f742a407060ca8167a9d68ae026f302ffbda84f643",
       "config": {
-        "schema_version": 1,
         "filters": [
           "f1_trend",
           "f2_indicator",
@@ -39,13 +39,14 @@
             "indicator",
             "pattern"
           ]
-        }
+        },
+        "schema_version": 1
       },
       "config_origin": "engine-written strategy-config.json",
       "reproduce_backtest": "algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-03 --to 2015-08-07 --param size=0.5"
     },
     {
-      "run_id": "baseline-dsha/20260927T025416-46940d8372d1",
+      "run_id": "baseline-dsha/20260927T034435-495302e58a88",
       "manifest": {
         "strategy": "baseline-dsha",
         "symbol": "EURUSD",
@@ -60,13 +61,18 @@
       "artifact_sha256": {
         "run.json": "b6aa4139d0236e835cef5195b7f1f6d066c0620b8a3e3220f46ea8a1d8cd5057",
         "metrics.json": "7a1d8a0794b7b00682c2b778a3fcf640fdec28a8e20be4c3827a3aec108c893b",
-        "trades.json": "325b92c5159e89a3e66f1493fa6f75b5d4d825d9cce2b6397f7de9a10f44e4b0",
+        "trades.json": "a0077360088db0b3b5c35878e0f7b626b7d33b9455b63dbc165990b1d4655005",
         "decisions.parquet": "e38f2157c496cc8ea07f0018d7a731bfc7ea04eae4acac2ea8280962ed1e189e",
-        "log.txt": "3c91c7d576fc5ab77d29c842ec6e2caed116c499423cb0d6de1d75a3657067e9"
+        "log.txt": "87701136682c072337d6b854f5d5bb419adedc713724235e5d03c67865849079",
+        "strategy-config.json": "e19f4584c767b0a16342db31762d2f644a6661ec078034f1f008f23b7102582e"
       },
       "model_sha256": "21bcfbf53aed9556317a84f742a407060ca8167a9d68ae026f302ffbda84f643",
       "config": {
-        "schema_version": 1,
+        "double_smoothed_heikin_ashi": {
+          "higher_tf_minutes": 60,
+          "period1": 6,
+          "period2": 2
+        },
         "filters": [
           "f1_trend",
           "f2_indicator",
@@ -83,13 +89,9 @@
           ]
         },
         "perception_source": "double_smoothed_heikin_ashi",
-        "double_smoothed_heikin_ashi": {
-          "period1": 6,
-          "period2": 2,
-          "higher_tf_minutes": 60
-        }
+        "schema_version": 1
       },
-      "config_origin": "QA snapshot of resolved packaged config; not an engine-written artifact",
+      "config_origin": "engine-written strategy-config.json",
       "reproduce_backtest": "algo-backtest run --strategy baseline-dsha --symbol EURUSD --from 2015-08-03 --to 2015-08-07 --param size=0.5"
     }
   ],
@@ -112,6 +114,7 @@
     "changed_features": 6473,
     "changed_f1_results": 6294,
     "equal_strength_observations": 2276,
+    "first_baseline_timestamp": "2015-08-03 00:59:00+00:00",
     "first_candidate_timestamp": "2015-08-03 06:00:00+00:00",
     "timing_limit": "Per-bar readiness/candle state absent; native integration tests verify closed-bar timing."
   },
@@ -121,7 +124,7 @@
       "end": "2015-08-07",
       "hit_rate": 0.0,
       "max_drawdown": 0.0,
-      "run_id": "20260927T030353-471a785c6df3",
+      "run_id": "20260927T034032-491a4f65303c",
       "sharpe": 0.0,
       "start": "2015-08-03",
       "strategy": "baseline",
@@ -133,7 +136,7 @@
       "end": "2015-08-07",
       "hit_rate": 1.0,
       "max_drawdown": 0.0,
-      "run_id": "20260927T025416-46940d8372d1",
+      "run_id": "20260927T034435-495302e58a88",
       "sharpe": 0.0456,
       "start": "2015-08-03",
       "strategy": "baseline-dsha",

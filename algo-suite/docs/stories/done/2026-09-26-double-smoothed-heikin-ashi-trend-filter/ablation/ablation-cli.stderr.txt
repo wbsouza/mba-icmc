@@ -1,1 +1,1 @@
-[2m2026-09-27T03:06:10.610618Z[0m [[32m[1minfo     [0m] [1mconfig                        [0m [36mprovenance[0m=[35m'DATA ROOT: data_root=/media/nas/wellington/mba/algo-suite/data (from ALGO_DATA_ROOT)'[0m
+[2m2026-09-27T03:46:48.336622Z[0m [[32m[1minfo     [0m] [1mconfig                        [0m [36mprovenance[0m=[35m'DATA ROOT: data_root=/media/nas/wellington/mba/algo-suite/data (from ALGO_DATA_ROOT)'[0m

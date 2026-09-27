@@ -1,5 +1,9 @@
 {
-  "schema_version": 1,
+  "double_smoothed_heikin_ashi": {
+    "higher_tf_minutes": 60,
+    "period1": 6,
+    "period2": 2
+  },
   "filters": [
     "f1_trend",
     "f2_indicator",
@@ -16,9 +20,5 @@
     ]
   },
   "perception_source": "double_smoothed_heikin_ashi",
-  "double_smoothed_heikin_ashi": {
-    "period1": 6,
-    "period2": 2,
-    "higher_tf_minutes": 60
-  }
+  "schema_version": 1
 }

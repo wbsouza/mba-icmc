@@ -127,20 +127,20 @@
     },
     {
       "file": "../engine/chain_algorithm.py",
-      "line": 131,
-      "mutation": "compare@L131: Eq flip",
+      "line": 129,
+      "mutation": "compare@L129: Eq flip",
       "verdict": "killed"
     },
     {
       "file": "../engine/chain_algorithm.py",
-      "line": 151,
-      "mutation": "boolop@L151: And flip",
+      "line": 149,
+      "mutation": "boolop@L149: And flip",
       "verdict": "killed"
     },
     {
       "file": "../engine/chain_algorithm.py",
-      "line": 152,
-      "mutation": "boolop@L152: Or flip",
+      "line": 150,
+      "mutation": "boolop@L150: Or flip",
       "verdict": "killed"
     }
   ]

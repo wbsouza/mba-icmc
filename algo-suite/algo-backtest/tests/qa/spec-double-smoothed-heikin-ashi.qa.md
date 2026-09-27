@@ -53,13 +53,16 @@ From `algo-suite`, after the paired runs finish:
 uv run python algo-backtest/tests/qa/run_double_smoothed_heikin_ashi_qa.py \
   --data-root <data-root> \
   --runs baseline/<stamp> --runs baseline-dsha/<stamp> \
-  --out <evidence-directory>
+  --out <evidence-directory> --code-revision <clean-commit-used-for-both-runs>
 ```
 
 This checks successful manifests, matching windows/parameters, actual engine model
 hashes, source configuration provenance, consumed F1 directions, changed decisions,
 unchanged comparable trend strength, and the public ablation CLI. It persists compact
-real artifacts and input hashes. When an older run lacks `strategy-config.json`,
-the resolved configuration is explicitly labeled a QA snapshot, not an engine artifact.
+real artifacts and input hashes. Both runs must contain `strategy-config.json`;
+a missing engine artifact fails rather than falling back to a QA-generated snapshot.
+It also requires a later first candidate decision and fewer candidate decision rows.
+The exact native warm-up boundary is checked from measured native output by
+`make check-perception`, since the default offline gate has no LEAN runtime.
 Native integration tests and the workspace/complexity/mutation gates remain separate
 mandatory stages; this script's pass does not claim those stages passed.

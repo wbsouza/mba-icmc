@@ -3,8 +3,8 @@
 The requested Uncle Bob agent gauntlet ran as separate Specifier, Coder,
 Cleaner, Hardener and QA agent sessions. Acceptance tests are Gherkin-only.
 
-- Host acceptance: 28 scenarios passed.
-- Native acceptance: 8 scenarios passed against `quantconnect/lean:17748`.
+- Focused host perception acceptance: 29 scenarios passed.
+- Native acceptance: 9 scenarios passed against `quantconnect/lean:17748`.
 - Mutation gate: **23/23 killed**, zero survivors/errors (`mutations.json`).
   Scope: new config and HA formula, native smoothing/consolidation wrappers, and
   source selection/readiness in the shared chain engine. This is the scoped
@@ -15,16 +15,27 @@ Cleaner, Hardener and QA agent sessions. Acceptance tests are Gherkin-only.
   measured line coverage after combining host coverage.py with native stdlib
   tracing (`quality-report.txt`). Branch coverage is not claimed by this measure.
 - Strict mypy: all six packages' source plus the new quality tools passed (137 files).
-- Workspace regression suite: 751 passed, 35 deselected, before the later
-  additional hardening scenarios; those were then run in the package gate.
+- Original implementation workspace regression: 751 passed, 35 deselected.
+  Review follow-up validation reran the affected package (402 passed) and all
+  workspace tooling scenarios (22 passed).
 - Dependency audit: no known vulnerabilities.
 
-The `algo-backtest` package's `make check` passes: 389 scenarios passed, 35
+The `algo-backtest` package's `make check` passes: 402 scenarios passed, 36
 integration scenarios deselected by the default gate. Root workspace `make check`
 still stops on **52 pre-existing BigQuery-script Ruff errors**, recorded in TD-55;
 this story does not mark that workspace gate green. The ready TD-60 cleanup was
 completed: removed obsolete direct joblib dependency and mypy override, preserving
-scikit-learn's transitive dependency.
+scikit-learn's transitive dependency. Its row was deleted from the active debt
+ledger. PR #43's branch was merged into this branch, preserving its ancestry and
+tie decision in the done story; TD-61 tracks ABSTAIN-on-tie research and TD-62
+tracks offline DSHA training/parity prerequisites.
+
+Both ablation arms were rerun from clean code revision
+`9eced901ec93d04bf3f7f41b03b47f20edaa7d38`. `ablation/qa-evidence.json` records
+engine-written sidecar hashes for both runs and matching frozen model hashes.
+The comparison has 6,940 baseline decisions and 6,639 candidate decisions; the
+candidate first evaluates at 2015-08-03 06:00 UTC. These are smoke observations,
+not evidence for profitability or DSHA-retrained-model performance.
 
 ## Reproduce
 

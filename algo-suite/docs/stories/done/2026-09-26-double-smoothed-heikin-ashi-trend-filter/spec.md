@@ -31,7 +31,7 @@ independent of Spec 04i/04j (disjoint files).
 as second candidate, compare via ablation," not "replace the default."
 **Order:** standalone; can start any time, but is naturally sequenced after whichever story first
 builds a real perception layer for F1 (04a/04h), since this reuses that same integration point.
-**Boundary:** a new indicator/perception module (exact location TBD, see §5 open question), F1's
+**Boundary:** the `algo_backtest/perception/` package (§5), F1's
 config schema (adding a `perception_source` selector), and `algo-analyze`'s existing ablation
 machinery (wiring only, not new ablation infrastructure).
 
@@ -45,8 +45,8 @@ machinery (wiring only, not new ablation infrastructure).
 > same function. The "no real implementation populating them yet" statement below (and in
 > `f1_trend.py`'s docstring) was true when written and is no longer. That module is this
 > candidate's natural integration point: §5's third open question now has a concrete default
-> shape to match. It is still unresolved which module should host the candidate.
-> No `perception_source` selector exists yet. This story's own work has not started.
+> shape to match. Completion resolved the location as `algo_backtest/perception/`
+> and added the `perception_source` selector described above.
 
 > **Update 2026-09-26 (formula fully confirmed against fx-manager's actual MetaTrader source,
 > `related-work/projects/fx-manager/metatrader/experts/indicators/`).** §2 and §5 below were

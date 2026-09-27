@@ -11,6 +11,6 @@ The CSV and CLI JSON contain the actual completed-run metrics. qa-evidence.json 
 
 Pass 1 is LEAN Wilder(6); pass 2 is LEAN LWMA(2), matching MT4's default second period of 2 (the historical Java implementation used 1). Ties classify down. LEAN warmup and bar boundaries may differ from MT4.
 
-Some runs may predate the engine configuration sidecar: qa-resolved-config.json is an explicitly labeled QA snapshot when that sidecar is absent. Actual model parity is checked from each engine log.
+Both resolved configurations are engine-written strategy-config.json artifacts. Their hashes are recorded; no QA snapshot fallback is accepted. Actual model parity is checked from each engine log.
 
 Decision artifacts expose consumed directions and feature hashes, but not per-bar readiness or underlying candle times. Native integration acceptance tests are the timing/readiness gate. Workspace, coverage, complexity and mutation gates are recorded separately.
