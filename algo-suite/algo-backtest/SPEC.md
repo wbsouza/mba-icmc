@@ -517,8 +517,10 @@ the integer 2. `hybrid` inherits F5/F6/F7's sections from
 identical execution assumptions. The chain strategies take two run parameters,
 `--param size=<fraction>` and `--param cash=<starting deposit>`; `cash` is also a
 required parameter of every code-registered strategy (`baseline-ma`, `baseline-meanrev`,
-`buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), so no bundled
-algorithm hard-codes a deposit and a control is compared from the same account as the
+`buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), and `random`'s
+per-bar `entry_probability`/`exit_probability` (in (0, 1]) and `long_probability` (in
+[0, 1], 0.5 = unbiased coin) are run parameters as well, so no bundled
+algorithm hard-codes a deposit or a behaviour constant and a control is compared from the same account as the
 chain strategy; the LEAN
 container no longer reads `conf/backtest.yaml` for any filter value (the former
 `load_*_config()` loaders and `chain/wiring.py` constants are gone — TD-43 closed).
