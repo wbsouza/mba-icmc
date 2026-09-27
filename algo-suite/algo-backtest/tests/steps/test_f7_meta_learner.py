@@ -63,6 +63,7 @@ class _F7Ctx:
     parse_error: Exception | None = None
     vector: list[float] | None = None
     vector_error: Exception | None = None
+    train_error: Exception | None = None
 
 
 @pytest.fixture
@@ -235,6 +236,38 @@ def _inverted_train_validation_split(f7_ctx: _F7Ctx) -> None:
     f7_ctx.split = WalkForwardSplit(
         train=tuple(train_rows), validation=tuple(validation_rows), test=tuple(test_rows)
     )
+
+
+@given(parsers.parse("a walk-forward split whose validation labels are {labels}"))
+def _split_with_validation_labels(f7_ctx: _F7Ctx, labels: str) -> None:
+    """A mixed-label train span, then one validation row per listed label (alternating
+    trend_direction so the features themselves are never degenerate)."""
+    train_rows = [_trend_row(d, 1.0, 1) for d in range(1, 6)] + [
+        _trend_row(d, -1.0, 0) for d in range(6, 11)
+    ]
+    validation_rows = [
+        _trend_row(11 + i, 1.0 if i % 2 == 0 else -1.0, int(label))
+        for i, label in enumerate(yaml.safe_load(labels))
+    ]
+    f7_ctx.split = WalkForwardSplit(
+        train=tuple(train_rows), validation=tuple(validation_rows),
+        test=(_trend_row(20, 1.0, 1),),
+    )
+
+
+@when(parsers.parse("training the meta-learner on the families {families} fails"))
+def _train_fails(f7_ctx: _F7Ctx, families: str) -> None:
+    assert f7_ctx.split is not None
+    chosen = [FeatureFamily(name) for name in yaml.safe_load(families)]
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        train_meta_learner(chosen, f7_ctx.split)
+    f7_ctx.train_error = exc_info.value
+
+
+@then(parsers.parse('the training failure names "{fragment}"'))
+def _train_failure(f7_ctx: _F7Ctx, fragment: str) -> None:
+    assert f7_ctx.train_error is not None
+    assert fragment in str(f7_ctx.train_error)
 
 
 @when("the meta-learner is trained on the trend family alone")
