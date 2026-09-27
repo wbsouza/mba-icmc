@@ -4,8 +4,8 @@ Trains and persists a `TrainedMetaLearner` for `algos/baseline/main.py` as a por
 document (`chain/filters/f7_model_io.py`) embedding exactly what it was trained on.
 Rows are built over the bar stream LEAN delivers, with LEAN's indicator seeding and the
 live algorithm's feature function (`algo_backtest.training` over `chain.wiring`), and
-news is keyed at decision time — train/serve parity of the price features (within
-1e-9) and of F4's per-bar news lookup (exact) is proven in real LEAN by
+news is keyed at decision time — train/serve parity of the price features and of
+F4's per-bar news lookup (each to 9 decimal places) is proven in real LEAN by
 `tests/features/feature_parity.feature`. Rows whose label horizon crosses a split
 boundary are purged, so held-out data cannot influence the fitted model.
 

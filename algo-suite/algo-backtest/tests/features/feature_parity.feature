@@ -15,7 +15,7 @@ Feature: Training features equal the live algorithm's features, numerically
     When the feature-parity probe replays "20140507" in the LEAN container
     Then the backtest exits successfully
     And the live algorithm's first decision bar is the first training row's bar
-    And every live decision bar's price features match its training row within 1e-9
+    And every live decision bar's price features match its training row to 9 decimal places
 
     Examples:
       | with_gaps                                   |
@@ -27,4 +27,4 @@ Feature: Training features equal the live algorithm's features, numerically
     And GDELT event features whose intensity differs every minute from 2014-05-07 through 2014-05-08T00:00
     When the news-parity probe replays "20140507" in the LEAN container
     Then the backtest exits successfully
-    And for every live decision bar F4 looked up exactly the training row's news_event_intensity
+    And for every live decision bar F4 looked up the training row's news_event_intensity to 9 decimal places

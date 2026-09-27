@@ -30,6 +30,7 @@ null-disableable the same way RiskGuard's caps are.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -201,10 +202,12 @@ def news_coverage_problems(data_root: Path, pair: str, start: date, end: date) -
     ]
 
 
-def _minutes(first: datetime, last: datetime) -> list[datetime]:
-    """Every minute from `first` through `last`, inclusive."""
-    count = int((last - first) / BAR_DURATION) + 1
-    return [first + BAR_DURATION * i for i in range(count)]
+def _minutes(first: datetime, last: datetime) -> Iterator[datetime]:
+    """Every minute from `first` through `last`, inclusive, lazily (multi-year windows)."""
+    minute = first
+    while minute <= last:
+        yield minute
+        minute += BAR_DURATION
 
 
 def load_news_context_window(

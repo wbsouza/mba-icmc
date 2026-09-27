@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -28,6 +29,31 @@ scenarios("../features/feature_parity.feature")
 _ALGOS = Path(__file__).parent.parent / "algos"
 _LEAN_SUBPATH = "forex/oanda/minute/eurusd"
 _DAY = datetime(2014, 5, 7, tzinfo=UTC)
+
+
+# Float comparison with the semantics of Odoo's `odoo.tools.float_utils` (own
+# implementation, exact decimal rounding instead of Odoo's epsilon nudge). Parity uses
+# `float_is_zero(live - training, digits)`, deliberately *not* Odoo's `float_compare`:
+# Odoo documents that `float_compare` rounds each operand before comparing (0.006 vs
+# 0.002 compare different at 2 digits), so two values 1e-15 apart that straddle a
+# rounding boundary (…x49999 vs …x50001) would falsely differ — which is exactly what
+# happened across ~6,500 price-feature comparisons. Rounding the difference instead
+# accepts anything within half a unit of the last digit and rejects anything larger.
+
+
+def float_round(value: float, precision_digits: int) -> Decimal:
+    """`value` rounded HALF-UP (ties away from zero) to `precision_digits` decimals.
+
+    Exact: rounds the value's shortest decimal form (`repr`), so a binary artefact such
+    as 2.675 == 2.67499999… still rounds to 2.68, as Odoo's `float_round` intends.
+    """
+    step = Decimal(1).scaleb(-precision_digits)
+    return Decimal(repr(value)).quantize(step, rounding=ROUND_HALF_UP)
+
+
+def float_is_zero(value: float, precision_digits: int) -> bool:
+    """Whether `value` is zero at `precision_digits` decimals (Odoo's `float_is_zero`)."""
+    return abs(float_round(value, precision_digits)) < Decimal(1).scaleb(-precision_digits)
 
 
 def _sine_day() -> list[QuoteBar]:
@@ -101,10 +127,11 @@ def _same_warmup(ctx: dict[str, Any]) -> None:
 
 @then(
     parsers.parse(
-        "every live decision bar's price features match its training row within {tol:g}"
+        "every live decision bar's price features match its training row to {digits:d} "
+        "decimal places"
     )
 )
-def _parity(ctx: dict[str, Any], tol: float) -> None:
+def _parity(ctx: dict[str, Any], digits: int) -> None:
     """Same decision bars on both sides (bar for bar), then the same feature values.
 
     The only live bars without a training row are the final `HORIZON_MINUTES` delivered
@@ -118,12 +145,13 @@ def _parity(ctx: dict[str, Any], tol: float) -> None:
         sorted(set(rows) - set(live))[:5],
     )
     assert unlabeled <= set(live)
-    worst: dict[str, float] = {}
-    for bar_start, features in rows.items():
-        for key, value in live[bar_start].items():
-            gap = abs(float(features[key]) - float(value))  # type: ignore[arg-type]
-            worst[key] = max(worst.get(key, 0.0), gap)
-    assert all(gap <= tol for gap in worst.values()), worst
+    mismatched = [
+        (bar_start, key, features[key], value)
+        for bar_start, features in rows.items()
+        for key, value in live[bar_start].items()
+        if not float_is_zero(float(features[key]) - float(value), digits)  # type: ignore[arg-type]
+    ]
+    assert not mismatched, mismatched[:5]
 
 
 def _minute_intensity(i: int) -> float:
@@ -160,7 +188,10 @@ def _run_news_probe(ctx: dict[str, Any], lean_backtest: Any, tmp_path: Path, day
     )
 
 
-@then("for every live decision bar F4 looked up exactly the training row's news_event_intensity")
+@then(
+    "for every live decision bar F4 looked up the training row's news_event_intensity to 9 "
+    "decimal places"
+)
 def _news_parity(ctx: dict[str, Any]) -> None:
     """Same bars, and bar for bar the same value — a one-minute keying drift fails here."""
     live: dict[datetime, float] = {}
@@ -174,9 +205,13 @@ def _news_parity(ctx: dict[str, Any]) -> None:
     rows = {r.timestamp: r.features for r in build_training_rows(ctx["bars"], intensity)}
     unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
     assert set(live) - unlabeled == set(rows)
+    # float_is_zero of the difference at 9 decimals, not `!=`: the live value is re-parsed
+    # from a log line, so equality must not depend on the probe's print format. Adjacent
+    # minutes' intensities differ by far more than 1e-9 (`_minute_intensity`), so a
+    # one-minute keying drift still fails.
     mismatched = [
         (bar, live[bar], features["news_event_intensity"])
         for bar, features in rows.items()
-        if live[bar] != features["news_event_intensity"]
+        if not float_is_zero(live[bar] - float(features["news_event_intensity"]), 9)  # type: ignore[arg-type]
     ]
     assert not mismatched, mismatched[:5]

@@ -93,9 +93,10 @@ algo_backtest/
 ├── training.py             # IMPLEMENTED — F7 training-data assembly for scripts/train_*: multi-
 │                           #   month loads; rows over LEAN's delivered bar stream (market hours +
 │                           #   fill-forward, lean_bar_stream) with LEAN-identical EMA/RSI/MACD —
-│                           #   price-feature (≤1e-9) and F4 news-lookup (exact) parity proven in
-│                           #   real LEAN by feature_parity.feature; news keyed at decision time; labels carry label_time so walk_forward_split
-│                           #   purges rows whose horizon crosses a span boundary; save_model() (JSON)
+│                           #   price-feature and F4 news-lookup parity (to 9 decimals) proven in
+│                           #   real LEAN by feature_parity.feature; news keyed at decision time;
+│                           #   labels carry label_time so walk_forward_split purges rows whose
+│                           #   horizon crosses a span boundary; save_model() (JSON)
 ├── market_hours.py         # IMPLEMENTED — lean_delivers(): LEAN's Forex-oanda-[*] market hours
 │                           #   (lean_market_hours_forex_oanda.json, copied from the pinned image)
 ├── artifacts.py            # IMPLEMENTED — write_run_artifacts(): pure persistence of run.json
