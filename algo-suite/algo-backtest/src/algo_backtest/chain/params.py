@@ -80,3 +80,78 @@ def require_positive(values: Section, key: str, *, section: str, strategy: str) 
     if value <= 0:
         raise ValueError(f"{_where(section, key, strategy)} must be > 0, got {value!r}")
     return value
+
+
+def optional_positive(
+    values: Section, key: str, *, default: float, section: str, strategy: str
+) -> float:
+    """A number > 0 that falls back to `default` when the key is absent (never when `null`)."""
+    if key not in values:
+        return default
+    return require_positive(values, key, section=section, strategy=strategy)
+
+
+def require_non_negative(
+    values: Section, key: str, *, default: float, section: str, strategy: str
+) -> float:
+    """A number >= 0 that falls back to `default` when the key is absent."""
+    if key not in values:
+        return default
+    value = require_number(values, key, section=section, strategy=strategy)
+    if value < 0:
+        raise ValueError(f"{_where(section, key, strategy)} must be >= 0, got {value!r}")
+    return value
+
+
+def require_fraction(
+    values: Section,
+    key: str,
+    *,
+    default: float,
+    section: str,
+    strategy: str,
+    low_inclusive: bool,
+    high_inclusive: bool,
+) -> float:
+    """A number inside the unit interval, with each bound open or closed as requested,
+    falling back to `default` when the key is absent."""
+    if key not in values:
+        return default
+    value = require_number(values, key, section=section, strategy=strategy)
+    above_low = value >= 0 if low_inclusive else value > 0
+    below_high = value <= 1 if high_inclusive else value < 1
+    if not (above_low and below_high):
+        interval = f"{'[' if low_inclusive else '('}0, 1{']' if high_inclusive else ')'}"
+        raise ValueError(
+            f"{_where(section, key, strategy)} must be a fraction in {interval}, got {value!r}"
+        )
+    return value
+
+
+def optional_choice(
+    values: Section, key: str, *, default: str, choices: frozenset[str], section: str, strategy: str
+) -> str:
+    """A string drawn from `choices`, falling back to `default` when the key is absent."""
+    value = values.get(key, default)
+    if not isinstance(value, str) or value not in choices:
+        raise ValueError(
+            f"{_where(section, key, strategy)} must be one of {sorted(choices)}, got {value!r}"
+        )
+    return value
+
+
+def reject_unknown_keys(
+    values: Section, known: tuple[str, ...], *, section: str, strategy: str
+) -> None:
+    """Fail fast on a key the section's parser would otherwise silently ignore.
+
+    Raises:
+        ValueError: naming the unknown keys and the known ones, so a typo is fixed in
+            `strategies/<strategy>/config.yaml` rather than quietly changing the economics.
+    """
+    unknown = sorted(set(values) - set(known))
+    if unknown:
+        raise ValueError(
+            f"strategy {strategy!r}: {section} has unknown keys {unknown!r}; known keys: "
+            f"{list(known)} — fix strategies/{strategy}/config.yaml"
+        )

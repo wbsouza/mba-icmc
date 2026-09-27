@@ -144,7 +144,8 @@ removed by starting Task 09.
 
 The current run layout is `runs/<strategy>/<stamp>/`, not a date/ordinal name.
 The analyzer reads `trades.json`; chain runs also write `decisions.parquet` and
-`strategy-config.json`, alongside `run.json`, `metrics.json`, and LEAN output.
+`strategy-config.json` / `strategy-config.yaml`, alongside `run.json`, `metrics.json`,
+and LEAN output.
 The portable F7 JSON carries training provenance. Record its hash, the actual
 run IDs, CLI commands, execution settings, and data-root location together.
 `trades.parquet`, `parameters.txt`, `--cv`, and automatic per-fold orchestration

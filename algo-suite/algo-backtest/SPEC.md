@@ -531,11 +531,21 @@ provenance and checked by `run --model`), `indicator` (F2: `rsi_midline`,
 disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `capital_mgmt` (F6: `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`,
 `lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
-feeds F6) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
+feeds F6 — plus, since story 12 (execution realism, 2026-09-27), the fx-manager A05
+trade plan with defaults for every key: `stop_loss_shrink` in [0, 1), `min_stop_pips`,
+`targets[]` of `{at_level_ratio, close_fraction}` with strictly increasing levels and
+fractions summing to at most 1, `trail_stops[]` of `{at_level_ratio, to_level_ratio}`,
+`min_reward_risk` (`null` = no veto), `stop_distance_source` `fixed`|`atr` and
+`atr_multiplier`; `capital_mgmt_mapping` writes the effective values back, unknown keys
+fail fast) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
 `label_horizon_minutes` (F7; the gate is the dissertation's `r_t` agreement,
-switchable; the horizon is the training label's look-ahead, default 15). Sections
-with defaults may be omitted; the loader writes the effective values back into the
-resolved config so every run's `strategy-config.json` shows what was used. A filter listed without
+switchable; the horizon is the training label's look-ahead, default 15). A top-level
+`execution` section tied to no filter (`chain/execution_config.py`, story 12) carries
+the fill costs and holding rule — `spread_pips`, `commission_per_lot`, `min_hold_bars`,
+all defaulting to the frictionless case — and is always resolved, like `price_features`.
+Sections with defaults may be omitted; the loader writes the effective values back into the
+resolved config so every run's `strategy-config.json` and `strategy-config.yaml` show what
+was used, and `strategy-provenance.json` attributes each to its config.yaml or `default`. A filter listed without
 its section, a section without its filter, a missing key or an out-of-range value
 is a hard stop before the first bar, as are an unknown filter name, F7 keys in
 `meta_learner` without `f7_meta_learner` listed, and a `schema_version` other than
@@ -705,10 +715,13 @@ record the resolved config in model provenance. No replacement model is bundled.
 ### Resolved strategy config artifact
 
 Chain-driven runs (`baseline`, `baseline-dsha`, `hybrid`) publish
-`strategy-config.json` in the run results directory during initialization.
-It contains the fully resolved `StrategyChainConfig.raw` mapping, including
-inherited settings, serialized as deterministic UTF-8 JSON. It is published via
-the shared atomic writer (same-directory temporary file followed by replace).
+`strategy-config.json` and, since story 12, `strategy-config.yaml` in the run
+results directory during initialization — the same fully resolved
+`StrategyChainConfig.raw` mapping, including inherited settings and defaults the
+loader filled in, as deterministic UTF-8 JSON and as a resolved YAML document the
+strategy loader accepts as-is (so a run's exact parameters can seed a new variant).
+Both are published via the shared atomic writer (same-directory temporary file
+followed by replace); the JSON check runs first, so a rejected value reaches neither.
 Unsupported or non-finite JSON values fail explicitly before replacing an
 existing artifact. Its presence records configuration, **not successful run
 completion**; completed runs still require `run.json`/`metrics.json`.

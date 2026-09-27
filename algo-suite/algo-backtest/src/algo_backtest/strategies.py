@@ -36,6 +36,11 @@ from typing import Any
 
 import yaml
 
+from algo_backtest.chain.execution_config import (
+    ExecutionConfig,
+    execution_mapping,
+    parse_execution_config,
+)
 from algo_backtest.chain.filters.f2_indicator import (
     IndicatorConfig,
     indicator_mapping,
@@ -52,6 +57,7 @@ from algo_backtest.chain.filters.f4_news_context import (
 )
 from algo_backtest.chain.filters.f6_capital_mgmt import (
     CapitalMgmtConfig,
+    capital_mgmt_mapping,
     parse_capital_mgmt_config,
 )
 from algo_backtest.chain.filters.f7_meta_learner import F7Config, parse_f7_config
@@ -106,6 +112,8 @@ class StrategyChainConfig:
     raw: Mapping[str, Any]
     perception: PerceptionConfig = PerceptionConfig()
     price_features: PriceFeatureConfig = PriceFeatureConfig()
+    # Fill costs and holding rule (story 12): always resolved, tied to no filter.
+    execution: ExecutionConfig = ExecutionConfig()
     indicator: IndicatorConfig | None = None
     pattern: PatternConfig | None = None
     news_context: NewsContextConfig | None = None
@@ -299,20 +307,42 @@ def _reject_stray_f7_keys(
         )
 
 
+def _optional_top_level(name: str, merged: Mapping[str, Any], section: str) -> dict[str, Any]:
+    """A top-level section tied to no filter (`price_features`, `execution`): `{}` when
+    absent, so every key defaults; anything present must be a mapping.
+
+    Raises:
+        ValueError: the section is present but not a mapping.
+    """
+    raw = merged.get(section, {})
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"strategy {name!r}: '{section}' must be a mapping (got "
+            f"{type(raw).__name__!r}) — check its config.yaml"
+        )
+    return raw
+
+
+def _always_resolved_sections(name: str, merged: dict[str, Any]) -> dict[str, Any]:
+    """`price_features` and `execution`: parsed with defaults for every omitted key and
+    their effective values written back into `merged` (story 09 / story 12)."""
+    price = parse_price_features_config(
+        _optional_top_level(name, merged, "price_features"), strategy=name
+    )
+    merged["price_features"] = price_features_mapping(price)
+    execution = parse_execution_config(
+        _optional_top_level(name, merged, "execution"), strategy=name
+    )
+    merged["execution"] = execution_mapping(execution)
+    return {"price_features": price, "execution": execution}
+
+
 def _defaulted_sections(
     name: str, merged: dict[str, Any], filters: tuple[str, ...], meta_learner: dict[str, Any]
 ) -> dict[str, Any]:
-    """The sections with defaults (price_features, indicator, pattern, F7's horizon):
-    parsed, and their *effective* values written back into `merged` so the run's
-    `strategy-config.json` records what was actually used, defaults included."""
-    price_raw = merged.get("price_features", {})
-    if not isinstance(price_raw, dict):
-        raise ValueError(
-            f"strategy {name!r}: 'price_features' must be a mapping (got "
-            f"{type(price_raw).__name__!r}) — check its config.yaml"
-        )
-    price = parse_price_features_config(price_raw, strategy=name)
-    merged["price_features"] = price_features_mapping(price)
+    """The sections with defaults (price_features, execution, indicator, pattern, F7's
+    horizon): parsed, and their *effective* values written back into `merged` so the run's
+    `strategy-config.{json,yaml}` records what was actually used, defaults included."""
     indicator_raw = _filter_section(name, merged, filters, "f2_indicator")
     indicator = (
         parse_indicator_config(indicator_raw, strategy=name) if indicator_raw is not None else None
@@ -326,7 +356,23 @@ def _defaulted_sections(
     f7 = parse_f7_config(meta_learner, strategy=name) if "f7_meta_learner" in filters else None
     if f7 is not None:
         meta_learner.setdefault("label_horizon_minutes", f7.label_horizon_minutes)
-    return {"price_features": price, "indicator": indicator, "pattern": pattern, "f7": f7}
+    return {
+        **_always_resolved_sections(name, merged),
+        "indicator": indicator, "pattern": pattern, "f7": f7,
+    }
+
+
+def _capital_mgmt(
+    name: str, merged: dict[str, Any], filters: tuple[str, ...]
+) -> CapitalMgmtConfig | None:
+    """F6's section when the filter is listed; the trade-plan keys it omits default and the
+    effective values are written back into `merged` (story 12)."""
+    capital = _filter_section(name, merged, filters, "f6_capital_mgmt")
+    if capital is None:
+        return None
+    config = parse_capital_mgmt_config(capital, strategy=name)
+    merged["capital_mgmt"] = capital_mgmt_mapping(config)
+    return config
 
 
 def _typed_sections(
@@ -336,15 +382,12 @@ def _typed_sections(
     _reject_stray_f7_keys(name, filters, meta_learner)
     news = _filter_section(name, merged, filters, "f4_news_context")
     risk = _filter_section(name, merged, filters, "f5_risk_guard")
-    capital = _filter_section(name, merged, filters, "f6_capital_mgmt")
     return {
         "news_context": (
             parse_news_context_config(news, strategy=name) if news is not None else None
         ),
         "risk_guard": parse_risk_guard_caps(risk, strategy=name) if risk is not None else None,
-        "capital_mgmt": (
-            parse_capital_mgmt_config(capital, strategy=name) if capital is not None else None
-        ),
+        "capital_mgmt": _capital_mgmt(name, merged, filters),
         **_defaulted_sections(name, merged, filters, meta_learner),
     }
 
