@@ -9,11 +9,13 @@ filter owns a section of the same file — `news_context` for F4, `risk_guard` f
 `capital_mgmt` for F6 and `meta_learner.theta_high/theta_low/regime_gate` for F7 — parsed
 by that filter's own `parse_*_config`, and a filter listed without its section, or a
 section without its filter, is a hard stop). `baseline` and `hybrid` are the two Spec 04 variants
-(`docs/experiments.md` §1: "hybrid extends baseline adding F4"), composed via a single
-level of ``extends:`` — deliberately **not** the general cycle-detecting inheritance
-`technical-debt.md` TD-8 defers ("a flat, non-cyclic two-level extends does not need that
-machinery"): a strategy's base may not itself declare ``extends:`` — that's a hard stop
-here, not a chain to walk.
+(`docs/experiments.md` §1: "hybrid extends baseline adding F4"), composed via
+``extends:`` chains of any depth (2026-09-27: `base → variant → sub-variant`, like
+docker-compose override files or the reference engine's Spring `parent=` beans), walked
+base-first with cycle detection; a base is looked up in the same directory first and then
+in the bundled `strategies/`, so a variant in an external `--strategies-dir` can extend
+`baseline`. The general `algo_core.config`-level inheritance `technical-debt.md` TD-8
+defers is a different item.
 
 Merge policy mirrors `algo_core.config.resolution._deep_merge` (the same policy this
 workspace already uses for `conf/algo.yaml` < `conf/<tool>.yaml` layering): the child's
@@ -26,8 +28,9 @@ positional "insert F4 after F3" DSL would be.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
+import json
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -109,6 +112,9 @@ class StrategyChainConfig:
     risk_guard: RiskGuardCaps | None = None
     capital_mgmt: CapitalMgmtConfig | None = None
     f7: F7Config | None = None
+    # dotted parameter path -> the `<name>/config.yaml` in the extends chain that set it,
+    # or "default" for a value the loader filled in. Informational: excluded from equality.
+    provenance: Mapping[str, str] = field(default_factory=dict, compare=False)
 
 
 def strategies_root() -> Path:
@@ -122,6 +128,13 @@ def _config_path(root: Path, name: str) -> Path:
     return root / name / "config.yaml"
 
 
+def strategy_exists(name: str, *, root: Path | None = None) -> bool:
+    """Whether `name` has a `config.yaml` in `root` (when given) or the bundled directory."""
+    return (root is not None and _config_path(root, name).is_file()) or _config_path(
+        strategies_root(), name
+    ).is_file()
+
+
 def _read_yaml(root: Path, name: str) -> dict[str, Any]:
     """Read and parse one strategy's `config.yaml`, failing fast if it's missing/malformed."""
     path = _config_path(root, name)
@@ -130,10 +143,45 @@ def _read_yaml(root: Path, name: str) -> dict[str, Any]:
             f"unknown strategy {name!r}: no config at {path} — create "
             f"strategies/{name}/config.yaml first"
         )
+    return _read_mapping(path)
+
+
+def _read_mapping(path: Path) -> dict[str, Any]:
+    """Parse a YAML file that must hold a mapping."""
     parsed = yaml.safe_load(path.read_text())
     if not isinstance(parsed, dict):
         raise ValueError(f"strategy config {path} must contain a YAML mapping")
     return parsed
+
+
+def _read_base(root: Path, base_name: str) -> dict[str, Any]:
+    """A base strategy's config: from `root` when it has one, else from the bundled
+    directory — so a variant in an external `--strategies-dir` can extend `baseline`."""
+    if _config_path(root, base_name).is_file():
+        return _read_yaml(root, base_name)
+    return _read_yaml(strategies_root(), base_name)
+
+
+def resolved_yaml(config: StrategyChainConfig) -> str:
+    """The fully resolved configuration as one self-contained YAML document (no `extends`),
+    the form shipped into the LEAN container and written to each run's artifacts."""
+    return yaml.safe_dump(dict(config.raw), sort_keys=True)
+
+
+def load_resolved_strategy(path: Path, *, name: str) -> StrategyChainConfig:
+    """Load a resolved YAML document (`resolved_yaml`'s output) under `name`.
+
+    Raises:
+        ValueError: the document still declares `extends` (it is not resolved), or any
+            of `load_strategy_chain_config`'s validation failures.
+    """
+    merged = _read_mapping(path)
+    if "extends" in merged:
+        raise ValueError(
+            f"strategy {name!r}: resolved document {path} still declares 'extends' — resolve "
+            "it with load_strategy_chain_config and dump it with resolved_yaml first"
+        )
+    return _from_merged(name, merged, None, dict.fromkeys(_leaf_paths(merged), path.name))
 
 
 def _deep_merge(base: dict[str, Any], over: Mapping[str, Any]) -> dict[str, Any]:
@@ -305,8 +353,8 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     """Resolve one strategy's chain config, composing a single `extends:` level if present.
 
     Raises:
-        ValueError: the strategy (or its base) has no `config.yaml`, the base itself
-            declares `extends:` (only one level is supported), `filters:` resolves
+        ValueError: the strategy (or an ancestor) has no `config.yaml`, the `extends:`
+            chain revisits a name (a cycle), `filters:` resolves
             empty (a chain with no filters can never reach a terminal decision), a
             filter name is unknown, `schema_version` is not the current integer,
             `meta_learner:` is present but not a mapping (a malformed config type,
@@ -315,19 +363,77 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
             is missing, stray or invalid (`_filter_section` and each `parse_*_config`).
     """
     resolved_root = root if root is not None else strategies_root()
-    raw = _read_yaml(resolved_root, name)
-    base_name = raw.get("extends")
-    if base_name is not None:
-        base_raw = _read_yaml(resolved_root, base_name)
-        if "extends" in base_raw:
-            raise ValueError(
-                f"strategy {base_name!r} (the base of {name!r}) itself declares 'extends' "
-                "— only one level of extends is supported (technical-debt.md TD-8)"
-            )
-        merged = _deep_merge(base_raw, {k: v for k, v in raw.items() if k != "extends"})
-    else:
-        merged = raw
+    chain = _extends_chain(resolved_root, name)
+    merged: dict[str, Any] = {}
+    provenance: dict[str, str] = {}
+    for document_name, document in reversed(chain):
+        own = {k: v for k, v in document.items() if k != "extends"}
+        merged = _deep_merge(merged, own)
+        provenance.update(dict.fromkeys(_leaf_paths(own), f"{document_name}/config.yaml"))
+    base_name = chain[0][1].get("extends")
+    return _from_merged(name, merged, base_name, provenance)
 
+
+def _extends_chain(root: Path, name: str) -> list[tuple[str, dict[str, Any]]]:
+    """`(name, document)` for the strategy and each ancestor, leaf first, cycle-checked.
+
+    Raises:
+        ValueError: an `extends:` that is not a string, or a chain that revisits a name.
+    """
+    chain: list[tuple[str, dict[str, Any]]] = []
+    visited: list[str] = []
+    current = name
+    document = _read_yaml(root, current)
+    while True:
+        visited.append(current)
+        chain.append((current, document))
+        base = document.get("extends")
+        if base is None:
+            return chain
+        if not isinstance(base, str):
+            raise ValueError(
+                f"strategy {current!r}: 'extends' must be a strategy name, got {base!r}"
+            )
+        if base in visited:
+            raise ValueError(
+                f"strategy {name!r}: extends cycle {' -> '.join([*visited, base])} — a "
+                "strategy cannot (transitively) extend itself; check the config.yaml files"
+            )
+        current, document = base, _read_base(root, base)
+
+
+def _leaf_paths(document: Mapping[str, Any], prefix: str = "") -> Iterator[str]:
+    """Dotted paths of every parameter in `document`; a list counts as one parameter."""
+    for key, value in document.items():
+        path = f"{prefix}{key}"
+        if isinstance(value, Mapping):
+            yield from _leaf_paths(value, f"{path}.")
+        else:
+            yield path
+
+
+def explain_lines(config: StrategyChainConfig) -> list[str]:
+    """`key = value  # source` for every resolved parameter, sorted by key."""
+    flat = {path: _value_at(config.raw, path) for path in _leaf_paths(config.raw)}
+    return [
+        f"{path} = {json.dumps(flat[path])}  # {config.provenance.get(path, 'unknown')}"
+        for path in sorted(flat)
+    ]
+
+
+def _value_at(document: Mapping[str, Any], path: str) -> Any:
+    """The value a dotted path names inside a nested mapping."""
+    value: Any = document
+    for part in path.split("."):
+        value = value[part]
+    return value
+
+
+def _from_merged(
+    name: str, merged: dict[str, Any], base_name: str | None, provenance: dict[str, str]
+) -> StrategyChainConfig:
+    """Validate and type one fully merged configuration mapping; parameters the loader
+    fills in (defaulted sections) are attributed to "default" in `provenance`."""
     _require_schema_version(name, merged)
     filters = tuple(_ensure_str_list(name, "filters", merged.get("filters", ())))
     if not filters:
@@ -341,8 +447,10 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
         )
     families_raw = meta_learner.get("families", ())
     families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
+    typed = _typed_sections(name, merged, filters, meta_learner)
+    for path in _leaf_paths(merged):
+        provenance.setdefault(path, "default")
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
-        perception=parse_perception_config(merged),
-        **_typed_sections(name, merged, filters, meta_learner),
+        perception=parse_perception_config(merged), provenance=provenance, **typed,
     )

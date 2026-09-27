@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 import yaml
-from algo_backtest.run import validate_run_inputs
+from algo_backtest.run import resolve_strategy, validate_run_inputs
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/strategy_validation.feature")
@@ -154,3 +154,59 @@ def _validate_with_model_failing(vctx: dict[str, Any], strategy: str) -> None:
     with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
         validate_run_inputs(strategy, vctx["params"], _START, _END, vctx["model"])
     vctx["error"] = str(exc_info.value)
+
+
+@given(
+    parsers.parse(
+        'an external strategies directory holding "{name}" extending "{base}" with extra '
+        '"{extra_yaml}"'
+    )
+)
+def _external_dir(
+    vctx: dict[str, Any], tmp_path: Path, name: str, base: str, extra_yaml: str
+) -> None:
+    """A variant YAML in a directory outside the package; its base stays bundled."""
+    root = tmp_path / "strategies"
+    (root / name).mkdir(parents=True)
+    body: dict[str, Any] = {"extends": base, **(yaml.safe_load(extra_yaml) or {})}
+    (root / name / "config.yaml").write_text(yaml.safe_dump(body))
+    vctx["strategies_root"] = root
+
+
+@when(parsers.parse('strategy "{name}" is resolved from that directory'))
+def _resolve_external(vctx: dict[str, Any], name: str) -> None:
+    vctx["spec"] = resolve_strategy(name, strategies_root=vctx["strategies_root"])
+
+
+@when(parsers.parse('strategy "{name}" is resolved from the bundled directory'))
+def _resolve_bundled(vctx: dict[str, Any], name: str) -> None:
+    vctx["spec"] = resolve_strategy(name)
+
+
+@when(parsers.parse('resolving strategy "{name}" from that directory fails'))
+def _resolve_fails(vctx: dict[str, Any], name: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        resolve_strategy(name, strategies_root=vctx["strategies_root"])
+    vctx["error"] = str(exc_info.value)
+
+
+@then(parsers.parse('the resolved strategy runs on algorithm "{algo_dir}" with news data {news}'))
+def _resolved_spec(vctx: dict[str, Any], algo_dir: str, news: str) -> None:
+    spec = vctx["spec"]
+    assert spec.algo_dir == algo_dir
+    assert spec.needs_news_data is (news == "true")
+
+
+@then(
+    parsers.parse(
+        'validating strategy "{name}" with params {params} from that directory passes'
+    )
+)
+def _validate_external(vctx: dict[str, Any], name: str, params: str) -> None:
+    parsed = dict(token.split("=", 1) for token in params.split())
+    validate_run_inputs(name, parsed, _START, _END, strategies_root=vctx["strategies_root"])
+
+
+@then(parsers.parse('the resolution failure names "{fragment}"'))
+def _resolution_failure(vctx: dict[str, Any], fragment: str) -> None:
+    assert fragment in vctx["error"], vctx["error"]

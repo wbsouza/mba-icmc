@@ -8,7 +8,7 @@ omissions; the thesis lists deferred items as documented future work
 | Feature | Status | Rationale |
 |---|---|---|
 | Multi-asset (equities, crypto, futures) | **CUT** | Forex only for the thesis. The `Instrument`/`SecurityType` model keeps the door open, but only FX majors are built (EUR/USD, USD/JPY the targets). |
-| Strategy config inheritance (`extends:`) | **CUT (general form)** | Post-TCC (TD-8). Only a single-level, non-cyclic `extends:` is built (`algo_backtest/strategies.py`, `hybrid` extends `baseline`); a base may not itself extend. |
+| Strategy config inheritance (`extends:`) | **CUT (general form)** | Post-TCC (TD-8). Strategy-level `extends:` chains of any depth with cycle detection are built (`algo_backtest/strategies.py`, 2026-09-27; `hybrid` extends `baseline`, variants may extend either from an external `--strategies-dir`); a base may not itself extend. |
 | Layered config file/env loading | **BUILT** | `algo_core.config.resolve` merges `ALGO_*` env > `conf/<tool>.yaml` > `conf/algo.yaml` > defaults (TD-3 resolved). The chain strategies' F5/F6/F7 settings are still explicit constants, not threaded from config (TD-43). |
 | Live trading / OANDA brokerage (Phase 6) | **CUT** | Out of scope; no broker connectivity from this repo. Credentials never on the critical path. |
 | Tick-resolution backtests | **CUT** | `algo-transform` produces any MT5 timeframe (`m1`…`d1`) and filters are multi-timeframe (each reads its own, chosen empirically), but tick-level *backtesting* is out (ticks are kept only for slippage). |

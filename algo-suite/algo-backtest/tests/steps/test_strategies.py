@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
-from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
+from algo_backtest.strategies import (
+    StrategyChainConfig,
+    load_resolved_strategy,
+    load_strategy_chain_config,
+    resolved_yaml,
+)
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/strategies.feature")
@@ -21,6 +26,7 @@ class _StrategiesCtx:
 
     root: Path
     loaded: StrategyChainConfig | None = None
+    reloaded: StrategyChainConfig | None = None
     error: Exception | None = None
 
 
@@ -158,6 +164,11 @@ def _set_schema_version(strategies_ctx: _StrategiesCtx, name: str, value: str) -
     _amend_config(strategies_ctx.root, name, amend)
 
 
+@given(parsers.parse('"{name}" is changed to extend "{base}"'))
+def _make_extend(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
+    _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__("extends", base))
+
+
 @given(parsers.parse('"{name}" drops its "{section}" section'))
 def _drop_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.pop(section))
@@ -200,7 +211,11 @@ def _extending_config(
     base_body = _read_config(strategies_ctx.root, base)
     body = _body(_split(filters), _split(families))
     keep = {"filters", "schema_version"}
-    body = {k: v for k, v in body.items() if k not in base_body or k in keep}
+    defaultable = {"indicator", "pattern", "price_features"}
+    body = {
+        k: v for k, v in body.items()
+        if (k not in base_body or k in keep) and k not in defaultable
+    }
     body["meta_learner"] = {"families": list(_split(families))}
     base_has_f7 = "f7_meta_learner" in base_body.get("filters", [])
     if "f7_meta_learner" in _split(filters) and not base_has_f7:
@@ -510,3 +525,68 @@ def _real_loaded_families(strategies_ctx: _StrategiesCtx, families: str) -> None
 def _real_extends_base(strategies_ctx: _StrategiesCtx, base: str) -> None:
     assert strategies_ctx.loaded is not None
     assert strategies_ctx.loaded.extends == base
+
+
+@when(
+    parsers.parse(
+        'the loaded strategy is dumped to a resolved YAML file and loaded back as "{name}"'
+    )
+)
+def _round_trip(strategies_ctx: _StrategiesCtx, name: str) -> None:
+    assert strategies_ctx.loaded is not None
+    path = strategies_ctx.root / "strategy.yaml"
+    path.write_text(resolved_yaml(strategies_ctx.loaded))
+    strategies_ctx.reloaded = load_resolved_strategy(path, name=name)
+
+
+@then("the reloaded strategy equals the loaded one apart from its extends provenance")
+def _round_trip_equal(strategies_ctx: _StrategiesCtx) -> None:
+    """The resolved document has no `extends` left to record; everything else must match."""
+    assert strategies_ctx.loaded is not None
+    assert strategies_ctx.reloaded == replace(strategies_ctx.loaded, extends=None)
+
+
+@given(parsers.parse('a resolved strategy file for "{name}" that still declares extends'))
+def _resolved_with_extends(strategies_ctx: _StrategiesCtx, name: str) -> None:
+    body = _body(("f1_trend",), ("trend",))
+    body["extends"] = "baseline"
+    (strategies_ctx.root / "strategy.yaml").write_text(yaml.safe_dump(body))
+
+
+@when(parsers.parse('loading the resolved strategy file as "{name}" fails'))
+def _load_resolved_fails(strategies_ctx: _StrategiesCtx, name: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        load_resolved_strategy(strategies_ctx.root / "strategy.yaml", name=name)
+    strategies_ctx.error = exc_info.value
+
+
+@given(
+    parsers.parse(
+        'an external strategy config directory with "{name}" extending bundled "{base}" and '
+        "meta_learner theta_high {value:g}"
+    )
+)
+def _external_variant(strategies_ctx: _StrategiesCtx, name: str, base: str, value: float) -> None:
+    """Only the variant lives in the external root; its base must resolve from the package."""
+    _write_config(
+        strategies_ctx.root, name,
+        {"extends": base, "meta_learner": {"theta_high": value}},
+    )
+
+
+@when(parsers.parse('strategy "{name}" is loaded from that external directory'))
+def _load_external(strategies_ctx: _StrategiesCtx, name: str) -> None:
+    strategies_ctx.loaded = load_strategy_chain_config(name, root=strategies_ctx.root)
+
+
+@then(parsers.parse('the loaded strategy\'s filters end with "{names}"'))
+def _loaded_filters_end_with(strategies_ctx: _StrategiesCtx, names: str) -> None:
+    assert strategies_ctx.loaded is not None
+    tail = _split(names)
+    assert strategies_ctx.loaded.filters[-len(tail):] == tail
+
+
+@then(parsers.parse('the loaded strategy\'s parameter "{key}" comes from "{source}"'))
+def _provenance(strategies_ctx: _StrategiesCtx, key: str, source: str) -> None:
+    assert strategies_ctx.loaded is not None
+    assert strategies_ctx.loaded.provenance.get(key) == source, strategies_ctx.loaded.provenance

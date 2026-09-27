@@ -161,13 +161,14 @@ def _failure(io_ctx: _IoCtx, fragment: str) -> None:
 def _bundled_models_match() -> None:
     """Guards the committed artifacts themselves, not just the runtime check."""
     import algo_backtest
-    from algo_backtest.run import STRATEGIES
-    from algo_backtest.strategies import load_strategy_chain_config
+    from algo_backtest.run import resolve_strategy
+    from algo_backtest.strategies import load_strategy_chain_config, strategies_root
 
     algos = Path(algo_backtest.__file__).parent / "algos"
-    chain_strategies = {n: s for n, s in STRATEGIES.items() if s.model_file}
-    assert set(chain_strategies) == {"baseline", "baseline-dsha", "hybrid"}
-    for name, spec in chain_strategies.items():
+    bundled = sorted(p.name for p in strategies_root().iterdir() if (p / "config.yaml").is_file())
+    assert bundled == ["baseline", "baseline-dsha", "hybrid"]
+    for name in bundled:
+        spec = resolve_strategy(name)
         assert spec.model_file is not None
         families = load_families(algos / spec.algo_dir / spec.model_file)
         declared = load_strategy_chain_config(name).meta_learner_families

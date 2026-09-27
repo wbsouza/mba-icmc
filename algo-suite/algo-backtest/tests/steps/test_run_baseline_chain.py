@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 import algo_backtest
 import pytest
+import yaml
 from algo_backtest.chain.audit import DecisionRow
 from algo_backtest.cli import app
 from algo_backtest.materialize import materialize_month
@@ -93,6 +94,77 @@ def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
             "--model", str(bctx["model"]),
         ],
     )
+
+
+@given(
+    parsers.parse(
+        'an external strategies directory with "{name}" extending baseline with theta_high '
+        "{high:g} and theta_low {low:g}"
+    )
+)
+def _external_variant_dir(
+    bctx: dict[str, Any], tmp_path: Path, name: str, high: float, low: float
+) -> None:
+    root = tmp_path / "strategies"
+    (root / name).mkdir(parents=True)
+    body = {"extends": "baseline", "meta_learner": {"theta_high": high, "theta_low": low}}
+    (root / name / "config.yaml").write_text(yaml.safe_dump(body))
+    bctx["strategies_root"] = root
+
+
+@when(
+    parsers.parse(
+        "I run {name} from that directory over the 2014-05-08 to 2014-05-09 test span with "
+        "size 0.5, cash 10000 and that model"
+    )
+)
+def _run_external_variant(bctx: dict[str, Any], require_docker: None, name: str) -> None:
+    bctx["cli"] = CliRunner().invoke(
+        app,
+        [
+            "run", "--strategy", name, "--strategies-dir", str(bctx["strategies_root"]),
+            "--symbol", "EURUSD", "--from", "2014-05-08", "--to", "2014-05-09",
+            "--param", "size=0.5", "--param", "cash=10000", "--model", str(bctx["model"]),
+        ],
+    )
+
+
+@then(
+    parsers.parse(
+        'the run\'s strategy-config.json under "{name}" records theta_high {high:g} and '
+        "theta_low {low:g}"
+    )
+)
+def _recorded_thresholds(bctx: dict[str, Any], name: str, high: float, low: float) -> None:
+    configs = list((bctx["data_root"] / "runs" / name).glob("*/strategy-config.json"))
+    assert configs, f"no strategy-config.json under runs/{name}"
+    recorded = json.loads(configs[0].read_text())["meta_learner"]
+    assert (recorded["theta_high"], recorded["theta_low"]) == (high, low)
+
+
+@then(
+    parsers.parse(
+        'the run\'s strategy-provenance.json under "{name}" attributes "{key1}" to "{src1}" '
+        'and "{key2}" to "{src2}"'
+    )
+)
+def _recorded_provenance(
+    bctx: dict[str, Any], name: str, key1: str, src1: str, key2: str, src2: str
+) -> None:
+    files = list((bctx["data_root"] / "runs" / name).glob("*/strategy-provenance.json"))
+    assert files, f"no strategy-provenance.json under runs/{name}"
+    provenance = json.loads(files[0].read_text())
+    assert provenance[key1] == src1 and provenance[key2] == src2, provenance
+
+
+@then(
+    parsers.parse(
+        'the bootstrap output lists strategy parameter "{key}" = {value} from "{source}"'
+    )
+)
+def _bootstrap_parameter(bctx: dict[str, Any], key: str, value: str, source: str) -> None:
+    expected = f"strategy[baseline] {key} = {value}  # {source}"
+    assert expected in bctx["cli"].output.splitlines(), bctx["cli"].output
 
 
 @then(parsers.parse("the run command exits with code {code:d}"))

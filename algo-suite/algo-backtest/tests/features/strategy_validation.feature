@@ -155,3 +155,30 @@ Feature: Strategy parameter validation
         | pre-amendment model without the key    | absent                 | passes            | validation passes                         |
         | different fast EMA                     | {ema_fast: 5}          | expecting failure | validation fails naming "price_features"  |
         | different RSI period                   | {rsi_period: 21}       | expecting failure | validation fails naming "rsi_period"      |
+
+  Rule: Chain strategies are resolved from their YAML, not from a code registry (2026-09-27)
+    A new `strategies/<name>/config.yaml` — bundled or in an external `--strategies-dir` —
+    runs without a code change. The YAML decides which LEAN algorithm hosts it (F4 listed →
+    the news-aware one, with the news Parquet mounted) and always takes size + cash.
+
+    Scenario Outline: a YAML variant in an external directory resolves from its filters (<name>)
+      Given an external strategies directory holding "<name>" extending "<base>" with extra "<extra_yaml>"
+      When strategy "<name>" is resolved from that directory
+      Then the resolved strategy runs on algorithm "<algo_dir>" with news data <news>
+      And validating strategy "<name>" with params size=0.5 cash=10000 from that directory passes
+
+      Examples:
+        | name    | base     | extra_yaml                                      | algo_dir | news  |
+        | tight   | baseline | {meta_learner: {theta_high: 0.6, theta_low: 0.4}} | baseline | false |
+        | newsy   | hybrid   | {news_context: {event_intensity_veto_threshold: -2.0}} | hybrid | true |
+
+    Scenario: the bundled strategies still resolve without any directory
+      When strategy "hybrid" is resolved from the bundled directory
+      Then the resolved strategy runs on algorithm "hybrid" with news data true
+
+    Scenario: an unknown name names the registry, the bundled directory and the external one
+      Given an external strategies directory holding "tight" extending "baseline" with extra "{}"
+      When resolving strategy "nope" from that directory fails
+      Then the resolution failure names "nope"
+      And the resolution failure names "buyhold"
+      And the resolution failure names "tight"

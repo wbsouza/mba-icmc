@@ -43,7 +43,7 @@ from algo_backtest.chain.wiring import (
 )
 from algo_backtest.container_paths import DECISIONS_FILE
 from algo_backtest.perception.config import PerceptionConfig
-from algo_backtest.strategies import load_strategy_chain_config
+from algo_backtest.strategies import load_resolved_strategy
 
 
 def use_flat_to_flat_trades(algorithm: QCAlgorithm) -> None:  # noqa: F405
@@ -102,8 +102,12 @@ class ChainAlgorithm(ExecutionAlgorithm):
         self.set_start_date(start.year, start.month, start.day)
         self.set_end_date(end.year, end.month, end.day)
         self._symbol = self.add_forex(symbol, Resolution.MINUTE, Market.OANDA).symbol  # noqa: F405
-        config = load_strategy_chain_config(
-            self.get_parameter("chain_config") or self.strategy_name
+        # The host run path ships the fully resolved strategy YAML next to main.py
+        # (run.py `_RESOLVED_STRATEGY_FILE`), so the container never depends on the
+        # package's bundled strategies/ or on an external --strategies-dir.
+        config = load_resolved_strategy(
+            self.model_path.parent / "strategy.yaml",
+            name=self.get_parameter("chain_config") or self.strategy_name,
         )
         self._subscribe_indicators(config.perception, config.price_features)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")

@@ -330,7 +330,16 @@ trading-impactful parameter is a hard stop before the first bar.
 
 Target surface below; **implemented today** is `version`, `materialize --symbol
 --year --month`, `lean-smoke`, `run --strategy --symbol --from --to [--param k=v]...
-[--model PATH]`, `metrics --run DIR` and `experiment run --spec YAML`. `--cv`, the
+[--model PATH] [--strategies-dir DIR]`, `explain-strategy NAME [--strategies-dir DIR]`,
+`metrics --run DIR` and `experiment run --spec YAML`. Since 2026-09-27 (story 09) a
+chain strategy is resolved from its `config.yaml`, not a code registry: `--strategy
+<name>` accepts any bundled `strategies/<name>/config.yaml` or one under
+`--strategies-dir`; the YAML decides the hosting algorithm (`algos/hybrid` when
+`f4_news_context` is listed, else `algos/baseline`) and whether news data is mounted;
+`extends:` chains of any depth compose base-first with cycle detection, a variant in an
+external directory may extend a bundled base; the resolved document is shipped into the
+container as `strategy.yaml`, and each parameter's source (`<name>/config.yaml` or
+`default`) is printed at run bootstrap and written to `strategy-provenance.json`. `--cv`, the
 `config` generator and read-through materialization inside `run` are not built. F7
 models are trained offline by `scripts/train_{baseline,hybrid}_meta_learner.py`.
 

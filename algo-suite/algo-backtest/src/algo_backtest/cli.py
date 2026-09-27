@@ -21,6 +21,12 @@ app = typer.Typer(
 _PARAM_OPTION = typer.Option(
     None, "--param", help="Strategy parameter key=value, repeatable (e.g. --param fast=3)."
 )
+_STRATEGIES_DIR_OPTION = typer.Option(
+    None,
+    "--strategies-dir",
+    help="Directory of extra strategies/<name>/config.yaml files (a variant there may "
+    "`extends:` a bundled strategy); the bundled strategies stay available.",
+)
 _MODEL_OPTION = typer.Option(
     None,
     "--model",
@@ -138,6 +144,19 @@ def lean_smoke(
         raise typer.Exit(1)
 
 
+def _print_strategy_parameters(strategy: str, strategies_dir: Path | None) -> None:
+    """Execution bootstrap: print every resolved strategy parameter and the config.yaml
+    (or default) it came from, before any data check or container start, so a run is
+    auditable from its console output alone. Code-registered strategies have none."""
+    from algo_backtest.run import resolve_strategy
+    from algo_backtest.strategies import explain_lines, load_strategy_chain_config
+
+    if resolve_strategy(strategy, strategies_root=strategies_dir).model_file is None:
+        return
+    for line in explain_lines(load_strategy_chain_config(strategy, root=strategies_dir)):
+        typer.echo(f"strategy[{strategy}] {line}")
+
+
 @app.command()
 def run(
     strategy: str = typer.Option("baseline-ma", "--strategy", help="Strategy name."),
@@ -149,6 +168,7 @@ def run(
         600, "--timeout", envvar="LEAN_RUN_TIMEOUT", help="Seconds to wait for the run."
     ),
     model: Path | None = _MODEL_OPTION,
+    strategies_dir: Path | None = _STRATEGIES_DIR_OPTION,
 ) -> None:
     """Run a single strategy over a window and report success + closed-trade count.
 
@@ -180,7 +200,7 @@ def run(
         raise typer.Exit(2) from None
     try:
         params = _parse_params(param or [])
-        validate_run_inputs(strategy, params, start, end, model)
+        validate_run_inputs(strategy, params, start, end, model, strategies_root=strategies_dir)
     except ValueError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
@@ -189,6 +209,8 @@ def run(
     config = load_backtest_config()
     for line in config.provenance:
         log.info("config", provenance=line)
+
+    _print_strategy_parameters(strategy, strategies_dir)
 
     instrument = build_instrument(symbol)
     if not lean_data_covers(config.data_root, instrument, start, end):
@@ -199,7 +221,9 @@ def run(
         )
         raise typer.Exit(2)
 
-    news_errors = news_coverage_errors(strategy, config.data_root, symbol, start, end)
+    news_errors = news_coverage_errors(
+        strategy, config.data_root, symbol, start, end, strategies_root=strategies_dir
+    )
     if news_errors:
         typer.echo(
             f"GDELT event features cannot serve {strategy} over {start}..{end}: "
@@ -212,7 +236,7 @@ def run(
     result = run_strategy(
         strategy, data_root=config.data_root, instrument=instrument, start=start, end=end,
         params=params, results_dir=results_dir, timeout=timeout,
-        broker_adapter=config.broker_adapter, model=model,
+        broker_adapter=config.broker_adapter, model=model, strategies_root=strategies_dir,
     )
     typer.echo(
         f"run[{strategy}]: success={result.success} closed_trades={result.closed_trades} "
@@ -241,6 +265,32 @@ def run(
         f"metrics: total_return={metrics.total_return} sharpe={metrics.sharpe} "
         f"max_drawdown={metrics.max_drawdown} hit_rate={metrics.hit_rate}"
     )
+
+
+@app.command(name="explain-strategy")
+def explain_strategy(
+    name: str = typer.Argument(..., help="Strategy name (bundled, or under --strategies-dir)."),
+    strategies_dir: Path | None = _STRATEGIES_DIR_OPTION,
+) -> None:
+    """Print every resolved parameter of a strategy and the config.yaml that set it.
+
+    One line per parameter, `key = value  # <source>`; the source is the file in the
+    `extends:` chain that set the value, or `default` for a value the loader filled in.
+    The same map is written next to every run as `strategy-provenance.json`.
+    """
+    from algo_backtest.run import resolve_strategy
+    from algo_backtest.strategies import explain_lines, load_strategy_chain_config
+
+    try:
+        spec = resolve_strategy(name, strategies_root=strategies_dir)
+        if spec.model_file is None:
+            raise ValueError(f"{name!r} is a code-registered strategy without a config.yaml")
+        config = load_strategy_chain_config(name, root=strategies_dir)
+    except ValueError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    for line in explain_lines(config):
+        typer.echo(line)
 
 
 @app.command()

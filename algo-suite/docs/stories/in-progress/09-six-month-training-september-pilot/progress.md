@@ -17,7 +17,12 @@ Decisions taken with the user after the zero-trade diagnosis below:
    periods, shared by training and serving, recorded in the model's provenance and
    checked on `--model`), `indicator` (F2 midline/threshold), `pattern` (F3 vocabulary)
    and `meta_learner.label_horizon_minutes`. Defaulted sections are written back into
-   the resolved config so `strategy-config.json` shows the effective values. Modelled on the reference engine's per-component parameter maps with parent
+   the resolved config so `strategy-config.json` shows the effective values. Finally,
+   strategies are resolved from their YAML rather than a code registry (`--strategy` takes
+   any bundled or `--strategies-dir` name; F4 in `filters` selects the news-aware
+   algorithm), `extends:` chains of any depth compose like compose override files, and
+   every parameter records its source (`<name>/config.yaml` or `default`): printed at run
+   bootstrap, `algo-backtest explain-strategy`, and `strategy-provenance.json` per run. Modelled on the reference engine's per-component parameter maps with parent
    inheritance (`spockfx-engine` `deploy.xml` / `strategies/dragon.xml`).
 2. **F7 regime gate off** (`regime_gate: false` in both bundled configs). The gated rule
    cannot fire with these models (diagnosis below); the gate stays available as a switch.

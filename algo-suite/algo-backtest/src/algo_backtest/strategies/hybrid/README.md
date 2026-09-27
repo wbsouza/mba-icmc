@@ -53,6 +53,13 @@ bear regime); `false` trades on p̂ alone. Since 2026-09-27 (story 09) the bundl
 configs run with the gate off: the six-month pilot's fitted model was anti-aligned with
 F1's regime on every September bar, so the gated rule never fired.
 
+## Variants
+
+A new strategy is a new `strategies/<variant>/config.yaml` (bundled, or in a folder
+passed as `--strategies-dir`) that `extends:` this one and states only its diff — no code
+change, no registry entry. `algo-backtest explain-strategy <variant>` prints every
+resolved parameter with the file that set it.
+
 ## Run
 
 ```bash

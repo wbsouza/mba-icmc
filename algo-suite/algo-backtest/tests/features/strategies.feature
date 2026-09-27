@@ -199,14 +199,25 @@ Feature: Strategy-chain config loading (Spec 04h)
         | string "2"      | "2"            |
         | missing         | absent         |
 
-  Rule: Only one level of extends is supported (TD-8)
+  Rule: extends chains of any depth compose base-first, like compose override files (2026-09-27)
 
-    Scenario: a base that itself declares extends fails fast
-      Given a strategy config directory with "core" filters "f1_trend" and families "trend"
-      And "mid" extends "core" with filters "f1_trend,f2_indicator" and families "trend"
-      And "leaf" extends "mid" with filters "f1_trend,f2_indicator,f3_pattern" and families "trend"
-      When loading strategy "leaf" fails
-      Then the failure names "only one level of extends"
+    Scenario: a three-level chain resolves with each level overriding its base
+      Given a strategy config directory with "core" filters "f1_trend,f5_risk_guard" and families "trend"
+      And "mid" extends "core" with filters "f1_trend,f2_indicator,f5_risk_guard" and families "trend"
+      And "mid" also declares risk_guard.max_leverage 10
+      And "leaf" extends "mid" with filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard" and families "trend"
+      When strategy "leaf" is loaded
+      Then the loaded strategy's filters are "f1_trend,f2_indicator,f3_pattern,f5_risk_guard"
+      And the loaded strategy's risk-guard caps have max_leverage 10
+      And the loaded strategy's risk-guard caps have daily_drawdown_limit -0.05
+      And the loaded strategy extends "mid"
+
+    Scenario: an extends cycle fails fast naming the chain
+      Given a strategy config directory with "a" filters "f1_trend" and families "trend"
+      And "b" extends "a" with filters "f1_trend" and families "trend"
+      And "a" is changed to extend "b"
+      When loading strategy "a" fails
+      Then the failure names "extends cycle a -> b -> a"
 
   Rule: An unknown strategy fails fast, naming the missing config path
 
@@ -295,3 +306,48 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "badfamily" filters "f1_trend" and meta_learner.families containing a non-string entry
       When loading strategy "badfamily" fails
       Then the failure names "meta_learner.families"
+
+  Rule: The resolved configuration travels as one self-contained YAML document
+
+    Scenario: a resolved strategy dumps to YAML and loads back identically
+      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "hybrid" extends "baseline" with filters "f1_trend,f4_news_context,f5_risk_guard,f7_meta_learner" and families "trend,news"
+      When strategy "hybrid" is loaded
+      And the loaded strategy is dumped to a resolved YAML file and loaded back as "hybrid"
+      Then the reloaded strategy equals the loaded one apart from its extends provenance
+
+    Scenario: a resolved file still carrying extends is rejected
+      Given a resolved strategy file for "leaf" that still declares extends
+      When loading the resolved strategy file as "leaf" fails
+      Then the failure names "extends"
+
+  Rule: A child in an external directory may extend a bundled base
+
+    Scenario: an external variant resolves its base from the bundled strategies
+      Given an external strategy config directory with "tight" extending bundled "baseline" and meta_learner theta_high 0.6
+      When strategy "tight" is loaded from that external directory
+      Then the loaded strategy's F7 config has theta_high 0.6
+      And the loaded strategy's filters end with "f6_capital_mgmt,f7_meta_learner"
+
+  Rule: Every resolved parameter records where it came from (2026-09-27)
+
+    Scenario Outline: provenance names the config.yaml in the chain that set <key>, or default
+      Given a strategy config directory with "core" filters "f1_trend,f2_indicator,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "core" drops its "indicator" section
+      And "mid" extends "core" with filters "f1_trend,f2_indicator,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "mid" also declares risk_guard.max_leverage 10
+      And "leaf" extends "mid" with filters "f1_trend,f2_indicator,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "leaf" also declares meta_learner.theta_high 0.6
+      When strategy "leaf" is loaded
+      Then the loaded strategy's parameter "<key>" comes from "<source>"
+
+      Examples:
+        | key                                | source           |
+        | meta_learner.theta_high            | leaf/config.yaml |
+        | meta_learner.theta_low             | core/config.yaml |
+        | risk_guard.max_leverage            | mid/config.yaml  |
+        | risk_guard.daily_drawdown_limit    | core/config.yaml |
+        | indicator.rsi_midline              | default          |
+        | price_features.ema_fast            | default          |
+        | meta_learner.label_horizon_minutes | default          |
+        | filters                            | leaf/config.yaml |
