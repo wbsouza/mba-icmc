@@ -19,11 +19,12 @@ score → **backtest** → analyze.
 - Emits, per run: `run.json` (manifest), `trades.json` (LEAN closed-trade ledger),
   `metrics.json` and LEAN's result JSON; the chain strategies (`baseline`, `hybrid`)
   also write `decisions.parquet` (bar-level audit, joined to `trades.json` by
-  `trade_id`). Every run then ends with a broker-style **`statement.md`** (closed
-  transactions, open trades, working orders, A/C summary, performance, parameters
-  with provenance) and an **`equity.png`** equity/drawdown chart, both built purely
-  from those artifacts (`statement.py`) and regenerable with `algo-backtest statement
-  --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
+  `trade_id`). Every run then ends with **`statement.md`**, laid out like a
+  MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
+  Working Orders, the two-column A/C Summary, then Performance and Parameters with
+  provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
+  prices carry), and an **`equity.png`** equity/drawdown chart, both built purely from
+  those artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
   (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.

@@ -1,8 +1,10 @@
 """End-of-run broker statement (`statement.md`) and equity chart (`equity.png`).
 
-Every simulation ends with a retail-FX-style account statement, modelled on a broker's
-daily confirmation (closed transactions, open trades, working orders, A/C summary),
-plus an equity/drawdown chart. Both are built **purely from the run directory's
+Every simulation ends with a retail-FX account statement laid out like a MetaTrader /
+MIG Bank daily or monthly confirmation (the run window is the period): a header line,
+"Closed Transactions:", "Open Trades:", "Working Orders:" and the two-column "A/C
+Summary:" block, followed by two extra sections (Performance, Parameters) and an
+equity/drawdown chart. Both files are built **purely from the run directory's
 artifacts** — no LEAN import, no engine re-run — so `algo-backtest statement --run` can
 regenerate them for any finished run on disk:
 
@@ -10,7 +12,7 @@ regenerate them for any finished run on disk:
   trades.json               LEAN's closed-trade ledger (`totalPerformance.closedTrades`)
   <algo>.json               LEAN's result JSON (`statistics`, `runtimeStatistics`,
                             `charts['Strategy Equity']`, `charts['Portfolio Margin']`,
-                            `orders`, `totalPerformance`)
+                            `orders`, `totalPerformance`, `algorithmConfiguration`)
   <algo>-order-events.json  every order event (LEAN omits the file when no order was
                             placed; it is required as soon as trades.json is non-empty)
   strategy-config.json      resolved strategy config (chain strategies only)
@@ -20,7 +22,7 @@ regenerate them for any finished run on disk:
                             "direction": "buy"|"sell", "lots": float, "quantity": float,
                             "stop_loss": float, "take_profits": [{"price": float,
                             "close_fraction": float}], "trail_stops": [...]}, joined to
-                            trades.json by `orderIds[0]`. Absent -> the S/L and T/P
+                            trades.json by `orderIds[0]`. Absent -> the S / L and T / P
                             columns show "—" and the statement says so explicitly.
 
 Direction contract (verified against a real run's fills, 2026-09-27): trades.json
@@ -29,17 +31,21 @@ positive `fillQuantity`), 1 = Short (entry fill `direction: "sell"`, negative
 `fillQuantity`). The builder cross-checks each trade's label against its entry fill and
 fails fast on a contradiction rather than printing a wrong side.
 
-Nothing here is fabricated: every money figure comes from the artifacts; the only
-constants are presentation (file names, chart size/dpi, decimal places).
+Formats: times `YYYY.MM.DD HH:MM` UTC; prices at the instrument's quote precision,
+derived as the most decimals any recorded price in the run carries (5 for EURUSD, 3 for
+USDJPY — never hard-coded per pair); lots and money to two decimals, money with
+thousands separators. Nothing is fabricated: every figure comes from the artifacts; the
+only constants are presentation (file names, chart size/dpi, labels).
 """
 
 from __future__ import annotations
 
 import json
 import statistics as pystats
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -57,12 +63,12 @@ TRADE_PLANS_FILE = "trade-plans.json"
 # Presentation only — no money math depends on these.
 CHART_DPI = 150
 CHART_SIZE = (10.0, 6.0)
-PRICE_DECIMALS = 5
+TIME_FORMAT = "%Y.%m.%d %H:%M"
 ABSENT = "—"
 NO_TRANSACTIONS = "No transactions"
 NO_PLANS_NOTE = "no trade plan recorded for this run"
 NO_CONFIG_NOTE = "no strategy-config.json recorded for this run"
-SWAP_NOTE = "Swap is 0.00 on every line: the LEAN forex model applies no overnight rollover."
+SWAP_NOTE = "R/O Swap is 0.00 on every line: the LEAN forex model applies no rollover."
 _DIRECTION_LABELS: Mapping[int, str] = {0: "buy", 1: "sell"}
 # LEAN OrderStatus values after which an order can never fill; anything else still on
 # the book at the end of the run is a working order.
@@ -78,6 +84,7 @@ _PERFORMANCE_KEYS: Sequence[tuple[str, str]] = (
     ("Average loss", "Average Loss"),
     ("Total orders", "Total Orders"),
 )
+_TRADE_COLUMNS = ("Ticket", "Open Time", "Type", "Lots", "Item", "Price", "S / L", "T / P")
 
 
 @dataclass(frozen=True)
@@ -98,17 +105,17 @@ class RunArtifacts:
 
 @dataclass(frozen=True)
 class ClosedTransaction:
-    """One row of the Closed Transactions table (commission is negative when a cost)."""
+    """One row of Closed Transactions (commission is negative when a cost)."""
 
     ticket: int
-    open_time: str
+    open_time: datetime
     type: str
     lots: float | None
     item: str
     open_price: float
     stop_loss: float | None
     take_profits: tuple[float, ...] | None
-    close_time: str
+    close_time: datetime
     close_price: float
     commission: float
     swap: float
@@ -116,15 +123,23 @@ class ClosedTransaction:
 
 
 @dataclass(frozen=True)
-class OpenPosition:
-    """A position still open when the run ended."""
+class OpenTrade:
+    """A position still open when the run ended (profit = the engine's unrealized P/L)."""
 
-    item: str
+    ticket: int
+    open_time: datetime
     type: str
-    quantity: float
     lots: float | None
+    item: str
+    open_price: float
+    stop_loss: float | None
+    take_profits: tuple[float, ...] | None
+    current_price: float | None
+    commission: float
+    swap: float
+    profit: float
+    quantity: float
     holdings: float
-    floating_pl: float
 
 
 @dataclass(frozen=True)
@@ -132,12 +147,15 @@ class WorkingOrder:
     """An order still on the book when the run ended (never filled, never cancelled)."""
 
     ticket: int
-    time: str
+    open_time: datetime
     type: str
-    quantity: float
+    lots: float | None
     item: str
-    status: str
     price: float | None
+    stop_loss: float | None
+    take_profits: tuple[float, ...] | None
+    market_price: float | None
+    status: str
 
 
 @dataclass(frozen=True)
@@ -149,6 +167,7 @@ class AccountSummary:
     deposit_withdrawal: float
     balance: float
     floating_pl: float
+    total_credit_facility: float
     equity: float
     engine_equity: float
     margin_requirement: float | None
@@ -172,11 +191,13 @@ class Statement:
     symbol: str
     start: str
     end: str
+    period_end: datetime
     run_id: str
     broker_adapter: str
     starting_deposit: float
+    price_decimals: int
     transactions: tuple[ClosedTransaction, ...]
-    open_positions: tuple[OpenPosition, ...]
+    open_trades: tuple[OpenTrade, ...]
     working_orders: tuple[WorkingOrder, ...]
     summary: AccountSummary
     performance: tuple[tuple[str, str], ...]
@@ -339,6 +360,35 @@ def duration_minutes(duration: str) -> float:
         ) from exc
 
 
+def parse_time(text: str, key: str, file: str) -> datetime:
+    """An ISO-8601 timestamp of an artifact (LEAN's trailing 'Z') as an aware UTC datetime."""
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{file} key {key!r} is not an ISO timestamp ({text!r})") from exc
+    return moment.astimezone(UTC) if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+def unix_time(seconds: float) -> datetime:
+    """Unix seconds (LEAN order-event `time`) -> aware UTC datetime."""
+    return datetime.fromtimestamp(seconds, UTC)
+
+
+def format_time(moment: datetime) -> str:
+    """`YYYY.MM.DD HH:MM` in UTC, the broker confirmation's time format."""
+    return moment.astimezone(UTC).strftime(TIME_FORMAT)
+
+
+def price_precision(prices: Iterable[float]) -> int:
+    """The instrument's quote precision: the most decimals any recorded price carries
+    (5 for EURUSD quotes such as 1.08668, 3 for USDJPY's 120.123); 0 when none."""
+    decimals = 0
+    for price in prices:
+        exponent = Decimal(repr(float(price))).normalize().as_tuple().exponent
+        decimals = max(decimals, -exponent if isinstance(exponent, int) else 0)
+    return decimals
+
+
 def equity_series(main_json: Mapping[str, Any], file: str = "main.json") -> list[
     tuple[datetime, float]
 ]:
@@ -354,7 +404,7 @@ def equity_series(main_json: Mapping[str, Any], file: str = "main.json") -> list
             f"{file} lacks charts['Strategy Equity'].series.Equity.values ({exc!r}); the "
             "backtest may not have finished — re-run it"
         ) from exc
-    return [(datetime.fromtimestamp(row[0], UTC), float(row[-1])) for row in rows]
+    return [(unix_time(row[0]), float(row[-1])) for row in rows]
 
 
 def drawdowns(equity: Sequence[float]) -> list[float]:
@@ -382,12 +432,12 @@ def _leaf_paths(document: Mapping[str, Any], prefix: str = "") -> Iterator[tuple
 # --- building --------------------------------------------------------------------------
 
 
-def _fills_by_order(events: Sequence[Mapping[str, Any]], file: str) -> dict[int, dict[str, Any]]:
-    """First fill event per orderId (the side and sign a trade's direction is checked on)."""
-    fills: dict[int, dict[str, Any]] = {}
+def _fills(events: Sequence[Mapping[str, Any]], file: str) -> list[dict[str, Any]]:
+    """Every fill event in file order, each with an int `orderId` (fail fast if missing)."""
+    fills = []
     for event in events:
         if event.get("status") in _FILL_STATUSES:
-            fills.setdefault(int(_field(event, "orderId", file)), dict(event))
+            fills.append({**event, "orderId": int(_field(event, "orderId", file))})
     return fills
 
 
@@ -410,8 +460,11 @@ def _plans_by_entry(plans: Sequence[Mapping[str, Any]] | None) -> dict[int, dict
     }
 
 
-def _plan_levels(plan: Mapping[str, Any] | None) -> tuple[float | None, tuple[float, ...] | None]:
-    """(stop_loss, take-profit prices) of a plan; (None, None) when no plan was recorded."""
+def _plan_levels(
+    plans: Mapping[int, Mapping[str, Any]] | None, ticket: int
+) -> tuple[float | None, tuple[float, ...] | None]:
+    """(stop_loss, take-profit prices) of the plan for `ticket`; (None, None) when none."""
+    plan = plans.get(ticket) if plans is not None else None
     if plan is None:
         return None, None
     targets = _field(plan, "take_profits", TRADE_PLANS_FILE)
@@ -438,27 +491,36 @@ def _entry_side(trade: Mapping[str, Any], ticket: int, fills: Mapping[int, Mappi
     return label
 
 
-def _closed_transaction(
-    trade: Mapping[str, Any], symbol: str, lot_units: float | None,
-    fills: Mapping[int, Mapping[str, Any]], plans: Mapping[int, Mapping[str, Any]] | None,
-    events_file: str,
-) -> ClosedTransaction:
+@dataclass(frozen=True)
+class _Context:
+    """Shared inputs of the row builders."""
+
+    symbol: str
+    lot_units: float | None
+    fills_by_order: Mapping[int, Mapping[str, Any]]
+    plans: Mapping[int, Mapping[str, Any]] | None
+    events_file: str
+
+
+def _closed_transaction(trade: Mapping[str, Any], ctx: _Context) -> ClosedTransaction:
     """One ledger trade -> one Closed Transactions row."""
     order_ids = _field(trade, "orderIds", "trades.json")
     if not order_ids:
         raise ValueError("trades.json has a closed trade with empty orderIds; cannot ticket it")
     ticket = int(order_ids[0])
-    stop_loss, take_profits = _plan_levels(plans.get(ticket) if plans is not None else None)
+    stop_loss, take_profits = _plan_levels(ctx.plans, ticket)
     return ClosedTransaction(
         ticket=ticket,
-        open_time=str(_field(trade, "entryTime", "trades.json")),
-        type=_entry_side(trade, ticket, fills, events_file),
-        lots=lots_from_quantity(float(_field(trade, "quantity", "trades.json")), lot_units),
-        item=symbol,
+        open_time=parse_time(str(_field(trade, "entryTime", "trades.json")), "entryTime",
+                             "trades.json"),
+        type=_entry_side(trade, ticket, ctx.fills_by_order, ctx.events_file),
+        lots=lots_from_quantity(float(_field(trade, "quantity", "trades.json")), ctx.lot_units),
+        item=ctx.symbol,
         open_price=float(_field(trade, "entryPrice", "trades.json")),
         stop_loss=stop_loss,
         take_profits=take_profits,
-        close_time=str(_field(trade, "exitTime", "trades.json")),
+        close_time=parse_time(str(_field(trade, "exitTime", "trades.json")), "exitTime",
+                              "trades.json"),
         close_price=float(_field(trade, "exitPrice", "trades.json")),
         commission=-float(_field(trade, "totalFees", "trades.json")),
         swap=0.0,
@@ -466,28 +528,54 @@ def _closed_transaction(
     )
 
 
-def _open_positions(
-    events: Sequence[Mapping[str, Any]], runtime: Mapping[str, Any], symbol: str,
-    lot_units: float | None, file: str,
-) -> tuple[OpenPosition, ...]:
-    """The net position left by every fill, reconciled with the engine's Holdings."""
-    net = sum(
-        float(event.get("fillQuantity", 0.0))
-        for event in events if event.get("status") in _FILL_STATUSES
-    )
+def _opening_fill(fills: Sequence[Mapping[str, Any]]) -> tuple[float, Mapping[str, Any] | None]:
+    """(net position, the fill that last took the account from flat) over all fills."""
+    net = 0.0
+    opening: Mapping[str, Any] | None = None
+    for fill in fills:
+        if net == 0:
+            opening = fill
+        net += float(fill.get("fillQuantity", 0.0))
+    return net, opening if net != 0 else None
+
+
+def _current_price(
+    holdings: float, quantity: float, fill: Mapping[str, Any], account_currency: Any
+) -> float | None:
+    """Holdings / quantity when the fill's price currency is the account currency (then
+    LEAN's holdings value is exactly quantity × price); `None` otherwise — never guessed."""
+    if account_currency is None or fill.get("fillPriceCurrency") != account_currency:
+        return None
+    return abs(holdings) / abs(quantity)
+
+
+def _open_trades(
+    fills: Sequence[Mapping[str, Any]], result: Mapping[str, Any], ctx: _Context, file: str
+) -> tuple[OpenTrade, ...]:
+    """The position left open by the fills, reconciled with the engine's Holdings."""
+    runtime = _field(result, "runtimeStatistics", file)
     holdings = parse_money(_field(runtime, "Holdings", file), "Holdings", file)
     floating = parse_money(_field(runtime, "Unrealized", file), "Unrealized", file)
-    if net == 0:
+    net, opening = _opening_fill(fills)
+    if opening is None:
         if holdings != 0:
             raise ValueError(
                 f"{file} runtimeStatistics Holdings is {holdings} but the order fills net "
                 "to zero; the run's artifacts are inconsistent — re-run the backtest"
             )
         return ()
+    ticket = int(opening["orderId"])
+    stop_loss, take_profits = _plan_levels(ctx.plans, ticket)
+    account_currency = (result.get("algorithmConfiguration") or {}).get("accountCurrency")
     return (
-        OpenPosition(
-            item=symbol, type="buy" if net > 0 else "sell", quantity=abs(net),
-            lots=lots_from_quantity(net, lot_units), holdings=holdings, floating_pl=floating,
+        OpenTrade(
+            ticket=ticket, open_time=unix_time(float(_field(opening, "time", file))),
+            type="buy" if net > 0 else "sell", lots=lots_from_quantity(net, ctx.lot_units),
+            item=ctx.symbol, open_price=float(_field(opening, "fillPrice", file)),
+            stop_loss=stop_loss, take_profits=take_profits,
+            current_price=_current_price(holdings, net, opening, account_currency),
+            commission=-float(opening.get("orderFeeAmount", 0.0)), swap=0.0, profit=floating,
+            quantity=abs(net), holdings=holdings,
         ),
     )
 
@@ -504,9 +592,11 @@ def _order_price(orders: Mapping[str, Any], ticket: int) -> float | None:
 
 
 def _working_orders(
-    events: Sequence[Mapping[str, Any]], orders: Mapping[str, Any], file: str
+    events: Sequence[Mapping[str, Any]], result: Mapping[str, Any], ctx: _Context,
+    market_price: float | None, file: str,
 ) -> tuple[WorkingOrder, ...]:
     """Orders whose last event is not terminal — still pending when the run ended."""
+    orders = result.get("orders") or {}
     last: dict[int, Mapping[str, Any]] = {}
     for event in events:
         last[int(_field(event, "orderId", file))] = event
@@ -514,30 +604,23 @@ def _working_orders(
     for ticket, event in sorted(last.items()):
         if event.get("status") in _TERMINAL_ORDER_STATUSES:
             continue
+        stop_loss, take_profits = _plan_levels(ctx.plans, ticket)
         working.append(
             WorkingOrder(
-                ticket=ticket,
-                time=datetime.fromtimestamp(float(_field(event, "time", file)), UTC).isoformat(),
+                ticket=ticket, open_time=unix_time(float(_field(event, "time", file))),
                 type=str(_field(event, "direction", file)),
-                quantity=abs(float(_field(event, "quantity", file))),
-                item=str(event.get("symbolValue", event.get("symbol", ""))),
+                lots=lots_from_quantity(float(_field(event, "quantity", file)), ctx.lot_units),
+                item=str(event.get("symbolValue", ctx.symbol)),
+                price=_order_price(orders, ticket), stop_loss=stop_loss,
+                take_profits=take_profits, market_price=market_price,
                 status=str(_field(event, "status", file)),
-                price=_order_price(orders, ticket),
             )
         )
     return tuple(working)
 
 
-def _last_fill_time(events: Sequence[Mapping[str, Any]]) -> float:
-    """Unix time of the last fill event (0.0 when nothing ever filled)."""
-    return max(
-        (float(e.get("time", 0.0)) for e in events if e.get("status") in _FILL_STATUSES),
-        default=0.0,
-    )
-
-
 def _margin_requirement(
-    result: Mapping[str, Any], equity: float, positions: Sequence[OpenPosition],
+    result: Mapping[str, Any], equity: float, open_trades: Sequence[OpenTrade],
     last_fill_time: float,
 ) -> float | None:
     """End-of-run margin in account currency, never guessed.
@@ -547,7 +630,7 @@ def _margin_requirement(
     when its last sample is not older than the last fill — an older snapshot describes
     an earlier position — and is `None` (rendered "n/a") otherwise.
     """
-    if not positions:
+    if not open_trades:
         return 0.0
     chart = (result.get("charts") or {}).get("Portfolio Margin")
     if not isinstance(chart, Mapping):
@@ -559,21 +642,21 @@ def _margin_requirement(
 
 
 def _account_summary(
-    transactions: Sequence[ClosedTransaction], positions: Sequence[OpenPosition],
+    transactions: Sequence[ClosedTransaction], open_trades: Sequence[OpenTrade],
     result: Mapping[str, Any], file: str, last_fill_time: float,
 ) -> AccountSummary:
     """Balance = deposit + Σ(P/L + commission + swap); equity = balance + floating P/L."""
     portfolio = _field(_field(result, "totalPerformance", file), "portfolioStatistics", file)
     start = float(_field(portfolio, "startEquity", file))
     closed_pl = sum(t.profit + t.commission + t.swap for t in transactions)
-    floating = sum(p.floating_pl for p in positions)
+    floating = sum(t.profit for t in open_trades)
     balance = start + closed_pl
     equity = balance + floating
     runtime = _field(result, "runtimeStatistics", file)
-    margin = _margin_requirement(result, equity, positions, last_fill_time)
+    margin = _margin_requirement(result, equity, open_trades, last_fill_time)
     return AccountSummary(
         previous_balance=start, closed_pl=closed_pl, deposit_withdrawal=0.0, balance=balance,
-        floating_pl=floating, equity=equity,
+        floating_pl=floating, total_credit_facility=0.0, equity=equity,
         engine_equity=parse_money(_field(runtime, "Equity", file), "Equity", file),
         margin_requirement=margin,
         available_margin=None if margin is None else equity - margin,
@@ -608,6 +691,36 @@ def _parameters(artifacts: RunArtifacts) -> tuple[Parameter, ...]:
     return tuple(rows)
 
 
+def _recorded_prices(
+    transactions: Sequence[ClosedTransaction], open_trades: Sequence[OpenTrade],
+    working: Sequence[WorkingOrder],
+) -> Iterator[float]:
+    """Every price the artifacts recorded (never a derived one), for the quote precision."""
+    for t in transactions:
+        yield from (t.open_price, t.close_price)
+    for o in open_trades:
+        yield o.open_price
+    for w in working:
+        if w.price is not None:
+            yield w.price
+    rows: list[ClosedTransaction | OpenTrade | WorkingOrder] = [*transactions, *open_trades]
+    rows.extend(working)
+    for row in rows:
+        if row.stop_loss is not None:
+            yield row.stop_loss
+        yield from row.take_profits or ()
+
+
+def _period_end(equity: Sequence[tuple[datetime, float]], file: str) -> datetime:
+    """The statement's as-of time: the engine's last equity sample."""
+    if not equity:
+        raise ValueError(
+            f"{file} charts['Strategy Equity'] has no samples; the backtest may not have "
+            "run — re-run it"
+        )
+    return equity[-1][0]
+
+
 def build_statement(artifacts: RunArtifacts) -> Statement:
     """Assemble the statement from parsed artifacts (pure; raises on inconsistency).
 
@@ -616,32 +729,35 @@ def build_statement(artifacts: RunArtifacts) -> Statement:
             fills and the engine's Holdings disagree about the end-of-run position.
     """
     run, result, file = artifacts.run, artifacts.result, artifacts.result_name
-    symbol = str(_field(run, "symbol", "run.json"))
-    lot_units = _lot_notional_units(artifacts.strategy_config)
-    fills = _fills_by_order(artifacts.order_events, artifacts.order_events_name)
-    plans = _plans_by_entry(artifacts.trade_plans)
+    fills = _fills(artifacts.order_events, artifacts.order_events_name)
+    by_order: dict[int, Mapping[str, Any]] = {}
+    for fill in fills:
+        by_order.setdefault(fill["orderId"], fill)
+    ctx = _Context(
+        symbol=str(_field(run, "symbol", "run.json")),
+        lot_units=_lot_notional_units(artifacts.strategy_config), fills_by_order=by_order,
+        plans=_plans_by_entry(artifacts.trade_plans), events_file=artifacts.order_events_name,
+    )
     transactions = tuple(
-        _closed_transaction(t, symbol, lot_units, fills, plans, artifacts.order_events_name)
-        for t in artifacts.trades
+        sorted((_closed_transaction(t, ctx) for t in artifacts.trades), key=lambda t: t.open_time)
     )
-    positions = _open_positions(
-        artifacts.order_events, _field(result, "runtimeStatistics", file), symbol, lot_units, file
-    )
-    summary = _account_summary(
-        transactions, positions, result, file, _last_fill_time(artifacts.order_events)
-    )
+    open_trades = _open_trades(fills, result, ctx, file)
+    market_price = open_trades[0].current_price if open_trades else None
+    working = _working_orders(artifacts.order_events, result, ctx, market_price, file)
+    last_fill_time = max((float(f.get("time", 0.0)) for f in fills), default=0.0)
+    summary = _account_summary(transactions, open_trades, result, file, last_fill_time)
+    equity = tuple(equity_series(result, file))
     return Statement(
-        strategy=str(_field(run, "strategy", "run.json")), symbol=symbol,
+        strategy=str(_field(run, "strategy", "run.json")), symbol=ctx.symbol,
         start=str(_field(run, "start", "run.json")), end=str(_field(run, "end", "run.json")),
-        run_id=artifacts.run_dir.name,
+        period_end=_period_end(equity, file), run_id=artifacts.run_dir.name,
         broker_adapter=str(run.get("broker_adapter", "not recorded in run.json")),
         starting_deposit=summary.previous_balance,
-        transactions=transactions, open_positions=positions,
-        working_orders=_working_orders(artifacts.order_events, result.get("orders") or {}, file),
+        price_decimals=price_precision(_recorded_prices(transactions, open_trades, working)),
+        transactions=transactions, open_trades=open_trades, working_orders=working,
         summary=summary, performance=_performance(result, artifacts.trades, file),
-        parameters=_parameters(artifacts), plans_recorded=plans is not None,
-        config_recorded=artifacts.strategy_config is not None,
-        equity=tuple(equity_series(result, file)),
+        parameters=_parameters(artifacts), plans_recorded=ctx.plans is not None,
+        config_recorded=artifacts.strategy_config is not None, equity=equity,
     )
 
 
@@ -653,9 +769,14 @@ def money(value: float) -> str:
     return f"{round(value, 2) + 0.0:,.2f}"
 
 
-def _price(value: float | None) -> str:
-    """A price at FX precision, or the explicit absence marker."""
-    return ABSENT if value is None else f"{value:.{PRICE_DECIMALS}f}"
+def _price(value: float | None, decimals: int) -> str:
+    """A price at the instrument's quote precision, or the explicit absence marker."""
+    return ABSENT if value is None else f"{value:.{decimals}f}"
+
+
+def _targets(prices: tuple[float, ...] | None, decimals: int) -> str:
+    """Take-profit levels joined with ' / ', or the absence marker when no plan exists."""
+    return ABSENT if prices is None else " / ".join(_price(p, decimals) for p in prices)
 
 
 def _lots(value: float | None) -> str:
@@ -675,69 +796,76 @@ def _table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> list[str]:
     return lines
 
 
-def _transaction_row(t: ClosedTransaction) -> list[str]:
-    """Cells of one Closed Transactions row."""
-    take_profit = (
-        ABSENT if t.take_profits is None else " / ".join(_price(p) for p in t.take_profits)
-    )
+def _leading_cells(row: ClosedTransaction | OpenTrade | WorkingOrder, decimals: int) -> list[str]:
+    """The cells every trade-like table shares: Ticket .. T / P."""
+    price = row.open_price if not isinstance(row, WorkingOrder) else row.price
     return [
-        str(t.ticket), t.open_time, t.type, _lots(t.lots), t.item, _price(t.open_price),
-        _price(t.stop_loss), take_profit, t.close_time, _price(t.close_price),
-        money(t.commission), money(t.swap), money(t.profit),
+        str(row.ticket), format_time(row.open_time), row.type, _lots(row.lots), row.item,
+        _price(price, decimals), _price(row.stop_loss, decimals),
+        _targets(row.take_profits, decimals),
+    ]
+
+
+def _totals_row(rows: Sequence[ClosedTransaction | OpenTrade], width: int) -> list[str]:
+    """A totals row: Commission, R/O Swap and Trade P/L sums under the last three columns."""
+    return ["**Total**"] + [""] * (width - 4) + [
+        money(sum(r.commission for r in rows)), money(sum(r.swap for r in rows)),
+        money(sum(r.profit for r in rows)),
     ]
 
 
 def _closed_section(statement: Statement) -> list[str]:
-    """The Closed Transactions table with its totals row and footnotes."""
-    headers = [
-        "Ticket", "Open Time", "Type", "Lots", "Item", "Price", "S/L", "T/P", "Close Time",
-        "Price", "Commission", "Swap", "Trade P/L",
+    """Closed Transactions: the ledger rows, a totals row and the closed P/L line."""
+    d = statement.price_decimals
+    headers = [*_TRADE_COLUMNS, "Close Time", "Price", "Commission", "R/O Swap", "Trade P/L"]
+    rows = [
+        [*_leading_cells(t, d), format_time(t.close_time), _price(t.close_price, d),
+         money(t.commission), money(t.swap), money(t.profit)]
+        for t in statement.transactions
     ]
-    rows = [_transaction_row(t) for t in statement.transactions]
     if not rows:
         rows = [[NO_TRANSACTIONS] + [""] * (len(headers) - 1)]
-    totals = statement.summary
-    rows.append(
-        ["**Total**", "", "", "", "", "", "", "", "", "",
-         money(sum(t.commission for t in statement.transactions)),
-         money(sum(t.swap for t in statement.transactions)),
-         money(sum(t.profit for t in statement.transactions))]
+    rows.append(_totals_row(statement.transactions, len(headers)))
+    s = statement.summary
+    lines = ["## Closed Transactions:", "", *_table(headers, rows), ""]
+    lines.append(
+        f"Deposit/Withdrawal: {money(s.deposit_withdrawal)}    "
+        f"Credit Facility: {money(s.total_credit_facility)}    "
+        f"Closed Trade P/L: {money(s.closed_pl)}"
     )
-    notes = [SWAP_NOTE]
+    lines.extend(("", f"_{SWAP_NOTE}_"))
     if not statement.plans_recorded:
-        notes.append(f"S/L and T/P are {ABSENT}: {NO_PLANS_NOTE} ({TRADE_PLANS_FILE} absent).")
-    lines = ["## Closed Transactions", "", *_table(headers, rows), ""]
-    lines.extend(f"_{note}_" for note in notes)
-    lines.append(f"Closed trade P/L after commission and swap: {money(totals.closed_pl)}")
+        lines.append(
+            f"_S / L and T / P are {ABSENT}: {NO_PLANS_NOTE} ({TRADE_PLANS_FILE} absent)._"
+        )
     return lines
 
 
 def _open_section(statement: Statement) -> list[str]:
-    """Open Trades at the end of the run."""
-    lines = ["## Open Trades", ""]
-    if not statement.open_positions:
+    """Open Trades at the end of the run, with a totals row and the floating P/L line."""
+    d = statement.price_decimals
+    lines = ["## Open Trades:", ""]
+    if not statement.open_trades:
         return [*lines, NO_TRANSACTIONS]
+    headers = [*_TRADE_COLUMNS, "Price", "Commission", "R/O Swap", "Trade P/L"]
     rows = [
-        [
-            p.item, p.type, f"{p.quantity:,.0f}", _lots(p.lots), money(p.holdings),
-            money(p.floating_pl),
-        ]
-        for p in statement.open_positions
+        [*_leading_cells(t, d), _price(t.current_price, d), money(t.commission), money(t.swap),
+         money(t.profit)]
+        for t in statement.open_trades
     ]
-    return [*lines, *_table(["Item", "Type", "Quantity", "Lots", "Holdings", "Floating P/L"], rows)]
+    rows.append(_totals_row(statement.open_trades, len(headers)))
+    floating = f"Floating P/L: {money(statement.summary.floating_pl)}"
+    return [*lines, *_table(headers, rows), "", floating]
 
 
 def _working_section(statement: Statement) -> list[str]:
     """Working Orders (pending stop/limit orders) at the end of the run."""
-    lines = ["## Working Orders", ""]
+    d = statement.price_decimals
+    lines = ["## Working Orders:", ""]
     if not statement.working_orders:
         return [*lines, NO_TRANSACTIONS]
-    rows = [
-        [str(o.ticket), o.time, o.type, f"{o.quantity:,.0f}", o.item, o.status, _price(o.price)]
-        for o in statement.working_orders
-    ]
-    headers = ["Ticket", "Time", "Type", "Quantity", "Item", "Status", "Price"]
-    return [*lines, *_table(headers, rows)]
+    rows = [[*_leading_cells(o, d), _price(o.market_price, d)] for o in statement.working_orders]
+    return [*lines, *_table([*_TRADE_COLUMNS, "Market Price"], rows)]
 
 
 def summary_lines(statement: Statement) -> list[str]:
@@ -749,17 +877,25 @@ def summary_lines(statement: Statement) -> list[str]:
         f"Deposit/Withdrawal: {money(s.deposit_withdrawal)}",
         f"Balance: {money(s.balance)}",
         f"Floating P/L: {money(s.floating_pl)}",
+        f"Total Credit Facility: {money(s.total_credit_facility)}",
         f"Equity: {money(s.equity)}",
-        f"Equity (engine-reported): {money(s.engine_equity)}",
         f"Margin Requirement: {_optional_money(s.margin_requirement)}",
         f"Available Margin: {_optional_money(s.available_margin)}",
+        f"Equity (engine-reported): {money(s.engine_equity)}",
     ]
 
 
 def _summary_section(statement: Statement) -> list[str]:
-    """The A/C Summary block as a two-column table."""
-    rows = [line.split(": ", 1) for line in summary_lines(statement)]
-    return ["## A/C Summary", "", *_table(["", "Amount"], rows)]
+    """The A/C Summary as the broker's two-column block (balance side | equity side)."""
+    cells = [line.split(": ", 1) for line in summary_lines(statement)]
+    left, right, engine = cells[:4], cells[4:9], cells[9]
+    rows = [
+        [*(left[i] if i < len(left) else ["", ""]), *right[i]] for i in range(len(right))
+    ]
+    return [
+        "## A/C Summary:", "", *_table(["", "", "", ""], rows), "",
+        f"_{engine[0]}: {engine[1]} (LEAN's runtimeStatistics Equity, for reconciliation)._",
+    ]
 
 
 def _performance_section(statement: Statement) -> list[str]:
@@ -781,23 +917,27 @@ def _parameters_section(statement: Statement) -> list[str]:
     return [*lines, *_table(["Parameter", "Value", "Source"], rows)]
 
 
+def header_line(statement: Statement) -> str:
+    """`A/C No: <run id>   Name: <strategy> / <symbol>   <period end>` — the confirmation's
+    header (the run window is the period; its end is the engine's last equity sample)."""
+    return (
+        f"A/C No: {statement.run_id}   Name: {statement.strategy} / {statement.symbol}   "
+        f"{format_time(statement.period_end)}"
+    )
+
+
 def render_markdown(statement: Statement) -> str:
     """The whole statement as GitHub-flavoured Markdown."""
-    header = _table(
-        ["", ""],
-        [
-            ["Account", statement.strategy], ["Item", statement.symbol],
-            ["Window", f"{statement.start} .. {statement.end}"], ["Run id", statement.run_id],
-            ["Broker adapter", statement.broker_adapter],
-            ["Starting deposit", money(statement.starting_deposit)],
-            ["Generated", datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")],
-        ],
-    )
+    header = [
+        "# Account Statement", "", f"**{header_line(statement)}**", "",
+        f"Period: {statement.start} .. {statement.end} UTC · Broker adapter: "
+        f"{statement.broker_adapter} · Starting deposit: {money(statement.starting_deposit)} · "
+        f"Generated: {datetime.now(UTC).strftime(TIME_FORMAT)} UTC",
+    ]
     sections = [
-        [f"# Account Statement — {statement.strategy} / {statement.symbol}", "", *header],
-        _closed_section(statement), _open_section(statement), _working_section(statement),
-        _summary_section(statement), _performance_section(statement),
-        _parameters_section(statement),
+        header, _closed_section(statement), _open_section(statement),
+        _working_section(statement), _summary_section(statement),
+        _performance_section(statement), _parameters_section(statement),
         [f"![Equity and drawdown]({CHART_FILE})"],
     ]
     return "\n\n".join("\n".join(section) for section in sections) + "\n"

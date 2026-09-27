@@ -51,20 +51,30 @@ the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adap
 JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
 `hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
 `trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). Every run then
-ends with `statement.md` and `equity.png` (`statement.py`, story 12 item H): a
-retail-FX-style account statement — Closed Transactions (ticket = entry order id, lots =
-quantity / `capital_mgmt.lot_notional_units`, S/L and T/P from `trade-plans.json` when
-the plan-driven executor wrote one, else "—" with an explicit "no trade plan recorded"
-note), Open Trades and Working Orders at the end of the run (from the order events and
-`runtimeStatistics`), an A/C Summary (balance = starting deposit + closed P/L after
-commission; equity = balance + floating P/L; the engine-reported equity is printed next
-to it so a rounding gap is visible; margin is 0.00 when flat, LEAN's `Portfolio Margin`
-sample when current, else "n/a"), Performance (LEAN's `statistics` quoted verbatim plus
-trade count and median holding minutes) and a Parameters table pairing every resolved
-`strategy-config.json` leaf with its `strategy-provenance.json` source — plus a two-panel
-equity/drawdown chart from `charts['Strategy Equity']`. Both are pure derivations of the
-artifacts above (no LEAN import) and `algo-backtest statement --run <dir> [--out DIR]`
-regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
+ends with `statement.md` and `equity.png` (`statement.py`, story 12 item H): an account
+statement laid out like a MetaTrader/MIG Bank daily or monthly confirmation (the run
+window is the period) — header `A/C No: <run id>   Name: <strategy> / <symbol>   <period
+end>`; "Closed Transactions:" (Ticket | Open Time | Type | Lots | Item | Price | S / L |
+T / P | Close Time | Price | Commission | R/O Swap | Trade P/L, sorted by open time, totals
+row, then `Deposit/Withdrawal … Credit Facility … Closed Trade P/L`; ticket = entry order
+id, lots = quantity / `capital_mgmt.lot_notional_units`, S / L and T / P from
+`trade-plans.json` when the plan-driven executor wrote one, else "—" with an explicit "no
+trade plan recorded" note); "Open Trades:" (same columns minus Close Time, current price
+= Holdings / quantity only when the fill's price currency is the account currency, totals
+row, `Floating P/L`) and "Working Orders:" (… | Market Price), both from the order events
+and `runtimeStatistics`, or "No transactions"; the two-column "A/C Summary:" block
+(Previous Ledger Balance, Closed Trade P/L, Deposit/Withdrawal, Balance | Floating P/L,
+Total Credit Facility, Equity, Margin Requirement, Available Margin; balance = starting
+deposit + closed P/L after commission, equity = balance + floating P/L, the engine-reported
+equity noted beneath for reconciliation; margin is 0.00 when flat, LEAN's `Portfolio
+Margin` sample when current, else "n/a"); then Performance (LEAN's `statistics` quoted
+verbatim plus trade count and median holding minutes) and Parameters (every resolved
+`strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
+`YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
+for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
+chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`. Both are
+pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
+--run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
 `parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
