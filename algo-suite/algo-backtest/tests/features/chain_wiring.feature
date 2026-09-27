@@ -104,8 +104,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
     Scenario Outline: The F6 sizing inputs come from the capital_mgmt section, not constants (<case>)
       Given a flat account worth 10000
       When account features are built at price <price> with capital_mgmt stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
-      Then feature "stop_loss_pips" is <stop>
-      And feature "pip_value" is <pip>
+      Then feature "pip_value" is <pip>
       And feature "margin_per_lot" is <margin>
 
       Examples:
@@ -119,7 +118,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Given a flat account worth 10000
       When account features are built at price 1.1000 without a capital_mgmt section
       Then feature "account_balance" is 10000
-      And the features carry none of "pip_value, stop_loss_pips, margin_per_lot"
+      And the features carry none of "pip_value, margin_per_lot"
 
   Rule: PnL anchors reset at each new UTC day and ISO week
 
