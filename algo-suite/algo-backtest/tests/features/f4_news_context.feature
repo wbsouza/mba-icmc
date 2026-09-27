@@ -161,20 +161,38 @@ Feature: F4 — News-context filter
       When F4 applies to timestamp "2020-01-01T00:05:00+00:00" for pair "EURUSD"
       Then F4's result does not veto
 
-  Rule: news_context.* thresholds resolve via the shared algo_core.config loader
+  Rule: F4's thresholds come from the strategy config.yaml news_context section
 
-    Scenario: a configured news_context section resolves both thresholds
-      Given a news_context config with event_intensity_veto_threshold=-0.5, sentiment_direction_threshold=0.15
-      When the news-context config is loaded
-      Then the loaded config has event_intensity_veto_threshold -0.5
-      And the loaded config has sentiment_direction_threshold 0.15
+    Scenario Outline: a complete news_context section parses into a NewsContextConfig (<case>)
+      Given a news_context section with event_intensity_veto_threshold=<veto>, sentiment_direction_threshold=<direction>
+      When the news-context config is parsed for strategy "hybrid"
+      Then the parsed news-context config has event_intensity_veto_threshold <veto>
+      And the parsed news-context config has sentiment_direction_threshold <direction>
 
-    Scenario: an explicitly null threshold disables that half of the filter
-      Given a news_context config with event_intensity_veto_threshold=null, sentiment_direction_threshold=0.15
-      When the news-context config is loaded
-      Then the loaded config has event_intensity_veto_threshold null
+      Examples:
+        | case                         | veto | direction |
+        | both thresholds set          | -0.5 | 0.15      |
+        | veto disabled by null        | null | 0.15      |
+        | direction disabled by null   | -0.5 | null      |
+        | both disabled                | null | null      |
+        | stricter veto                | -2.0 | 0.3       |
 
-    Scenario: a missing news_context section fails fast
-      Given a news_context config missing "event_intensity_veto_threshold"
-      When the news-context config is loaded
-      Then loading the config fails naming "event_intensity_veto_threshold"
+    Scenario Outline: a news_context section missing <key> fails fast naming the key and the strategy
+      Given a news_context section missing "<key>"
+      When parsing the news-context config for strategy "hybrid" fails
+      Then the news-context config failure names "strategy 'hybrid': news_context.<key> is missing"
+
+      Examples:
+        | key                            |
+        | event_intensity_veto_threshold |
+        | sentiment_direction_threshold  |
+
+    Scenario Outline: a non-numeric news_context value fails fast (<key>)
+      Given a news_context section whose "<key>" is the string "soon"
+      When parsing the news-context config for strategy "hybrid" fails
+      Then the news-context config failure names "strategy 'hybrid': news_context.<key> must be a number"
+
+      Examples:
+        | key                            |
+        | event_intensity_veto_threshold |
+        | sentiment_direction_threshold  |

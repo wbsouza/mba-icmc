@@ -14,7 +14,6 @@ from algo_backtest.leandata import write_lean_minute
 from algo_backtest.perception.config import parse_perception_config
 from algo_backtest.strategies import load_strategy_chain_config
 from algo_backtest.training import (
-    HORIZON_MINUTES,
     build_training_rows,
     lean_bar_stream,
     load_event_intensity,
@@ -121,6 +120,14 @@ def _live(ctx: dict[str, Any]) -> dict[datetime, dict[str, float]]:
     return live
 
 
+def _horizon(ctx: dict[str, Any]) -> int:
+    """The label horizon of the strategy the scenario selected (its `meta_learner` section)."""
+    parameters = ctx.get("perception_parameters", {})
+    config = load_strategy_chain_config(parameters.get("chain_config", "baseline"))
+    assert config.f7 is not None
+    return config.f7.label_horizon_minutes
+
+
 def _training_rows(ctx: dict[str, Any]) -> list:
     """Resolve the same config and smoothing overrides passed to the native probe."""
     parameters = ctx.get("perception_parameters", {})
@@ -175,12 +182,12 @@ def _same_warmup(ctx: dict[str, Any]) -> None:
 def _parity(ctx: dict[str, Any], digits: int) -> None:
     """Same decision bars on both sides (bar for bar), then the same feature values.
 
-    The only live bars without a training row are the final `HORIZON_MINUTES` delivered
+    The only live bars without a training row are the final label-horizon delivered
     bars (no label yet) — any other missing or extra timestamp is a failure.
     """
     rows = {row.timestamp: row.features for row in _training_rows(ctx)}
     live = _live(ctx)
-    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
+    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-_horizon(ctx):]}
     assert set(live) - unlabeled == set(rows), (
         sorted(set(live) - unlabeled - set(rows))[:5],
         sorted(set(rows) - set(live))[:5],
@@ -244,7 +251,7 @@ def _news_parity(ctx: dict[str, Any]) -> None:
     assert live, ctx["run"].logs[-3000:]
     intensity = load_event_intensity(ctx["news_root"], _DAY.date(), _DAY.date())
     rows = {r.timestamp: r.features for r in build_training_rows(ctx["bars"], intensity)}
-    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-HORIZON_MINUTES:]}
+    unlabeled = {bar.timestamp for bar in lean_bar_stream(ctx["bars"])[-_horizon(ctx):]}
     assert set(live) - unlabeled == set(rows)
     # float_is_zero of the difference at 9 decimals, not `!=`: the live value is re-parsed
     # from a log line, so equality must not depend on the probe's print format. Adjacent

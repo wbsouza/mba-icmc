@@ -82,7 +82,8 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
 
 
 @when(
-    "I run hybrid over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
+    "I run hybrid over the 2014-05-08 to 2014-05-09 test span with size 0.5, cash 10000 "
+    "and that model"
 )
 def _run_hybrid_with_model(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
@@ -90,18 +91,20 @@ def _run_hybrid_with_model(bctx: dict[str, Any], require_docker: None) -> None:
         [
             "run", "--strategy", "hybrid", "--symbol", "EURUSD",
             "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--param", "cash=10000",
             "--model", str(bctx["model"]),
         ],
     )
 
 
-@when(parsers.parse("I run hybrid over {first} to {last} with size 0.5"))
+@when(parsers.parse("I run hybrid over {first} to {last} with size 0.5 and cash 10000"))
 def _run_hybrid_chain(bctx: dict[str, Any], require_docker: None, first: str, last: str) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
             "run", "--strategy", "hybrid", "--symbol", "EURUSD",
             "--from", first, "--to", last, "--param", "size=0.5",
+            "--param", "cash=10000",
         ],
     )
 
@@ -219,7 +222,8 @@ def _run_with_baseline_model(bctx: dict[str, Any]) -> None:
         app,
         [
             "run", "--strategy", "hybrid", "--symbol", "EURUSD", "--from", "2014-05-07",
-            "--to", "2014-05-09", "--param", "size=0.5", "--model", str(model),
+            "--to", "2014-05-09", "--param", "size=0.5",
+            "--param", "cash=10000", "--model", str(model),
         ],
     )
 

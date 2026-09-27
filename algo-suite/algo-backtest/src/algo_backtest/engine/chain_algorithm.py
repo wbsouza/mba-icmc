@@ -30,15 +30,9 @@ from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
 from algo_backtest.chain.model import ExecutionState, FilterChain
+from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
 from algo_backtest.chain.wiring import (
-    EMA_FAST_PERIOD,
-    EMA_HTF_PERIOD,
-    EMA_SLOW_PERIOD,
-    MACD_FAST_PERIOD,
-    MACD_SIGNAL_PERIOD,
-    MACD_SLOW_PERIOD,
-    RSI_PERIOD,
     AccountSnapshot,
     PnlWindows,
     account_features,
@@ -49,7 +43,7 @@ from algo_backtest.chain.wiring import (
 )
 from algo_backtest.container_paths import DECISIONS_FILE
 from algo_backtest.perception.config import PerceptionConfig
-from algo_backtest.strategies import load_strategy_chain_config
+from algo_backtest.strategies import load_resolved_strategy
 
 
 def use_flat_to_flat_trades(algorithm: QCAlgorithm) -> None:  # noqa: F405
@@ -94,15 +88,28 @@ class ChainAlgorithm(ExecutionAlgorithm):
         start = parse_yyyymmdd(self._required("start"))
         end = parse_yyyymmdd(self._required("end"))
         self._size = float(self._required("size"))
+        cash = float(self._required("cash"))
+        if cash <= 0:
+            raise ValueError(
+                f"{self.strategy_name}: cash ({cash}) must be positive — the account's starting "
+                "deposit; run.py validates this on the host, so a non-positive value here means "
+                "the algorithm was launched outside `algo-backtest run`"
+            )
         broker_adapter = self._required("broker_adapter")
+        self.set_cash(cash)
+        self.debug(f"{self.log_tag}_STARTING_CASH={cash}")
 
         self.set_start_date(start.year, start.month, start.day)
         self.set_end_date(end.year, end.month, end.day)
         self._symbol = self.add_forex(symbol, Resolution.MINUTE, Market.OANDA).symbol  # noqa: F405
-        config = load_strategy_chain_config(
-            self.get_parameter("chain_config") or self.strategy_name
+        # The host run path ships the fully resolved strategy YAML next to main.py
+        # (run.py `_RESOLVED_STRATEGY_FILE`), so the container never depends on the
+        # package's bundled strategies/ or on an external --strategies-dir.
+        config = load_resolved_strategy(
+            self.model_path.parent / "strategy.yaml",
+            name=self.get_parameter("chain_config") or self.strategy_name,
         )
-        self._subscribe_indicators(config.perception)
+        self._subscribe_indicators(config.perception, config.price_features)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
         write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
@@ -111,8 +118,9 @@ class ChainAlgorithm(ExecutionAlgorithm):
         require_families(
             meta_learner.families, config.meta_learner_families, where=str(self.model_path)
         )
+        self._economics = config.capital_mgmt
         filters = build_filters(
-            config.filters,
+            config,
             meta_learner=meta_learner,
             news_index=self._news_index(symbol, start, end),
         )
@@ -122,9 +130,15 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
         self.init_execution(broker_adapter)
 
-    def _subscribe_indicators(self, perception: PerceptionConfig | None = None) -> None:
-        """Subscribe EMA/RSI/MACD and, when selected, construct the native HA perception."""
+    def _subscribe_indicators(
+        self,
+        perception: PerceptionConfig | None = None,
+        price_features_config: PriceFeatureConfig | None = None,
+    ) -> None:
+        """Subscribe EMA/RSI/MACD with the strategy's periods and, when selected, construct
+        the native HA perception. Omitted arguments mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
+        periods = price_features_config or PriceFeatureConfig()
         self._trend_perception = None
         if perception.source == "double_smoothed_heikin_ashi":
             from algo_backtest.perception.multi_timeframe import MultiTimeframeHeikinAshi
@@ -134,12 +148,12 @@ class ChainAlgorithm(ExecutionAlgorithm):
                 higher_tf_minutes=perception.higher_tf_minutes,
             )
         minute = Resolution.MINUTE  # noqa: F405
-        self._ema_fast = self.ema(self._symbol, EMA_FAST_PERIOD, minute)
-        self._ema_slow = self.ema(self._symbol, EMA_SLOW_PERIOD, minute)
-        self._ema_htf = self.ema(self._symbol, EMA_HTF_PERIOD, minute)
-        self._rsi = self.rsi(self._symbol, RSI_PERIOD, MovingAverageType.WILDERS, minute)  # noqa: F405
+        self._ema_fast = self.ema(self._symbol, periods.ema_fast, minute)
+        self._ema_slow = self.ema(self._symbol, periods.ema_slow, minute)
+        self._ema_htf = self.ema(self._symbol, periods.ema_higher_tf, minute)
+        self._rsi = self.rsi(self._symbol, periods.rsi_period, MovingAverageType.WILDERS, minute)  # noqa: F405
         self._macd = self.macd(
-            self._symbol, MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD,
+            self._symbol, periods.macd_fast, periods.macd_slow, periods.macd_signal,
             MovingAverageType.EXPONENTIAL, minute,  # noqa: F405
         )
 
@@ -175,7 +189,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())
-        return {**market, **account_features(account, price)}
+        return {**market, **account_features(account, price, self._economics)}
 
     def _state(self) -> ExecutionState:
         """This bar's chain input: decision time (the bar's end), pair, features.

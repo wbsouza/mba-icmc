@@ -5,8 +5,11 @@
 # meta-learner specification; the only difference is whether the news-family
 # probability enters", monografia §"late-fusion"). filters: is written out in full
 # (this module's own merge policy does not diff/insert lists) so the complete chain is
-# auditable here without cross-referencing baseline/config.yaml.
-schema_version: 1
+# auditable here without cross-referencing baseline/config.yaml. The F5/F6/F7 sections
+# (risk_guard, capital_mgmt, meta_learner thresholds and gate) are inherited from
+# baseline unchanged, so both variants face identical execution assumptions; only F4's
+# own section is added here.
+schema_version: 2
 extends: baseline
 
 filters:
@@ -17,6 +20,15 @@ filters:
   - f5_risk_guard
   - f6_capital_mgmt
   - f7_meta_learner
+
+# F4 — news context (Spec 04e). event_intensity is the day's mean GDELT Goldstein scale
+# (roughly [-10, 10], more negative = more conflictual): at or below the veto threshold
+# the bar is an active high-risk event and F4 vetoes. sentiment_direction_threshold is
+# the minimum polarity magnitude before F4 recommends a direction (sentiment is
+# best-effort pending TD-48). `null` disables either half.
+news_context:
+  event_intensity_veto_threshold: -0.5
+  sentiment_direction_threshold: 0.15
 
 meta_learner:
   families:

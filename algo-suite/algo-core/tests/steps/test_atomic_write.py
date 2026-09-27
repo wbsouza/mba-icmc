@@ -64,3 +64,14 @@ def _still(actx: dict[str, Any], content: str) -> None:
 def _no_temp(actx: dict[str, Any]) -> None:
     leftovers = [p.name for p in actx["path"].parent.iterdir() if p.name != "out.txt"]
     assert leftovers == [], leftovers
+
+
+@then("the file's permission bits equal those of a plainly written sibling file")
+def _same_mode_as_plain_write(actx: dict[str, Any]) -> None:
+    """mkstemp creates 0600; the published artifact must not inherit that (a run artifact
+    written as root inside the LEAN container was unreadable on the host, 2026-09-27)."""
+    sibling = actx["path"].parent / "plain.txt"
+    sibling.write_text("plain")
+    published = actx["path"].stat().st_mode & 0o777
+    plain = sibling.stat().st_mode & 0o777
+    assert published == plain, f"atomic write mode {published:o} != plain write mode {plain:o}"

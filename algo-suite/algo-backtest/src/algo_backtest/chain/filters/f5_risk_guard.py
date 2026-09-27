@@ -16,15 +16,10 @@ is breached, PASS (ABSTAIN, no veto) otherwise.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
-from algo_backtest.rules.risk_guard import (
-    AccountState,
-    RiskGuardCaps,
-    evaluate_risk_guard,
-    load_risk_guard_caps,
-)
+from algo_backtest.rules.risk_guard import AccountState, RiskGuardCaps, evaluate_risk_guard
 
 _FILTER_NAME = "f5_risk_guard"
 
@@ -77,7 +72,7 @@ def _account_state_from_features(features: dict[str, object]) -> AccountState:
 class RiskGuardFilter:
     """`Filter` protocol implementation for F5, backed by the configured RiskGuard caps."""
 
-    caps: RiskGuardCaps = field(default_factory=load_risk_guard_caps)
+    caps: RiskGuardCaps
 
     def apply(self, state: ExecutionState) -> FilterResult:
         """VETO if any configured RiskGuard cap is breached by the synthetic account state."""

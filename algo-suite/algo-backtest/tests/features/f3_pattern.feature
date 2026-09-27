@@ -51,3 +51,40 @@ Feature: F3 pattern filter
       Given candlestick pattern "not_a_real_pattern"
       When F3 is applied
       Then F3 raises an error naming "not_a_real_pattern"
+
+  Rule: F3's pattern vocabulary comes from the strategy config.yaml pattern section (2026-09-27)
+
+    Scenario Outline: the pattern section parses with the default vocabulary when empty (<case>)
+      Given a pattern section <section>
+      When the pattern config is parsed for strategy "baseline"
+      Then the parsed bullish patterns are "<bullish>"
+      And the parsed bearish patterns are "<bearish>"
+
+      Examples:
+        | case              | section                                                        | bullish                                 | bearish                                         |
+        | empty: defaults   | {}                                                             | bullish_engulfing, hammer, morning_star | bearish_engulfing, shooting_star, evening_star  |
+        | custom vocabulary | {bullish_patterns: [piercing_line], bearish_patterns: [dark_cloud]} | piercing_line                      | dark_cloud                                      |
+
+    Scenario Outline: an invalid pattern section fails fast (<case>)
+      Given a pattern section <section>
+      When parsing the pattern config for strategy "baseline" fails
+      Then the pattern config failure names "<names>"
+
+      Examples:
+        | case                         | section                                                      | names             |
+        | a name in both lists         | {bullish_patterns: [hammer], bearish_patterns: [hammer]}     | hammer            |
+        | empty bullish list           | {bullish_patterns: []}                                       | bullish_patterns  |
+        | scalar instead of list       | {bearish_patterns: shooting_star}                            | bearish_patterns  |
+        | unknown key                  | {neutral_patterns: [doji]}                                   | neutral_patterns  |
+
+    Scenario Outline: the configured vocabulary drives the recommendation (<case>)
+      Given a pattern section <section>
+      And a detected candlestick pattern "<pattern>"
+      When F3 is applied with that pattern config
+      Then F3 recommends "<recommendation>" with reason mentioning "<pattern>"
+
+      Examples:
+        | case                              | section                                                             | pattern       | recommendation |
+        | default hammer is bullish         | {}                                                                  | hammer        | BUY            |
+        | custom piercing_line is bullish   | {bullish_patterns: [piercing_line], bearish_patterns: [dark_cloud]} | piercing_line | BUY            |
+        | custom dark_cloud is bearish      | {bullish_patterns: [piercing_line], bearish_patterns: [dark_cloud]} | dark_cloud    | SELL           |

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
-from algo_backtest.run import validate_run_inputs
+import yaml
+from algo_backtest.run import resolve_strategy, validate_run_inputs
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/strategy_validation.feature")
@@ -115,3 +118,95 @@ def _covers(vctx: dict[str, Any], first: str, last: str, covered: str) -> None:
         vctx["data_root"], vctx["instrument"], date.fromisoformat(first), date.fromisoformat(last)
     )
     assert result is (covered == "true")
+
+
+@given(
+    parsers.parse("a baseline-family model file whose provenance price_features is {provenance}")
+)
+def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str) -> None:
+    """A minimal F7 model document: families + provenance are all validation reads."""
+    strategy_config: dict[str, Any] = {}
+    if provenance != "absent":
+        strategy_config["price_features"] = yaml.safe_load(provenance)
+    document = {
+        "format": "algo-backtest/f7-meta-learner", "format_version": 1,
+        "families": ["trend", "indicator", "pattern"], "family_models": {}, "combiner": {},
+        "provenance": {"strategy_config": strategy_config, "horizon_minutes": 15},
+    }
+    vctx["model"] = tmp_path / "model.json"
+    vctx["model"].write_text(json.dumps(document))
+    vctx["strategy"] = "baseline"
+    vctx["params"] = {"size": "0.5", "cash": "10000"}
+
+
+@when(parsers.parse('I validate the run inputs for strategy "{strategy}" with that model passes'))
+def _validate_with_model(vctx: dict[str, Any], strategy: str) -> None:
+    validate_run_inputs(strategy, vctx["params"], _START, _END, vctx["model"])
+    vctx["ok"] = True
+
+
+@when(
+    parsers.parse(
+        'I validate the run inputs for strategy "{strategy}" with that model expecting failure'
+    )
+)
+def _validate_with_model_failing(vctx: dict[str, Any], strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        validate_run_inputs(strategy, vctx["params"], _START, _END, vctx["model"])
+    vctx["error"] = str(exc_info.value)
+
+
+@given(
+    parsers.parse(
+        'an external strategies directory holding "{name}" extending "{base}" with extra '
+        '"{extra_yaml}"'
+    )
+)
+def _external_dir(
+    vctx: dict[str, Any], tmp_path: Path, name: str, base: str, extra_yaml: str
+) -> None:
+    """A variant YAML in a directory outside the package; its base stays bundled."""
+    root = tmp_path / "strategies"
+    (root / name).mkdir(parents=True)
+    body: dict[str, Any] = {"extends": base, **(yaml.safe_load(extra_yaml) or {})}
+    (root / name / "config.yaml").write_text(yaml.safe_dump(body))
+    vctx["strategies_root"] = root
+
+
+@when(parsers.parse('strategy "{name}" is resolved from that directory'))
+def _resolve_external(vctx: dict[str, Any], name: str) -> None:
+    vctx["spec"] = resolve_strategy(name, strategies_root=vctx["strategies_root"])
+
+
+@when(parsers.parse('strategy "{name}" is resolved from the bundled directory'))
+def _resolve_bundled(vctx: dict[str, Any], name: str) -> None:
+    vctx["spec"] = resolve_strategy(name)
+
+
+@when(parsers.parse('resolving strategy "{name}" from that directory fails'))
+def _resolve_fails(vctx: dict[str, Any], name: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        resolve_strategy(name, strategies_root=vctx["strategies_root"])
+    vctx["error"] = str(exc_info.value)
+
+
+@then(parsers.parse('the resolved strategy runs on algorithm "{algo_dir}" with news data {news}'))
+def _resolved_spec(vctx: dict[str, Any], algo_dir: str, news: str) -> None:
+    spec = vctx["spec"]
+    assert spec.algo_dir == algo_dir
+    assert spec.needs_news_data is (news == "true")
+
+
+@then(
+    parsers.parse(
+        'validating strategy "{name}" with params {params} from that directory passes'
+    )
+)
+def _validate_external(vctx: dict[str, Any], name: str, params: str) -> None:
+    parsed = dict(token.split("=", 1) for token in params.split())
+    validate_run_inputs(name, parsed, _START, _END, strategies_root=vctx["strategies_root"])
+
+
+@then(parsers.parse('the resolution failure names "{fragment}"'))
+def _resolution_failure(vctx: dict[str, Any], fragment: str) -> None:
+    assert fragment in vctx["error"], vctx["error"]

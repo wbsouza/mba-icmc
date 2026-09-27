@@ -13,26 +13,27 @@ contract:
 
 F6 enriches `state.features["proposed_lot_size"]` (specs.md §11.3.1's own enrichment
 example) and vetoes if the proposed lot would need more margin than is currently available.
-`risk_per_trade` (specs.md §14.7: 3% for Strategy A05) is resolved from config exactly like
-`rules/risk_guard.py` resolves its caps — never hardcoded — but has a legacy reference value
-(`0.03`, from `bean-templates.xml`'s `standardSymbolDeployment.risk`, specs.md §14.5),
-unlike RiskGuard's five gap-closing caps which have none.
+`risk_per_trade` (specs.md §14.7: 3% for Strategy A05, the legacy reference value from
+`bean-templates.xml`'s `standardSymbolDeployment.risk`) and the sizing economics the chain
+feeds this filter — `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`,
+`assumed_leverage` (`chain/wiring.py`'s `account_features`) — are the `capital_mgmt`
+section of the strategy's `config.yaml` (`parse_capital_mgmt_config`, 2026-09-27
+amendment, story 09), never code constants. No ATR indicator is wired yet, so the stop
+distance is a fixed configured value, not derived from volatility.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
+from algo_backtest.chain.params import require_positive
 from algo_backtest.rules.risk_math import calculate_lot_size
-from algo_core.config import Impact, ParameterSpec, resolve
 
 _FILTER_NAME = "f6_capital_mgmt"
-
-_SCHEMA_VERSION = 1
-_SCHEMA: tuple[ParameterSpec, ...] = (
-    ParameterSpec(name="risk_math.risk_per_trade", impact=Impact.TRADING, reference_value=0.03),
-)
+_SECTION = "capital_mgmt"
 
 _REQUIRED_FEATURE_KEYS = (
     "account_balance",
@@ -45,20 +46,54 @@ _REQUIRED_FEATURE_KEYS = (
 
 @dataclass(frozen=True)
 class CapitalMgmtConfig:
-    """The single configured capital-management parameter F6 needs."""
+    """F6's parameters: the risk fraction plus the sizing economics the chain feeds it.
+
+    - ``risk_per_trade``: fraction of balance risked per trade, in (0, 1].
+    - ``stop_loss_pips``: fixed stop distance in pips (no ATR wired yet).
+    - ``pip_value_per_lot``: account-currency value of one pip per 1.0 lot.
+    - ``lot_notional_units``: units of base currency in one 1.0 lot (100 000 standard).
+    - ``assumed_leverage``: leverage used to derive margin per lot from notional.
+    """
 
     risk_per_trade: float
+    stop_loss_pips: float
+    pip_value_per_lot: float
+    lot_notional_units: float
+    assumed_leverage: float
 
 
-def load_capital_mgmt_config() -> CapitalMgmtConfig:
-    """Resolve `risk_math.risk_per_trade` via the shared `algo_core.config` loader.
+def parse_capital_mgmt_config(
+    section: Mapping[str, Any], *, strategy: str
+) -> CapitalMgmtConfig:
+    """F6's parameters from a strategy config.yaml `capital_mgmt` section (fail fast).
 
     Raises:
-        ConfigError: (`MissingTradingParameter`) if `risk_per_trade` is absent from
-            config — a hard stop, per CLAUDE.md's fail-fast policy.
+        ValueError: a key is missing, non-numeric or not strictly positive, or
+            `risk_per_trade` exceeds 1.
     """
-    result = resolve("backtest", _SCHEMA, _SCHEMA_VERSION)
-    return CapitalMgmtConfig(risk_per_trade=float(result.values["risk_math.risk_per_trade"]))
+    risk_per_trade = require_positive(
+        section, "risk_per_trade", section=_SECTION, strategy=strategy
+    )
+    if risk_per_trade > 1.0:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.risk_per_trade must be a fraction in (0, 1], "
+            f"got {risk_per_trade!r}"
+        )
+    return CapitalMgmtConfig(
+        risk_per_trade=risk_per_trade,
+        stop_loss_pips=require_positive(
+            section, "stop_loss_pips", section=_SECTION, strategy=strategy
+        ),
+        pip_value_per_lot=require_positive(
+            section, "pip_value_per_lot", section=_SECTION, strategy=strategy
+        ),
+        lot_notional_units=require_positive(
+            section, "lot_notional_units", section=_SECTION, strategy=strategy
+        ),
+        assumed_leverage=require_positive(
+            section, "assumed_leverage", section=_SECTION, strategy=strategy
+        ),
+    )
 
 
 def _require_float(features: dict[str, object], key: str) -> float:
@@ -75,7 +110,7 @@ def _require_float(features: dict[str, object], key: str) -> float:
 class CapitalMgmtFilter:
     """`Filter` protocol implementation for F6, backed by the configured `risk_per_trade`."""
 
-    risk_per_trade: float = field(default_factory=lambda: load_capital_mgmt_config().risk_per_trade)
+    risk_per_trade: float
 
     def apply(self, state: ExecutionState) -> FilterResult:
         """Compute the proposed lot size, enrich state with it, VETO if margin is insufficient."""

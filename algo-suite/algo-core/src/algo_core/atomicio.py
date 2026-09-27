@@ -18,7 +18,10 @@ def write_text_atomic(path: Path, text: str) -> None:
     """Write ``text`` to ``path`` atomically (UTF-8), creating parent dirs as needed.
 
     `encoding` is pinned to UTF-8 (not the locale default) so the bytes written are
-    reproducible across environments — important for byte-stable artifacts.
+    reproducible across environments — important for byte-stable artifacts. The published
+    file gets the mode a plain ``open(..., "w")`` would give it (0666 masked by the
+    process umask), not ``mkstemp``'s owner-only 0600: an artifact written as root inside
+    the LEAN container must stay readable on the host.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temp_name = tempfile.mkstemp(
@@ -28,7 +31,15 @@ def write_text_atomic(path: Path, text: str) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        os.chmod(temp, _plain_file_mode())
         os.replace(temp, path)
     except BaseException:
         temp.unlink(missing_ok=True)
         raise
+
+
+def _plain_file_mode() -> int:
+    """The mode a plainly created file gets under the current umask (0666 & ~umask)."""
+    umask = os.umask(0)
+    os.umask(umask)
+    return 0o666 & ~umask

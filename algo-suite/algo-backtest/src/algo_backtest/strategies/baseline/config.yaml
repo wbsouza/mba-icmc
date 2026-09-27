@@ -2,7 +2,11 @@
 # Feature families: TA-structural (F1), indicator (F2), pattern (F3) — the news family
 # (F4) is excluded (PRD.md §1: "baseline uses the price-derived families"). F5/F6 are
 # execution-viability gates, not feature families; F7 is the terminal threshold rule.
-schema_version: 1
+#
+# Every configurable filter owns its own section below (2026-09-27 amendment, story 09):
+# a filter listed in `filters:` without its section, or a section without its filter, is
+# a hard stop. F1/F2/F3 have no tunable parameters beyond `perception_source`.
+schema_version: 2
 
 filters:
   - f1_trend
@@ -12,8 +16,59 @@ filters:
   - f6_capital_mgmt
   - f7_meta_learner
 
+# Price-feature parameters shared by F1/F2 and the F7 feature families (train and serve
+# read the same values; the trained model records them and a run refuses a model fitted
+# on different periods). All optional — these are the defaults.
+price_features:
+  ema_fast: 3
+  ema_slow: 8
+  ema_higher_tf: 60
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+
+# F2 — oscillator confirmation thresholds. Optional; these are the defaults.
+indicator:
+  rsi_midline: 50
+  macd_hist_threshold: 0
+
+# F3 — candlestick vocabulary (no detector is wired yet, TD-51). Optional; defaults.
+pattern:
+  bullish_patterns: [bullish_engulfing, hammer, morning_star]
+  bearish_patterns: [bearish_engulfing, shooting_star, evening_star]
+
+# F5 — RiskGuard caps (specs.md §14.8). `null` disables one cap. Drawdown limits are PnL
+# floors, so they are <= 0 (-0.05 = a 5% loss).
+risk_guard:
+  portfolio_at_risk_cap: 0.10
+  daily_drawdown_limit: -0.05
+  weekly_drawdown_limit: -0.15
+  max_concurrent_trades_per_account: 5
+  max_leverage: 30
+
+# F6 — fixed-fractional sizing (specs.md §14.7, 3% for Strategy A05) and the per-lot
+# economics the chain feeds it. No ATR indicator is wired yet (TD-51): the stop distance
+# is this fixed value, not volatility-derived. pip_value_per_lot follows the standard
+# EURUSD convention (~$10/pip per 100k-unit lot); assumed_leverage derives margin per lot.
+capital_mgmt:
+  risk_per_trade: 0.03
+  stop_loss_pips: 20.0
+  pip_value_per_lot: 10.0
+  lot_notional_units: 100000
+  assumed_leverage: 30
+
+# F7 — the terminal threshold rule. theta_high/theta_low are calibrated on the validation
+# span and held fixed. regime_gate=true is the dissertation's rule (BUY needs F1's bull
+# regime, SELL its bear regime); false trades on p_hat alone. The 2015-09 pilot found the
+# fitted model anti-aligned with F1's regime on every bar, so the gated rule never fired
+# (docs/stories/in-progress/09-six-month-training-september-pilot/progress.md).
 meta_learner:
   families:
     - trend
     - indicator
     - pattern
+  theta_high: 0.55
+  theta_low: 0.45
+  regime_gate: false
+  label_horizon_minutes: 15   # training label look-ahead (optional; default 15)

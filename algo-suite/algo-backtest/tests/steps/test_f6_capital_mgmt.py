@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 from algo_backtest.chain.filters.f6_capital_mgmt import (
+    CapitalMgmtConfig,
     CapitalMgmtFilter,
-    load_capital_mgmt_config,
+    parse_capital_mgmt_config,
 )
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
-from algo_core.config import ConfigError, MissingTradingParameter
-from algo_core.config.paths import ENV_CONF_DIR
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/f6_capital_mgmt.feature")
@@ -38,8 +35,9 @@ class _F6Ctx:
     risk_per_trade: float | None = None
     result: FilterResult | None = None
     error: Exception | None = None
-    loaded_risk_per_trade: float | None = None
-    load_error: Exception | None = None
+    section: dict[str, Any] = field(default_factory=dict)
+    parsed_config: CapitalMgmtConfig | None = None
+    parse_error: Exception | None = None
 
 
 @pytest.fixture
@@ -138,46 +136,63 @@ def _apply_fails(f6_ctx: _F6Ctx, missing_key: str) -> None:
     assert missing_key in str(f6_ctx.error)
 
 
-@pytest.fixture
-def f6_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Clean ALGO_ env + isolated conf dir so capital-mgmt config loading is deterministic."""
-    for key in [k for k in os.environ if k.startswith("ALGO_")]:
-        monkeypatch.delenv(key, raising=False)
-    conf = tmp_path / "conf"
-    conf.mkdir()
-    monkeypatch.setenv(ENV_CONF_DIR, str(conf))
-    return conf
+_SECTION_KEYS = (
+    "risk_per_trade", "stop_loss_pips", "pip_value_per_lot", "lot_notional_units",
+    "assumed_leverage",
+)
+_SECTION_DEFAULTS: dict[str, Any] = dict(
+    zip(_SECTION_KEYS, (0.03, 20.0, 10.0, 100_000, 30), strict=True)
+)
 
 
-@given(parsers.parse("a risk_math config with risk_per_trade={risk_per_trade:g}"))
-def _config_with_risk(f6_ctx: _F6Ctx, f6_conf_dir: Path, risk_per_trade: float) -> None:
-    (f6_conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "risk_math": {"risk_per_trade": risk_per_trade}})
+@given(
+    parsers.parse(
+        "a capital_mgmt section with risk_per_trade={risk}, stop_loss_pips={stop}, "
+        "pip_value_per_lot={pip}, lot_notional_units={lot}, assumed_leverage={lev}"
+    )
+)
+def _capital_mgmt_section(
+    f6_ctx: _F6Ctx, risk: str, stop: str, pip: str, lot: str, lev: str
+) -> None:
+    """Build the raw YAML section; values go through YAML so the table can carry strings."""
+    values = [yaml.safe_load(token) for token in (risk, stop, pip, lot, lev)]
+    f6_ctx.section = dict(zip(_SECTION_KEYS, values, strict=True))
+
+
+@given(parsers.parse('a capital_mgmt section missing "{missing_key}"'))
+def _capital_mgmt_section_missing(f6_ctx: _F6Ctx, missing_key: str) -> None:
+    f6_ctx.section = {k: v for k, v in _SECTION_DEFAULTS.items() if k != missing_key}
+
+
+@when(parsers.parse('the capital-mgmt config is parsed for strategy "{strategy}"'))
+def _parse_config(f6_ctx: _F6Ctx, strategy: str) -> None:
+    f6_ctx.parsed_config = parse_capital_mgmt_config(f6_ctx.section, strategy=strategy)
+
+
+@when(parsers.parse('parsing the capital-mgmt config for strategy "{strategy}" fails'))
+def _parse_config_fails(f6_ctx: _F6Ctx, strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        parse_capital_mgmt_config(f6_ctx.section, strategy=strategy)
+    f6_ctx.parse_error = exc_info.value
+
+
+@then(
+    parsers.parse(
+        "the parsed capital-mgmt config has risk_per_trade {risk:g}, stop_loss_pips {stop:g}, "
+        "pip_value_per_lot {pip:g}, lot_notional_units {lot:g} and assumed_leverage {lev:g}"
+    )
+)
+def _parsed_config(
+    f6_ctx: _F6Ctx, risk: float, stop: float, pip: float, lot: float, lev: float
+) -> None:
+    assert f6_ctx.parsed_config is not None
+    assert f6_ctx.parsed_config == CapitalMgmtConfig(
+        risk_per_trade=risk, stop_loss_pips=stop, pip_value_per_lot=pip,
+        lot_notional_units=lot, assumed_leverage=lev,
     )
 
 
-@given("a risk_math config missing risk_per_trade")
-def _config_missing_risk(f6_ctx: _F6Ctx, f6_conf_dir: Path) -> None:
-    (f6_conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "risk_math": {}})
-    )
-
-
-@when("I load the capital-mgmt config")
-def _load(f6_ctx: _F6Ctx) -> None:
-    try:
-        f6_ctx.loaded_risk_per_trade = load_capital_mgmt_config().risk_per_trade
-    except ConfigError as exc:
-        f6_ctx.load_error = exc
-
-
-@then(parsers.parse("the loaded risk_per_trade is {expected:g}"))
-def _loaded_risk(f6_ctx: _F6Ctx, expected: float) -> None:
-    assert f6_ctx.load_error is None, f"unexpected error: {f6_ctx.load_error}"
-    assert f6_ctx.loaded_risk_per_trade == pytest.approx(expected)
-
-
-@then(parsers.parse('loading fails with a missing-trading-parameter error naming "{param}"'))
-def _missing_param(f6_ctx: _F6Ctx, param: str) -> None:
-    assert isinstance(f6_ctx.load_error, MissingTradingParameter)
-    assert param in str(f6_ctx.load_error)
+@then(parsers.parse('the capital-mgmt config failure names "{fragment}"'))
+def _parse_failure_names(f6_ctx: _F6Ctx, fragment: str) -> None:
+    assert f6_ctx.parse_error is not None
+    assert fragment in str(f6_ctx.parse_error)

@@ -6,7 +6,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
-from algo_backtest.chain.filters.f2_indicator import F2IndicatorFilter
+import yaml
+from algo_backtest.chain.filters.f2_indicator import (
+    F2IndicatorFilter,
+    IndicatorConfig,
+    parse_indicator_config,
+)
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -53,7 +58,7 @@ def _apply_f2(f2_ctx: _F2Ctx) -> None:
         timestamp=datetime(2024, 1, 1, tzinfo=UTC), pair="EURUSD", features=dict(f2_ctx.features)
     )
     try:
-        f2_ctx.result = F2IndicatorFilter().apply(state)
+        f2_ctx.result = F2IndicatorFilter(config=IndicatorConfig()).apply(state)
     except ValueError as exc:
         f2_ctx.error = exc
 
@@ -94,3 +99,46 @@ def _raises_naming(f2_ctx: _F2Ctx, name: str) -> None:
     """Application raised, and the message names the out-of-range parameter."""
     assert isinstance(f2_ctx.error, ValueError)
     assert name in str(f2_ctx.error)
+
+
+@given(parsers.parse("an indicator section {section}"))
+def _indicator_section(f2_ctx: _F2Ctx, section: str) -> None:
+    """The raw YAML `indicator:` mapping, straight from the table (flow style)."""
+    f2_ctx.section = yaml.safe_load(section)
+
+
+@when(parsers.parse('the indicator config is parsed for strategy "{strategy}"'))
+def _parse_indicator(f2_ctx: _F2Ctx, strategy: str) -> None:
+    f2_ctx.config = parse_indicator_config(f2_ctx.section, strategy=strategy)
+
+
+@when(parsers.parse('parsing the indicator config for strategy "{strategy}" fails'))
+def _parse_indicator_fails(f2_ctx: _F2Ctx, strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        parse_indicator_config(f2_ctx.section, strategy=strategy)
+    f2_ctx.error = exc_info.value
+
+
+@when("F2 is applied with that indicator config")
+def _apply_with_config(f2_ctx: _F2Ctx) -> None:
+    config = parse_indicator_config(f2_ctx.section, strategy="scenario")
+    state = ExecutionState(
+        timestamp=datetime(2024, 1, 1, tzinfo=UTC), pair="EURUSD", features=dict(f2_ctx.features)
+    )
+    f2_ctx.result = F2IndicatorFilter(config=config).apply(state)
+
+
+@then(
+    parsers.parse(
+        "the parsed indicator config has rsi_midline {midline:g} and macd_hist_threshold "
+        "{threshold:g}"
+    )
+)
+def _parsed_indicator(f2_ctx: _F2Ctx, midline: float, threshold: float) -> None:
+    assert f2_ctx.config == IndicatorConfig(rsi_midline=midline, macd_hist_threshold=threshold)
+
+
+@then(parsers.parse('the indicator config failure names "{fragment}"'))
+def _indicator_failure(f2_ctx: _F2Ctx, fragment: str) -> None:
+    assert f2_ctx.error is not None
+    assert fragment in str(f2_ctx.error)

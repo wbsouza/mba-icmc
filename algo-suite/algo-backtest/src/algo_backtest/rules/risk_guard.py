@@ -1,37 +1,23 @@
 """RiskGuard: closes the risk gaps the fx-manager README documents as unenforced
 (specs.md §14.8) — no portfolio-level capital cap, no daily/weekly drawdown limit, no
-per-account concurrent-trade cap, no leverage cap. Every cap is a `risk_guard.*` config
-parameter, independently `null`-disableable; a cap the schema declares but that is absent
-from config is a hard stop (CLAUDE.md fail-fast policy, specs.md §14.9.1) — the numeric
-values themselves are never hardcoded here, and there is no legacy reference value for any
-of them (specs.md §14.8: "the numeric values for each parameter are not specified in this
-document").
+per-account concurrent-trade cap, no leverage cap. Every cap is a key of the `risk_guard`
+section of the strategy's `config.yaml` (`parse_risk_guard_caps`, 2026-09-27 amendment,
+story 09), independently `null`-disableable; a cap absent from the section is a hard stop
+(CLAUDE.md fail-fast policy, specs.md §14.9.1) — the numeric values themselves are never
+hardcoded here, and there is no legacy reference value for any of them (specs.md §14.8:
+"the numeric values for each parameter are not specified in this document").
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
-from algo_core.config import Impact, ParameterSpec, resolve
+from algo_backtest.chain.params import optional_int, optional_number
 
-SCHEMA_VERSION = 1
-
-_SCHEMA: tuple[ParameterSpec, ...] = (
-    ParameterSpec(
-        name="risk_guard.portfolio_at_risk_cap", impact=Impact.TRADING, nullable=True
-    ),
-    ParameterSpec(
-        name="risk_guard.daily_drawdown_limit", impact=Impact.TRADING, nullable=True
-    ),
-    ParameterSpec(
-        name="risk_guard.weekly_drawdown_limit", impact=Impact.TRADING, nullable=True
-    ),
-    ParameterSpec(
-        name="risk_guard.max_concurrent_trades_per_account", impact=Impact.TRADING, nullable=True
-    ),
-    ParameterSpec(name="risk_guard.max_leverage", impact=Impact.TRADING, nullable=True),
-)
+_SECTION = "risk_guard"
 
 
 class RiskCap(StrEnum):
@@ -152,19 +138,24 @@ def evaluate_risk_guard(account: AccountState, caps: RiskGuardCaps) -> RiskGuard
     return RiskGuardVerdict(breaches=tuple(breaches))
 
 
-def load_risk_guard_caps() -> RiskGuardCaps:
-    """Resolve the five `risk_guard.*` caps via the shared `algo_core.config` loader.
+def parse_risk_guard_caps(section: Mapping[str, Any], *, strategy: str) -> RiskGuardCaps:
+    """The five caps from a strategy config.yaml `risk_guard` section (fail fast).
 
     Raises:
-        ConfigError: (`MissingTradingParameter`) if a cap is absent from config rather
-            than explicitly `null`-disabled — a hard stop, per CLAUDE.md's fail-fast policy.
+        ValueError: a cap is absent (an explicit `null` disables it instead), is not a
+            number (or not an integer, for the trade count), or a drawdown limit is
+            positive (`RiskGuardCaps.__post_init__`).
     """
-    result = resolve("backtest", _SCHEMA, SCHEMA_VERSION)
-    values = result.values
+
+    def cap(key: str) -> float | None:
+        return optional_number(section, key, section=_SECTION, strategy=strategy)
+
     return RiskGuardCaps(
-        portfolio_at_risk_cap=values["risk_guard.portfolio_at_risk_cap"],
-        daily_drawdown_limit=values["risk_guard.daily_drawdown_limit"],
-        weekly_drawdown_limit=values["risk_guard.weekly_drawdown_limit"],
-        max_concurrent_trades_per_account=values["risk_guard.max_concurrent_trades_per_account"],
-        max_leverage=values["risk_guard.max_leverage"],
+        portfolio_at_risk_cap=cap(RiskCap.PORTFOLIO_AT_RISK),
+        daily_drawdown_limit=cap(RiskCap.DAILY_DRAWDOWN),
+        weekly_drawdown_limit=cap(RiskCap.WEEKLY_DRAWDOWN),
+        max_concurrent_trades_per_account=optional_int(
+            section, RiskCap.MAX_CONCURRENT_TRADES, section=_SECTION, strategy=strategy
+        ),
+        max_leverage=cap(RiskCap.MAX_LEVERAGE),
     )
