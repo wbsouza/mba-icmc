@@ -9,19 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
-from algo_backtest.chain.filters.f1_trend import F1TrendFilter
-from algo_backtest.chain.filters.f2_indicator import F2IndicatorFilter
-from algo_backtest.chain.filters.f3_pattern import F3PatternFilter
-from algo_backtest.chain.filters.f4_news_context import (
-    F4NewsContextFilter,
-    NewsContextConfig,
-    NewsContextIndex,
-)
-from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
-from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtFilter
-from algo_backtest.chain.filters.f7_meta_learner import F7Config, F7MetaLearnerFilter
+import yaml
+from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.model import (
     ChainOutcome,
     Decision,
@@ -33,7 +25,8 @@ from algo_backtest.chain.model import (
     TerminalDecision,
 )
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
-from algo_backtest.rules.risk_guard import RiskGuardCaps
+from algo_backtest.chain.wiring import build_filters
+from algo_backtest.strategies import load_strategy_chain_config
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/filter_chain_mechanics.feature")
@@ -104,17 +97,10 @@ class _ChainCtx:
     state: ExecutionState | None = None
     error: Exception | None = None
     real_features: dict[str, object] = field(default_factory=dict)
-    risk_guard_caps: RiskGuardCaps = field(
-        default_factory=lambda: RiskGuardCaps(
-            portfolio_at_risk_cap=0.1,
-            daily_drawdown_limit=-0.05,
-            weekly_drawdown_limit=-0.1,
-            max_concurrent_trades_per_account=5,
-            max_leverage=10.0,
-        )
-    )
+    real_strategy: str | None = None
+    strategies_root: Path | None = None
     news_index: NewsContextIndex | None = None
-    real_meta_learner_p_hat: float = 0.8
+    real_meta_learner_p_hat: float | None = None
     use_staged_filters: bool = False
     real_terminal: TerminalDecision | None = None
     real_outcome: ChainOutcome | None = None
@@ -385,8 +371,25 @@ def _timestamp_rejected(chain_ctx: _ChainCtx) -> None:
 # --- Rule: The real F1-F7 chain reaches a decision via F7TerminalDecision (Spec 04h) ---
 
 
-@given("the real F1..F7 chain terminated by F7TerminalDecision")
-def _real_terminal(chain_ctx: _ChainCtx) -> None:
+@given(parsers.parse('a strategy "{name}" whose config.yaml is:'))
+def _inline_strategy_config(
+    chain_ctx: _ChainCtx, tmp_path: Path, name: str, docstring: str
+) -> None:
+    """Write the scenario's own config.yaml under an isolated strategies root."""
+    root = tmp_path / "strategies"
+    (root / name).mkdir(parents=True)
+    (root / name / "config.yaml").write_text(docstring)
+    chain_ctx.strategies_root = root
+
+
+@given(
+    parsers.parse(
+        'the real F1..F7 chain built from the "{strategy}" strategy config, terminated by '
+        "F7TerminalDecision"
+    )
+)
+def _real_terminal(chain_ctx: _ChainCtx, strategy: str) -> None:
+    chain_ctx.real_strategy = strategy
     chain_ctx.real_terminal = F7TerminalDecision()
 
 
@@ -410,79 +413,41 @@ def _empty_chain_real_terminal(chain_ctx: _ChainCtx) -> None:
     chain_ctx.real_terminal = F7TerminalDecision()
 
 
-@given(
-    "a bullish bar: F1/F2/F3 aligned bullish, no high-risk news, ample margin, "
-    "meta-learner p_hat 0.8"
-)
-def _bullish_bar(chain_ctx: _ChainCtx) -> None:
-    """Populate every real filter's required `state.features` for a clean bullish bar."""
-    chain_ctx.real_features = {
-        # F1 (trend): aligned uptrend on both timeframes.
-        "trend_direction": 0.8,
-        "trend_strength": 40.0,
-        "higher_tf_trend_direction": 0.3,
-        # F2 (indicator): both oscillators bullish.
-        "rsi": 70.0,
-        "macd_hist": 0.5,
-        # F3 (pattern): a real bullish candlestick.
-        "candlestick_pattern": "hammer",
-        # F5 (risk guard): well within every cap.
-        "account_portfolio_at_risk": 0.05,
-        "account_daily_pnl_fraction": -0.01,
-        "account_weekly_pnl_fraction": -0.02,
-        "account_open_trade_count": 1,
-        "account_leverage": 5.0,
-        # F6 (capital management): ample margin for the proposed lot.
-        "account_balance": 10_000.0,
-        "pip_value": 1.0,
-        "stop_loss_pips": 20.0,
-        "margin_per_lot": 50.0,
-        "available_margin": 10_000.0,
-    }
+@given("a bar whose features are:")
+def _bar_features(chain_ctx: _ChainCtx, datatable: list[list[str]]) -> None:
+    """The bar's `state.features`, straight from the feature file's table (YAML-typed)."""
+    header, *rows = datatable
+    assert header == ["feature", "value"], header
+    chain_ctx.real_features = {name: yaml.safe_load(value) for name, value in rows}
+
+
+@given(parsers.parse("the account portfolio-at-risk is {value:g}"))
+def _portfolio_at_risk(chain_ctx: _ChainCtx, value: float) -> None:
+    chain_ctx.real_features["account_portfolio_at_risk"] = value
+
+
+@given(parsers.parse("the day's GDELT event_intensity is {value:g}"))
+def _event_intensity(chain_ctx: _ChainCtx, value: float) -> None:
     chain_ctx.news_index = NewsContextIndex(
-        event_intensity={_BAR_TIMESTAMP: 0.5},  # calm day, well above any sane veto threshold
-        sentiment_polarity={},
+        event_intensity={_BAR_TIMESTAMP: value}, sentiment_polarity={},
         sentiment_source_present=False,
     )
-    chain_ctx.real_meta_learner_p_hat = 0.8
 
 
-@given("the account portfolio-at-risk breaches its configured cap")
-def _breach_portfolio_at_risk(chain_ctx: _ChainCtx) -> None:
-    chain_ctx.real_features["account_portfolio_at_risk"] = 0.5  # cap is 0.1
-
-
-@given("an active high-risk news event at this bar")
-def _active_high_risk_event(chain_ctx: _ChainCtx) -> None:
-    assert chain_ctx.news_index is not None
-    chain_ctx.news_index = NewsContextIndex(
-        event_intensity={_BAR_TIMESTAMP: -5.0},  # far below any sane veto threshold
-        sentiment_polarity={},
-        sentiment_source_present=False,
-    )
+@given(parsers.parse("the meta-learner predicts p_hat {value:g}"))
+def _meta_learner_p_hat(chain_ctx: _ChainCtx, value: float) -> None:
+    chain_ctx.real_meta_learner_p_hat = value
 
 
 def _build_real_filters(chain_ctx: _ChainCtx) -> list[Filter]:
-    """Assemble the real F1-F7 chain from the scenario's staged inputs."""
-    assert chain_ctx.news_index is not None
-    p_hat = chain_ctx.real_meta_learner_p_hat
-    return [
-        F1TrendFilter(),
-        F2IndicatorFilter(),
-        F3PatternFilter(),
-        F4NewsContextFilter(
-            index=chain_ctx.news_index,
-            config=NewsContextConfig(
-                event_intensity_veto_threshold=-1.0, sentiment_direction_threshold=0.15
-            ),
-        ),
-        RiskGuardFilter(caps=chain_ctx.risk_guard_caps),
-        CapitalMgmtFilter(risk_per_trade=0.03),
-        F7MetaLearnerFilter(
-            meta_learner=_StubMetaLearnerPredictor(p_hat=p_hat),  # type: ignore[arg-type]
-            config=F7Config(theta_high=0.55, theta_low=0.45),
-        ),
-    ]
+    """The named strategy's real chain via the production wiring, with a stub predictor."""
+    assert chain_ctx.real_strategy is not None, "no strategy config named in the scenario"
+    assert chain_ctx.real_meta_learner_p_hat is not None, "no p_hat given in the scenario"
+    return build_filters(
+        load_strategy_chain_config(chain_ctx.real_strategy, root=chain_ctx.strategies_root),
+        meta_learner=_StubMetaLearnerPredictor(p_hat=chain_ctx.real_meta_learner_p_hat),  # type: ignore[arg-type]
+        news_index=chain_ctx.news_index,
+    )
 
 
 def _staged_or_real_filters(chain_ctx: _ChainCtx) -> list[Filter]:
@@ -532,10 +497,12 @@ def _real_filters_ran_in_order(chain_ctx: _ChainCtx, names: str) -> None:
     assert actual == expected
 
 
-@then("the real chain did not veto")
-def _real_chain_no_veto(chain_ctx: _ChainCtx) -> None:
+@then(parsers.parse('the real chain was vetoed by "{name}"'))
+def _real_chain_vetoed_by(chain_ctx: _ChainCtx, name: str) -> None:
+    """`none` asserts no filter vetoed; otherwise exactly that filter did."""
     assert chain_ctx.real_outcome is not None
-    assert not any(r.veto for r in chain_ctx.real_outcome.state.filter_results)
+    vetoes = [r.filter_name for r in chain_ctx.real_outcome.state.filter_results if r.veto]
+    assert vetoes == ([] if name == "none" else [name]), vetoes
 
 
 @then(parsers.parse('the real chain fails naming "{fragment}"'))

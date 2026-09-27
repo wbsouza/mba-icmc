@@ -11,7 +11,6 @@ production output: TD-48).
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -23,12 +22,10 @@ from algo_backtest.chain.filters.f4_news_context import (
     F4NewsContextFilter,
     NewsContextConfig,
     NewsContextIndex,
-    load_news_context_config,
     load_news_context_index,
+    parse_news_context_config,
 )
 from algo_backtest.chain.model import ExecutionState, FilterResult
-from algo_core.config import ConfigError
-from algo_core.config.paths import ENV_CONF_DIR
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
@@ -63,8 +60,9 @@ class _F4Ctx:
     error: Exception | None = None
     index_error: Exception | None = None
     loaded_index: NewsContextIndex | None = None
-    loaded_config: NewsContextConfig | None = None
-    config_error: Exception | None = None
+    section: dict[str, Any] = field(default_factory=dict)
+    parsed_config: NewsContextConfig | None = None
+    parse_error: Exception | None = None
 
 
 @pytest.fixture
@@ -255,73 +253,60 @@ def _failure_names(f4_ctx: _F4Ctx, fragment: str) -> None:
     assert fragment in str(error)
 
 
-@pytest.fixture
-def news_context_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Clean ALGO_ env + isolated conf dir so `load_news_context_config` is deterministic."""
-    for key in [k for k in os.environ if k.startswith("ALGO_")]:
-        monkeypatch.delenv(key, raising=False)
-    conf = tmp_path / "conf"
-    conf.mkdir()
-    monkeypatch.setenv(ENV_CONF_DIR, str(conf))
-    return conf
-
-
-def _write_backtest_yaml(conf_dir: Path, news_context: dict[str, Any]) -> None:
-    (conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "news_context": news_context})
-    )
+_SECTION_DEFAULTS: dict[str, Any] = {
+    "event_intensity_veto_threshold": -0.5,
+    "sentiment_direction_threshold": 0.15,
+}
 
 
 @given(
     parsers.parse(
-        "a news_context config with event_intensity_veto_threshold={veto}, "
+        "a news_context section with event_intensity_veto_threshold={veto}, "
         "sentiment_direction_threshold={direction}"
     )
 )
-def _news_context_config_file(
-    f4_ctx: _F4Ctx, news_context_conf_dir: Path, veto: str, direction: str
-) -> None:
-    _write_backtest_yaml(
-        news_context_conf_dir,
-        {
-            "event_intensity_veto_threshold": yaml.safe_load(veto),
-            "sentiment_direction_threshold": yaml.safe_load(direction),
-        },
-    )
+def _news_context_section(f4_ctx: _F4Ctx, veto: str, direction: str) -> None:
+    f4_ctx.section = {
+        "event_intensity_veto_threshold": yaml.safe_load(veto),
+        "sentiment_direction_threshold": yaml.safe_load(direction),
+    }
 
 
-@given(parsers.parse('a news_context config missing "{missing_key}"'))
-def _news_context_config_missing(
-    f4_ctx: _F4Ctx, news_context_conf_dir: Path, missing_key: str
-) -> None:
-    defaults = {"event_intensity_veto_threshold": -0.5, "sentiment_direction_threshold": 0.15}
-    del defaults[missing_key]
-    _write_backtest_yaml(news_context_conf_dir, defaults)
+@given(parsers.parse('a news_context section missing "{missing_key}"'))
+def _news_context_section_missing(f4_ctx: _F4Ctx, missing_key: str) -> None:
+    f4_ctx.section = {k: v for k, v in _SECTION_DEFAULTS.items() if k != missing_key}
 
 
-@when("the news-context config is loaded")
-def _load_config(f4_ctx: _F4Ctx) -> None:
-    try:
-        f4_ctx.loaded_config = load_news_context_config()
-    except ConfigError as exc:
-        f4_ctx.config_error = exc
+@given(parsers.parse('a news_context section whose "{key}" is the string "{value}"'))
+def _news_context_section_string(f4_ctx: _F4Ctx, key: str, value: str) -> None:
+    f4_ctx.section = {**_SECTION_DEFAULTS, key: value}
 
 
-@then(parsers.parse("the loaded config has event_intensity_veto_threshold {expected}"))
-def _loaded_veto(f4_ctx: _F4Ctx, expected: str) -> None:
-    assert f4_ctx.config_error is None, f"unexpected error: {f4_ctx.config_error}"
-    assert f4_ctx.loaded_config is not None
-    assert f4_ctx.loaded_config.event_intensity_veto_threshold == _parse_threshold(expected)
+@when(parsers.parse('the news-context config is parsed for strategy "{strategy}"'))
+def _parse_config(f4_ctx: _F4Ctx, strategy: str) -> None:
+    f4_ctx.parsed_config = parse_news_context_config(f4_ctx.section, strategy=strategy)
 
 
-@then(parsers.parse("the loaded config has sentiment_direction_threshold {expected}"))
-def _loaded_direction(f4_ctx: _F4Ctx, expected: str) -> None:
-    assert f4_ctx.config_error is None, f"unexpected error: {f4_ctx.config_error}"
-    assert f4_ctx.loaded_config is not None
-    assert f4_ctx.loaded_config.sentiment_direction_threshold == _parse_threshold(expected)
+@when(parsers.parse('parsing the news-context config for strategy "{strategy}" fails'))
+def _parse_config_fails(f4_ctx: _F4Ctx, strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        parse_news_context_config(f4_ctx.section, strategy=strategy)
+    f4_ctx.parse_error = exc_info.value
 
 
-@then(parsers.parse('loading the config fails naming "{fragment}"'))
-def _load_config_fails(f4_ctx: _F4Ctx, fragment: str) -> None:
-    assert f4_ctx.config_error is not None
-    assert fragment in str(f4_ctx.config_error)
+@then(parsers.parse("the parsed news-context config has event_intensity_veto_threshold {expected}"))
+def _parsed_veto(f4_ctx: _F4Ctx, expected: str) -> None:
+    assert f4_ctx.parsed_config is not None
+    assert f4_ctx.parsed_config.event_intensity_veto_threshold == _parse_threshold(expected)
+
+
+@then(parsers.parse("the parsed news-context config has sentiment_direction_threshold {expected}"))
+def _parsed_direction(f4_ctx: _F4Ctx, expected: str) -> None:
+    assert f4_ctx.parsed_config is not None
+    assert f4_ctx.parsed_config.sentiment_direction_threshold == _parse_threshold(expected)
+
+
+@then(parsers.parse('the news-context config failure names "{fragment}"'))
+def _parse_failure_names(f4_ctx: _F4Ctx, fragment: str) -> None:
+    assert f4_ctx.parse_error is not None
+    assert fragment in str(f4_ctx.parse_error)

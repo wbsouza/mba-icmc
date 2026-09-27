@@ -1,8 +1,8 @@
 Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
   `algo_backtest.chain.wiring` is the LEAN-free half of `engine/chain_algorithm.py`:
-  it builds a strategy's filter chain from its config.yaml list, turns indicator and
-  portfolio readings into the ExecutionState.features contract, and tracks day/week
-  PnL anchors. The F7 training scripts build their rows through the same
+  it builds a strategy's filter chain from its resolved config.yaml (filter list plus
+  each filter's own parameter section), turns indicator and portfolio readings into the
+  ExecutionState.features contract, and tracks day/week PnL anchors. The F7 training scripts build their rows through the same
   price_features(), so train and serve share one feature definition.
 
   Rule: Price features follow the F1/F2/F3 contract
@@ -26,16 +26,35 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
 
     Scenario: A net-short portfolio's leverage is its unsigned holdings over equity
       Given an invested account worth 10000 holding -50000 with unrealized profit -200
-      When account features are built at price 1.1000
+      When account features are built at price 1.1000 with the real baseline capital_mgmt section
       Then feature "account_leverage" is 5
       And feature "account_portfolio_at_risk" is 0.02
       And feature "account_open_trade_count" is 1
 
     Scenario: A flat account has no portfolio at risk
       Given a flat account worth 10000
-      When account features are built at price 1.1000
+      When account features are built at price 1.1000 with the real baseline capital_mgmt section
       Then feature "account_portfolio_at_risk" is 0
       And feature "account_open_trade_count" is 0
+
+    Scenario Outline: The F6 sizing inputs come from the capital_mgmt section, not constants (<case>)
+      Given a flat account worth 10000
+      When account features are built at price <price> with capital_mgmt stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
+      Then feature "stop_loss_pips" is <stop>
+      And feature "pip_value" is <pip>
+      And feature "margin_per_lot" is <margin>
+
+      Examples:
+        | case                 | price | stop | pip | lot    | lev | margin |
+        | standard lot at 30x  | 1.1   | 20   | 10  | 100000 | 30  | 3666.6666667 |
+        | mini lot at 50x      | 1.25  | 15   | 1   | 10000  | 50  | 250    |
+        | unlevered            | 2.0   | 5    | 10  | 100000 | 1   | 200000 |
+
+    Scenario: A strategy without F6 gets no sizing inputs rather than invented ones
+      Given a flat account worth 10000
+      When account features are built at price 1.1000 without a capital_mgmt section
+      Then feature "account_balance" is 10000
+      And the features carry none of "pip_value, stop_loss_pips, margin_per_lot"
 
   Rule: PnL anchors reset at each new UTC day and ISO week
 
@@ -51,11 +70,15 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       When equity 10500 is observed on "2024-01-08T00:00:00+00:00"
       Then the daily PnL fraction is 0 and the weekly PnL fraction is 0
 
-  Rule: A strategy's filter list builds the chain in declared order, failing fast on gaps
+  Rule: A strategy's resolved config builds the chain in declared order with each filter's own parameters
 
-    Scenario: The hybrid filter list builds all seven filters in order when a news index is given
+    Scenario: The hybrid config builds all seven filters in order when a news index is given
       When the hybrid config's filters are built with a news index
       Then the chain's filters are "f1_trend, f2_indicator, f3_pattern, f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner"
+      And the built F7 filter carries the hybrid config's thresholds and regime gate
+      And the built F5 filter carries the hybrid config's risk-guard caps
+      And the built F6 filter carries the hybrid config's risk_per_trade
+      And the built F4 filter carries the hybrid config's news-context thresholds
 
     Scenario: F4 without a news index fails fast
       When the hybrid config's filters are built without a news index
@@ -65,11 +88,22 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       When filters "f1_trend, f9_bogus" are built
       Then building fails naming "unknown filter 'f9_bogus'"
 
-  Rule: The smoke-test risk caps follow RiskGuard's sign contract
+    Scenario Outline: A configurable filter whose section was never parsed fails fast (<filter>)
+      When filters "f1_trend, <filter>" are built
+      Then building fails naming "<section>"
+      And building fails naming "load_strategy_chain_config"
 
-    Scenario: A flat account at break-even passes F5 under the wiring's placeholder caps
+      Examples:
+        | filter          | section      |
+        | f5_risk_guard   | risk_guard   |
+        | f6_capital_mgmt | capital_mgmt |
+        | f7_meta_learner | meta_learner |
+
+  Rule: The bundled risk caps follow RiskGuard's sign contract
+
+    Scenario: A flat account at break-even passes F5 under the real baseline risk_guard caps
       Given a flat account worth 10000
-      When F5 evaluates the account under the wiring's placeholder caps
+      When F5 evaluates the account under the real baseline risk_guard caps
       Then F5 does not veto
 
     Scenario: A positive (sign-flipped) drawdown limit is rejected at construction

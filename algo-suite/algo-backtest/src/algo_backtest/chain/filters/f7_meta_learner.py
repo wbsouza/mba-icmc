@@ -9,14 +9,22 @@ rule (verbatim):
     SELL if p̂_t < θ_low  and r_t = bear and v_t = 0
     HOLD otherwise
 
+**2026-09-27 amendment (story 09):** the ``r_t`` agreement is a configurable gate,
+``meta_learner.regime_gate`` in the strategy's `config.yaml`, alongside ``theta_high``
+and ``theta_low``. With the gate off the rule is ``BUY if p̂_t > θ_high``, ``SELL if
+p̂_t < θ_low``, ``HOLD`` otherwise. The September-2015 pilot found the fitted model
+anti-aligned with F1's regime on every bar (p̂ < 0.5 in bull, > 0.49 in bear), so the
+gated rule could never fire; see
+`docs/stories/in-progress/09-six-month-training-september-pilot/progress.md`.
+
 ``v_t`` (the news-context veto flag) never needs an explicit check here: a veto from any
 upstream filter (F4 included) already short-circuits `FilterChain.run()` to
 ``Decision.NO_TRADE`` before F7 ever runs (`chain/model.py`), so by construction F7 only
 ever sees ``v_t = 0`` states. ``r_t`` (the trend regime) is read from F1's
-``trend_score`` enrichment; ``p̂_t`` is this module's own contribution: a **logistic
-meta-learner** combining one **LightGBM sub-model per feature family** (PRD.md §1: "each
-feature family is scored by a LightGBM sub-model, and a logistic meta-learner combines
-the sub-model outputs into a probability p̂_t").
+``trend_score`` enrichment when the gate is on; ``p̂_t`` is this module's own
+contribution: a **logistic meta-learner** combining one **LightGBM sub-model per feature
+family** (PRD.md §1: "each feature family is scored by a LightGBM sub-model, and a
+logistic meta-learner combines the sub-model outputs into a probability p̂_t").
 
 **Feature families** (one LightGBM sub-model each, matching the filters that already
 enrich `state.features` — TD-29's market-activity family has no filter consumer yet and
@@ -44,14 +52,14 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
 import numpy as np
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
-from algo_core.config import Impact, ParameterSpec, resolve
+from algo_backtest.chain.params import require_bool, require_number
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 
@@ -329,33 +337,51 @@ def _fit_family(
     return LightGBMFamilyModel(booster=booster)
 
 
-_SCHEMA_VERSION = 1
-_SCHEMA: tuple[ParameterSpec, ...] = (
-    ParameterSpec(name="meta_learner.theta_high", impact=Impact.TRADING, reference_value=0.55),
-    ParameterSpec(name="meta_learner.theta_low", impact=Impact.TRADING, reference_value=0.45),
-)
+_SECTION = "meta_learner"
 
 
 @dataclass(frozen=True)
 class F7Config:
-    """The terminal rule's two calibrated thresholds (never learned by the model)."""
+    """The terminal rule's parameters: two calibrated thresholds plus the regime gate.
+
+    `regime_gate=True` is the dissertation's rule (BUY needs F1's bull regime, SELL its
+    bear regime); `False` trades on p̂ alone (2026-09-27 pilot amendment, story 09). None
+    of these is learned by the model.
+    """
 
     theta_high: float
     theta_low: float
+    regime_gate: bool
 
 
-def load_f7_config() -> F7Config:
-    """Resolve `meta_learner.theta_{high,low}` via the shared `algo_core.config` loader.
+def parse_f7_config(section: Mapping[str, Any], *, strategy: str) -> F7Config:
+    """F7's parameters from a strategy config.yaml `meta_learner` section (fail fast).
 
     Raises:
-        ConfigError: (`MissingTradingParameter`) if a threshold is absent from config —
-            a hard stop, per CLAUDE.md's fail-fast policy.
+        ValueError: a key is missing, a threshold is not a probability strictly inside
+            (0, 1), `theta_low` is not strictly below `theta_high`, or `regime_gate` is
+            not a YAML boolean.
     """
-    result = resolve("backtest", _SCHEMA, _SCHEMA_VERSION)
-    return F7Config(
-        theta_high=float(result.values["meta_learner.theta_high"]),
-        theta_low=float(result.values["meta_learner.theta_low"]),
-    )
+    theta_high = _probability(section, "theta_high", strategy)
+    theta_low = _probability(section, "theta_low", strategy)
+    if theta_low >= theta_high:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.theta_low ({theta_low}) must be strictly below "
+            f"theta_high ({theta_high}) — the HOLD band between them cannot be empty"
+        )
+    regime_gate = require_bool(section, "regime_gate", section=_SECTION, strategy=strategy)
+    return F7Config(theta_high=theta_high, theta_low=theta_low, regime_gate=regime_gate)
+
+
+def _probability(section: Mapping[str, Any], key: str, strategy: str) -> float:
+    """A required threshold strictly inside (0, 1)."""
+    value = require_number(section, key, section=_SECTION, strategy=strategy)
+    if not 0.0 < value < 1.0:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.{key} must be a probability strictly inside "
+            f"(0, 1), got {value!r}"
+        )
+    return value
 
 
 def _regime(features: Mapping[str, object]) -> str:
@@ -374,32 +400,51 @@ def _regime(features: Mapping[str, object]) -> str:
     return "neutral"
 
 
+def _threshold_rule(p_hat: float, config: F7Config) -> Recommendation:
+    """BUY above `theta_high`, SELL below `theta_low`, HOLD inside the band (strict)."""
+    if p_hat > config.theta_high:
+        return Recommendation.BUY
+    if p_hat < config.theta_low:
+        return Recommendation.SELL
+    return Recommendation.HOLD
+
+
+def _regime_agrees(recommendation: Recommendation, regime: str) -> bool:
+    """Whether F1's regime points the same way as the threshold rule's direction."""
+    if recommendation is Recommendation.BUY:
+        return regime == "bull"
+    if recommendation is Recommendation.SELL:
+        return regime == "bear"
+    return True
+
+
 @dataclass
 class F7MetaLearnerFilter:
     """The chain's terminal threshold-rule gate: implements `Filter.apply()`.
 
     Never vetoes — by the terminal rule's own equation, HOLD is a recommendation, not a
-    gate (`FilterResult.veto` stays `False` in every branch).
+    gate (`FilterResult.veto` stays `False` in every branch). `config` comes from the
+    strategy's `config.yaml` (`parse_f7_config`), never from a code constant.
     """
 
     meta_learner: TrainedMetaLearner
-    config: F7Config = field(default_factory=load_f7_config)
+    config: F7Config
 
     def apply(self, state: ExecutionState) -> FilterResult:
-        """Compute p̂_t, read the trend regime, and apply the terminal BUY/SELL/HOLD rule."""
+        """Compute p̂_t and apply the terminal rule, consulting F1's regime only when gated."""
         p_hat = self.meta_learner.predict(state.features)
-        regime = _regime(state.features)
-        if p_hat > self.config.theta_high and regime == "bull":
-            recommendation = Recommendation.BUY
-        elif p_hat < self.config.theta_low and regime == "bear":
-            recommendation = Recommendation.SELL
-        else:
-            recommendation = Recommendation.HOLD
+        recommendation = _threshold_rule(p_hat, self.config)
+        regime = "n/a"
+        if self.config.regime_gate:
+            regime = _regime(state.features)
+            if not _regime_agrees(recommendation, regime):
+                recommendation = Recommendation.HOLD
         return FilterResult(
             filter_name=_FILTER_NAME,
             recommendation=recommendation,
-            reason=f"p_hat={p_hat:.4f}, regime={regime}, theta_high={self.config.theta_high}, "
-            f"theta_low={self.config.theta_low}",
+            reason=f"p_hat={p_hat:.4f}, theta_high={self.config.theta_high}, "
+            f"theta_low={self.config.theta_low}, regime_gate={self.config.regime_gate}, "
+            f"regime={regime}",
             confidence=p_hat,
             enrichment={"p_hat": p_hat},
         )

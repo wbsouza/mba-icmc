@@ -2,9 +2,13 @@
 config.yaml`, bundled alongside `algos/` (same `Path(__file__).parent`-relative,
 packaging-independent pattern `run.py` already uses for `algos/`).
 
-Config, not code, decides which filters a strategy runs and in what order (specs.md
-§11.3.1: "Adding, removing or reordering a filter requires editing config.yaml, not the
-engine code"). `baseline` and `hybrid` are the two Spec 04 variants
+Config, not code, decides which filters a strategy runs, in what order, and with which
+parameters (specs.md §11.3.1: "Adding, removing or reordering a filter requires editing
+config.yaml, not the engine code"; 2026-09-27 amendment, story 09: each configurable
+filter owns a section of the same file — `news_context` for F4, `risk_guard` for F5,
+`capital_mgmt` for F6 and `meta_learner.theta_high/theta_low/regime_gate` for F7 — parsed
+by that filter's own `parse_*_config`, and a filter listed without its section, or a
+section without its filter, is a hard stop). `baseline` and `hybrid` are the two Spec 04 variants
 (`docs/experiments.md` §1: "hybrid extends baseline adding F4"), composed via a single
 level of ``extends:`` — deliberately **not** the general cycle-detecting inheritance
 `technical-debt.md` TD-8 defers ("a flat, non-cyclic two-level extends does not need that
@@ -29,7 +33,25 @@ from typing import Any
 
 import yaml
 
+from algo_backtest.chain.filters.f4_news_context import (
+    NewsContextConfig,
+    parse_news_context_config,
+)
+from algo_backtest.chain.filters.f6_capital_mgmt import (
+    CapitalMgmtConfig,
+    parse_capital_mgmt_config,
+)
+from algo_backtest.chain.filters.f7_meta_learner import F7Config, parse_f7_config
 from algo_backtest.perception.config import PerceptionConfig, parse_perception_config
+from algo_backtest.rules.risk_guard import RiskGuardCaps, parse_risk_guard_caps
+
+# Which config.yaml section each configurable filter reads (F7 reads `meta_learner`,
+# shared with the feature-family list, so it is handled separately).
+_SECTION_FOR_FILTER: dict[str, str] = {
+    "f4_news_context": "news_context",
+    "f5_risk_guard": "risk_guard",
+    "f6_capital_mgmt": "capital_mgmt",
+}
 
 
 @dataclass(frozen=True)
@@ -48,6 +70,10 @@ class StrategyChainConfig:
     extends: str | None
     raw: Mapping[str, Any]
     perception: PerceptionConfig = PerceptionConfig()
+    news_context: NewsContextConfig | None = None
+    risk_guard: RiskGuardCaps | None = None
+    capital_mgmt: CapitalMgmtConfig | None = None
+    f7: F7Config | None = None
 
 
 def strategies_root() -> Path:
@@ -109,16 +135,70 @@ def _ensure_str_list(strategy_name: str, field: str, value: object) -> list[str]
     return list(value)
 
 
+def _filter_section(
+    name: str, merged: Mapping[str, Any], filters: tuple[str, ...], filter_name: str
+) -> dict[str, Any] | None:
+    """The parameter section for `filter_name` iff the filter is listed; mismatches fail fast.
+
+    Raises:
+        ValueError: the filter is listed without its section, the section is present
+            without its filter, or the section is not a mapping.
+    """
+    section = _SECTION_FOR_FILTER[filter_name]
+    listed, present = filter_name in filters, section in merged
+    if listed and not present:
+        raise ValueError(
+            f"strategy {name!r} lists {filter_name!r} but has no '{section}:' section — add "
+            f"the filter's parameters to strategies/{name}/config.yaml"
+        )
+    if present and not listed:
+        raise ValueError(
+            f"strategy {name!r} declares a '{section}:' section but does not list "
+            f"{filter_name!r} in filters — remove the section or add the filter"
+        )
+    if not listed:
+        return None
+    value = merged[section]
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"strategy {name!r}: '{section}' must be a mapping (got "
+            f"{type(value).__name__!r}) — check its config.yaml"
+        )
+    return value
+
+
+def _typed_sections(
+    name: str, merged: Mapping[str, Any], filters: tuple[str, ...], meta_learner: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Every listed configurable filter's section, parsed by that filter's own parser."""
+    news = _filter_section(name, merged, filters, "f4_news_context")
+    risk = _filter_section(name, merged, filters, "f5_risk_guard")
+    capital = _filter_section(name, merged, filters, "f6_capital_mgmt")
+    return {
+        "news_context": (
+            parse_news_context_config(news, strategy=name) if news is not None else None
+        ),
+        "risk_guard": parse_risk_guard_caps(risk, strategy=name) if risk is not None else None,
+        "capital_mgmt": (
+            parse_capital_mgmt_config(capital, strategy=name) if capital is not None else None
+        ),
+        "f7": (
+            parse_f7_config(meta_learner, strategy=name) if "f7_meta_learner" in filters else None
+        ),
+    }
+
+
 def load_strategy_chain_config(name: str, *, root: Path | None = None) -> StrategyChainConfig:
     """Resolve one strategy's chain config, composing a single `extends:` level if present.
 
     Raises:
         ValueError: the strategy (or its base) has no `config.yaml`, the base itself
             declares `extends:` (only one level is supported), `filters:` resolves
-            empty (a chain with no filters can never reach a terminal decision), or
+            empty (a chain with no filters can never reach a terminal decision),
             `meta_learner:` is present but not a mapping (a malformed config type,
             distinct from the section being absent entirely — that legitimately
-            resolves to no feature families).
+            resolves to no feature families), or a configurable filter's own section
+            is missing, stray or invalid (`_filter_section` and each `parse_*_config`).
     """
     resolved_root = root if root is not None else strategies_root()
     raw = _read_yaml(resolved_root, name)
@@ -148,4 +228,5 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
         perception=parse_perception_config(merged),
+        **_typed_sections(name, merged, filters, meta_learner),
     )

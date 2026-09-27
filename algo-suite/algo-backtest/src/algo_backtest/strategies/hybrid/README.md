@@ -32,10 +32,28 @@ flowchart TB
     class Veto vetoed
 ```
 
+## Parameters
+
+Every configurable filter owns a section of [`config.yaml`](config.yaml); the run
+only takes `--param size=<fraction of equity>` and `--param cash=<starting deposit>`.
+A filter listed without its section, or a section without its filter, fails fast.
+
+| Filter | Section | Keys |
+|---|---|---|
+| F4 news context (hybrid only) | `news_context` | `event_intensity_veto_threshold`, `sentiment_direction_threshold` (`null` disables a half) |
+| F5 risk guard | `risk_guard` | `portfolio_at_risk_cap`, `daily_drawdown_limit`, `weekly_drawdown_limit`, `max_concurrent_trades_per_account`, `max_leverage` (`null` disables one) |
+| F6 capital management | `capital_mgmt` | `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`, `lot_notional_units`, `assumed_leverage` |
+| F7 threshold rule | `meta_learner` | `families`, `theta_high`, `theta_low`, `regime_gate` |
+
+`regime_gate: true` is the dissertation's rule (BUY needs F1's bull regime, SELL its
+bear regime); `false` trades on p̂ alone. Since 2026-09-27 (story 09) the bundled
+configs run with the gate off: the six-month pilot's fitted model was anti-aligned with
+F1's regime on every September bar, so the gated rule never fired.
+
 ## Run
 
 ```bash
-algo-backtest run --strategy hybrid --symbol EURUSD --from 2024-06-01 --to 2024-06-30
+algo-backtest run --strategy hybrid --symbol EURUSD --from 2024-06-01 --to 2024-06-30 --param size=0.5 --param cash=10000
 ```
 
 **Status (2026-09-26):** `config.yaml`, the pure-Python chain, and `algos/hybrid/main.py`

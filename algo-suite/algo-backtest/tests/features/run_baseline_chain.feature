@@ -11,9 +11,14 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
   Rule: Inputs are validated before any container starts
 
     Scenario: a size outside (0, 1] is rejected
-      When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=2"
+      When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=2 --param cash=10000"
       Then the run command exits with code 2
       And the error says size must be in range
+
+    Scenario: a non-positive starting cash is rejected
+      When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param cash=0"
+      Then the run command exits with code 2
+      And the error says cash must be positive
 
     Scenario: a model trained for hybrid is rejected for baseline before any container starts
       When I run baseline with the bundled hybrid model as --model
@@ -21,7 +26,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       And the error names the model's families and the strategy's declared families
 
     Scenario: an unknown param is rejected
-      When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param bogus=1"
+      When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param cash=10000 --param bogus=1"
       Then the run command exits with code 2
       And the error says params must be exactly
 
@@ -31,7 +36,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
     Scenario: the baseline chain trades a sine cycle and every decision joins its LEAN trade
       Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09
       And a baseline F7 model trained on it: train through 2014-05-06, validate on 2014-05-07, test 2014-05-08 to 2014-05-09
-      When I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model
+      When I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5, cash 10000 and that model
       Then the strategy run exits successfully
       And the container log shows the algorithm loaded the fixture model
       And a metrics summary is reported

@@ -7,7 +7,9 @@ each strategy to its bundled algorithm and its parameter validator, so a second 
 added without touching the run path.
 
 Each strategy carries its own parameters (baseline-ma: fast/slow/size; baseline-meanrev:
-window/band/size), validated by that strategy and passed to its algorithm verbatim.
+window/band/size; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
+size/cash, `cash` being the account's starting deposit), validated by that strategy and
+passed to its algorithm verbatim.
 `baseline`/`hybrid` additionally drive the real F1-F7 filter chain; `hybrid` (Spec 04h)
 adds F4/news to `baseline`'s price-only chain, so it alone needs a second data mount —
 `StrategySpec.needs_news_data` marks that in the registry instead of special-casing the
@@ -101,22 +103,36 @@ def _validate_baseline_meanrev(params: Params) -> None:
         raise ValueError(f"band ({band}) must be positive")
 
 
+def _validate_cash(params: Params, strategy: str) -> None:
+    """The chain strategies' starting deposit: the account's initial cash, strictly positive."""
+    cash = _float_param(params, "cash", strategy)
+    if cash <= 0:
+        raise ValueError(
+            f"cash ({cash}) must be positive — the account's starting deposit for {strategy}, "
+            "e.g. --param cash=10000"
+        )
+
+
+def _validate_chain_params(params: Params, strategy: str) -> None:
+    """The config.yaml-driven chain strategies share one closed param set: size + cash."""
+    _check_keys(params, {"size", "cash"}, strategy)
+    _validate_size(params, strategy)
+    _validate_cash(params, strategy)
+
+
 def _validate_baseline(params: Params) -> None:
-    """baseline params: size in (0, 1] only (the F1+F2+F3+F5+F6+F7 config.yaml chain)."""
-    _check_keys(params, {"size"}, "baseline")
-    _validate_size(params, "baseline")
+    """baseline params: size in (0, 1] and cash > 0 (the F1+F2+F3+F5+F6+F7 config.yaml chain)."""
+    _validate_chain_params(params, "baseline")
 
 
 def _validate_baseline_dsha(params: Params) -> None:
     """Validate the frozen-model candidate with its own diagnostic label."""
-    _check_keys(params, {"size"}, "baseline-dsha")
-    _validate_size(params, "baseline-dsha")
+    _validate_chain_params(params, "baseline-dsha")
 
 
 def _validate_hybrid(params: Params) -> None:
-    """hybrid params: size in (0, 1] only (baseline's chain + F4/news, config.yaml `extends`)."""
-    _check_keys(params, {"size"}, "hybrid")
-    _validate_size(params, "hybrid")
+    """hybrid params: size in (0, 1] and cash > 0 (baseline's chain + F4/news, `extends`)."""
+    _validate_chain_params(params, "hybrid")
 
 
 def _validate_buyhold(params: Params) -> None:

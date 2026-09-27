@@ -94,7 +94,10 @@ class ChainAlgorithm(ExecutionAlgorithm):
         start = parse_yyyymmdd(self._required("start"))
         end = parse_yyyymmdd(self._required("end"))
         self._size = float(self._required("size"))
+        cash = float(self._required("cash"))
         broker_adapter = self._required("broker_adapter")
+        self.set_cash(cash)
+        self.debug(f"{self.log_tag}_STARTING_CASH={cash}")
 
         self.set_start_date(start.year, start.month, start.day)
         self.set_end_date(end.year, end.month, end.day)
@@ -111,8 +114,9 @@ class ChainAlgorithm(ExecutionAlgorithm):
         require_families(
             meta_learner.families, config.meta_learner_families, where=str(self.model_path)
         )
+        self._economics = config.capital_mgmt
         filters = build_filters(
-            config.filters,
+            config,
             meta_learner=meta_learner,
             news_index=self._news_index(symbol, start, end),
         )
@@ -175,7 +179,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())
-        return {**market, **account_features(account, price)}
+        return {**market, **account_features(account, price, self._economics)}
 
     def _state(self) -> ExecutionState:
         """This bar's chain input: decision time (the bar's end), pair, features.

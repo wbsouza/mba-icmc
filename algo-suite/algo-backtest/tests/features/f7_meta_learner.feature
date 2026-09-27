@@ -2,9 +2,12 @@ Feature: F7 — threshold-rule (meta-learner) filter
   Proves the terminal rule (`monografia/chapters/03-methodology.tex`,
   "Phase two: deterministic execution as a filter chain"):
 
-      BUY  if p_hat > theta_high and regime = bull
-      SELL if p_hat < theta_low  and regime = bear
+      BUY  if p_hat > theta_high and (regime = bull or the regime gate is off)
+      SELL if p_hat < theta_low  and (regime = bear or the regime gate is off)
       HOLD otherwise
+
+  theta_high, theta_low and regime_gate are strategy config.yaml `meta_learner` keys
+  (2026-09-27 amendment, story 09), not code constants,
 
   plus the walk-forward data-splitting policy (PRD.md §4) and the meta-learner's
   reproducibility guarantee (every LightGBM `Booster`/`LogisticRegression` fit pins
@@ -43,88 +46,106 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When the meta-learner is trained on the trend family alone
       Then a held-out UP-trend row's p_hat is below 0.5
 
-  Rule: F7 applies the terminal BUY/SELL/HOLD rule from p_hat and the trend regime
+  Rule: F7 applies the terminal BUY/SELL/HOLD rule from p_hat, the thresholds and the regime gate
 
-    Scenario: p_hat above theta_high with a bull regime recommends BUY
+    Scenario Outline: <case>
+      Given a stub meta-learner predicting p_hat <p_hat>
+      And theta_high <theta_high> and theta_low <theta_low> with the regime gate <gate>
+      And trend_score <trend_score> in state.features
+      When F7 applies to the state
+      Then F7 recommends "<recommendation>"
+      And F7's result does not veto
+      And F7's reason mentions "regime_gate=<gate_flag>"
+
+      Examples: gate on — the thesis rule, the regime must agree with p_hat
+        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation |
+        | high p_hat in a bull regime buys                  | 0.8   | 0.55       | 0.45      | on   | True      | 0.5         | BUY            |
+        | low p_hat in a bear regime sells                  | 0.2   | 0.55       | 0.45      | on   | True      | -0.5        | SELL           |
+        | high p_hat in a bear regime holds                 | 0.8   | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           |
+        | low p_hat in a bull regime holds                  | 0.2   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
+        | p_hat inside the band holds                       | 0.5   | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
+        | p_hat exactly at theta_high holds (strict >)      | 0.55  | 0.55       | 0.45      | on   | True      | 0.5         | HOLD           |
+        | p_hat exactly at theta_low holds (strict <)       | 0.45  | 0.55       | 0.45      | on   | True      | -0.5        | HOLD           |
+        | neutral regime blocks a buy                       | 0.8   | 0.55       | 0.45      | on   | True      | 0           | HOLD           |
+        | neutral regime blocks a sell                      | 0.2   | 0.55       | 0.45      | on   | True      | 0           | HOLD           |
+        | wider band: 0.58 is inside 0.6/0.4 and holds      | 0.58  | 0.6        | 0.4       | on   | True      | 0.5         | HOLD           |
+        | narrower band: 0.53 clears 0.52 and buys          | 0.53  | 0.52       | 0.48      | on   | True      | 0.5         | BUY            |
+
+      Examples: gate off — p_hat alone decides (2026-09-27 pilot amendment, story 09)
+        | case                                              | p_hat | theta_high | theta_low | gate | gate_flag | trend_score | recommendation |
+        | high p_hat in a bear regime buys                  | 0.8   | 0.55       | 0.45      | off  | False     | -0.5        | BUY            |
+        | low p_hat in a bull regime sells                  | 0.2   | 0.55       | 0.45      | off  | False     | 0.5         | SELL           |
+        | neutral regime does not block a buy               | 0.8   | 0.55       | 0.45      | off  | False     | 0           | BUY            |
+        | neutral regime does not block a sell              | 0.2   | 0.55       | 0.45      | off  | False     | 0           | SELL           |
+        | p_hat inside the band still holds                 | 0.5   | 0.55       | 0.45      | off  | False     | 0.5         | HOLD           |
+        | p_hat exactly at theta_high still holds           | 0.55  | 0.55       | 0.45      | off  | False     | -0.5        | HOLD           |
+        | narrower band: 0.47 is below 0.48 and sells       | 0.47  | 0.52       | 0.48      | off  | False     | 0.5         | SELL           |
+
+    Scenario: F7's result carries the audit fields and the meta-learner sees the state's own features
       Given a stub meta-learner predicting p_hat 0.8
-      And theta_high 0.55 and theta_low 0.45
+      And theta_high 0.55 and theta_low 0.45 with the regime gate on
       And trend_score 0.5 in state.features
       When F7 applies to the state
-      Then F7 recommends "BUY"
-      And F7's result does not veto
-      And F7's filter_name is "f7_meta_learner"
+      Then F7's filter_name is "f7_meta_learner"
       And F7's reason mentions "p_hat=0.8000"
       And F7's confidence is 0.8
       And F7 enriches "p_hat" with value 0.8
       And the meta-learner was called with the state's own features
 
-    Scenario: p_hat below theta_low with a bear regime recommends SELL
-      Given a stub meta-learner predicting p_hat 0.2
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score -0.5 in state.features
-      When F7 applies to the state
-      Then F7 recommends "SELL"
+  Rule: Only the regime gate needs F1's trend_score enrichment
 
-    Scenario: a high p_hat with a bear regime HOLDs — the regime must agree
+    Scenario: with the gate on, a missing trend_score fails fast (F1 must run first)
       Given a stub meta-learner predicting p_hat 0.8
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score -0.5 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-      And F7's result does not veto
-
-    Scenario: a p_hat between the thresholds HOLDs regardless of regime
-      Given a stub meta-learner predicting p_hat 0.5
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score 0.5 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-
-    Scenario: p_hat exactly at theta_high HOLDs — the rule is strictly greater-than
-      Given a stub meta-learner predicting p_hat 0.55
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score 0.5 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-
-    Scenario: p_hat exactly at theta_low HOLDs — the rule is strictly less-than
-      Given a stub meta-learner predicting p_hat 0.45
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score -0.5 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-
-    Scenario: a zero trend_score is a neutral regime, so a high p_hat still HOLDs (not bull)
-      Given a stub meta-learner predicting p_hat 0.8
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score 0 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-
-    Scenario: a zero trend_score is a neutral regime, so a low p_hat still HOLDs (not bear)
-      Given a stub meta-learner predicting p_hat 0.2
-      And theta_high 0.55 and theta_low 0.45
-      And trend_score 0 in state.features
-      When F7 applies to the state
-      Then F7 recommends "HOLD"
-
-  Rule: meta_learner.theta_{high,low} resolve via the shared algo_core.config loader
-
-    Scenario: a configured meta_learner section resolves both thresholds
-      Given a meta_learner config with theta_high=0.6, theta_low=0.4
-      When the F7 config is loaded
-      Then the loaded F7 config has theta_high 0.6
-      And the loaded F7 config has theta_low 0.4
-
-    Scenario: a missing meta_learner section fails fast
-      Given a meta_learner config missing "theta_high"
-      When the F7 config is loaded
-      Then loading the F7 config fails naming "theta_high"
-
-  Rule: F7 requires the upstream trend_score enrichment (F1 must run first)
-
-    Scenario: trend_score missing from state.features fails fast
-      Given a stub meta-learner predicting p_hat 0.8
-      And theta_high 0.55 and theta_low 0.45
+      And theta_high 0.55 and theta_low 0.45 with the regime gate on
       When F7 applies to a state missing "trend_score"
       Then applying F7 fails naming "trend_score"
+
+    Scenario: with the gate off, a missing trend_score is not needed
+      Given a stub meta-learner predicting p_hat 0.8
+      And theta_high 0.55 and theta_low 0.45 with the regime gate off
+      When F7 applies to a state missing "trend_score"
+      Then F7 recommends "BUY"
+
+  Rule: F7's thresholds and gate come from the strategy config.yaml meta_learner section
+
+    Scenario Outline: a complete meta_learner section parses into an F7Config (<case>)
+      Given a meta_learner section with theta_high <theta_high>, theta_low <theta_low> and regime_gate <regime_gate>
+      When the F7 config is parsed for strategy "baseline"
+      Then the parsed F7 config has theta_high <theta_high>
+      And the parsed F7 config has theta_low <theta_low>
+      And the parsed F7 config has the regime gate <gate>
+
+      Examples:
+        | case              | theta_high | theta_low | regime_gate | gate |
+        | thesis defaults   | 0.55       | 0.45      | true        | on   |
+        | gate off          | 0.55       | 0.45      | false       | off  |
+        | wider band        | 0.6        | 0.4       | true        | on   |
+        | asymmetric band   | 0.53       | 0.40      | false       | off  |
+
+    Scenario Outline: an invalid meta_learner section fails fast naming the bad key and the strategy (<case>)
+      Given a meta_learner section with theta_high <theta_high>, theta_low <theta_low> and regime_gate <regime_gate>
+      When parsing the F7 config for strategy "baseline" fails
+      Then the F7 config failure names "<names>"
+      And the F7 config failure names "baseline"
+
+      Examples:
+        | case                              | theta_high | theta_low | regime_gate | names       |
+        | theta_low above theta_high        | 0.45       | 0.55      | true        | theta_low   |
+        | theta_low equal to theta_high     | 0.5        | 0.5       | true        | theta_low   |
+        | theta_high above 1                | 1.5        | 0.45      | true        | theta_high  |
+        | theta_low at 0                    | 0.55       | 0         | true        | theta_low   |
+        | regime_gate as a string           | 0.55       | 0.45      | "yes"       | regime_gate |
+        | regime_gate as an integer         | 0.55       | 0.45      | 1           | regime_gate |
+        | theta_high as a string            | high       | 0.45      | true        | theta_high  |
+
+    Scenario Outline: a missing meta_learner key fails fast naming the key and the strategy (<key>)
+      Given a meta_learner section missing "<key>"
+      When parsing the F7 config for strategy "baseline" fails
+      Then the F7 config failure names "<key>"
+      And the F7 config failure names "baseline"
+
+      Examples:
+        | key         |
+        | theta_high  |
+        | theta_low   |
+        | regime_gate |

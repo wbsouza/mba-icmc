@@ -2,42 +2,39 @@
 
 `algos/baseline/main.py` and `algos/hybrid/main.py` differ only in their strategy name
 and in whether F4/news is wired; everything else they do per bar — build the filter
-chain from `config.yaml`, turn LEAN indicator/portfolio readings into the
-`ExecutionState.features` contract, track day/week PnL anchors — lives here, once,
-type-checked and unit-tested (the `algos/` tree itself is excluded from mypy/Ruff because
-it star-imports LEAN's injected API). `scripts/train_*_meta_learner.py` build their
-training features through the same `price_features()` so train and serve cannot drift.
+chain from the resolved `config.yaml` (filter list plus each filter's own parameter
+section), turn LEAN indicator/portfolio readings into the `ExecutionState.features`
+contract, track day/week PnL anchors — lives here, once, type-checked and unit-tested
+(the `algos/` tree itself is excluded from mypy/Ruff because it star-imports LEAN's
+injected API). `scripts/train_*_meta_learner.py` build their training features through
+the same `price_features()` so train and serve cannot drift.
 
-The placeholder values below are SMOKE-TEST values, not methodology results (see
-`docs/technical-debt.md` TD-51/TD-43): nothing mounts the host's `conf/` into the LEAN
-container, so the filters' own `load_*_config()` defaults would fail fast in there.
+Since the 2026-09-27 amendment (story 09) no filter parameter lives here: F4/F5/F6/F7
+read `StrategyChainConfig`'s typed sections, so the bundled `strategies/<name>/config.yaml`
+travels into the LEAN container with the algorithm and is the single source of the run's
+economics (closing `docs/technical-debt.md` TD-43). The F6 sizing inputs are still fixed
+configured values — no ATR indicator is wired (TD-51), so the stop distance is not
+volatility-derived.
 """
 
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
+from typing import TypeVar
 
 from algo_backtest.chain.filters.f1_trend import F1TrendFilter
 from algo_backtest.chain.filters.f2_indicator import F2IndicatorFilter
 from algo_backtest.chain.filters.f3_pattern import F3PatternFilter
-from algo_backtest.chain.filters.f4_news_context import (
-    F4NewsContextFilter,
-    NewsContextConfig,
-    NewsContextIndex,
-)
+from algo_backtest.chain.filters.f4_news_context import F4NewsContextFilter, NewsContextIndex
 from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
-from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtFilter
-from algo_backtest.chain.filters.f7_meta_learner import (
-    F7Config,
-    F7MetaLearnerFilter,
-    TrainedMetaLearner,
-)
+from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
+from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
 from algo_backtest.chain.model import Filter
-from algo_backtest.rules.risk_guard import RiskGuardCaps
+from algo_backtest.strategies import StrategyChainConfig
 
 # Indicator periods: the LEAN indicators in algos/*/main.py and the plain-Python
 # re-implementation in scripts/train_*_meta_learner.py must agree.
@@ -49,39 +46,20 @@ MACD_FAST_PERIOD = 12
 MACD_SLOW_PERIOD = 26
 MACD_SIGNAL_PERIOD = 9
 
-RISK_GUARD_CAPS = RiskGuardCaps(
-    portfolio_at_risk_cap=0.10,
-    # Negative: PnL fractions a day/week may not fall below (RiskGuardCaps' contract).
-    daily_drawdown_limit=-0.05,
-    weekly_drawdown_limit=-0.15,
-    max_concurrent_trades_per_account=5,
-    max_leverage=30,
-)
-RISK_PER_TRADE = 0.03  # specs.md Sec 14.5/14.7: 3% legacy reference value (Strategy A05)
-F7_CONFIG = F7Config(theta_high=0.55, theta_low=0.45)
-NEWS_CONTEXT_CONFIG = NewsContextConfig(
-    event_intensity_veto_threshold=-0.5,
-    sentiment_direction_threshold=0.15,
-)
-# No ATR indicator is wired yet (f6_capital_mgmt.py's documented gap), so the stop
-# distance and per-lot economics are fixed placeholders, not derived from volatility.
-STOP_LOSS_PIPS = 20.0
-PIP_VALUE_PER_LOT = 10.0  # standard EURUSD convention: ~$10/pip per 100k-unit lot
-LOT_NOTIONAL_UNITS = 100_000.0
-ASSUMED_LEVERAGE = 30.0  # matches RISK_GUARD_CAPS.max_leverage above
-
 # F1 hard-requires trend_strength in [0, 100] (an ADX-style reading); the EMA-gap proxy
 # below is in basis points and can exceed that on a volatile bar, so it is clamped.
 _TREND_STRENGTH_CAP = 100.0
 _BASIS_POINTS = 10_000.0
 
-_PRICE_AND_RISK_FILTERS: dict[str, Callable[[], Filter]] = {
+# The parameter-free price filters; F4/F5/F6/F7 are built from the strategy's sections.
+_PRICE_FILTERS: dict[str, Callable[[], Filter]] = {
     "f1_trend": F1TrendFilter,
     "f2_indicator": F2IndicatorFilter,
     "f3_pattern": F3PatternFilter,
-    "f5_risk_guard": lambda: RiskGuardFilter(caps=RISK_GUARD_CAPS),
-    "f6_capital_mgmt": lambda: CapitalMgmtFilter(risk_per_trade=RISK_PER_TRADE),
 }
+_KNOWN_FILTERS = sorted(
+    [*_PRICE_FILTERS, "f4_news_context", "f5_risk_guard", "f6_capital_mgmt", "f7_meta_learner"]
+)
 
 
 def _sign(delta: float) -> float:
@@ -134,28 +112,42 @@ class AccountSnapshot:
     weekly_pnl_fraction: float
 
 
-def account_features(account: AccountSnapshot, price: float) -> dict[str, object]:
+def account_features(
+    account: AccountSnapshot, price: float, economics: CapitalMgmtConfig | None
+) -> dict[str, object]:
     """The F5 (risk guard) and F6 (capital management) inputs for one bar.
 
     `account_leverage` uses the *unsigned* holdings value: LEAN's is negative for a net
     short, and F5's cap check is a magnitude comparison, so a signed value would never
-    trip the leverage cap on a short.
+    trip the leverage cap on a short. `economics` is the strategy's `capital_mgmt`
+    section; a strategy without F6 passes `None` and gets no sizing inputs at all rather
+    than invented ones.
     """
     value = account.portfolio_value
     portfolio_at_risk = (
         abs(account.unrealized_profit) / value if account.invested and value else 0.0
     )
-    return {
+    features: dict[str, object] = {
         "account_portfolio_at_risk": portfolio_at_risk,
         "account_daily_pnl_fraction": account.daily_pnl_fraction,
         "account_weekly_pnl_fraction": account.weekly_pnl_fraction,
         "account_open_trade_count": 1 if account.invested else 0,
         "account_leverage": abs(account.holdings_value) / value if value else 0.0,
         "account_balance": account.cash,
-        "pip_value": PIP_VALUE_PER_LOT,
-        "stop_loss_pips": STOP_LOSS_PIPS,
-        "margin_per_lot": (LOT_NOTIONAL_UNITS * price) / ASSUMED_LEVERAGE if price else 0.0,
         "available_margin": account.margin_remaining,
+    }
+    if economics is not None:
+        features.update(_sizing_inputs(economics, price))
+    return features
+
+
+def _sizing_inputs(economics: CapitalMgmtConfig, price: float) -> dict[str, object]:
+    """F6's per-lot economics for this bar from the strategy's `capital_mgmt` section."""
+    notional = economics.lot_notional_units * price
+    return {
+        "pip_value": economics.pip_value_per_lot,
+        "stop_loss_pips": economics.stop_loss_pips,
+        "margin_per_lot": notional / economics.assumed_leverage if price else 0.0,
     }
 
 
@@ -186,37 +178,61 @@ class PnlWindows:
 
 
 def build_filters(
-    names: Sequence[str],
+    config: StrategyChainConfig,
     *,
     meta_learner: TrainedMetaLearner,
     news_index: NewsContextIndex | None = None,
 ) -> list[Filter]:
-    """Instantiate a strategy's `config.yaml` filter list, in declared order.
+    """Instantiate a strategy's filter list in declared order, each with its own section.
 
     Raises:
-        ValueError: on an unknown filter name, or `f4_news_context` requested without a
-            `news_index` (the strategy is missing `StrategySpec.needs_news_data`).
+        ValueError: on an unknown filter name, a configurable filter whose section the
+            config does not carry, or `f4_news_context` requested without a `news_index`
+            (the strategy is missing `StrategySpec.needs_news_data`).
     """
-    return [_build_filter(name, meta_learner, news_index) for name in names]
+    return [_build_filter(name, config, meta_learner, news_index) for name in config.filters]
+
+
+_T = TypeVar("_T")
+
+
+def _section(value: _T | None, section: str, config: StrategyChainConfig) -> _T:
+    """A configurable filter's parsed section, failing fast if the config lacks it."""
+    if value is None:
+        raise ValueError(
+            f"strategy {config.name!r} has no parsed '{section}' section — load it through "
+            "load_strategy_chain_config so the filter's parameters come from its config.yaml"
+        )
+    return value
 
 
 def _build_filter(
-    name: str, meta_learner: TrainedMetaLearner, news_index: NewsContextIndex | None
+    name: str,
+    config: StrategyChainConfig,
+    meta_learner: TrainedMetaLearner,
+    news_index: NewsContextIndex | None,
 ) -> Filter:
-    """One filter by its `config.yaml` name."""
+    """One filter by its `config.yaml` name, parameterised from its own section."""
     if name == "f7_meta_learner":
-        return F7MetaLearnerFilter(meta_learner=meta_learner, config=F7_CONFIG)
+        return F7MetaLearnerFilter(
+            meta_learner=meta_learner, config=_section(config.f7, "meta_learner", config)
+        )
     if name == "f4_news_context":
         if news_index is None:
             raise ValueError(
                 "f4_news_context needs a NewsContextIndex; register the strategy with "
                 "StrategySpec(needs_news_data=True) so the news Parquet is mounted"
             )
-        return F4NewsContextFilter(index=news_index, config=NEWS_CONTEXT_CONFIG)
-    factory = _PRICE_AND_RISK_FILTERS.get(name)
+        news = _section(config.news_context, "news_context", config)
+        return F4NewsContextFilter(index=news_index, config=news)
+    if name == "f5_risk_guard":
+        return RiskGuardFilter(caps=_section(config.risk_guard, "risk_guard", config))
+    if name == "f6_capital_mgmt":
+        economics = _section(config.capital_mgmt, "capital_mgmt", config)
+        return CapitalMgmtFilter(risk_per_trade=economics.risk_per_trade)
+    factory = _PRICE_FILTERS.get(name)
     if factory is None:
-        known = sorted([*_PRICE_AND_RISK_FILTERS, "f4_news_context", "f7_meta_learner"])
-        raise ValueError(f"unknown filter {name!r} in strategy config; known: {known}")
+        raise ValueError(f"unknown filter {name!r} in strategy config; known: {_KNOWN_FILTERS}")
     return factory()
 
 

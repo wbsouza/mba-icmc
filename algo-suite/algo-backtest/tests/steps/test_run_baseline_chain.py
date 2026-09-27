@@ -80,7 +80,8 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
 
 
 @when(
-    "I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
+    "I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5, cash 10000 "
+    "and that model"
 )
 def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
@@ -88,6 +89,7 @@ def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD",
             "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--param", "cash=10000",
             "--model", str(bctx["model"]),
         ],
     )
@@ -101,6 +103,12 @@ def _exit_code(bctx: dict[str, Any], code: int) -> None:
 @then("the strategy run exits successfully")
 def _exit_ok(bctx: dict[str, Any]) -> None:
     assert bctx["cli"].exit_code == 0, bctx["cli"].output
+
+
+@then("the error says cash must be positive")
+def _cash_positive(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    assert "cash" in out and "positive" in out
 
 
 @then("the error says size must be in range")
@@ -185,7 +193,8 @@ def _run_with_hybrid_model(bctx: dict[str, Any]) -> None:
         app,
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD", "--from", "2014-05-07",
-            "--to", "2014-05-09", "--param", "size=0.5", "--model", str(model),
+            "--to", "2014-05-09", "--param", "size=0.5",
+            "--param", "cash=10000", "--model", str(model),
         ],
     )
 

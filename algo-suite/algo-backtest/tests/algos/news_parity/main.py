@@ -8,7 +8,8 @@ from algo_backtest.chain.filters.f4_news_context import (
     F4NewsContextFilter,
     load_news_context_window,
 )
-from algo_backtest.chain.wiring import NEWS_CONTEXT_CONFIG, PnlWindows, parse_yyyymmdd
+from algo_backtest.chain.wiring import PnlWindows, parse_yyyymmdd
+from algo_backtest.strategies import load_strategy_chain_config
 from AlgorithmImports import *  # noqa: F403
 from engine.chain_algorithm import ChainAlgorithm  # noqa: E402
 
@@ -31,7 +32,9 @@ class main(ChainAlgorithm):  # noqa: N801
         index = load_news_context_window(
             Path(self.get_parameter("news_data_root")), "EURUSD", day, day
         )
-        self._f4 = F4NewsContextFilter(index=index, config=NEWS_CONTEXT_CONFIG)
+        news_context = load_strategy_chain_config("hybrid").news_context
+        assert news_context is not None, "hybrid config.yaml must declare news_context"
+        self._f4 = F4NewsContextFilter(index=index, config=news_context)
 
     def on_data(self, data: Slice) -> None:  # noqa: F405
         """Apply F4 to this bar's production state; log what it looked up."""

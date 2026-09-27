@@ -23,21 +23,22 @@ reads real `algo-score` Parquet outputs —
   Parquet is the mandatory, always-real input; sentiment upgrades the filter's opinion
   when (and where) it exists.
 
-Both thresholds are configured (`news_context.*` in `conf/backtest.yaml`), never
-hardcoded — same `algo_core.config.resolve` hybrid policy F5/F6 use, and independently
-null-disableable the same way RiskGuard's caps are.
+Both thresholds are the `news_context` section of the strategy's `config.yaml`
+(`parse_news_context_config`, 2026-09-27 amendment, story 09), never hardcoded, and
+independently null-disableable the same way RiskGuard's caps are.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-from dataclasses import dataclass, field
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from typing import Any
 
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
+from algo_backtest.chain.params import optional_number
 from algo_backtest.months import BAR_DURATION, months_between
-from algo_core.config import Impact, ParameterSpec, resolve
 from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
@@ -48,16 +49,7 @@ _FILTER_NAME = "f4_news_context"
 _EVENT_KIND = "gdelt"
 _SENTIMENT_SCORER = "lm"
 
-SCHEMA_VERSION = 1
-
-_SCHEMA: tuple[ParameterSpec, ...] = (
-    ParameterSpec(
-        name="news_context.event_intensity_veto_threshold", impact=Impact.TRADING, nullable=True
-    ),
-    ParameterSpec(
-        name="news_context.sentiment_direction_threshold", impact=Impact.TRADING, nullable=True
-    ),
-)
+_SECTION = "news_context"
 
 
 @dataclass(frozen=True)
@@ -78,19 +70,20 @@ class NewsContextConfig:
     sentiment_direction_threshold: float | None
 
 
-def load_news_context_config() -> NewsContextConfig:
-    """Resolve the two `news_context.*` thresholds via the shared `algo_core.config` loader.
+def parse_news_context_config(section: Mapping[str, Any], *, strategy: str) -> NewsContextConfig:
+    """F4's two thresholds from a strategy config.yaml `news_context` section (fail fast).
 
     Raises:
-        ConfigError: (`MissingTradingParameter`) if a threshold is absent from config
-            rather than explicitly `null`-disabled — a hard stop, per CLAUDE.md's
-            fail-fast policy.
+        ValueError: a key is absent (an explicit `null` disables that half instead) or is
+            not a number.
     """
-    result = resolve("backtest", _SCHEMA, SCHEMA_VERSION)
-    values = result.values
     return NewsContextConfig(
-        event_intensity_veto_threshold=values["news_context.event_intensity_veto_threshold"],
-        sentiment_direction_threshold=values["news_context.sentiment_direction_threshold"],
+        event_intensity_veto_threshold=optional_number(
+            section, "event_intensity_veto_threshold", section=_SECTION, strategy=strategy
+        ),
+        sentiment_direction_threshold=optional_number(
+            section, "sentiment_direction_threshold", section=_SECTION, strategy=strategy
+        ),
     )
 
 
@@ -278,7 +271,7 @@ class F4NewsContextFilter:
     """The chain's news-context gate: implements `Filter.apply()`."""
 
     index: NewsContextIndex
-    config: NewsContextConfig = field(default_factory=load_news_context_config)
+    config: NewsContextConfig
 
     def apply(self, state: ExecutionState) -> FilterResult:
         """VETO on an active high-risk event; otherwise recommend by net sentiment or ABSTAIN."""

@@ -33,6 +33,18 @@ Feature: Strategy parameter validation
       When I validate the run inputs
       Then validation passes
 
+    Scenario Outline: the chain strategies accept a valid size and a positive starting cash (<strategy>)
+      Given strategy "<strategy>" with params size=0.5 cash=<cash>
+      When I validate the run inputs
+      Then validation passes
+
+      Examples:
+        | strategy      | cash   |
+        | baseline      | 10000  |
+        | baseline-dsha | 10000  |
+        | hybrid        | 10000  |
+        | baseline      | 250.5  |
+
   Rule: An unknown strategy or invalid parameters are rejected (fail fast)
 
     Scenario: an unknown strategy is rejected
@@ -42,6 +54,23 @@ Feature: Strategy parameter validation
 
     Scenario: params that are not the strategy's exact set are rejected
       Given strategy "baseline-meanrev" with params fast=3 slow=8 size=0.5
+      When I validate the run inputs expecting failure
+      Then validation fails saying the params must be exactly the strategy's set
+
+    Scenario Outline: the chain strategies reject a non-positive or non-numeric starting cash (<strategy>, cash=<cash>)
+      Given strategy "<strategy>" with params size=0.5 cash=<cash>
+      When I validate the run inputs expecting failure
+      Then validation fails naming "cash"
+
+      Examples:
+        | strategy      | cash  |
+        | baseline      | 0     |
+        | baseline      | -100  |
+        | hybrid        | lots  |
+        | baseline-dsha | 0     |
+
+    Scenario: a chain strategy without a starting cash is rejected as an incomplete param set
+      Given strategy "baseline" with params size=0.5
       When I validate the run inputs expecting failure
       Then validation fails saying the params must be exactly the strategy's set
 

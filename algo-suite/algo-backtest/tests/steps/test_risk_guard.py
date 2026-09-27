@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -15,10 +13,8 @@ from algo_backtest.rules.risk_guard import (
     RiskGuardCaps,
     RiskGuardVerdict,
     evaluate_risk_guard,
-    load_risk_guard_caps,
+    parse_risk_guard_caps,
 )
-from algo_core.config import ConfigError, MissingTradingParameter
-from algo_core.config.paths import ENV_CONF_DIR
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/risk_guard.feature")
@@ -44,7 +40,8 @@ class _RiskGuardCtx:
     account: AccountState | None = None
     caps: RiskGuardCaps | None = None
     verdict: RiskGuardVerdict | None = None
-    loaded_caps: RiskGuardCaps | None = None
+    section: dict[str, Any] = field(default_factory=dict)
+    parsed_caps: RiskGuardCaps | None = None
     error: Exception | None = None
 
 
@@ -125,117 +122,65 @@ def _breach_of(rg_ctx: _RiskGuardCtx, cap_name: str) -> None:
     assert isinstance(matching[0].reason, str) and matching[0].reason
 
 
-@pytest.fixture
-def rg_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Clean ALGO_ env + isolated conf dir so risk-guard config loading is deterministic."""
-    for key in [k for k in os.environ if k.startswith("ALGO_")]:
-        monkeypatch.delenv(key, raising=False)
-    conf = tmp_path / "conf"
-    conf.mkdir()
-    monkeypatch.setenv(ENV_CONF_DIR, str(conf))
-    return conf
-
-
-def _write_backtest_yaml(conf_dir: Path, risk_guard: dict[str, Any]) -> None:
-    (conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "risk_guard": risk_guard})
-    )
+_SECTION_DEFAULTS: dict[str, Any] = dict(
+    zip(_RISK_GUARD_KEYS, (0.1, -0.05, -0.1, 2, 10.0), strict=True)
+)
 
 
 @given(
     parsers.parse(
-        "a risk_guard config with portfolio_at_risk_cap={portfolio_at_risk_cap}, "
-        "daily_drawdown_limit={daily_drawdown_limit}, "
-        "weekly_drawdown_limit={weekly_drawdown_limit}, "
-        "max_concurrent_trades_per_account={max_concurrent_trades_per_account}, "
-        "max_leverage={max_leverage}"
+        "a risk_guard section with portfolio_at_risk_cap={par}, daily_drawdown_limit={daily}, "
+        "weekly_drawdown_limit={weekly}, max_concurrent_trades_per_account={trades}, "
+        "max_leverage={lev}"
     )
 )
-def _config_with_all_caps(
-    rg_ctx: _RiskGuardCtx,
-    rg_conf_dir: Path,
-    portfolio_at_risk_cap: str,
-    daily_drawdown_limit: str,
-    weekly_drawdown_limit: str,
-    max_concurrent_trades_per_account: str,
-    max_leverage: str,
+def _risk_guard_section(
+    rg_ctx: _RiskGuardCtx, par: str, daily: str, weekly: str, trades: str, lev: str
 ) -> None:
-    _write_backtest_yaml(
-        rg_conf_dir,
-        {
-            "portfolio_at_risk_cap": _parse_cap(portfolio_at_risk_cap),
-            "daily_drawdown_limit": _parse_cap(daily_drawdown_limit),
-            "weekly_drawdown_limit": _parse_cap(weekly_drawdown_limit),
-            "max_concurrent_trades_per_account": _parse_cap(max_concurrent_trades_per_account),
-            "max_leverage": _parse_cap(max_leverage),
-        },
+    """Build the raw YAML section; `null` disables a cap, strings stay strings."""
+    values = [_parse_cap(token) for token in (par, daily, weekly, trades, lev)]
+    rg_ctx.section = dict(zip(_RISK_GUARD_KEYS, values, strict=True))
+
+
+@given(parsers.parse('a risk_guard section missing "{missing_key}"'))
+def _risk_guard_section_missing(rg_ctx: _RiskGuardCtx, missing_key: str) -> None:
+    rg_ctx.section = {k: v for k, v in _SECTION_DEFAULTS.items() if k != missing_key}
+
+
+@when(parsers.parse('the risk-guard caps are parsed for strategy "{strategy}"'))
+def _parse_caps(rg_ctx: _RiskGuardCtx, strategy: str) -> None:
+    rg_ctx.parsed_caps = parse_risk_guard_caps(rg_ctx.section, strategy=strategy)
+
+
+@when(parsers.parse('parsing the risk-guard caps for strategy "{strategy}" fails'))
+def _parse_caps_fails(rg_ctx: _RiskGuardCtx, strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        parse_risk_guard_caps(rg_ctx.section, strategy=strategy)
+    rg_ctx.error = exc_info.value
+
+
+@then(
+    parsers.parse(
+        "the parsed caps have portfolio_at_risk_cap {par}, daily_drawdown_limit {daily}, "
+        "weekly_drawdown_limit {weekly}, max_concurrent_trades_per_account {trades} and "
+        "max_leverage {lev}"
     )
+)
+def _parsed_caps(
+    rg_ctx: _RiskGuardCtx, par: str, daily: str, weekly: str, trades: str, lev: str
+) -> None:
+    assert rg_ctx.parsed_caps is not None
+    expected = RiskGuardCaps(
+        portfolio_at_risk_cap=_parse_cap(par),  # type: ignore[arg-type]
+        daily_drawdown_limit=_parse_cap(daily),  # type: ignore[arg-type]
+        weekly_drawdown_limit=_parse_cap(weekly),  # type: ignore[arg-type]
+        max_concurrent_trades_per_account=_parse_cap(trades),  # type: ignore[arg-type]
+        max_leverage=_parse_cap(lev),  # type: ignore[arg-type]
+    )
+    assert rg_ctx.parsed_caps == expected
 
 
-@given(parsers.parse('a risk_guard config missing "{missing_key}"'))
-def _config_missing_key(rg_ctx: _RiskGuardCtx, rg_conf_dir: Path, missing_key: str) -> None:
-    defaults = {
-        "portfolio_at_risk_cap": 0.1,
-        "daily_drawdown_limit": -0.05,
-        "weekly_drawdown_limit": -0.1,
-        "max_concurrent_trades_per_account": 2,
-        "max_leverage": 10.0,
-    }
-    del defaults[missing_key]
-    _write_backtest_yaml(rg_conf_dir, defaults)
-
-
-@when("I load the risk-guard config")
-def _load(rg_ctx: _RiskGuardCtx) -> None:
-    try:
-        rg_ctx.loaded_caps = load_risk_guard_caps()
-    except ConfigError as exc:
-        rg_ctx.error = exc
-
-
-@then(parsers.parse("the loaded caps have portfolio_at_risk_cap {expected:g}"))
-def _loaded_par(rg_ctx: _RiskGuardCtx, expected: float) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.portfolio_at_risk_cap == pytest.approx(expected)
-
-
-@then(parsers.parse("the loaded caps have max_leverage {expected:g}"))
-def _loaded_leverage(rg_ctx: _RiskGuardCtx, expected: float) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.max_leverage == pytest.approx(expected)
-
-
-@then(parsers.parse("the loaded caps have daily_drawdown_limit {expected:g}"))
-def _loaded_daily(rg_ctx: _RiskGuardCtx, expected: float) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.daily_drawdown_limit == pytest.approx(expected)
-
-
-@then(parsers.parse("the loaded caps have weekly_drawdown_limit {expected:g}"))
-def _loaded_weekly(rg_ctx: _RiskGuardCtx, expected: float) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.weekly_drawdown_limit == pytest.approx(expected)
-
-
-@then(parsers.parse("the loaded caps have max_concurrent_trades_per_account {expected:d}"))
-def _loaded_max_concurrent(rg_ctx: _RiskGuardCtx, expected: int) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.max_concurrent_trades_per_account == expected
-
-
-@then("the loaded caps have max_leverage disabled")
-def _loaded_leverage_disabled(rg_ctx: _RiskGuardCtx) -> None:
-    assert rg_ctx.error is None, f"unexpected error: {rg_ctx.error}"
-    assert rg_ctx.loaded_caps is not None
-    assert rg_ctx.loaded_caps.max_leverage is None
-
-
-@then(parsers.parse('loading fails with a missing-trading-parameter error naming "{param}"'))
-def _missing_param(rg_ctx: _RiskGuardCtx, param: str) -> None:
-    assert isinstance(rg_ctx.error, MissingTradingParameter)
-    assert param in str(rg_ctx.error)
+@then(parsers.parse('the risk-guard config failure names "{fragment}"'))
+def _parse_failure_names(rg_ctx: _RiskGuardCtx, fragment: str) -> None:
+    assert rg_ctx.error is not None
+    assert fragment in str(rg_ctx.error)

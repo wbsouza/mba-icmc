@@ -11,8 +11,10 @@ Feature: F6 — capital-management filter
     - "margin_per_lot" (float): margin required per 1.0 lot at the current instrument/leverage
     - "available_margin" (float): currently free margin in the account
 
-  `risk_per_trade` (specs.md §14.7: 3% for Strategy A05) is F6's own config parameter,
-  never hardcoded, resolved the same way `rules/risk_guard.py` resolves its caps.
+  `risk_per_trade` (specs.md §14.7: 3% for Strategy A05) and the sizing economics the
+  chain feeds F6 (stop distance, pip value, lot notional, assumed leverage) are F6's own
+  `capital_mgmt` section of the strategy config.yaml (2026-09-27 amendment, story 09),
+  never code constants.
 
   Rule: F6 enriches state with the proposed lot size and passes when margin is sufficient
 
@@ -53,14 +55,44 @@ Feature: F6 — capital-management filter
       When F6 applies to the state
       Then applying F6 fails naming "available_margin"
 
-  Rule: Loading risk_per_trade from config is fail-fast on a missing trading-impactful parameter
+  Rule: F6's parameters come from the strategy config.yaml capital_mgmt section
 
-    Scenario: risk_per_trade present in config loads cleanly
-      Given a risk_math config with risk_per_trade=0.03
-      When I load the capital-mgmt config
-      Then the loaded risk_per_trade is 0.03
+    Scenario Outline: a complete capital_mgmt section parses into a CapitalMgmtConfig (<case>)
+      Given a capital_mgmt section with risk_per_trade=<risk>, stop_loss_pips=<stop>, pip_value_per_lot=<pip>, lot_notional_units=<lot>, assumed_leverage=<lev>
+      When the capital-mgmt config is parsed for strategy "baseline"
+      Then the parsed capital-mgmt config has risk_per_trade <risk>, stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot> and assumed_leverage <lev>
 
-    Scenario: a config missing risk_per_trade entirely hard-stops
-      Given a risk_math config missing risk_per_trade
-      When I load the capital-mgmt config
-      Then loading fails with a missing-trading-parameter error naming "risk_per_trade"
+      Examples:
+        | case                    | risk | stop | pip  | lot    | lev |
+        | smoke-test economics    | 0.03 | 20   | 10   | 100000 | 30  |
+        | tighter stop, mini lots | 0.01 | 10.5 | 1    | 10000  | 50  |
+        | all-in risk             | 1    | 5    | 10   | 100000 | 1   |
+
+    Scenario Outline: a capital_mgmt section missing <key> fails fast naming the key and the strategy
+      Given a capital_mgmt section missing "<key>"
+      When parsing the capital-mgmt config for strategy "baseline" fails
+      Then the capital-mgmt config failure names "<key>"
+      And the capital-mgmt config failure names "baseline"
+
+      Examples:
+        | key                |
+        | risk_per_trade     |
+        | stop_loss_pips     |
+        | pip_value_per_lot  |
+        | lot_notional_units |
+        | assumed_leverage   |
+
+    Scenario Outline: an out-of-range or non-numeric capital_mgmt value fails fast (<case>)
+      Given a capital_mgmt section with risk_per_trade=<risk>, stop_loss_pips=<stop>, pip_value_per_lot=<pip>, lot_notional_units=<lot>, assumed_leverage=<lev>
+      When parsing the capital-mgmt config for strategy "baseline" fails
+      Then the capital-mgmt config failure names "<names>"
+
+      Examples:
+        | case                        | risk | stop | pip  | lot    | lev | names              |
+        | zero risk                   | 0    | 20   | 10   | 100000 | 30  | risk_per_trade     |
+        | risk above 1                | 1.5  | 20   | 10   | 100000 | 30  | risk_per_trade     |
+        | zero stop distance          | 0.03 | 0    | 10   | 100000 | 30  | stop_loss_pips     |
+        | negative pip value          | 0.03 | 20   | -10  | 100000 | 30  | pip_value_per_lot  |
+        | zero lot notional           | 0.03 | 20   | 10   | 0      | 30  | lot_notional_units |
+        | zero leverage               | 0.03 | 20   | 10   | 100000 | 0   | assumed_leverage   |
+        | non-numeric stop distance   | 0.03 | wide | 10   | 100000 | 30  | stop_loss_pips     |

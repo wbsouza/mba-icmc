@@ -7,12 +7,12 @@ from datetime import UTC, datetime
 from typing import cast
 
 import pytest
-from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
+from algo_backtest.chain.filters.f4_news_context import F4NewsContextFilter, NewsContextIndex
 from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
-from algo_backtest.chain.filters.f7_meta_learner import TrainedMetaLearner
+from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
+from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
 from algo_backtest.chain.model import ExecutionState, Filter, FilterResult
 from algo_backtest.chain.wiring import (
-    RISK_GUARD_CAPS,
     AccountSnapshot,
     PnlWindows,
     account_features,
@@ -20,7 +20,7 @@ from algo_backtest.chain.wiring import (
     price_features,
 )
 from algo_backtest.rules.risk_guard import RiskGuardCaps
-from algo_backtest.strategies import load_strategy_chain_config
+from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/chain_wiring.feature")
@@ -91,10 +91,45 @@ def _flat_account(wiring_ctx: _WiringCtx, value: float) -> None:
     wiring_ctx.account = _account(False, value, 0.0, 0.0)
 
 
-@when(parsers.parse("account features are built at price {price:g}"))
-def _account_features(wiring_ctx: _WiringCtx, price: float) -> None:
+@when(
+    parsers.parse(
+        "account features are built at price {price:g} with the real baseline capital_mgmt section"
+    )
+)
+def _account_features_real(wiring_ctx: _WiringCtx, price: float) -> None:
     assert wiring_ctx.account is not None
-    wiring_ctx.features = account_features(wiring_ctx.account, price)
+    economics = load_strategy_chain_config("baseline").capital_mgmt
+    assert economics is not None
+    wiring_ctx.features = account_features(wiring_ctx.account, price, economics)
+
+
+@when(
+    parsers.parse(
+        "account features are built at price {price:g} with capital_mgmt stop_loss_pips {stop:g}, "
+        "pip_value_per_lot {pip:g}, lot_notional_units {lot:g}, assumed_leverage {lev:g}"
+    )
+)
+def _account_features_custom(
+    wiring_ctx: _WiringCtx, price: float, stop: float, pip: float, lot: float, lev: float
+) -> None:
+    assert wiring_ctx.account is not None
+    economics = CapitalMgmtConfig(
+        risk_per_trade=0.03, stop_loss_pips=stop, pip_value_per_lot=pip,
+        lot_notional_units=lot, assumed_leverage=lev,
+    )
+    wiring_ctx.features = account_features(wiring_ctx.account, price, economics)
+
+
+@when(parsers.parse("account features are built at price {price:g} without a capital_mgmt section"))
+def _account_features_without_f6(wiring_ctx: _WiringCtx, price: float) -> None:
+    assert wiring_ctx.account is not None
+    wiring_ctx.features = account_features(wiring_ctx.account, price, None)
+
+
+@then(parsers.parse('the features carry none of "{names}"'))
+def _features_absent(wiring_ctx: _WiringCtx, names: str) -> None:
+    present = [n.strip() for n in names.split(",") if n.strip() in wiring_ctx.features]
+    assert not present, f"unexpected sizing inputs present: {present}"
 
 
 @then(parsers.parse('feature "{name}" is {value:g}'))
@@ -126,27 +161,71 @@ def _fractions(wiring_ctx: _WiringCtx, daily: float, weekly: float) -> None:
     assert wiring_ctx.fractions == pytest.approx((daily, weekly))
 
 
-def _build(wiring_ctx: _WiringCtx, names: list[str], news: NewsContextIndex | None) -> None:
+def _build(
+    wiring_ctx: _WiringCtx, config: StrategyChainConfig, news: NewsContextIndex | None
+) -> None:
     """Build filters, capturing a fail-fast ValueError for the Then step."""
     try:
-        wiring_ctx.filters = build_filters(names, meta_learner=_UNUSED_MODEL, news_index=news)
+        wiring_ctx.filters = build_filters(config, meta_learner=_UNUSED_MODEL, news_index=news)
     except ValueError as exc:
         wiring_ctx.error = exc
 
 
 @when("the hybrid config's filters are built with a news index")
 def _hybrid_with_news(wiring_ctx: _WiringCtx) -> None:
-    _build(wiring_ctx, list(load_strategy_chain_config("hybrid").filters), _EMPTY_NEWS)
+    _build(wiring_ctx, load_strategy_chain_config("hybrid"), _EMPTY_NEWS)
 
 
 @when("the hybrid config's filters are built without a news index")
 def _hybrid_without_news(wiring_ctx: _WiringCtx) -> None:
-    _build(wiring_ctx, list(load_strategy_chain_config("hybrid").filters), None)
+    _build(wiring_ctx, load_strategy_chain_config("hybrid"), None)
 
 
 @when(parsers.parse('filters "{names}" are built'))
 def _named_filters(wiring_ctx: _WiringCtx, names: str) -> None:
-    _build(wiring_ctx, [name.strip() for name in names.split(",")], None)
+    """A hand-built config whose filter list bypasses the YAML loader's section checks."""
+    config = StrategyChainConfig(
+        name="handbuilt", filters=tuple(name.strip() for name in names.split(",")),
+        meta_learner_families=(), extends=None, raw={},
+    )
+    _build(wiring_ctx, config, None)
+
+
+def _built(wiring_ctx: _WiringCtx, kind: type[Filter]) -> Filter:
+    """The single built filter of `kind`, failing loudly if it is absent."""
+    matches = [f for f in wiring_ctx.filters if isinstance(f, kind)]
+    assert len(matches) == 1, f"expected exactly one {kind.__name__}, got {matches}"
+    return matches[0]
+
+
+@then("the built F7 filter carries the hybrid config's thresholds and regime gate")
+def _f7_carries_config(wiring_ctx: _WiringCtx) -> None:
+    built = _built(wiring_ctx, F7MetaLearnerFilter)
+    assert isinstance(built, F7MetaLearnerFilter)
+    assert built.config == load_strategy_chain_config("hybrid").f7
+
+
+@then("the built F5 filter carries the hybrid config's risk-guard caps")
+def _f5_carries_config(wiring_ctx: _WiringCtx) -> None:
+    built = _built(wiring_ctx, RiskGuardFilter)
+    assert isinstance(built, RiskGuardFilter)
+    assert built.caps == load_strategy_chain_config("hybrid").risk_guard
+
+
+@then("the built F6 filter carries the hybrid config's risk_per_trade")
+def _f6_carries_config(wiring_ctx: _WiringCtx) -> None:
+    built = _built(wiring_ctx, CapitalMgmtFilter)
+    assert isinstance(built, CapitalMgmtFilter)
+    economics = load_strategy_chain_config("hybrid").capital_mgmt
+    assert economics is not None
+    assert built.risk_per_trade == economics.risk_per_trade
+
+
+@then("the built F4 filter carries the hybrid config's news-context thresholds")
+def _f4_carries_config(wiring_ctx: _WiringCtx) -> None:
+    built = _built(wiring_ctx, F4NewsContextFilter)
+    assert isinstance(built, F4NewsContextFilter)
+    assert built.config == load_strategy_chain_config("hybrid").news_context
 
 
 @then(parsers.parse('the chain\'s filters are "{names}"'))
@@ -163,15 +242,17 @@ def _fails(wiring_ctx: _WiringCtx, fragment: str) -> None:
     assert fragment in str(wiring_ctx.error)
 
 
-@when("F5 evaluates the account under the wiring's placeholder caps")
-def _f5_placeholder(wiring_ctx: _WiringCtx) -> None:
+@when("F5 evaluates the account under the real baseline risk_guard caps")
+def _f5_real_caps(wiring_ctx: _WiringCtx) -> None:
     assert wiring_ctx.account is not None
+    config = load_strategy_chain_config("baseline")
+    assert config.risk_guard is not None
     state = ExecutionState(
         timestamp=datetime(2024, 1, 2, tzinfo=UTC),
         pair="EURUSD",
-        features=account_features(wiring_ctx.account, 1.1),
+        features=account_features(wiring_ctx.account, 1.1, config.capital_mgmt),
     )
-    wiring_ctx.f5_result = RiskGuardFilter(caps=RISK_GUARD_CAPS).apply(state)
+    wiring_ctx.f5_result = RiskGuardFilter(caps=config.risk_guard).apply(state)
 
 
 @then("F5 does not veto")

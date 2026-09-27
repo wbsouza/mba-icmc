@@ -54,8 +54,11 @@ uv run algo-backtest metrics --run <results-dir>
 # windows materialized + Docker; re-running replaces the whole experiment tree):
 uv run algo-backtest experiment run --spec experiments/baseline-smoke.yaml
 # The config.yaml-driven F1-F7 chain strategies (wiring smoke tests, see Status):
-uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5
-uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5
+uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
+uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
+#   size = fraction of equity per position (0, 1]; cash = the account's starting deposit.
+#   Every filter's own parameters (F4 news_context, F5 risk_guard, F6 capital_mgmt, F7
+#   meta_learner thresholds + regime_gate) live in strategies/<name>/config.yaml, not here.
 #   hybrid first checks that GDELT event features cover every decision minute (through
 #   --to + 1 day 00:00 UTC) and, if not, exits 2 printing the `algo-score events` command.
 #   --model PATH runs with a different F7 model JSON (families must match the strategy).
@@ -180,7 +183,7 @@ The shared chain engine also honors this selector for `hybrid` strategy configs.
 
 Run the paired experiment with `experiments/double-smoothed-heikin-ashi.yaml`, or
 run `algo-backtest run` separately with `--strategy baseline` and
-`--strategy baseline-dsha`, the same window and `--param size=0.5`. Pass the two
+`--strategy baseline-dsha`, the same window and `--param size=0.5 --param cash=10000`. Pass the two
 result IDs to `algo-analyze ablation --runs <ema-id> --runs <dsha-id>`.
 
 Implementation follows QuantConnect's [custom indicator contract](https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/custom-indicators)

@@ -193,7 +193,8 @@ algo_backtest/
 │   │                       #   §14.7, as current for this module's formulas.
 │   ├── close_portion.py    # IMPLEMENTED — partial-close laddering (Spec 04d)
 │   └── risk_guard.py       # IMPLEMENTED — portfolio caps, drawdown breakers, leverage cap;
-│                           #   config-driven via five `risk_guard.*` caps (Spec 04d); drawdown
+│                           #   the five caps are the strategy config.yaml `risk_guard` section
+│                           #   (`parse_risk_guard_caps`, 2026-09-27 amendment); drawdown
 │                           #   limits are PnL floors (<= 0, e.g. -0.05) — a positive one is rejected
 ├── config/                 # NOT BUILT
 │   ├── generator.py        # interactive CLI (typer)
@@ -482,6 +483,27 @@ strategies.py`'s single-level `extends:` loader, `docs/experiments.md` §1)
 declare the intended chains; both are still wiring smoke tests, not a
 methodology result — see `docs/technical-debt.md`'s TD-51 entry.
 
+**Per-filter parameters (2026-09-27 amendment, story 09).** The same
+`config.yaml` carries every configurable filter's own section, parsed by that
+filter's `parse_*_config(section, *, strategy)` into a typed value on
+`StrategyChainConfig` and handed to the filter by `chain/wiring.py`: `news_context`
+(F4: `event_intensity_veto_threshold`, `sentiment_direction_threshold`, `null`
+disables a half), `risk_guard` (F5: the five caps, `null` disables one),
+`capital_mgmt` (F6: `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`,
+`lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
+feeds F6) and `meta_learner.theta_high` / `theta_low` / `regime_gate` (F7; the
+gate is the dissertation's `r_t` agreement, switchable). A filter listed without
+its section, a section without its filter, a missing key or an out-of-range value
+is a hard stop before the first bar. `hybrid` inherits F5/F6/F7's sections from
+`baseline` through `extends:` and adds only `news_context`, so both variants face
+identical execution assumptions. The chain strategies take two run parameters,
+`--param size=<fraction>` and `--param cash=<starting deposit>`; the LEAN
+container no longer reads `conf/backtest.yaml` for any filter value (the former
+`load_*_config()` loaders and `chain/wiring.py` constants are gone — TD-43 closed).
+`tests/features/strategies.feature`, `chain_wiring.feature` and each filter's own
+feature carry the section contracts as Scenario Outlines;
+`filter_chain_mechanics.feature` defines its probe strategy as inline YAML.
+
 ```gherkin
 Feature: Deterministic filter chain
   Background:
@@ -558,7 +580,7 @@ Feature: Reproducibility
     And parameters.txt is identical
 
   Scenario: Missing required parameter is a hard stop
-    Given a config missing risk_math.risk_per_trade
+    Given a strategy config.yaml whose capital_mgmt section lacks risk_per_trade
     When the backtest starts
     Then it refuses to start before the first bar
     And the error names the parameter

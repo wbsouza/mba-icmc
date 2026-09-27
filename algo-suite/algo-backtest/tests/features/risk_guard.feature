@@ -1,9 +1,10 @@
 Feature: RiskGuard — portfolio/drawdown/leverage caps
   Closes the risk gaps the fx-manager README documents as unenforced (specs.md §14.8):
   no portfolio-level capital cap, no daily/weekly drawdown limit, no per-account concurrent-
-  trade cap, no leverage cap. Every cap is a config parameter (`risk_guard.*`), each
-  independently `null`-disableable; a cap referenced by the schema but absent from config
-  is a hard stop (CLAUDE.md fail-fast policy, specs.md §14.9.1), never a silent skip.
+  trade cap, no leverage cap. Every cap is a key of the strategy config.yaml `risk_guard`
+  section (2026-09-27 amendment, story 09), each independently `null`-disableable; a cap
+  absent from the section is a hard stop (CLAUDE.md fail-fast policy, specs.md §14.9.1),
+  never a silent skip.
 
   Rule: Evaluating account state against caps reports every breached cap
 
@@ -90,23 +91,42 @@ Feature: RiskGuard — portfolio/drawdown/leverage caps
       When I evaluate the risk guard
       Then the risk guard reports no breach
 
-  Rule: Loading the caps from config is fail-fast on a missing trading-impactful parameter
+  Rule: F5's caps come from the strategy config.yaml risk_guard section
 
-    Scenario: all five caps present in config load cleanly
-      Given a risk_guard config with portfolio_at_risk_cap=0.1, daily_drawdown_limit=-0.05, weekly_drawdown_limit=-0.1, max_concurrent_trades_per_account=2, max_leverage=10.0
-      When I load the risk-guard config
-      Then the loaded caps have portfolio_at_risk_cap 0.1
-      And the loaded caps have daily_drawdown_limit -0.05
-      And the loaded caps have weekly_drawdown_limit -0.1
-      And the loaded caps have max_concurrent_trades_per_account 2
-      And the loaded caps have max_leverage 10.0
+    Scenario Outline: a complete risk_guard section parses into RiskGuardCaps (<case>)
+      Given a risk_guard section with portfolio_at_risk_cap=<par>, daily_drawdown_limit=<daily>, weekly_drawdown_limit=<weekly>, max_concurrent_trades_per_account=<trades>, max_leverage=<lev>
+      When the risk-guard caps are parsed for strategy "baseline"
+      Then the parsed caps have portfolio_at_risk_cap <par>, daily_drawdown_limit <daily>, weekly_drawdown_limit <weekly>, max_concurrent_trades_per_account <trades> and max_leverage <lev>
 
-    Scenario: a config with an explicitly null cap loads it as disabled
-      Given a risk_guard config with portfolio_at_risk_cap=0.1, daily_drawdown_limit=-0.05, weekly_drawdown_limit=-0.1, max_concurrent_trades_per_account=2, max_leverage=null
-      When I load the risk-guard config
-      Then the loaded caps have max_leverage disabled
+      Examples:
+        | case                     | par  | daily | weekly | trades | lev  |
+        | all five caps set        | 0.1  | -0.05 | -0.1   | 2      | 10.0 |
+        | leverage cap disabled    | 0.1  | -0.05 | -0.1   | 2      | null |
+        | every cap disabled       | null | null  | null   | null   | null |
+        | zero drawdown floors     | 0.2  | 0     | 0      | 1      | 30   |
 
-    Scenario: a config missing the max_leverage cap entirely hard-stops
-      Given a risk_guard config missing "max_leverage"
-      When I load the risk-guard config
-      Then loading fails with a missing-trading-parameter error naming "max_leverage"
+    Scenario Outline: a risk_guard section missing <key> fails fast naming the key and the strategy
+      Given a risk_guard section missing "<key>"
+      When parsing the risk-guard caps for strategy "baseline" fails
+      Then the risk-guard config failure names "<key>"
+      And the risk-guard config failure names "baseline"
+
+      Examples:
+        | key                               |
+        | portfolio_at_risk_cap             |
+        | daily_drawdown_limit              |
+        | weekly_drawdown_limit             |
+        | max_concurrent_trades_per_account |
+        | max_leverage                      |
+
+    Scenario Outline: an invalid risk_guard value fails fast (<case>)
+      Given a risk_guard section with portfolio_at_risk_cap=<par>, daily_drawdown_limit=<daily>, weekly_drawdown_limit=<weekly>, max_concurrent_trades_per_account=<trades>, max_leverage=<lev>
+      When parsing the risk-guard caps for strategy "baseline" fails
+      Then the risk-guard config failure names "<names>"
+
+      Examples:
+        | case                              | par  | daily | weekly | trades | lev  | names                             |
+        | positive daily drawdown limit     | 0.1  | 0.05  | -0.1   | 2      | 10.0 | daily_drawdown_limit              |
+        | positive weekly drawdown limit    | 0.1  | -0.05 | 0.1    | 2      | 10.0 | weekly_drawdown_limit             |
+        | fractional concurrent-trade cap   | 0.1  | -0.05 | -0.1   | 1.5    | 10.0 | max_concurrent_trades_per_account |
+        | non-numeric leverage cap          | 0.1  | -0.05 | -0.1   | 2      | high | max_leverage                      |

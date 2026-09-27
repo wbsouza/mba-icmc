@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import random
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -17,13 +15,11 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     FeatureFamily,
     TrainingRow,
     WalkForwardSplit,
-    load_f7_config,
+    parse_f7_config,
     train_meta_learner,
     walk_forward_split,
 )
 from algo_backtest.chain.model import ExecutionState, FilterResult
-from algo_core.config import ConfigError
-from algo_core.config.paths import ENV_CONF_DIR
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/f7_meta_learner.feature")
@@ -60,8 +56,9 @@ class _F7Ctx:
     features: dict[str, object] = field(default_factory=dict)
     result: FilterResult | None = None
     error: Exception | None = None
-    loaded_config: F7Config | None = None
-    config_error: Exception | None = None
+    section: dict[str, Any] = field(default_factory=dict)
+    parsed_config: F7Config | None = None
+    parse_error: Exception | None = None
 
 
 @pytest.fixture
@@ -269,9 +266,22 @@ def _stub_meta_learner(f7_ctx: _F7Ctx, p_hat: float) -> None:
     f7_ctx.stub_meta_learner = _StubMetaLearner(p_hat=p_hat)
 
 
-@given(parsers.parse("theta_high {theta_high:g} and theta_low {theta_low:g}"))
-def _config(f7_ctx: _F7Ctx, theta_high: float, theta_low: float) -> None:
-    f7_ctx.config = F7Config(theta_high=theta_high, theta_low=theta_low)
+@given(
+    parsers.parse(
+        "theta_high {theta_high:g} and theta_low {theta_low:g} with the regime gate {gate}"
+    )
+)
+def _config(f7_ctx: _F7Ctx, theta_high: float, theta_low: float, gate: str) -> None:
+    f7_ctx.config = F7Config(
+        theta_high=theta_high, theta_low=theta_low, regime_gate=_gate_flag(gate)
+    )
+
+
+def _gate_flag(gate: str) -> bool:
+    """Map the feature file's `on`/`off` wording onto the config boolean."""
+    if gate not in {"on", "off"}:
+        raise ValueError(f"regime gate must be 'on' or 'off' in the feature file, got {gate!r}")
+    return gate == "on"
 
 
 @given(parsers.parse("trend_score {trend_score:g} in state.features"))
@@ -351,68 +361,62 @@ def _apply_fails(f7_ctx: _F7Ctx, fragment: str) -> None:
     assert fragment in str(f7_ctx.error)
 
 
-@pytest.fixture
-def meta_learner_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Clean ALGO_ env + isolated conf dir so `load_f7_config` is deterministic."""
-    for key in [k for k in os.environ if k.startswith("ALGO_")]:
-        monkeypatch.delenv(key, raising=False)
-    conf = tmp_path / "conf"
-    conf.mkdir()
-    monkeypatch.setenv(ENV_CONF_DIR, str(conf))
-    return conf
-
-
-def _write_backtest_yaml(conf_dir: Path, meta_learner: dict[str, Any]) -> None:
-    (conf_dir / "backtest.yaml").write_text(
-        yaml.safe_dump({"schema_version": 1, "meta_learner": meta_learner})
-    )
+_SECTION_DEFAULTS: dict[str, Any] = {"theta_high": 0.55, "theta_low": 0.45, "regime_gate": True}
 
 
 @given(
     parsers.parse(
-        "a meta_learner config with theta_high={theta_high:g}, theta_low={theta_low:g}"
+        "a meta_learner section with theta_high {theta_high}, theta_low {theta_low} and "
+        "regime_gate {regime_gate}"
     )
 )
-def _meta_learner_config_file(
-    f7_ctx: _F7Ctx, meta_learner_conf_dir: Path, theta_high: float, theta_low: float
+def _meta_learner_section(
+    f7_ctx: _F7Ctx, theta_high: str, theta_low: str, regime_gate: str
 ) -> None:
-    _write_backtest_yaml(
-        meta_learner_conf_dir, {"theta_high": theta_high, "theta_low": theta_low}
-    )
+    """Build the raw YAML section; values go through YAML so the table can carry strings."""
+    f7_ctx.section = {
+        "theta_high": yaml.safe_load(theta_high),
+        "theta_low": yaml.safe_load(theta_low),
+        "regime_gate": yaml.safe_load(regime_gate),
+    }
 
 
-@given(parsers.parse('a meta_learner config missing "{missing_key}"'))
-def _meta_learner_config_missing(
-    f7_ctx: _F7Ctx, meta_learner_conf_dir: Path, missing_key: str
-) -> None:
-    defaults = {"theta_high": 0.55, "theta_low": 0.45}
-    del defaults[missing_key]
-    _write_backtest_yaml(meta_learner_conf_dir, defaults)
+@given(parsers.parse('a meta_learner section missing "{missing_key}"'))
+def _meta_learner_section_missing(f7_ctx: _F7Ctx, missing_key: str) -> None:
+    f7_ctx.section = {k: v for k, v in _SECTION_DEFAULTS.items() if k != missing_key}
 
 
-@when("the F7 config is loaded")
-def _load_f7_config(f7_ctx: _F7Ctx) -> None:
-    try:
-        f7_ctx.loaded_config = load_f7_config()
-    except ConfigError as exc:
-        f7_ctx.config_error = exc
+@when(parsers.parse('the F7 config is parsed for strategy "{strategy}"'))
+def _parse_config(f7_ctx: _F7Ctx, strategy: str) -> None:
+    f7_ctx.parsed_config = parse_f7_config(f7_ctx.section, strategy=strategy)
 
 
-@then(parsers.parse("the loaded F7 config has theta_high {expected:g}"))
-def _loaded_theta_high(f7_ctx: _F7Ctx, expected: float) -> None:
-    assert f7_ctx.config_error is None, f"unexpected error: {f7_ctx.config_error}"
-    assert f7_ctx.loaded_config is not None
-    assert f7_ctx.loaded_config.theta_high == pytest.approx(expected)
+@when(parsers.parse('parsing the F7 config for strategy "{strategy}" fails'))
+def _parse_config_fails(f7_ctx: _F7Ctx, strategy: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        parse_f7_config(f7_ctx.section, strategy=strategy)
+    f7_ctx.parse_error = exc_info.value
 
 
-@then(parsers.parse("the loaded F7 config has theta_low {expected:g}"))
-def _loaded_theta_low(f7_ctx: _F7Ctx, expected: float) -> None:
-    assert f7_ctx.config_error is None, f"unexpected error: {f7_ctx.config_error}"
-    assert f7_ctx.loaded_config is not None
-    assert f7_ctx.loaded_config.theta_low == pytest.approx(expected)
+@then(parsers.parse("the parsed F7 config has theta_high {expected:g}"))
+def _parsed_theta_high(f7_ctx: _F7Ctx, expected: float) -> None:
+    assert f7_ctx.parsed_config is not None
+    assert f7_ctx.parsed_config.theta_high == pytest.approx(expected)
 
 
-@then(parsers.parse('loading the F7 config fails naming "{fragment}"'))
-def _load_f7_config_fails(f7_ctx: _F7Ctx, fragment: str) -> None:
-    assert f7_ctx.config_error is not None
-    assert fragment in str(f7_ctx.config_error)
+@then(parsers.parse("the parsed F7 config has theta_low {expected:g}"))
+def _parsed_theta_low(f7_ctx: _F7Ctx, expected: float) -> None:
+    assert f7_ctx.parsed_config is not None
+    assert f7_ctx.parsed_config.theta_low == pytest.approx(expected)
+
+
+@then(parsers.parse("the parsed F7 config has the regime gate {gate}"))
+def _parsed_gate(f7_ctx: _F7Ctx, gate: str) -> None:
+    assert f7_ctx.parsed_config is not None
+    assert f7_ctx.parsed_config.regime_gate is _gate_flag(gate)
+
+
+@then(parsers.parse('the F7 config failure names "{fragment}"'))
+def _parse_failure_names(f7_ctx: _F7Ctx, fragment: str) -> None:
+    assert f7_ctx.parse_error is not None
+    assert fragment in str(f7_ctx.parse_error)
