@@ -1,5 +1,5 @@
 # algo-suite — workspace orchestrator. Each tool also ships its own Makefile;
-# this drives the whole workspace at once. See docs/algo-suite-design.md §11.8.
+# this drives the whole workspace at once. See docs/architecture.md §11.8.
 
 ALLURE_RESULTS := build/allure-results
 ALLURE_REPORT  := build/allure-report

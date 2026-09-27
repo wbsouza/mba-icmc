@@ -1,6 +1,6 @@
 ## algo-suite — uv workspace root (virtual; not a package itself).
 ## Members are the six algo-* tools. One shared lock, shared dev tooling.
-## See docs/algo-suite-design.md (§4 tool suite, §11 stack, §13 conventions).
+## See docs/architecture.md (§4 tool suite, §11 stack, §13 conventions).
 
 [tool.uv.workspace]
 members = [
