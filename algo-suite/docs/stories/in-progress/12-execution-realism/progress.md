@@ -9,7 +9,7 @@ Wave 1 (parallel worktrees, merged by the lead):
 
 Wave 2:
 - [x] B — F6 builds the trade plan (stop, lot, targets, trail, reward:risk veto)
-- [ ] D — executor places sized market + stop + target orders, partial close, trail, min hold; `size` dropped
+- [x] D — executor places sized market + stop + target orders, partial close, trail, min hold; `size` dropped
 
 Wave 3 (lead):
 - [ ] Consolidation: merge, full `make test`, ruff, mypy, architecture gates
