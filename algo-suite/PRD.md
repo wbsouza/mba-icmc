@@ -14,6 +14,15 @@ preserved in `specs.md` (archive).
 
 ---
 
+**Execution update (September 26, 2026):** the five tool phases are not the
+complete research workflow. See [experimental workflow](docs/experimental-workflow.md)
+for the twelve execution stages and their evidence gates. Both six-month pilot
+models are trained; the September baseline replay needs zero-trade review and
+the hybrid replay awaits event completion. Tasks 09–11 track execution,
+readiness, and statistical corrections. Rolling/CPCV validation and inferential
+claims are not completed. The current deposit deadline is September 29, 2026;
+older schedule dates below are historical.
+
 ## At a glance (1-page summary)
 
 - **What:** test whether adding NLP sentiment + geopolitical/event context to a

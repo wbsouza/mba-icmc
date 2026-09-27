@@ -28,10 +28,10 @@
 \node[proc, below=of lgbm] (meta) {Logistic\\meta-learner $\hat{p}_t$};
 
 % Deterministic chain
-\node[proc, below=of meta] (chain) {Deterministic\\filter chain\\(8 filters)};
+\node[proc, below=of meta] (chain) {Deterministic\\filter chain\\(F1--F7 core)};
 
 % Backtest
-\node[store, below left=0.15cm and 0.4cm of chain] (bt) {LEAN backtest\\purged $k$-fold\\+ embargo};
+\node[store, below left=0.15cm and 0.4cm of chain] (bt) {LEAN replay\\target: CPCV\\+ embargo};
 
 % Metrics
 \node[store, left=of bt, xshift=-0.3cm] (metr) {Metrics:\\Sharpe · DD\\hit · holding · turnover};

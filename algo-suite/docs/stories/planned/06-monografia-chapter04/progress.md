@@ -2,17 +2,15 @@
 
 **Do not start until Specs 01–05 (all lanes) and Spec 04h are landed.**
 
-**Update 2026-09-26: the tooling prerequisites are now met.** Specs 01–05 and every required Spec 04
-lane (04a–04h, plus 04i/04j) are in `docs/stories/done/`. The optional 04k F1 perception candidate is also done, with a frozen-model smoke ablation. `algos/{baseline,hybrid}` run in the
-LEAN container. TD-56 lets experiments start on the 2015-02..2015-07 GDELT window without
-waiting for the full backfill. **Not started:** `monografia/chapters/04-experimental-evaluation.tex`
-still has `\textit{To be added in the final version.}` in §sec:coverage-results through
-§sec:experimental-threats. No run-id-traceable baseline or hybrid result has been written
-yet. The next input still missing is real out-of-sample runs. Those need the GDELT event
-features for the run months (see `../../in-progress/08-news-event-data-materialization/progress.md`).
-The spec's §sec:coverage-results row is missing from the checklist below and is added here.
+**Update September 26, 2026:** setup and pilot limitations are now drafted.
+Chapter 3 separates the target protocol from current execution and documents
+all twelve workflow stages. Chapter 4 records the fitting/calibration/test
+split and the baseline zero-trade replay without claiming a scientific result.
+Chapter 5 now limits conclusions to demonstrated evidence. Paired results,
+coverage analysis, ablations, and statistical validation remain incomplete.
+See Tasks 09–11 and the experimental workflow.
 
-- [ ] §sec:experimental-setup rewritten with accurate, current pipeline description
+- [x] §sec:experimental-setup rewritten with current pilot status (final archive review remains)
 - [ ] §sec:coverage-results written (Spec 02 coverage matrix + derived window)
 - [ ] §sec:baseline-results written with real price-only numbers
 - [ ] §sec:hybrid-results written with real hybrid numbers (needs Spec 04h)
@@ -20,3 +18,14 @@ The spec's §sec:coverage-results row is missing from the checklist below and is
 - [ ] §sec:zhang-comparison written
 - [ ] §sec:experimental-threats written
 - [ ] `make verify` + `make pt-scan` clean (from `monografia/`)
+
+## Documentation validation — September 26, 2026
+
+- `make verify`: 90-page PDF, no undefined citations or references.
+- `make pt-scan`: reviewed as a language inventory; front matter, original-language
+  bibliography titles, and proper names remain. New chapter prose is English.
+- New and edited Markdown local links resolve; `git diff --check` passed.
+- Rendered Chapter 4 split table visually checked. Existing manuscript layout
+  warnings remain outside this workflow update; no claim of full final QA.
+- Scientific Agent Skills and the primary DSR paper are cited in the manuscript;
+  the review does not replace statistical validation or a complete source audit.

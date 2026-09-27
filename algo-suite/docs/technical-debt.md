@@ -1,5 +1,14 @@
 # Technical debt — deferred items to revisit
 
+**Scientific/workflow review (September 26, 2026):** the twelve-stage
+[workflow](experimental-workflow.md) now separates software completion from
+experimental evidence. [Story 11](stories/planned/11-statistical-inference-corrections/spec.md)
+blocks DSR/significance claims until probability semantics, return-frequency
+consistency, and time-dependent paired inference are corrected. Task 10 tracks
+coverage reconciliation, execution economics, event-availability leakage, and
+unexecuted rolling/CPCV stages. These findings remain open; documentation changes
+do not resolve the implementation defects.
+
 Debt that **cannot be solved yet** because the depended-on code is not written.
 Each item records what it is, what blocks it, and the **trigger** that unblocks it.
 

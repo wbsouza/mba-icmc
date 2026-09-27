@@ -7,6 +7,30 @@ consistent portfolio-return inputs, paired time-series inference, and reporting
 migration. Training and pilot replay can continue. Passing existing analyzer
 tests does not close these scientific-validity findings.
 
+## Current execution workflow — September 26, 2026 evening
+
+[The experimental workflow](../experimental-workflow.md) is the stage-by-stage
+execution contract: register protocol → acquire → verify coverage → prepare
+features/LEAN data → freeze splits → fit family models → calibrate combiner →
+freeze artifacts → verify engine/cost assumptions → held-out replay → audit and
+analyze → extend and report. A completed tool is not a completed experiment.
+
+- **09, in progress:** both six-month pilot models are saved; baseline September
+  replay completed with zero trades and requires diagnosis; hybrid replay waits
+  for September event completion. See the [pilot record](in-progress/09-six-month-training-september-pilot/progress.md).
+- **10, planned:** [experiment readiness](planned/10-experiment-validation-readiness/progress.md)
+  owns coverage, execution assumptions, validation design, and claim review.
+- **11, planned:** statistical corrections block significance claims.
+- **06, in progress:** Chapter 3 now documents all stages; Chapter 4 setup and
+  pilot limitations are updated; empirical comparisons remain incomplete.
+- **08, in progress:** the active local root has completed GDELT February–August
+  2015; September is partial. Coverage-rule and full-window readiness are not
+  established by these completion markers.
+
+Earlier dated entries below are historical unless explicitly updated here.
+The original tool dependency diagram omits fitting/calibration/freeze gates;
+use the workflow document for actual execution ordering.
+
 **Purpose.** This is the single entry point for autonomous agents (swarmforge or
 otherwise) picking up work on the empirical side of the TCC. It states what is
 already done, what remains, in what order, and which spec file owns each piece.
@@ -127,7 +151,7 @@ baselines lose (expected — see [`algo-suite/docs/first-baseline-results.md`](.
 
 **Correction (2026-09-22, confirmed by user):** the full 10-year Dukascopy
 bulk download (EUR/USD + USD/JPY, 2015-01..2024-12) is **done**, on the NAS
-data root (`/media/nas/wellington/mba/algo-suite/data`, per [`conf/algo.yaml`](../../conf/algo.yaml)
+data root (`/media/nas/wellington/mba/algo-suite/data`, per the machine-local `conf/algo.yaml` (see [sample](../../conf/algo.yaml.sample))
 — not mounted in this sandbox, verify file counts on the user's machine).
 [`scripts/download-prices.sh`](../../scripts/download-prices.sh) is the resumable puller used for this. GDELT/GPR
 are confirmed still missing: the Gherkin acceptance specs already exist
@@ -292,9 +316,11 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 03 | `03-algo-score.md` | `algo-score` | 02 output on disk | **done** (code). Run for real on GDELT: event features built for 2015-02 and 2020-01. More months still needed (Spec 08) |
 | 04 | `04-algo-backtest-filter-chain-hybrid.md` | `algo-backtest` | 03 output on disk | **done** (2026-09-26). All required lanes are done: 04a order executor, 04b chain mechanics, 04c F1–F3, 04d F5/F6, 04e F4, 04f audit trail, 04g F7, 04h LEAN `algos/{baseline,hybrid}`, plus follow-ups 04i trail-stop fix and 04j money-management gaps. Optional 04k is done with frozen-model ablation evidence and PR #43's config-selected offline training/native parity |
 | 05 | `05-algo-analyze-metrics-significance.md` | `algo-analyze` | existing price-only runs (04's baseline is a bonus input, not a blocker) | **done** (PR #21, merged 2026-09-25). Lanes 05a–05f are all in `done/` |
-| 06 | `06-monografia-chapter04.md` | `monografia` | 01–05 all landed | **unblocked, not started.** Needs real out-of-sample baseline and hybrid runs first, which need Spec 08's event features for the run months |
+| 06 | `06-monografia-chapter04.md` | `monografia` | 08–11 evidence | **in progress.** Setup/workflow and limitations updated; paired results, inference, and figures remain incomplete |
 | 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |
-| 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** GDELT Events 2015-02..07 local, and 2015-08 running. GPR has the raw file only. Coverage window not derived yet. `prepare-news-data.sh` lacks `VERIFY_ONLY` |
+| 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** Local GDELT February–August complete; September partial. Coverage reconciliation, GPR evidence, and full-window readiness remain open |
+| 09 | [Six-month training and September pilot](in-progress/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **in progress.** Models saved; baseline replay needs zero-trade review; hybrid queued |
+| 10 | [Experiment validation readiness](planned/10-experiment-validation-readiness/progress.md) | research protocol + all tools | 08, 09, 11 evidence | **planned.** Coverage, execution, validation, and claim readiness |
 | 11 | [Statistical inference corrections](planned/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **planned.** Correct DSR semantics and dependence-aware significance before reporting inferential results |
 
 ```mermaid
