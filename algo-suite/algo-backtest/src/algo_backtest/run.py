@@ -35,12 +35,17 @@ from algo_core.layout import lean_data_dir_for
 
 import algo_backtest
 from algo_backtest.chain.filters.f4_news_context import news_coverage_problems
+from algo_backtest.chain.filters.f7_meta_learner import F7Config
 from algo_backtest.chain.filters.f7_model_io import (
     load_families,
     load_provenance,
     require_families,
 )
-from algo_backtest.chain.price_features import parse_price_features_config, price_features_mapping
+from algo_backtest.chain.price_features import (
+    PriceFeatureConfig,
+    parse_price_features_config,
+    price_features_mapping,
+)
 from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
 from algo_backtest.results import RunResult, parse_results
@@ -351,16 +356,41 @@ def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConf
         ValueError: naming every differing period, or the differing label horizon.
     """
     provenance = load_provenance(path)
+    _require_same_price_features(
+        path, strategy, _trained_price_features(provenance, path), config.price_features
+    )
+    _require_same_horizon(path, strategy, provenance, config.f7)
+
+
+def _trained_price_features(provenance: Mapping[str, object], path: Path) -> PriceFeatureConfig:
+    """The price_features a model was fitted under; a provenance without the section (or
+    without a mapping `strategy_config` at all) means the documented defaults."""
     trained_config = provenance.get("strategy_config", {})
     trained_raw = (
         trained_config.get("price_features", {}) if isinstance(trained_config, dict) else {}
     )
-    trained = parse_price_features_config(trained_raw, strategy=f"model {path.name}")
-    declared = config.price_features
-    differing = sorted(
+    return parse_price_features_config(trained_raw, strategy=f"model {path.name}")
+
+
+def _differing_price_features(
+    trained: PriceFeatureConfig, declared: PriceFeatureConfig
+) -> list[str]:
+    """The price_features keys whose trained and declared values differ, sorted."""
+    return sorted(
         key for key, value in price_features_mapping(declared).items()
         if getattr(trained, key) != value
     )
+
+
+def _require_same_price_features(
+    path: Path, strategy: str, trained: PriceFeatureConfig, declared: PriceFeatureConfig
+) -> None:
+    """Fail fast when the model's price_features differ from the strategy's.
+
+    Raises:
+        ValueError: naming every differing period on both sides.
+    """
+    differing = _differing_price_features(trained, declared)
     if differing:
         raise ValueError(
             f"F7 model {path} was trained with price_features "
@@ -368,12 +398,23 @@ def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConf
             f"{ {k: getattr(declared, k) for k in differing} } — retrain the model with "
             "scripts/train_*_meta_learner.py or align the strategy's price_features section"
         )
+
+
+def _require_same_horizon(
+    path: Path, strategy: str, provenance: Mapping[str, object], f7: F7Config | None
+) -> None:
+    """Fail fast when the model's label horizon differs from the strategy's F7 config
+    (a strategy without F7 has no horizon to compare).
+
+    Raises:
+        ValueError: naming both horizons.
+    """
     horizon = provenance.get("horizon_minutes")
-    if config.f7 is not None and horizon != config.f7.label_horizon_minutes:
+    if f7 is not None and horizon != f7.label_horizon_minutes:
         raise ValueError(
             f"F7 model {path} was trained with a {horizon}-minute label horizon but strategy "
             f"{strategy!r} declares meta_learner.label_horizon_minutes="
-            f"{config.f7.label_horizon_minutes} — retrain the model or align the strategy"
+            f"{f7.label_horizon_minutes} — retrain the model or align the strategy"
         )
 
 

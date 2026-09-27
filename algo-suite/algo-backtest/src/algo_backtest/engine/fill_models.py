@@ -105,6 +105,29 @@ def apply_fill_costs(
             subscribed yet — the caller must subscribe (``add_forex``) before
             ``init_execution``.
     """
+    _require_valid_rates(spread_pips, commission_per_lot, lot_notional_units, log_tag)
+    if spread_pips == 0 and commission_per_lot == 0:
+        return
+    for security in _require_securities(algorithm, spread_pips, commission_per_lot, log_tag):
+        _apply_to_security(
+            algorithm,
+            security,
+            spread_pips=spread_pips,
+            commission_per_lot=commission_per_lot,
+            lot_notional_units=lot_notional_units,
+            pip_size=pip_size,
+            log_tag=log_tag,
+        )
+
+
+def _require_valid_rates(
+    spread_pips: float, commission_per_lot: float, lot_notional_units: float | None, log_tag: str
+) -> None:
+    """Validate the configured rates before any security is touched.
+
+    Raises:
+        ValueError: a negative rate, or a commission without the lot size to pro-rate it.
+    """
     require_non_negative("spread_pips", spread_pips)
     require_non_negative("commission_per_lot", commission_per_lot)
     if commission_per_lot > 0 and lot_notional_units is None:
@@ -113,8 +136,16 @@ def apply_fill_costs(
             "lot_notional_units is missing; pass the strategy's capital_mgmt.lot_notional_units "
             "to init_execution(...) — the per-lot commission cannot be pro-rated without it"
         )
-    if spread_pips == 0 and commission_per_lot == 0:
-        return
+
+
+def _require_securities(
+    algorithm: Any, spread_pips: float, commission_per_lot: float, log_tag: str
+) -> list[Any]:
+    """The subscribed securities the costs apply to; none is a wiring error, not a no-op.
+
+    Raises:
+        ValueError: nothing is subscribed yet (``add_forex`` must precede ``init_execution``).
+    """
     securities = list(_subscribed_securities(algorithm))
     if not securities:
         raise ValueError(
@@ -122,11 +153,24 @@ def apply_fill_costs(
             f"commission_per_lot={commission_per_lot}) but no subscribed securities to apply "
             "them to; call add_forex(...) before init_execution(...)"
         )
-    for security in securities:
-        if spread_pips > 0:
-            _apply_slippage(algorithm, security, spread_pips, pip_size, log_tag)
-        if commission_per_lot > 0 and lot_notional_units is not None:
-            _apply_fee(algorithm, security, commission_per_lot, lot_notional_units, log_tag)
+    return securities
+
+
+def _apply_to_security(
+    algorithm: Any,
+    security: Any,
+    *,
+    spread_pips: float,
+    commission_per_lot: float,
+    lot_notional_units: float | None,
+    pip_size: float | None,
+    log_tag: str,
+) -> None:
+    """Install whichever of the two cost models is configured (non-zero) on one security."""
+    if spread_pips > 0:
+        _apply_slippage(algorithm, security, spread_pips, pip_size, log_tag)
+    if commission_per_lot > 0 and lot_notional_units is not None:
+        _apply_fee(algorithm, security, commission_per_lot, lot_notional_units, log_tag)
 
 
 def _apply_slippage(

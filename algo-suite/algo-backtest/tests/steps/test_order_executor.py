@@ -100,11 +100,13 @@ class _FakeAlgorithm:
     """
 
     def __init__(
-        self, *, fills: bool, invested: bool = False, multi_ticket: bool = False
+        self, *, fills: bool, invested: bool = False, multi_ticket: bool = False,
+        silent: bool = False,
     ) -> None:
         self._fills = fills
         self._invested = invested
         self._multi_ticket = multi_ticket
+        self._silent = silent  # never fires OnOrderEvent (an order LEAN loses track of)
         self._ids = itertools.count(1)
         self.order_event_sink: Callable[[Any], None] | None = None
         self.orders: list[tuple[Any, float]] = []
@@ -151,6 +153,8 @@ class _FakeAlgorithm:
 
     def _fire(self, order_id: int) -> None:
         assert self.order_event_sink is not None, "OrderExecutor never wired on_order_event"
+        if self._silent:
+            return
         if self._fills:
             event = _OrderEvent(order_id=order_id, status="FILLED", fill_price=1.2345)
         else:
@@ -178,6 +182,11 @@ def _fills(context: dict[str, Any]) -> None:
 @given("a fake algorithm that rejects every order")
 def _rejects(context: dict[str, Any]) -> None:
     _wire(context, _FakeAlgorithm(fills=False))
+
+
+@given("a fake algorithm that never reports an order event")
+def _silent(context: dict[str, Any]) -> None:
+    _wire(context, _FakeAlgorithm(fills=True, silent=True))
 
 
 @given("a fake algorithm with an open position that fills every order")
@@ -275,6 +284,13 @@ def _rejected(context: dict[str, Any]) -> None:
     # exact text, not just truthiness: pins `event.message or event.status`
     # precedence (message wins when present) against an `and` mutation.
     assert fill.rejection_reason == "insufficient margin"
+
+
+@then(parsers.parse('the fill record is rejected with reason "{reason}"'))
+def _rejected_with_reason(context: dict[str, Any], reason: str) -> None:
+    fill = context["fill"]
+    assert fill.status is FillStatus.REJECTED
+    assert fill.rejection_reason == reason
 
 
 @then("the fill record's stop-loss and take-profit match the sizing context")

@@ -287,13 +287,34 @@ def trail_update(
     """
     _require_positive("pip_size", pip_size)
     favourable = _sign(direction) * (current - entry)
-    armed = tuple(
+    armed = _armed_steps(trail_stops, fired, favourable, pip_size)
+    if not armed:
+        return None
+    best = _tightest_destination(entry, current_stop, trail_stops, armed, pip_size, direction)
+    return TrailMove(fired=armed, new_stop=best)
+
+
+def _armed_steps(
+    trail_stops: Sequence[PlanTrailStep], fired: frozenset[int], favourable: float, pip_size: float
+) -> tuple[int, ...]:
+    """Indices of the not-yet-fired steps whose `at_pips` the `favourable` move has reached."""
+    return tuple(
         index
         for index, step in enumerate(trail_stops)
         if index not in fired and favourable + _EPSILON >= step.at_pips * pip_size
     )
-    if not armed:
-        return None
+
+
+def _tightest_destination(
+    entry: float,
+    current_stop: float,
+    trail_stops: Sequence[PlanTrailStep],
+    armed: Sequence[int],
+    pip_size: float,
+    direction: Direction,
+) -> float | None:
+    """The tightest `entry + to_pips` destination among the `armed` steps that protects more
+    than `current_stop`, or `None` when none of them does."""
     best: float | None = None
     for index in armed:
         candidate = entry + _sign(direction) * trail_stops[index].to_pips * pip_size
@@ -301,7 +322,7 @@ def trail_update(
             best is None or _tighter(candidate, best, direction)
         ):
             best = candidate
-    return TrailMove(fired=armed, new_stop=best)
+    return best
 
 
 def hold_elapsed(entry_bar_index: int, now_index: int, min_hold_bars: int) -> bool:

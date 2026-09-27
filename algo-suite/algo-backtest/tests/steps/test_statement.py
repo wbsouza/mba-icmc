@@ -48,7 +48,7 @@ def st_ctx(tmp_path: Path) -> dict[str, Any]:
         "statistics": {}, "portfolio": {}, "runtime": {}, "equity_rows": [],
         "config": None, "provenance": None, "plans": None, "margin": "absent",
         "no_equity_chart": False, "no_order_events": False, "lacking": set(), "corrupt": set(),
-        "account_currency": "USD",
+        "reshaped": {}, "account_currency": "USD",
     }
 
 
@@ -156,6 +156,8 @@ def _materialize(st_ctx: dict[str, Any]) -> Path:
         (run_dir / name).unlink()
     for name in st_ctx["corrupt"]:
         (run_dir / name).write_text("{ not valid json")
+    for name, doc in st_ctx["reshaped"].items():
+        (run_dir / name).write_text(json.dumps(doc))
     return run_dir
 
 
@@ -227,6 +229,14 @@ def _one_trade(
     st_ctx["trades"].append(_trade(orders, direction, quantity, entry, exit_, profit, fees))
 
 
+@given(parsers.parse("a closed trade with orders {orders} whose {field} is {value}"))
+def _trade_with_field(st_ctx: dict[str, Any], orders: str, field: str, value: str) -> None:
+    """A consistent ledger trade (fills included) with one field overwritten by raw text."""
+    trade = _trade(orders, 0, 10000, 1.1, 1.2, 10.0, 0.0)
+    trade[field] = value
+    _add_trade_with_fills(st_ctx, trade)
+
+
 @given("the closed trades")
 def _trades_table(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
     """Several ledger trades with entry/exit fills consistent with each direction."""
@@ -292,6 +302,22 @@ def _order_terminal(
 @given(parsers.parse("the engine order book prices order {order_id:d} at stop {price:g}"))
 def _order_stop_price(st_ctx: dict[str, Any], order_id: int, price: float) -> None:
     st_ctx["orders"][str(order_id)] = {"id": order_id, "type": 2, "stopPrice": price}
+
+
+@given(parsers.parse("the engine order book prices order {order_id:d} at limit {price:g}"))
+def _order_limit_price(st_ctx: dict[str, Any], order_id: int, price: float) -> None:
+    st_ctx["orders"][str(order_id)] = {"id": order_id, "type": 1, "limitPrice": price}
+
+
+@given(parsers.parse("the engine order book records order {order_id:d} without a price"))
+def _order_market(st_ctx: dict[str, Any], order_id: int) -> None:
+    """A market order in LEAN's order book: neither stopPrice nor limitPrice."""
+    st_ctx["orders"][str(order_id)] = {"id": order_id, "type": 0}
+
+
+@given(parsers.parse("the engine order book records no order {order_id:d}"))
+def _order_unbooked(st_ctx: dict[str, Any], order_id: int) -> None:
+    st_ctx["orders"].pop(str(order_id), None)
 
 
 @given(
@@ -361,6 +387,14 @@ def _corrupt(st_ctx: dict[str, Any], artifact: str) -> None:
     st_ctx["corrupt"].add(artifact)
 
 
+@given(
+    parsers.parse('the run directory\'s "{artifact}" is replaced by the JSON document {document}')
+)
+def _reshaped(st_ctx: dict[str, Any], artifact: str, document: str) -> None:
+    """Valid JSON of the wrong top-level shape (a list where a dict belongs, or vice versa)."""
+    st_ctx["reshaped"][artifact] = json.loads(document)
+
+
 # --- When ------------------------------------------------------------------------------
 
 
@@ -388,6 +422,13 @@ def _read_equity(st_ctx: dict[str, Any]) -> None:
 @when(parsers.parse("I compute drawdowns for the equity values {values}"))
 def _compute_drawdowns(st_ctx: dict[str, Any], values: str) -> None:
     st_ctx["drawdowns"] = drawdowns([float(v) for v in values.split(",")])
+
+
+@when(parsers.parse("computing drawdowns for the equity values {values} fails"))
+def _compute_drawdowns_fails(st_ctx: dict[str, Any], values: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        drawdowns([float(v) for v in values.split(",")])
+    st_ctx["error"] = str(exc_info.value)
 
 
 @when(parsers.parse("I derive the price precision of {prices}"))

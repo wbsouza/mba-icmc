@@ -175,6 +175,14 @@ def _set_schema_version(strategies_ctx: _StrategiesCtx, name: str, value: str) -
     _amend_config(strategies_ctx.root, name, amend)
 
 
+@given(parsers.parse('"{name}" sets extends to {value}'))
+def _set_extends(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
+    """`extends` as any YAML value, so a non-string can be proven a hard stop."""
+    _amend_config(
+        strategies_ctx.root, name, lambda b: b.__setitem__("extends", yaml.safe_load(value))
+    )
+
+
 @given(parsers.parse('"{name}" is changed to extend "{base}"'))
 def _make_extend(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__("extends", base))

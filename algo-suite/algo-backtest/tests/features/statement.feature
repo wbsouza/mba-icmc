@@ -31,6 +31,53 @@ Feature: End-of-run broker statement and equity chart
         | 100000    | 0         | 250000   | 1.10007 | 1.09807 | -500.00 | 7.5  | buy       | 250000        | buy  | 2.50 | -7.50      | -500.00 |
         | absent    | 1         | 45896    | 1.08668 | 1.08645 | 10.56   | 0.0  | sell      | -45896        | sell | —    | 0.00       | 10.56   |
 
+    Scenario Outline: lots are absent when the strategy config records no lot size (<case>)
+      Given the strategy config sets <path> to <value>
+      And a closed trade with orders 1,2 direction 0 quantity 44094 entry 1.13115 exit 1.13129 profit 6.17 fees 0.0
+      And order 1 filled as "buy" for 44094 units
+      When I build the statement
+      Then closed transaction 1 shows ticket 1, type "buy", lots "—", item "EURUSD"
+
+      Examples:
+        | case                          | path                        | value |
+        | no capital_mgmt section       | meta_learner.regime_gate    | false |
+        | capital_mgmt without lot size | capital_mgmt.risk_per_trade | 0.03  |
+
+    Scenario Outline: a non-positive lot size in the strategy config is rejected (<lot_units>)
+      Given the strategy config sets capital_mgmt.lot_notional_units to <lot_units>
+      And a closed trade with orders 1,2 direction 0 quantity 10000 entry 1.1 exit 1.2 profit 10 fees 0
+      And order 1 filled as "buy" for 10000 units
+      When I build the statement expecting failure
+      Then the failure names both "lot_notional_units" and "<lot_units>"
+
+      Examples:
+        | lot_units |
+        | 0         |
+        | -100000   |
+
+    Scenario Outline: a ledger trade whose entry order never filled is an inconsistent run (order <filled_order> filled)
+      Given a closed trade with orders 1,2 direction 0 quantity 1000 entry 1.1 exit 1.2 profit 100 fees 0
+      And order <filled_order> filled as "buy" for 1000 units
+      When I build the statement expecting failure
+      Then the failure names both "no fill event for order 1" and "main-order-events.json"
+
+      Examples:
+        | filled_order |
+        | 2            |
+        | 3            |
+
+    Scenario Outline: a malformed ledger <field> is rejected naming it (<value>)
+      Given a closed trade with orders 1,2 whose <field> is <value>
+      When I build the statement expecting failure
+      Then the failure names both "<field>" and "<value>"
+
+      Examples:
+        | field     | value         |
+        | duration  | 14            |
+        | duration  | 00:xx:00      |
+        | entryTime | yesterday-ish |
+        | exitTime  | 2015-13-45    |
+
     Scenario: a trade whose ledger direction contradicts its entry fill is rejected
       Given a closed trade with orders 1,2 direction 0 quantity 1000 entry 1.1 exit 1.2 profit 100 fees 0
       And order 1 filled as "sell" for -1000 units
@@ -127,6 +174,17 @@ Feature: End-of-run broker statement and equity chart
         | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | at 12.5 percent sampled after the last fill  | 1,248.44    | 8,739.06  |
         | $5,433.40 | $-12.50    | order 7 filled as "sell" for -5000 units | at 12.5 percent sampled before the last fill | n/a         | n/a       |
 
+    Scenario Outline: engine holdings with no open position are an inconsistent run (<holdings>)
+      Given the engine runtime statistics report holdings "<holdings>" and unrealized "$0.00"
+      And no order ever filled
+      When I build the statement expecting failure
+      Then the failure names both "Holdings" and "net to zero"
+
+      Examples:
+        | holdings   |
+        | $5,000.00  |
+        | $-5,000.00 |
+
   Rule: Trade plans are joined by entry order id and never fabricated
 
     Scenario: stop and target levels come from the recorded trade plan
@@ -177,6 +235,19 @@ Feature: End-of-run broker statement and equity chart
       When I build the statement
       Then the working orders section lists ticket 9 opened "2015.09.01 10:00" of type "sell", lots "0.10", price "1.09512", market price "—"
 
+    Scenario Outline: a working order's price is the engine's stop or limit, absent otherwise (<case>)
+      Given the strategy config sets capital_mgmt.lot_notional_units to 100000
+      And order 9 was submitted as "sell" for -10000 units and never filled
+      And the engine order book <book>
+      When I build the statement
+      Then the working orders section lists ticket 9 opened "2015.09.01 10:00" of type "sell", lots "0.10", price "<price>", market price "—"
+
+      Examples:
+        | case                   | book                            | price   |
+        | limit order            | prices order 9 at limit 1.10512 | 1.10512 |
+        | market order, no price | records order 9 without a price | —       |
+        | order not in the book  | records no order 9              | —       |
+
     Scenario: an order the engine rejected is not a working order
       Given order 9 was submitted as "sell" for -10000 units and then marked "invalid"
       When I build the statement
@@ -212,6 +283,15 @@ Feature: End-of-run broker statement and equity chart
         | 100,110,99,120,90             | 0,0,10,0,25            |
         | 100,100,100                   | 0,0,0                  |
         | 50,25                         | 0,50                   |
+
+    Scenario Outline: a drawdown is undefined until equity is positive (<equity>)
+      When computing drawdowns for the equity values <equity> fails
+      Then the failure names "positive"
+
+      Examples:
+        | equity |
+        | 0,10   |
+        | -5,5   |
 
     Scenario: a result without the Strategy Equity chart is rejected
       Given the engine result has no equity chart
@@ -277,3 +357,15 @@ Feature: End-of-run broker statement and equity chart
       When I run the statement command on that run directory
       Then the statement command exits with code 2
       And the output names "trades.json"
+
+    Scenario Outline: an artifact of the wrong JSON shape fails the command naming the file (<artifact>)
+      Given the run directory's "<artifact>" is replaced by the JSON document <document>
+      When I run the statement command on that run directory
+      Then the statement command exits with code 2
+      And the output names "<artifact>"
+      And the output names "must be a JSON <shape>"
+
+      Examples:
+        | artifact    | document | shape |
+        | trades.json | {}       | list  |
+        | run.json    | []       | dict  |
