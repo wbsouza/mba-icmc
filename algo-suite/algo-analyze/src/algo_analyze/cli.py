@@ -53,7 +53,7 @@ _EQUITY_LABELS_OPTION = typer.Option(
     help="strategy=Display label for the legend, the CSV and the summary (repeatable).",
 )
 _EQUITY_OUT_OPTION = typer.Option(
-    ..., "--out", help="Directory for equity-consolidated.csv + equity-consolidated.png."
+    ..., "--out", help="Directory for equity-consolidated.{csv,png,html}."
 )
 
 
@@ -213,7 +213,8 @@ def equity_curves(
     Runs are grouped by the strategy run.json names; consecutive windows of a strategy are
     re-based so each starts where the previous one ended (equity_raw * previous_end /
     this_start), so a fresh deposit per month does not show as a reset. Writes the
-    long-format CSV and the PNG, prints one summary line per strategy. Exits 2 naming the
+    long-format CSV, the PNG and a self-contained HTML comparison dashboard, prints one
+    summary line per strategy. Exits 2 naming the
     run directory and the `algo-backtest statement --run` command when equity.csv is
     missing.
     """
@@ -225,6 +226,7 @@ def equity_curves(
         typer.echo(f"equity-curves: {summary_line(summary)}")
     typer.echo(f"equity-curves: {paths.csv}")
     typer.echo(f"equity-curves: {paths.chart}")
+    typer.echo(f"equity-curves: {paths.html}")
 
 
 def _configured(logger_name: str) -> AnalyzeConfig:

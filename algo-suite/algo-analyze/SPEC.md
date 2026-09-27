@@ -22,7 +22,7 @@ The [README](README.md) defines exact JSON input examples and usage.
 | `summary` | `experiment.json` manifests | One deterministic CSV row per successful run |
 | `ablation` | Completed run manifests and metrics | Total-return differences against a baseline, optionally a vector PDF |
 | `figures` | `trades.json` per-trade notional returns | Descriptive trade-sequence equity/drawdown PDFs, not portfolio return sources |
-| `equity-curves` | Per run directory: `run.json` + the `equity.csv` that `algo-backtest statement --run` writes (LEAN's marked-to-market equity samples) | One consolidated overlay: `equity-consolidated.csv` (long format) + `equity-consolidated.png`, one chained line per strategy, and a summary line per strategy |
+| `equity-curves` | Per run directory: `run.json` + the `equity.csv` that `algo-backtest statement --run` writes (LEAN's marked-to-market equity samples); `trades.json` when present | One consolidated overlay: `equity-consolidated.csv` (long format), `equity-consolidated.png`, `equity-consolidated.html` (self-contained comparison dashboard), one chained line per strategy, and a summary line per strategy |
 
 Headline metrics use `algo_backtest.metrics.metrics_from_artifact`. Their annualized
 Sharpe and trade counts never enter inferential moments. Unequal trade counts do not
@@ -41,6 +41,7 @@ flowchart TD
     CLI --> Descriptive[summary / ablation / figures]
     Descriptive --> Ledger[trade ledger and experiment manifests]
     CLI --> Equity[equity.py: consolidated equity curves]
+    Equity --> Dashboard[equity_dashboard.py: inline-SVG HTML]
     Equity --> Statement[run.json + equity.csv from algo_backtest.statement]
 ```
 
@@ -156,6 +157,16 @@ cover the same dates. Outputs, in `--out`:
   net %), a dashed starting-deposit reference, dotted markers where a later window was
   chained on, a UTC date axis and a title with the covered window (earliest start ..
   latest end).
+- `equity-consolidated.html` — a self-contained dark dashboard (inline CSS + inline
+  SVG; no external scripts, stylesheets or fonts, so it opens from `file://`): a KPI
+  card per strategy (start equity, end equity, chained net %, max drawdown %, trades,
+  win rate — trades and wins summed over the strategy's runs from each `trades.json`
+  (`isWin`), falling back to `run.json`'s `closed_trades` for the count when the ledger
+  is absent, `n/a` when neither records it), ONE full-width SVG chart (a distinct colour
+  per strategy with legend, gradient fill only under the best-performing curve, dashed
+  starting-deposit reference, y gridlines, month labels on the x axis) and a table of
+  the runs that fed each curve (strategy, run id, window, raw end equity, chained end
+  equity). Every curve is mapped by the one pure `svg_polyline()` helper.
 - One console line per strategy: `<strategy>: first <equity> -> last <equity>, net
   <chained %>, max drawdown <%>, <n> run(s)`.
 

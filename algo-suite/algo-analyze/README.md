@@ -114,8 +114,12 @@ monthly redeposit does not show as a reset. The un-chained `equity_raw` stays be
 time, equity_raw, equity_chained, drawdown_pct`; the drawdown follows the running peak of
 the chained curve), and `equity-consolidated.png` draws the chained line per strategy
 with a starting-deposit reference, dotted window boundaries, a legend and a UTC date
-axis titled with the covered window. One summary line per strategy prints first/last
-equity, chained net % and max drawdown %.
+axis titled with the covered window. `equity-consolidated.html` is a self-contained
+comparison dashboard (inline CSS + SVG, opens from `file://`): a KPI card per strategy
+(start/end equity, chained net %, max drawdown %, trades and win rate pooled from the
+runs' `trades.json`, `n/a` when not recorded), one chart with a colour per strategy and
+month labels, and the table of runs behind each curve. One summary line per strategy
+prints first/last equity, chained net % and max drawdown %.
 
 ```sh
 algo-analyze equity-curves \

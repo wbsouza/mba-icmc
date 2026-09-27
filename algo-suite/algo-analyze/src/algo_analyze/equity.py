@@ -24,10 +24,15 @@ of the same strategy must not overlap (fail fast); different strategies may cove
 same dates and simply share the axis.
 
 Outputs (in `--out`): `equity-consolidated.csv` (long format: strategy, run_id, time,
-equity_raw, equity_chained, drawdown_pct) and `equity-consolidated.png` (one chained
-line per strategy, dashed starting-deposit reference, dotted window boundaries, legend,
-date axis, title with the covered window). One summary line per strategy (first/last
-equity, chained net %, max drawdown %) is printed by the CLI.
+equity_raw, equity_chained, drawdown_pct), `equity-consolidated.png` (one chained line
+per strategy, dashed starting-deposit reference, dotted window boundaries, legend, date
+axis, title with the covered window) and `equity-consolidated.html` (the self-contained
+comparison dashboard, see `equity_dashboard.py`). One summary line per strategy
+(first/last equity, chained net %, max drawdown %) is printed by the CLI.
+
+Trades and win rate (dashboard KPIs) come from each run's `trades.json` (LEAN's closed
+trades, `isWin` per trade) when present, else the trade count from `run.json`'s
+`closed_trades`; whatever is absent is reported as unavailable, never estimated.
 """
 
 from __future__ import annotations
@@ -47,8 +52,10 @@ from algo_core.atomicio import write_text_atomic
 from algo_analyze._style import plt, thesis_style
 
 RUN_FILE = "run.json"
+TRADES_FILE = "trades.json"
 CONSOLIDATED_CSV_FILE = "equity-consolidated.csv"
 CONSOLIDATED_CHART_FILE = "equity-consolidated.png"
+CONSOLIDATED_HTML_FILE = "equity-consolidated.html"
 CONSOLIDATED_COLUMNS: tuple[str, ...] = (
     "strategy", "run_id", "time", "equity_raw", "equity_chained", "drawdown_pct",
 )
@@ -69,6 +76,8 @@ class RunEquity:
     start: date
     end: date
     samples: tuple[tuple[datetime, float], ...]
+    trades: int | None
+    wins: int | None
 
 
 @dataclass(frozen=True)
@@ -85,7 +94,7 @@ class CurvePoint:
 
 @dataclass(frozen=True)
 class CurveSummary:
-    """The one-line summary of a strategy's chained curve."""
+    """The summary of a strategy's chained curve (trades/win rate `None` = not recorded)."""
 
     strategy: str
     runs: int
@@ -93,24 +102,40 @@ class CurveSummary:
     last_equity: float
     net_pct: float
     max_drawdown_pct: float
+    trades: int | None
+    win_rate_pct: float | None
+
+
+@dataclass(frozen=True)
+class RunRow:
+    """One run that fed a curve: window, raw end equity and its chained end equity."""
+
+    strategy: str
+    run_id: str
+    start: date
+    end: date
+    raw_end: float
+    chained_end: float
 
 
 @dataclass(frozen=True)
 class Consolidation:
-    """Every chained point, one summary per strategy, and the covered window."""
+    """Every chained point, one summary per strategy, the runs, and the covered window."""
 
     points: tuple[CurvePoint, ...]
     summaries: tuple[CurveSummary, ...]
+    runs: tuple[RunRow, ...]
     start: date
     end: date
 
 
 @dataclass(frozen=True)
 class ConsolidatedPaths:
-    """Where the long-format CSV and the chart were written."""
+    """Where the long-format CSV, the chart and the HTML dashboard were written."""
 
     csv: Path
     chart: Path
+    html: Path
 
 
 # --- loading ---------------------------------------------------------------------------
@@ -192,16 +217,33 @@ def read_equity_csv(run_dir: Path) -> tuple[tuple[datetime, float], ...]:
     return samples
 
 
+def _trade_counts(run_dir: Path, manifest: Mapping[str, Any]) -> tuple[int | None, int | None]:
+    """(closed trades, winning trades) from `trades.json`, else the manifest's count and
+    no win count, else (None, None) — absent data is reported, never estimated."""
+    path = run_dir / TRADES_FILE
+    if not path.is_file():
+        count = manifest.get("closed_trades")
+        return (count if isinstance(count, int) and not isinstance(count, bool) else None, None)
+    try:
+        trades = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ValueError(f"{path} is not valid JSON ({exc}); re-run the backtest") from exc
+    if not isinstance(trades, list) or not all(isinstance(t, dict) for t in trades):
+        raise ValueError(f"{path} must be a JSON list of closed trades; re-run the backtest")
+    return len(trades), sum(1 for trade in trades if trade.get("isWin") is True)
+
+
 def load_run_equity(run_dir: Path) -> RunEquity:
-    """Read one run directory's manifest and equity series (see `read_equity_csv`)."""
+    """Read one run directory's manifest, equity series and trade counts."""
     manifest = _read_run_manifest(run_dir)
     path = run_dir / RUN_FILE
     if "strategy" not in manifest:
         raise ValueError(f"{path} lacks the 'strategy' key; re-run the backtest")
+    trades, wins = _trade_counts(run_dir, manifest)
     return RunEquity(
         run_dir=run_dir, run_id=run_dir.name, strategy=str(manifest["strategy"]),
         start=_manifest_date(manifest, "start", path), end=_manifest_date(manifest, "end", path),
-        samples=read_equity_csv(run_dir),
+        samples=read_equity_csv(run_dir), trades=trades, wins=wins,
     )
 
 
@@ -281,14 +323,39 @@ def chain_strategy(label: str, runs: Sequence[RunEquity]) -> list[CurvePoint]:
     ]
 
 
-def summarize(label: str, points: Sequence[CurvePoint], runs: int) -> CurveSummary:
-    """First/last chained equity, chained net % and max drawdown % of one strategy."""
+def _pooled_trades(runs: Sequence[RunEquity]) -> tuple[int | None, float | None]:
+    """Trades summed and win rate % pooled over the runs; `None` as soon as one run lacks
+    the datum (a partial pool would misstate the strategy)."""
+    trades = [run.trades for run in runs]
+    wins = [run.wins for run in runs]
+    total = sum(t for t in trades if t is not None) if None not in trades else None
+    if total is None or None in wins or total == 0:
+        return total, None
+    return total, sum(w for w in wins if w is not None) / total * 100.0
+
+
+def summarize(label: str, points: Sequence[CurvePoint], runs: Sequence[RunEquity]) -> CurveSummary:
+    """First/last chained equity, chained net %, max drawdown %, pooled trades of one strategy."""
     first, last = points[0].equity_chained, points[-1].equity_chained
+    trades, win_rate = _pooled_trades(runs)
     return CurveSummary(
-        strategy=label, runs=runs, first_equity=first, last_equity=last,
+        strategy=label, runs=len(runs), first_equity=first, last_equity=last,
         net_pct=(last / first - 1.0) * 100.0,
         max_drawdown_pct=max(point.drawdown_pct for point in points),
+        trades=trades, win_rate_pct=win_rate,
     )
+
+
+def _run_rows(label: str, runs: Sequence[RunEquity], points: Sequence[CurvePoint]) -> list[RunRow]:
+    """The dashboard's runs-table rows of one strategy (raw and chained end equity)."""
+    last_by_run = {point.run_id: point.equity_chained for point in points}
+    return [
+        RunRow(
+            strategy=label, run_id=run.run_id, start=run.start, end=run.end,
+            raw_end=run.samples[-1][1], chained_end=last_by_run[run.run_id],
+        )
+        for run in runs
+    ]
 
 
 def _check_labels(labels: Mapping[str, str], strategies: Sequence[str]) -> None:
@@ -310,13 +377,15 @@ def consolidate(runs: Sequence[RunEquity], labels: Mapping[str, str]) -> Consoli
     _check_labels(labels, list(groups))
     points: list[CurvePoint] = []
     summaries: list[CurveSummary] = []
+    rows: list[RunRow] = []
     for strategy, group in groups.items():
         label = labels.get(strategy, strategy)
         chained = chain_strategy(label, group)
         points.extend(chained)
-        summaries.append(summarize(label, chained, len(group)))
+        summaries.append(summarize(label, chained, group))
+        rows.extend(_run_rows(label, group, chained))
     return Consolidation(
-        points=tuple(points), summaries=tuple(summaries),
+        points=tuple(points), summaries=tuple(summaries), runs=tuple(rows),
         start=min(run.start for run in runs), end=max(run.end for run in runs),
     )
 
@@ -396,13 +465,17 @@ def render_consolidated_chart(consolidation: Consolidation, out: Path) -> Path:
 def write_consolidated(
     run_dirs: Sequence[Path], labels: Sequence[str], out_dir: Path
 ) -> tuple[Consolidation, ConsolidatedPaths]:
-    """Load every run, consolidate, and write the CSV + PNG into `out_dir`.
+    """Load every run, consolidate, and write the CSV + PNG + HTML dashboard into `out_dir`.
 
     Raises what `load_run_equity`/`consolidate` raise (FileNotFoundError, ValueError).
     """
+    from algo_analyze.equity_dashboard import render_dashboard
+
     parsed = parse_labels(labels)
     consolidation = consolidate([load_run_equity(d) for d in run_dirs], parsed)
     csv_path = out_dir / CONSOLIDATED_CSV_FILE
     write_text_atomic(csv_path, render_consolidated_csv(consolidation.points))
     chart = render_consolidated_chart(consolidation, out_dir / CONSOLIDATED_CHART_FILE)
-    return consolidation, ConsolidatedPaths(csv=csv_path, chart=chart)
+    html_path = out_dir / CONSOLIDATED_HTML_FILE
+    write_text_atomic(html_path, render_dashboard(consolidation))
+    return consolidation, ConsolidatedPaths(csv=csv_path, chart=chart, html=html_path)

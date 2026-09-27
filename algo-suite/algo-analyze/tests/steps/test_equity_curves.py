@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,7 @@ from algo_analyze.equity import (
     summary_line,
     write_consolidated,
 )
+from algo_analyze.equity_dashboard import svg_polyline
 from pytest_bdd import given, parsers, scenarios, then, when
 from typer.testing import CliRunner
 
@@ -50,7 +52,7 @@ def _write_run(
     run_dir.mkdir(parents=True)
     (run_dir / "run.json").write_text(json.dumps({
         "strategy": strategy, "symbol": "EURUSD", "start": start, "end": end, "params": {},
-        "success": True, "closed_trades": 0,
+        "success": True,
     }))
     first = datetime.fromisoformat(start).replace(tzinfo=UTC)
     peak, lines = float("-inf"), ["time,equity,drawdown_pct"]
@@ -104,6 +106,26 @@ def _foreign_header(ectx: dict[str, Any], run_id: str, header: str) -> None:
     path.write_text("\n".join([header, *rows]) + "\n")
 
 
+@given(parsers.parse("the run \"{run_id}\" has closed trades with wins {wins}"))
+def _trades_ledger(ectx: dict[str, Any], run_id: str, wins: str) -> None:
+    """A trades.json ledger with one closed trade per listed win flag."""
+    ledger = [{"isWin": flag.strip() == "true"} for flag in wins.split(",")]
+    (ectx["runs"][run_id] / "trades.json").write_text(json.dumps(ledger))
+
+
+@given(parsers.parse('the run "{run_id}" manifest records {count:d} closed trades'))
+def _manifest_trades(ectx: dict[str, Any], run_id: str, count: int) -> None:
+    path = ectx["runs"][run_id] / "run.json"
+    manifest = json.loads(path.read_text())
+    manifest["closed_trades"] = count
+    path.write_text(json.dumps(manifest))
+
+
+@given(parsers.parse('the run "{run_id}" trades ledger is a JSON object'))
+def _object_ledger(ectx: dict[str, Any], run_id: str) -> None:
+    (ectx["runs"][run_id] / "trades.json").write_text(json.dumps({"isWin": True}))
+
+
 @given(parsers.parse('the label "{label}"'))
 def _label(ectx: dict[str, Any], label: str) -> None:
     ectx["labels"].append(label)
@@ -130,6 +152,45 @@ def _consolidate(ectx: dict[str, Any]) -> None:
 def _consolidate_failing(ectx: dict[str, Any]) -> None:
     with pytest.raises((FileNotFoundError, ValueError)) as exc_info:
         write_consolidated(_run_dirs(ectx), ectx["labels"], ectx["out"])
+    ectx["error"] = str(exc_info.value)
+
+
+def _pairs(text: str) -> list[tuple[float, float]]:
+    """`(0,0),(5,50)` -> [(0.0, 0.0), (5.0, 50.0)]."""
+    return [(float(x), float(y)) for x, y in re.findall(r"\(([^,]+),([^)]+)\)", text)]
+
+
+def _range(text: str) -> tuple[float, float]:
+    """`0..10` -> (0.0, 10.0)."""
+    low, high = text.split("..")
+    return float(low), float(high)
+
+
+@when(
+    parsers.parse(
+        "I map the points {points} into a {width:d} by {height:d} box over x {x_range} and "
+        "y {y_range}"
+    )
+)
+def _map_points(
+    ectx: dict[str, Any], points: str, width: int, height: int, x_range: str, y_range: str
+) -> None:
+    ectx["attribute"] = svg_polyline(
+        _pairs(points), width, height, _range(x_range), _range(y_range)
+    )
+
+
+@when(
+    parsers.parse(
+        "I map the points {points} into a {width:d} by {height:d} box over x {x_range} and "
+        "y {y_range} expecting failure"
+    )
+)
+def _map_points_failing(
+    ectx: dict[str, Any], points: str, width: int, height: int, x_range: str, y_range: str
+) -> None:
+    with pytest.raises(ValueError) as exc_info:
+        svg_polyline(_pairs(points), width, height, _range(x_range), _range(y_range))
     ectx["error"] = str(exc_info.value)
 
 
@@ -238,6 +299,84 @@ def _png_written(ectx: dict[str, Any]) -> None:
     assert not path.with_name(f".{path.name}.tmp").exists()
 
 
+@then(parsers.parse('the polyline points attribute is "{attribute}"'))
+def _attribute_is(ectx: dict[str, Any], attribute: str) -> None:
+    assert ectx["attribute"] == attribute
+
+
+def _html(ectx: dict[str, Any]) -> str:
+    return str(ectx["paths"].html.read_text(encoding="utf-8"))
+
+
+def _kpi_card(html: str, strategy: str) -> dict[str, str]:
+    """The `data-kpi` values of one strategy's card (tags stripped)."""
+    match = re.search(
+        rf'<section class="kpi" data-strategy="{re.escape(strategy)}".*?</section>', html
+    )
+    assert match, strategy
+    values = re.findall(r'data-kpi="([a-z_]+)">(.*?)</dd>', match.group(0))
+    return {key: re.sub(r"<[^>]+>", "", value) for key, value in values}
+
+
+@then("the dashboard HTML is written without external resources")
+def _html_written(ectx: dict[str, Any]) -> None:
+    path: Path = ectx["paths"].html
+    assert path.name == "equity-consolidated.html" and path.stat().st_size > 0
+    html = _html(ectx)
+    assert html.startswith("<!doctype html>") and "<svg" in html and "<style>" in html
+    for forbidden in ("<script", "<link", "http://", "https://", "@import", "url(http"):
+        assert forbidden not in html.replace('xmlns="http://www.w3.org/2000/svg"', ""), forbidden
+
+
+@then(parsers.parse("the dashboard has {cards:d} KPI cards and {entries:d} legend entries"))
+def _cards_and_legend(ectx: dict[str, Any], cards: int, entries: int) -> None:
+    html = _html(ectx)
+    assert html.count('<section class="kpi"') == cards
+    assert html.count('<li class="legend-item"') == entries
+
+
+@then(
+    parsers.parse(
+        'the dashboard KPI card "{strategy}" shows start "{start}", end "{end}", net "{net}", '
+        'max drawdown "{max_dd}", trades "{trades}", win rate "{win_rate}"'
+    )
+)
+def _kpi_values(
+    ectx: dict[str, Any], strategy: str, start: str, end: str, net: str, max_dd: str,
+    trades: str, win_rate: str,
+) -> None:
+    got = _kpi_card(_html(ectx), strategy)
+    assert got == {
+        "start": start, "end": end, "net": net, "max_drawdown": max_dd, "trades": trades,
+        "win_rate": win_rate,
+    }, got
+
+
+@then(
+    parsers.parse(
+        'the dashboard runs table lists "{run_id}" with window "{window}", raw end "{raw}", '
+        'chained end "{chained}"'
+    )
+)
+def _runs_table_row(ectx: dict[str, Any], run_id: str, window: str, raw: str, chained: str) -> None:
+    match = re.search(rf'<tr data-run="{re.escape(run_id)}">(.*?)</tr>', _html(ectx))
+    assert match, run_id
+    cells = re.findall(r"<td[^>]*>(.*?)</td>", match.group(1))
+    assert cells[1:] == [run_id, window, raw, chained], cells
+
+
+@then(parsers.parse('the dashboard chart fills only under "{strategy}"'))
+def _fill_under(ectx: dict[str, Any], strategy: str) -> None:
+    fills = re.findall(r'<polygon class="fill" data-strategy="([^"]+)"', _html(ectx))
+    assert fills == [strategy], fills
+
+
+@then(parsers.parse('the dashboard x axis labels the months "{months}"'))
+def _month_labels(ectx: dict[str, Any], months: str) -> None:
+    labels = re.findall(r'<text class="month"[^>]*>(.*?)</text>', _html(ectx))
+    assert labels == [m.strip() for m in months.split(",")], labels
+
+
 @then(parsers.parse('the chart title names the window "{window}"'))
 def _title(ectx: dict[str, Any], window: str) -> None:
     assert chart_title(ectx["consolidation"]).endswith(window)
@@ -287,8 +426,8 @@ def _output_prints(ectx: dict[str, Any], text: str) -> None:
     assert text in ectx["cli"].output, ectx["cli"].output
 
 
-@then("the output prints both artifact paths")
+@then("the output prints all three artifact paths")
 def _output_paths(ectx: dict[str, Any]) -> None:
     out: Path = ectx["out"]
-    for name in ("equity-consolidated.csv", "equity-consolidated.png"):
+    for name in ("equity-consolidated.csv", "equity-consolidated.png", "equity-consolidated.html"):
         assert str(out / name) in ectx["cli"].output, ectx["cli"].output

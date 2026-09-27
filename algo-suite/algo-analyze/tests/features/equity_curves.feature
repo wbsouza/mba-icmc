@@ -9,6 +9,8 @@ Feature: Consolidated equity curves across runs
   Chaining re-bases every later window so it starts where the previous one ended: its
   raw equity is multiplied by previous_chained_end / this_raw_start. Nothing is
   fabricated — the un-chained raw equity is kept alongside in the long-format CSV.
+  Beside the CSV and the PNG, a self-contained HTML dashboard (inline CSS + SVG, no
+  external resources) compares the strategies: KPI cards, one chart, the runs table.
 
   Background:
     Given an output directory for the consolidated curves
@@ -150,6 +152,55 @@ Feature: Consolidated equity curves across runs
       When I consolidate the runs expecting failure
       Then the failure names "--run"
 
+  Rule: A self-contained HTML dashboard compares the strategies visually
+
+    Scenario Outline: an SVG polyline maps data points into a pixel box with y pointing up
+      When I map the points <points> into a <width> by <height> box over x <x_range> and y <y_range>
+      Then the polyline points attribute is "<attribute>"
+
+      Examples:
+        | points                | width | height | x_range | y_range | attribute                      |
+        | (0,0),(5,50),(10,100) | 100   | 50     | 0..10   | 0..100  | 0.0,50.0 50.0,25.0 100.0,0.0   |
+        | (10,200),(20,300)     | 200   | 100    | 10..30  | 100..300 | 0.0,50.0 100.0,0.0            |
+        | (1,5)                 | 40    | 40     | 0..2    | 0..10   | 20.0,20.0                      |
+
+    Scenario Outline: a degenerate axis range cannot be mapped
+      When I map the points (0,0),(1,1) into a 100 by 50 box over x <x_range> and y <y_range> expecting failure
+      Then the failure names "<axis>"
+
+      Examples:
+        | x_range | y_range | axis    |
+        | 5..5    | 0..10   | x_range |
+        | 0..10   | 3..3    | y_range |
+
+    Scenario: the dashboard shows one KPI card and one legend entry per strategy
+      Given a run "a" of strategy "baseline" from "2015-09-01" to "2015-09-30" with equity 10000, 10050
+      And a run "b" of strategy "baseline" from "2015-10-01" to "2015-10-31" with equity 10000, 10100
+      And a run "h" of strategy "hybrid" from "2015-09-01" to "2015-10-31" with equity 10000, 9800, 10300
+      And the run "a" has closed trades with wins true, false, true
+      And the run "b" has closed trades with wins true
+      When I consolidate the runs
+      Then the dashboard HTML is written without external resources
+      And the dashboard has 2 KPI cards and 2 legend entries
+      And the dashboard KPI card "baseline" shows start "10,000.00", end "10,150.50", net "+1.50%", max drawdown "0.00%", trades "4", win rate "75.00%"
+      And the dashboard KPI card "hybrid" shows start "10,000.00", end "10,300.00", net "+3.00%", max drawdown "2.00%", trades "n/a", win rate "n/a"
+      And the dashboard runs table lists "a" with window "2015-09-01 .. 2015-09-30", raw end "10,050.00", chained end "10,050.00"
+      And the dashboard runs table lists "b" with window "2015-10-01 .. 2015-10-31", raw end "10,100.00", chained end "10,150.50"
+      And the dashboard chart fills only under "hybrid"
+      And the dashboard x axis labels the months "Sep 2015, Oct 2015"
+
+    Scenario: trades are counted from run.json when the ledger is absent, never invented
+      Given a run "a" of strategy "baseline" from "2015-09-01" to "2015-09-30" with equity 10000, 10050
+      And the run "a" manifest records 7 closed trades
+      When I consolidate the runs
+      Then the dashboard KPI card "baseline" shows start "10,000.00", end "10,050.00", net "+0.50%", max drawdown "0.00%", trades "7", win rate "n/a"
+
+    Scenario: a trades ledger that is not a list fails fast naming the file
+      Given a run "a" of strategy "baseline" from "2015-09-01" to "2015-09-30" with equity 10000, 10050
+      And the run "a" trades ledger is a JSON object
+      When I consolidate the runs expecting failure
+      Then the failure names both "trades.json" and "list"
+
   Rule: The CLI wires the consolidation end to end
 
     Scenario: the command writes both artifacts and prints one summary line per strategy
@@ -159,9 +210,10 @@ Feature: Consolidated equity curves across runs
       When I run the equity-curves command on those runs
       Then the command exits with code 0
       And the output directory contains "equity-consolidated.csv" and "equity-consolidated.png"
+      And the output directory contains "equity-consolidated.html" and "equity-consolidated.csv"
       And the output prints "equity-curves: baseline: first 10,000.00 -> last 10,150.50"
       And the output prints "equity-curves: hybrid: first 10,000.00 -> last 10,200.00"
-      And the output prints both artifact paths
+      And the output prints all three artifact paths
 
     Scenario: a run without equity.csv exits 2 naming the remediation
       Given a run "old" of strategy "baseline" from "2015-09-01" to "2015-09-30" with equity 10000, 10100
