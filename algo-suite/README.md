@@ -122,5 +122,5 @@ strategies — still wiring smoke tests, see `docs/technical-debt.md` TD-51), an
 ## Conventions
 
 SOLID, clean code, single-return value objects, no magic numbers, GoF only where
-it removes duplication (see `docs/algo-suite-design.md` §13). **All tests are
+it removes duplication (see `docs/architecture.md` §13). **All tests are
 BDD** (Gherkin `.feature` + pytest-bdd).

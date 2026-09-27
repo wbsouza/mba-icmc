@@ -1,4 +1,4 @@
-# Design — `algo-*` tool suite and PRD/spec restructuring
+# Architecture — `algo-*` tool suite
 
 **Date:** 2026-05-23
 **Status:** Approved (brainstorming session)
@@ -75,7 +75,7 @@ tcc/
     ├── Makefile              # orchestrates all members (install/lint/type/test/check/cov/audit)
     ├── README.md
     ├── docs/                 # design corpus
-    │   ├── algo-suite-design.md  # this design doc
+    │   ├── architecture.md       # this architecture doc
     │   ├── parquet-evaluation.md # storage/compute decision
     │   ├── experiments.md        # experiment → Chapter 4 mapping
     │   └── technical-debt.md     # deferred-debt ledger (blocker + trigger per item)

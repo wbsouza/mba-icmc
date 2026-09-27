@@ -8,7 +8,7 @@ and Big Data, ICMC/USP).
 This document is the **product-level** source of truth: vision, scope, currency
 pairs, time window, the tool suite at a glance, the delivery roadmap, data
 sources, onboarding, and what is out of scope. **Technical design lives in
-[`algo-suite/docs/algo-suite-design.md`](docs/algo-suite-design.md); per-tool specs live
+[`algo-suite/docs/architecture.md`](docs/architecture.md); per-tool specs live
 beside each tool as `algo-suite/algo-<tool>/SPEC.md`.** Detailed dated architectural history is
 preserved in `specs.md` (archive).
 
@@ -368,7 +368,7 @@ Dukascopy historical datafeed is reached programmatically).
 
 ## 12. References
 
-- Technical design: [`algo-suite/docs/algo-suite-design.md`](docs/algo-suite-design.md)
+- Technical design: [`algo-suite/docs/architecture.md`](docs/architecture.md)
 - Per-tool specs: `algo-suite/algo-<tool>/SPEC.md` (colocated with each tool)
 - Experiment plan (tool outputs → Chapter 4 tables/figures): [`algo-suite/docs/experiments.md`](docs/experiments.md)
 - Methodology (target pipeline): `monografia/chapters/03-methodology.tex`
