@@ -50,9 +50,32 @@ the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adap
 `algo-analyze` can refuse an edited sidecar) and `metrics.json` next to LEAN's own result
 JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
 `hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
-`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). The
-`trades.parquet` schema (§6.1), equity-curve export and `parameters.txt` are not built
-yet.
+`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). Every run then
+ends with `statement.md` and `equity.png` (`statement.py`, story 12 item H): an account
+statement laid out like a MetaTrader/MIG Bank daily or monthly confirmation (the run
+window is the period) — header `A/C No: <run id>   Name: <strategy> / <symbol>   <period
+end>`; "Closed Transactions:" (Ticket | Open Time | Type | Lots | Item | Price | S / L |
+T / P | Close Time | Price | Commission | R/O Swap | Trade P/L, sorted by open time, totals
+row, then `Deposit/Withdrawal … Credit Facility … Closed Trade P/L`; ticket = entry order
+id, lots = quantity / `capital_mgmt.lot_notional_units`, S / L and T / P from
+`trade-plans.json` when the plan-driven executor wrote one, else "—" with an explicit "no
+trade plan recorded" note); "Open Trades:" (same columns minus Close Time, current price
+= Holdings / quantity only when the fill's price currency is the account currency, totals
+row, `Floating P/L`) and "Working Orders:" (… | Market Price), both from the order events
+and `runtimeStatistics`, or "No transactions"; the two-column "A/C Summary:" block
+(Previous Ledger Balance, Closed Trade P/L, Deposit/Withdrawal, Balance | Floating P/L,
+Total Credit Facility, Equity, Margin Requirement, Available Margin; balance = starting
+deposit + closed P/L after commission, equity = balance + floating P/L, the engine-reported
+equity noted beneath for reconciliation; margin is 0.00 when flat, LEAN's `Portfolio
+Margin` sample when current, else "n/a"); then Performance (LEAN's `statistics` quoted
+verbatim plus trade count and median holding minutes) and Parameters (every resolved
+`strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
+`YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
+for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
+chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`. Both are
+pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
+--run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema (§6.1) and
+`parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
 
@@ -140,6 +163,13 @@ algo_backtest/
 ├── metrics.py              # IMPLEMENTED — metrics_from_results()/extract_metrics(): the four
 │                           #   Chapter-4 metrics (total return, Sharpe, max drawdown, hit rate) from
 │                           #   LEAN portfolioStatistics; fail-fast on incomplete results (E2)
+├── statement.py            # IMPLEMENTED — story 12 item H: broker-style end-of-run statement
+│                           #   (statement.md) + equity/drawdown chart (equity.png, matplotlib Agg)
+│                           #   built purely from the run directory's artifacts (run.json,
+│                           #   trades.json, main.json, main-order-events.json, strategy-config/
+│                           #   provenance, optional trade-plans.json); direction 0=buy/1=sell is
+│                           #   cross-checked against each entry fill; write_statement() is called
+│                           #   at the end of `run` and by `algo-backtest statement --run`
 ├── experiment.py           # IMPLEMENTED — Run/Experiment value objects, load_experiment() (closed
 │                           #   schema, fail-fast), run_experiment() (injected runner): deterministic
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json
@@ -463,8 +493,10 @@ ablation.
 init_execution(broker_adapter, spread_pips=…, commission_per_lot=…)` installs, on every
 subscribed security, a slippage model charging half the spread per side
 (`spread_pips / 2 × pip_size`, in price units) and a fee model charging the per-lot rate
-pro rata on the absolute filled quantity against the 100,000-unit standard lot (e.g. 7
-USD/lot on 25,000 units → 1.75 USD per side). Zero for either keeps the brokerage
+pro rata on the absolute filled quantity against the strategy's
+`capital_mgmt.lot_notional_units` (e.g. 7 USD/lot on 25,000 units of a 100,000-unit lot →
+1.75 USD per side), in the algorithm's account currency; a commission without a lot size
+is a hard stop, the engine assumes no lot size. Zero for either keeps the brokerage
 adapter's default model for that cost, so a strategy without an `execution` section
 behaves as before. The pip size is derived per security from LEAN's
 `SymbolProperties.minimum_price_variation` — pip = 10 × tick for fractional-pip FX
@@ -523,8 +555,12 @@ methodology result — see `docs/technical-debt.md`'s TD-51 entry.
 `config.yaml` carries every configurable filter's own section, parsed by that
 filter's `parse_*_config(section, *, strategy)` into a typed value on
 `StrategyChainConfig` and handed to the filter by `chain/wiring.py`: `price_features`
-(the EMA/RSI/MACD periods F1/F2/F7 share; every key defaults; recorded in the model's
-provenance and checked by `run --model`), `indicator` (F2: `rsi_midline`,
+(the EMA/RSI/MACD periods F1/F2/F7 share plus `atr_period` and `swing_lookback_bars`,
+the Wilder ATR and the look-back Minimum/Maximum the chain carries as `atr_pips`,
+`swing_low_pips` and `swing_high_pips` — in the instrument's pips, LEAN's minimum price
+variation × 10 live and `Instrument.unit_size` offline — for F6's stop distances, story
+12; every key defaults; recorded in the model's provenance and checked by
+`run --model`), `indicator` (F2: `rsi_midline`,
 `macd_hist_threshold`; defaults), `pattern` (F3: `bullish_patterns`,
 `bearish_patterns`; defaults), `news_context`
 (F4: `event_intensity_veto_threshold`, `sentiment_direction_threshold`, `null`
@@ -533,18 +569,25 @@ disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
 feeds F6 — plus, since story 12 (execution realism, 2026-09-27), the fx-manager A05
 trade plan with defaults for every key: `stop_loss_shrink` in [0, 1), `min_stop_pips`,
+`min_stop_factor` (≥ 1, × `execution.broker_stop_level_pips`; the floor is the larger),
 `targets[]` of `{at_level_ratio, close_fraction}` with strictly increasing levels and
 fractions summing to at most 1, `trail_stops[]` of `{at_level_ratio, to_level_ratio}`,
-`min_reward_risk` (`null` = no veto), `stop_distance_source` `fixed`|`atr` and
-`atr_multiplier`; `capital_mgmt_mapping` writes the effective values back, unknown keys
-fail fast) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
+`min_stop_factor` >= 1, `min_reward_risk` (`null` = no veto), `stop_distance_source`
+`fixed`|`atr`|`swing` and `atr_multiplier`; `capital_mgmt_mapping` writes the effective
+values back, unknown keys fail fast. From these and the `execution` spread and broker
+stop level F6 builds the per-bar `trade_plan` enrichment — the stop per side (fixed pips,
+`atr_pips` × multiplier or the `swing_low_pips`/`swing_high_pips` feature, shrunk then
+floored), the lot from the wider stop, targets and trail steps in pips with the spread
+added per `rules/trail_stop.py`, and the first-target reward:risk that vetoes below
+`min_reward_risk`) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
 `label_horizon_minutes` (F7; the gate is the dissertation's `r_t` agreement,
 switchable; the horizon is the training label's look-ahead, default 15). A top-level
 `execution` section tied to no filter (`chain/execution_config.py`, story 12) carries
-the fill costs, holding rule and veto rule — `spread_pips`, `commission_per_lot`,
-`min_hold_bars`, and `close_on_veto` (default `true`: a NO_TRADE closes an open position at
-once; `false` leaves it to its stop, targets and trailing stop) — defaulting to the
-frictionless, hold-free case, and is always resolved, like `price_features`.
+the fill costs, holding rule, broker constraint and veto rule — `spread_pips`,
+`commission_per_lot`, `min_hold_bars`, `broker_stop_level_pips`, and `close_on_veto`
+(default `true`: a NO_TRADE closes an open position at once; `false` leaves it to its stop,
+targets and trailing stop) — all defaulting to the frictionless, hold-free case — and is
+always resolved, like `price_features`.
 Sections with defaults may be omitted; the loader writes the effective values back into the
 resolved config so every run's `strategy-config.json` and `strategy-config.yaml` show what
 was used, and `strategy-provenance.json` attributes each to its config.yaml or `default`. A filter listed without
@@ -559,8 +602,10 @@ trade plan (`capital_mgmt.risk_per_trade` and the stop distance) and places the 
 stop-market, take-profit and trailing orders (`engine/trade_plan.py`, story 12 item D),
 recording each entry in the run's `trade-plans.json`; `cash` is also a
 required parameter of every code-registered strategy (`baseline-ma`, `baseline-meanrev`,
-`buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), so no bundled
-algorithm hard-codes a deposit and a control is compared from the same account as the
+`buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), and `random`'s
+per-bar `entry_probability`/`exit_probability` (in (0, 1]) and `long_probability` (in
+[0, 1], 0.5 = unbiased coin) are run parameters as well, so no bundled
+algorithm hard-codes a deposit or a behaviour constant and a control is compared from the same account as the
 chain strategy; the LEAN
 container no longer reads `conf/backtest.yaml` for any filter value (the former
 `load_*_config()` loaders and `chain/wiring.py` constants are gone — TD-43 closed).

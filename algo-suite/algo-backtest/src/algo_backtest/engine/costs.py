@@ -16,7 +16,9 @@ Conventions:
 - **Spread.** ``spread_pips`` is the full bid–ask spread; each side of a round trip
   pays half of it, so a fill's slippage is ``spread_pips / 2`` pips.
 - **Commission.** ``commission_per_lot`` is charged per side, pro rata on the absolute
-  filled quantity against ``lot_notional_units`` (the standard 100,000-unit FX lot).
+  filled quantity against ``lot_notional_units`` (the strategy's
+  ``capital_mgmt.lot_notional_units``; a standard FX lot is 100,000 units, but this module
+  never assumes it).
 """
 
 from __future__ import annotations

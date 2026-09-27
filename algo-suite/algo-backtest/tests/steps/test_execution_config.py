@@ -57,13 +57,16 @@ def _parse_fails(ex_ctx: _ExCtx, strategy: str) -> None:
 @then(
     parsers.parse(
         "the parsed execution config is spread_pips {spread:g}, commission_per_lot "
-        "{commission:g}, min_hold_bars {hold:d}, close_on_veto {veto}"
+        "{commission:g}, min_hold_bars {hold:d}, broker_stop_level_pips {level:g}, "
+        "close_on_veto {veto}"
     )
 )
-def _all_values(ex_ctx: _ExCtx, spread: float, commission: float, hold: int, veto: str) -> None:
+def _all_values(
+    ex_ctx: _ExCtx, spread: float, commission: float, hold: int, level: float, veto: str
+) -> None:
     assert ex_ctx.parsed == ExecutionConfig(
         spread_pips=spread, commission_per_lot=commission, min_hold_bars=hold,
-        close_on_veto=yaml.safe_load(veto),
+        broker_stop_level_pips=level, close_on_veto=yaml.safe_load(veto),
     )
 
 

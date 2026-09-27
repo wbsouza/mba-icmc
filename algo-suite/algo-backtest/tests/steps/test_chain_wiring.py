@@ -17,10 +17,12 @@ from algo_backtest.chain.wiring import (
     PnlWindows,
     account_features,
     build_filters,
+    pip_size_from_price_variation,
     price_features,
 )
 from algo_backtest.rules.risk_guard import RiskGuardCaps
 from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
+from algo_core.instrument import build_instrument
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/chain_wiring.feature")
@@ -43,6 +45,7 @@ class _WiringCtx:
     filters: list[Filter] = field(default_factory=list)
     error: ValueError | None = None
     f5_result: FilterResult | None = None
+    pip_size: float | None = None
 
 
 @pytest.fixture
@@ -72,6 +75,64 @@ def _price_features(
     wiring_ctx.features = price_features(
         price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0
     )
+
+
+@when(
+    parsers.parse(
+        "price features are built for price {price:g}, fast EMA {fast:g}, "
+        "slow EMA {slow:g}, HTF EMA {htf:g} with atr_pips {atr_pips:g}"
+    )
+)
+def _price_features_with_atr(
+    wiring_ctx: _WiringCtx, price: float, fast: float, slow: float, htf: float, atr_pips: float
+) -> None:
+    wiring_ctx.features = price_features(
+        price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0,
+        atr_pips=atr_pips,
+    )
+
+
+@when(
+    parsers.parse(
+        "price features are built for price {price:g}, fast EMA {fast:g}, "
+        "slow EMA {slow:g}, HTF EMA {htf:g} with swing_low_pips {low:g} and "
+        "swing_high_pips {high:g}"
+    )
+)
+def _price_features_with_swings(
+    wiring_ctx: _WiringCtx, price: float, fast: float, slow: float, htf: float, low: float,
+    high: float,
+) -> None:
+    wiring_ctx.features = price_features(
+        price=price, ema_fast=fast, ema_slow=slow, ema_htf=htf, rsi=50.0, macd_hist=0.0,
+        swing_low_pips=low, swing_high_pips=high,
+    )
+
+
+@when(parsers.parse("the pip size is derived from a minimum price variation of {variation:g}"))
+def _pip_size(wiring_ctx: _WiringCtx, variation: float) -> None:
+    wiring_ctx.pip_size = pip_size_from_price_variation(variation)
+
+
+@when(
+    parsers.parse(
+        "deriving the pip size from a minimum price variation of {variation:g} fails"
+    )
+)
+def _pip_size_fails(wiring_ctx: _WiringCtx, variation: float) -> None:
+    with pytest.raises(ValueError) as excinfo:
+        pip_size_from_price_variation(variation)
+    wiring_ctx.error = excinfo.value
+
+
+@then(parsers.parse("the pip size is {pip:g}"))
+def _pip_is(wiring_ctx: _WiringCtx, pip: float) -> None:
+    assert wiring_ctx.pip_size == pytest.approx(pip, rel=1e-12)
+
+
+@then(parsers.parse('it equals the unit_size of instrument "{symbol}"'))
+def _pip_matches_instrument(wiring_ctx: _WiringCtx, symbol: str) -> None:
+    assert wiring_ctx.pip_size == pytest.approx(build_instrument(symbol).unit_size, rel=1e-12)
 
 
 @given(
@@ -121,16 +182,18 @@ def _account_features_real(wiring_ctx: _WiringCtx, price: float) -> None:
 
 @when(
     parsers.parse(
-        "account features are built at price {price:g} with capital_mgmt stop_loss_pips {stop:g}, "
+        "account features are built at price {price:g} with capital_mgmt "
         "pip_value_per_lot {pip:g}, lot_notional_units {lot:g}, assumed_leverage {lev:g}"
     )
 )
 def _account_features_custom(
-    wiring_ctx: _WiringCtx, price: float, stop: float, pip: float, lot: float, lev: float
+    wiring_ctx: _WiringCtx, price: float, pip: float, lot: float, lev: float
 ) -> None:
+    """Only the per-lot economics reach the features; the stop distance is F6's own
+    (`CapitalMgmtConfig.stop_loss_pips`), so the config's value here is immaterial."""
     assert wiring_ctx.account is not None
     economics = CapitalMgmtConfig(
-        risk_per_trade=0.03, stop_loss_pips=stop, pip_value_per_lot=pip,
+        risk_per_trade=0.03, stop_loss_pips=20.0, pip_value_per_lot=pip,
         lot_notional_units=lot, assumed_leverage=lev,
     )
     wiring_ctx.features = account_features(wiring_ctx.account, price, economics)
@@ -238,13 +301,15 @@ def _f5_carries_config(wiring_ctx: _WiringCtx) -> None:
     assert built.caps == load_strategy_chain_config("hybrid").risk_guard
 
 
-@then("the built F6 filter carries the hybrid config's risk_per_trade")
+@then("the built F6 filter carries the hybrid config's capital_mgmt section and execution spread")
 def _f6_carries_config(wiring_ctx: _WiringCtx) -> None:
     built = _built(wiring_ctx, CapitalMgmtFilter)
     assert isinstance(built, CapitalMgmtFilter)
-    economics = load_strategy_chain_config("hybrid").capital_mgmt
-    assert economics is not None
-    assert built.risk_per_trade == economics.risk_per_trade
+    config = load_strategy_chain_config("hybrid")
+    assert config.capital_mgmt is not None
+    assert built.config == config.capital_mgmt
+    assert built.spread_pips == config.execution.spread_pips
+    assert built.broker_stop_level_pips == config.execution.broker_stop_level_pips
 
 
 @then("the built F4 filter carries the hybrid config's news-context thresholds")

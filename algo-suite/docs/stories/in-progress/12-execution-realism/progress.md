@@ -1,13 +1,14 @@
 # Story 12 — progress
 
 Wave 1 (parallel worktrees, merged by the lead):
-- [ ] A — `capital_mgmt` plan keys + `execution` section + parsers + provenance + `strategy-config.yaml` artifact + YAML/README/SPEC
-- [ ] C — spread slippage + per-lot commission models from `execution`, pure math with BDD
-- [ ] E — `price_features.atr_period`, ATR indicator + `atr_pips` feature, offline parity
-- [ ] F — controls and legacy baselines take `cash` (TD-65 resolved), experiment specs
+- [x] A — `capital_mgmt` plan keys + `execution` section + parsers + provenance + `strategy-config.yaml` artifact + YAML/README/SPEC
+- [x] C — spread slippage + per-lot commission models from `execution`, pure math with BDD
+- [x] E — `price_features.atr_period`, ATR indicator + `atr_pips` feature, offline parity
+- [x] F — controls and legacy baselines take `cash` (TD-65 resolved), experiment specs
+- [x] H — end-of-run broker-style `statement.md` + `equity.png`, `algo-backtest statement --run` for existing runs
 
 Wave 2:
-- [ ] B — F6 builds the trade plan (stop, lot, targets, trail, reward:risk veto)
+- [x] B — F6 builds the trade plan (stop, lot, targets, trail, reward:risk veto)
 - [ ] D — executor places sized market + stop + target orders, partial close, trail, min hold; `size` dropped
 
 Wave 3 (lead):

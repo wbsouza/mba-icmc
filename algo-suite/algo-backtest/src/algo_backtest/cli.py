@@ -27,6 +27,9 @@ _STRATEGIES_DIR_OPTION = typer.Option(
     help="Directory of extra strategies/<name>/config.yaml files (a variant there may "
     "`extends:` a bundled strategy); the bundled strategies stay available.",
 )
+_STATEMENT_OUT_OPTION = typer.Option(
+    None, "--out", help="Directory for statement.md + equity.png (default: the run directory)."
+)
 _MODEL_OPTION = typer.Option(
     None,
     "--model",
@@ -267,6 +270,26 @@ def run(
         f"metrics: total_return={metrics.total_return} sharpe={metrics.sharpe} "
         f"max_drawdown={metrics.max_drawdown} hit_rate={metrics.hit_rate}"
     )
+    # Story 12 item H: every simulation ends with a broker-style statement + equity chart
+    # built from the artifacts just written (regenerable later via `statement --run`).
+    _emit_statement(results_dir, None)
+
+
+def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
+    """Write statement.md + equity.png for `run_dir`; print the A/C summary and both paths."""
+    from algo_backtest.statement import (
+        build_statement,
+        load_run_artifacts,
+        summary_lines,
+        write_statement_files,
+    )
+
+    statement = build_statement(load_run_artifacts(run_dir))
+    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    for line in summary_lines(statement):
+        typer.echo(f"statement: {line}")
+    typer.echo(f"statement: {paths.statement}")
+    typer.echo(f"equity chart: {paths.chart}")
 
 
 @app.command(name="explain-strategy")
@@ -320,6 +343,25 @@ def metrics(
         f"metrics: total_return={m.total_return} sharpe={m.sharpe} "
         f"max_drawdown={m.max_drawdown} hit_rate={m.hit_rate}"
     )
+
+
+@app.command()
+def statement(
+    run_dir: str = typer.Option(..., "--run", help="A finished run's results directory."),
+    out: Path | None = _STATEMENT_OUT_OPTION,
+) -> None:
+    """Regenerate the broker-style statement and equity chart for a finished run.
+
+    Reads run.json, trades.json, LEAN's result JSON and its order-events sibling (plus
+    strategy-config.json, strategy-provenance.json and trade-plans.json when present) and
+    writes statement.md + equity.png; prints the A/C summary. Exits 2 when a required
+    artifact is missing or malformed, naming the file.
+    """
+    try:
+        _emit_statement(Path(run_dir), out)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
 
 
 experiment_app = typer.Typer(

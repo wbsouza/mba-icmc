@@ -21,7 +21,13 @@ from typing import Any
 
 from AlgorithmImports import CashAmount, FeeModel, OrderFee
 
-from .costs import commission_amount, pip_size_for, require_non_negative, slippage_price
+from .costs import (
+    commission_amount,
+    pip_size_for,
+    require_non_negative,
+    require_positive,
+    slippage_price,
+)
 
 
 class PipSpreadSlippageModel:
@@ -44,16 +50,18 @@ class PipSpreadSlippageModel:
 class PerLotFeeModel(FeeModel):  # type: ignore[misc]
     """LEAN ``FeeModel``: ``commission_per_lot`` pro rata on the order's absolute quantity.
 
-    ``account_currency`` labels the fee's ``CashAmount``; LEAN converts it into the
-    account currency when it differs. Rates are validated at construction so a negative
-    commission fails before the first bar, not on the first fill.
+    ``account_currency`` labels the fee's ``CashAmount`` — the algorithm's own account
+    currency (``QCAlgorithm.account_currency``), since ``commission_per_lot`` is quoted in
+    it. Rates are validated at construction so a negative commission fails before the
+    first bar, not on the first fill.
     """
 
     def __init__(
-        self, commission_per_lot: float, lot_notional_units: float, account_currency: str = "USD"
+        self, commission_per_lot: float, lot_notional_units: float, account_currency: str
     ) -> None:
         super().__init__()
-        commission_amount(0.0, lot_notional_units, commission_per_lot)  # validates both rates
+        require_non_negative("commission_per_lot", commission_per_lot)
+        require_positive("lot_notional_units", lot_notional_units)
         self.commission_per_lot = commission_per_lot
         self.lot_notional_units = lot_notional_units
         self.account_currency = account_currency
@@ -76,7 +84,7 @@ def apply_fill_costs(
     *,
     spread_pips: float,
     commission_per_lot: float,
-    lot_notional_units: float,
+    lot_notional_units: float | None,
     pip_size: float | None,
     log_tag: str,
 ) -> None:
@@ -85,16 +93,26 @@ def apply_fill_costs(
     A positive ``spread_pips`` sets a :class:`PipSpreadSlippageModel` (pip size from
     ``pip_size`` when given, else derived from the security's
     ``symbol_properties.minimum_price_variation`` via :func:`pip_size_for`); a positive
-    ``commission_per_lot`` sets a :class:`PerLotFeeModel`. Zero leaves that model alone.
-    One ``<log_tag>_FILL_COSTS|model=...`` debug line is logged per model per security.
+    ``commission_per_lot`` sets a :class:`PerLotFeeModel` charging in the algorithm's
+    ``account_currency``, pro rata on ``lot_notional_units`` (the strategy's
+    ``capital_mgmt.lot_notional_units`` — required whenever a commission is charged, never
+    defaulted here). Zero leaves that model alone. One ``<log_tag>_FILL_COSTS|model=...``
+    debug line is logged per model per security.
 
     Raises:
-        ValueError: on a negative rate (before any security is touched), or when a cost is
-            configured but no security is subscribed yet — the caller must subscribe
-            (``add_forex``) before ``init_execution``.
+        ValueError: on a negative rate or a commission without a lot size (both before any
+            security is touched), or when a cost is configured but no security is
+            subscribed yet — the caller must subscribe (``add_forex``) before
+            ``init_execution``.
     """
     require_non_negative("spread_pips", spread_pips)
     require_non_negative("commission_per_lot", commission_per_lot)
+    if commission_per_lot > 0 and lot_notional_units is None:
+        raise ValueError(
+            f"{log_tag}: commission_per_lot={commission_per_lot} is configured but "
+            "lot_notional_units is missing; pass the strategy's capital_mgmt.lot_notional_units "
+            "to init_execution(...) — the per-lot commission cannot be pro-rated without it"
+        )
     if spread_pips == 0 and commission_per_lot == 0:
         return
     securities = list(_subscribed_securities(algorithm))
@@ -107,7 +125,7 @@ def apply_fill_costs(
     for security in securities:
         if spread_pips > 0:
             _apply_slippage(algorithm, security, spread_pips, pip_size, log_tag)
-        if commission_per_lot > 0:
+        if commission_per_lot > 0 and lot_notional_units is not None:
             _apply_fee(algorithm, security, commission_per_lot, lot_notional_units, log_tag)
 
 
@@ -134,9 +152,11 @@ def _apply_fee(
     lot_notional_units: float,
     log_tag: str,
 ) -> None:
-    """Set the per-lot fee model on one security and log it."""
-    security.set_fee_model(PerLotFeeModel(commission_per_lot, lot_notional_units))
+    """Set the per-lot fee model, in the algorithm's account currency, on one security; log it."""
+    currency = str(algorithm.account_currency)
+    security.set_fee_model(PerLotFeeModel(commission_per_lot, lot_notional_units, currency))
     algorithm.debug(
         f"{log_tag}_FILL_COSTS|model=fee|symbol={security.symbol}|"
-        f"commission_per_lot={commission_per_lot}|lot_notional_units={lot_notional_units}"
+        f"commission_per_lot={commission_per_lot}|lot_notional_units={lot_notional_units}|"
+        f"currency={currency}"
     )
