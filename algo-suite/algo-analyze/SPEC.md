@@ -13,8 +13,8 @@ into the numbers and figures the experimental chapter needs, per `docs/experimen
 
 Out of scope: producing runs (that is `algo-backtest`); live monitoring; the
 `decisions.parquet`/`trade_id` forensics join (per-filter contribution on losing trades —
-deferred until `algo-backtest`'s filter chain and `decisions.parquet` schema exist; see
-§10).
+not built yet; the `algo-backtest` filter chain and `decisions.parquet` it needs now exist,
+see §10).
 
 ## 2. Inputs & outputs
 
@@ -196,9 +196,11 @@ Covered today, one `.feature` per concern under `tests/features/`:
 - **`audit.py` / `trade_id` forensics join** — per-filter contribution analysis on
   losing trades, joining `decisions.parquet` to `trades.json`/`trades.parquet` on the
   `trade_id` key (not timestamp+pair — the prior contract gap this join exists to fix).
-  Deferred until `algo-backtest`'s filter chain and `decisions.parquet` schema exist;
-  the join *mechanism* can be built and tested against that schema as soon as it's
-  fixed, without waiting for full hybrid runs.
+  Unblocked: `algo-backtest`'s `baseline`/`hybrid` chain runs now write
+  `decisions.parquet` (schema: `algo-backtest` SPEC.md §6.2, `chain/audit.py`) whose
+  `trade_id` is LEAN's `orderIds[0]` of the `trades.json` trade open at that row (Spec
+  04h); the join *mechanism* can be built and tested against it without waiting for
+  statistically meaningful hybrid runs.
 - **Empirical skew/kurtosis for deflated Sharpe** — `metrics` currently deflates using
   the normal-distribution defaults (skew 0, kurtosis 3) `deflated_sharpe` itself
   defaults to; estimating the trade-return series's own skew/kurtosis is a later

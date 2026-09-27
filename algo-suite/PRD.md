@@ -8,7 +8,7 @@ and Big Data, ICMC/USP).
 This document is the **product-level** source of truth: vision, scope, currency
 pairs, time window, the tool suite at a glance, the delivery roadmap, data
 sources, onboarding, and what is out of scope. **Technical design lives in
-[`algo-suite/docs/algo-suite-design.md`](algo-suite/docs/algo-suite-design.md); per-tool specs live
+[`algo-suite/docs/algo-suite-design.md`](docs/algo-suite-design.md); per-tool specs live
 beside each tool as `algo-suite/algo-<tool>/SPEC.md`.** Detailed dated architectural history is
 preserved in `specs.md` (archive).
 
@@ -155,12 +155,12 @@ flowchart LR
 
 | Tool | Responsibility | Spec |
 |---|---|---|
-| `algo-core` | shared lib: `Instrument`, Parquet layout, DuckDB, config, Repository + Cache ports | [algo-core](algo-suite/algo-core/SPEC.md) |
-| `algo-download` | bulk fetch per source (Dukascopy, GDELT, GPR) → raw | [algo-download](algo-suite/algo-download/SPEC.md) |
-| `algo-transform` | raw → canonical Parquet; minute QuoteBars; coverage + currency-strength | [algo-transform](algo-suite/algo-transform/SPEC.md) |
-| `algo-score` | FinBERT + LM sentiment (per-currency) + events → feature Parquet | [algo-score](algo-suite/algo-score/SPEC.md) |
-| `algo-backtest` | LEAN engine, deterministic filter chain, risk/sizing, audit trail | [algo-backtest](algo-suite/algo-backtest/SPEC.md) |
-| `algo-analyze` | metrics, deflated Sharpe, MCP test, ablations, thesis figures | [algo-analyze](algo-suite/algo-analyze/SPEC.md) |
+| `algo-core` | shared lib: `Instrument`, Parquet layout, DuckDB, config, Repository + Cache ports | [algo-core](algo-core/SPEC.md) |
+| `algo-download` | bulk fetch per source (Dukascopy, GDELT, GPR) → raw | [algo-download](algo-download/SPEC.md) |
+| `algo-transform` | raw → canonical Parquet; minute QuoteBars; coverage + currency-strength | [algo-transform](algo-transform/SPEC.md) |
+| `algo-score` | FinBERT + LM sentiment (per-currency) + events → feature Parquet | [algo-score](algo-score/SPEC.md) |
+| `algo-backtest` | LEAN engine, deterministic filter chain, risk/sizing, audit trail | [algo-backtest](algo-backtest/SPEC.md) |
+| `algo-analyze` | metrics, deflated Sharpe, MCP test, ablations, thesis figures | [algo-analyze](algo-analyze/SPEC.md) |
 
 ## 6. Delivery roadmap — demoable phases
 
@@ -210,6 +210,18 @@ data-materialization run, not more tool-building**: `algo-download` →
 `algo-transform` → `algo-score` have never been run against the real NAS data
 root (only `forex/` price data exists there), which is what blocks F4/F7 and
 therefore the hybrid strategy. See `docs/stories/00-PLAN.md` §1 for detail.
+
+**Update (2026-09-26, Spec 04h).** F4 (news-context) and F7 (meta-learner) are
+built, and the `baseline` (F1+F2+F3+F5+F6+F7) and `hybrid` (+F4/news) chain
+strategies run inside the real LEAN container, writing a `decisions.parquet` audit
+trail that joins LEAN's trade ledger by `trade_id`. GDELT event features were built
+from real data (with a one-day publication lag). F7 models are trained offline on a
+leak-free, LEAN-parity pipeline (EUR/USD 2015-02 → 2015-07 train + validation,
+2015-08 → 2016-01 held out) and shipped as portable JSON. These runs are still
+wiring smoke tests (no real F3 pattern detector, placeholder F5/F6 economics,
+sentiment best-effort pending TD-48 — `docs/technical-debt.md` TD-51); the critical
+path is now a statistically meaningful hybrid-vs-baseline result, see
+`docs/ch04-deliverables.md`.
 
 ```mermaid
 %%{init: {'themeVariables': {'doneTaskBkgColor':'#2563eb','doneTaskBorderColor':'#93c5fd','activeTaskBkgColor':'#f59e0b','activeTaskBorderColor':'#fcd34d'}}}%%
@@ -339,8 +351,8 @@ Dukascopy historical datafeed is reached programmatically).
 
 ## 12. References
 
-- Technical design: [`algo-suite/docs/algo-suite-design.md`](algo-suite/docs/algo-suite-design.md)
+- Technical design: [`algo-suite/docs/algo-suite-design.md`](docs/algo-suite-design.md)
 - Per-tool specs: `algo-suite/algo-<tool>/SPEC.md` (colocated with each tool)
-- Experiment plan (tool outputs → Chapter 4 tables/figures): [`algo-suite/docs/experiments.md`](algo-suite/docs/experiments.md)
+- Experiment plan (tool outputs → Chapter 4 tables/figures): [`algo-suite/docs/experiments.md`](docs/experiments.md)
 - Methodology (target pipeline): `monografia/chapters/03-methodology.tex`
 - Architectural history (archive): `specs.md`

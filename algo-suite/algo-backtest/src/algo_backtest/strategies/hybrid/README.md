@@ -38,9 +38,11 @@ flowchart TB
 algo-backtest run --strategy hybrid --symbol EURUSD --from 2024-06-01 --to 2024-06-30
 ```
 
-**Status (2026-09-25):** same as [`baseline`](../baseline/README.md) — `config.yaml` and
-the pure-Python chain are real and tested (including F4 against real Spec 03 GDELT
-event-feature Parquet, Spec 04e). The CLI path is not yet wired; see
-`docs/technical-debt.md`'s Spec 04h entry. F4's own sentiment half is additionally
-best-effort pending TD-48 (full-month real article-text ingestion, ~500 GB / ~90 hours at
-the current adapter's throughput) — the event-veto half is real today.
+**Status (2026-09-26):** `config.yaml`, the pure-Python chain, and `algos/hybrid/main.py`
+are all real and run against the real pinned LEAN container (Spec 04h) — same wiring
+smoke-test caveats as [`baseline`](../baseline/README.md), plus F4's own sentiment half
+remaining best-effort pending TD-48 (full-month real article-text ingestion, ~500 GB /
+~90 hours at the current adapter's throughput) — the event-veto half is real today. See
+`docs/technical-debt.md`'s TD-51 and
+`docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/RUNBOOK.md` for the
+exact commands to reproduce.

@@ -46,13 +46,28 @@ class RiskCap(StrEnum):
 
 @dataclass(frozen=True)
 class RiskGuardCaps:
-    """The five configured caps; `None` means that cap is explicitly disabled."""
+    """The five configured caps; `None` means that cap is explicitly disabled.
+
+    The drawdown limits are PnL fractions a day/week may not fall *below*, so they are
+    negative (``-0.05`` = a 5% loss) or zero. A positive limit would breach on every flat
+    or merely-less-profitable bar and veto all trading, so it is rejected at construction.
+    """
 
     portfolio_at_risk_cap: float | None
     daily_drawdown_limit: float | None
     weekly_drawdown_limit: float | None
     max_concurrent_trades_per_account: int | None
     max_leverage: float | None
+
+    def __post_init__(self) -> None:
+        """Fail fast on a positive (sign-flipped) drawdown limit."""
+        for name in ("daily_drawdown_limit", "weekly_drawdown_limit"):
+            limit = getattr(self, name)
+            if limit is not None and limit > 0:
+                raise ValueError(
+                    f"risk_guard.{name} must be <= 0 (a PnL fraction the period may not "
+                    f"fall below, e.g. -0.05 for a 5% loss); got {limit!r}"
+                )
 
 
 @dataclass(frozen=True)

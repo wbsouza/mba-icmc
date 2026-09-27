@@ -84,12 +84,16 @@ strict = true
 # module leaves those names undefined to mypy; same container-only boundary as algos/, not
 # type-checked. engine/brokerage/oanda.py imports AlgorithmImports too but only by name
 # (not `*`), so the ignore_missing_imports override below is enough for it.
+# engine/chain_algorithm.py subclasses ExecutionAlgorithm under the same `*` import (the
+# shared chain-driven LEAN glue); its LEAN-free logic is in chain/wiring.py, which is
+# type-checked.
 exclude = [
     "(^|/)spikes/",
     "(^|/)algos/",
     "(^|/)tests/",
     "(^|/)mutants/",
     "(^|/)algo_backtest/engine/algorithm\\.py$",
+    "(^|/)algo_backtest/engine/chain_algorithm\\.py$",
 ]
 
 # testcontainers (+ its docker-py) ship no py.typed; algo-backtest's production run path
@@ -102,10 +106,10 @@ exclude = [
 module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
 ignore_missing_imports = true
 
-# lightgbm/scikit-learn (Spec 04g's meta-learner sub-models) ship no py.typed marker at
-# the pinned versions.
+# lightgbm/scikit-learn (Spec 04g's meta-learner sub-models) and joblib (the model
+# persistence in algo_backtest/training.py) ship no py.typed marker at the pinned versions.
 [[tool.mypy.overrides]]
-module = ["lightgbm.*", "sklearn.*"]
+module = ["lightgbm.*", "sklearn.*", "joblib.*"]
 ignore_missing_imports = true
 
 # matplotlib ships no py.typed marker at the pinned version; algo-analyze's figure

@@ -30,9 +30,14 @@ Delivered in slices: (1) `.bi5` → validated ticks; (2) ticks → minute Parque
 uv run algo-transform run --source dukascopy --symbol EURUSD --month 2020-01
 # choose the bar frequency (default m1):
 uv run algo-transform run --source dukascopy --symbol EURUSD --month 2020-01 --timeframe h4
+# news/event sources (canonical event Parquet for algo-score), month or --from/--to range:
+uv run algo-transform run --source gdelt --month 2015-02      # also: gpr, gdelt_ngrams
+# GDELT coverage matrix + selected training window (CSV + figure):
+uv run algo-transform coverage
 ```
 
-Config file/env layering is deferred (TD-3); this tool does not load config yet.
+Config file/env layering exists in `algo-core` (`config.resolve`, TD-3) but this tool
+does not load config yet.
 
 ## Status
 
@@ -42,6 +47,9 @@ completeness-gated, write-only-when-complete orchestrator writing the canonical
 `<timeframe>/` Parquet via `Repository`; CLI `run --timeframe`. End-to-end BDD
 (raw `.bi5` → partition; incomplete or corrupt month writes nothing). ruff +
 mypy-strict clean, ~99% coverage on the new code.
-Slice 3 (coverage matrix, currency-strength, GDELT/GPR, tick Parquet) follows.
+Slice 3 is partly built: GDELT, GDELT NGrams and GPR transforms
+(`decoders/`, `readers/`, `events.py`) and the GDELT coverage matrix
+(`coverage.py`, `coverage_artifacts.py`, `algo-transform coverage`).
+Currency-strength and tick Parquet are not built yet.
 
 Spec: [`SPEC.md`](SPEC.md).

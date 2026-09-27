@@ -10,13 +10,16 @@ are true fixtures (from conftest.py), not step functions, so no duplication ther
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import algo_backtest
 import pytest
+from algo_backtest.chain.audit import DecisionRow
 from algo_backtest.cli import app
 from algo_backtest.materialize import materialize_month
 from algo_core.bars import QuoteBar, Timeframe
@@ -76,13 +79,16 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
     materialize_month(bctx["data_root"], _EURUSD, 2014, 5, ZoneInfo("UTC"))
 
 
-@when("I run baseline over 2014-05-07 to 2014-05-09 with size 0.5")
+@when(
+    "I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model"
+)
 def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD",
-            "--from", "2014-05-07", "--to", "2014-05-09", "--param", "size=0.5",
+            "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--model", str(bctx["model"]),
         ],
     )
 
@@ -101,6 +107,15 @@ def _exit_ok(bctx: dict[str, Any]) -> None:
 def _size_range(bctx: dict[str, Any]) -> None:
     out = bctx["cli"].output
     assert "size" in out and "(0, 1]" in out
+
+
+@then("the error says params must be exactly")
+def _params_must_be_exactly(bctx: dict[str, Any]) -> None:
+    """Distinguishes a real `_check_keys` rejection from an unrelated failure (e.g. "no
+    lean-data") that happens to also exit 2 -- both scenarios run against a fresh,
+    unmaterialized data root, so exit code alone can't tell which check actually fired.
+    """
+    assert "params must be exactly" in bctx["cli"].output, bctx["cli"].output
 
 
 @then("a metrics summary is reported")
@@ -134,3 +149,48 @@ def _chain_evaluated(bctx: dict[str, Any]) -> None:
     assert any("BASELINE_DECISION|" in log.read_text() for log in logs), (
         f"no BASELINE_DECISION line in {[str(p) for p in logs]} -- the chain never ran"
     )
+
+
+def _run_dir(bctx: dict[str, Any]) -> Path:
+    """The single run directory this scenario's CLI invocation just created."""
+    data_root: Path = bctx["data_root"]
+    runs = list((data_root / "runs" / "baseline").glob("*"))
+    assert len(runs) == 1, f"expected exactly one baseline run dir, found {runs}"
+    return runs[0]
+
+
+@then("decisions.parquet is written under the run's results directory")
+def _decisions_parquet_written(bctx: dict[str, Any]) -> None:
+    assert (_run_dir(bctx) / "decisions.parquet").exists()
+
+
+@then("at least one decisions.parquet row is joined to a trades.json trade")
+def _decisions_join_nonempty(bctx: dict[str, Any]) -> None:
+    """Without this, the join proof above passes vacuously when no trade ever filled."""
+    run_dir = _run_dir(bctx)
+    rows = ParquetRepository(DecisionRow, run_dir / "decisions.parquet").read_all()
+    trades = json.loads((run_dir / "trades.json").read_text())
+    closed_ids = {str(trade["orderIds"][0]) for trade in trades if trade.get("orderIds")}
+    joined = [row for row in rows if row.trade_id in closed_ids]
+    assert joined, (
+        f"no decisions.parquet row joins a closed trades.json trade ({len(rows)} rows, "
+        f"{len(trades)} closed trades) -- the join is unproven"
+    )
+
+
+@when("I run baseline with the bundled hybrid model as --model")
+def _run_with_hybrid_model(bctx: dict[str, Any]) -> None:
+    model = Path(algo_backtest.__file__).parent / "algos" / "hybrid" / "f7_meta_learner.json"
+    bctx["cli"] = CliRunner().invoke(
+        app,
+        [
+            "run", "--strategy", "baseline", "--symbol", "EURUSD", "--from", "2014-05-07",
+            "--to", "2014-05-09", "--param", "size=0.5", "--model", str(model),
+        ],
+    )
+
+
+@then("the error names the model's families and the strategy's declared families")
+def _families_error(bctx: dict[str, Any]) -> None:
+    out = bctx["cli"].output
+    assert "was trained on families" in out and "meta_learner.families" in out, out

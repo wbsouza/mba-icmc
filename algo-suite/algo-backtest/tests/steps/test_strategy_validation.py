@@ -67,3 +67,51 @@ def _window(vctx: dict[str, Any]) -> None:
 @then(parsers.parse('validation fails naming "{word}"'))
 def _fails_naming(vctx: dict[str, Any], word: str) -> None:
     assert word in vctx["error"]
+
+
+@when(parsers.parse("I validate the run inputs for the window {first} to {last}"))
+def _validate_window(vctx: dict[str, Any], first: str, last: str) -> None:
+    from datetime import date
+
+    validate_run_inputs(
+        vctx["strategy"], vctx["params"], date.fromisoformat(first), date.fromisoformat(last)
+    )
+    vctx["ok"] = True
+
+
+@when(
+    parsers.parse("I validate the run inputs for the window {first} to {last} expecting failure")
+)
+def _validate_window_failing(vctx: dict[str, Any], first: str, last: str) -> None:
+    from datetime import date
+
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        validate_run_inputs(
+            vctx["strategy"], vctx["params"], date.fromisoformat(first), date.fromisoformat(last)
+        )
+    vctx["error"] = str(exc_info.value)
+
+
+@given(parsers.parse("materialized lean-data day-zips for EURUSD on {days}"))
+def _day_zips(vctx: dict[str, Any], tmp_path: Any, days: str) -> None:
+    from algo_core.instrument import build_instrument
+    from algo_core.layout import lean_data_dir_for
+
+    instrument = build_instrument("EURUSD")
+    directory = lean_data_dir_for(tmp_path, instrument, "minute")
+    directory.mkdir(parents=True)
+    for day in days.split(","):
+        (directory / f"{day.strip()}_quote.zip").write_bytes(b"")
+    vctx["data_root"], vctx["instrument"] = tmp_path, instrument
+
+
+@then(parsers.parse("lean-data covers {first} to {last} is {covered}"))
+def _covers(vctx: dict[str, Any], first: str, last: str, covered: str) -> None:
+    from datetime import date
+
+    from algo_backtest.run import lean_data_covers
+
+    result = lean_data_covers(
+        vctx["data_root"], vctx["instrument"], date.fromisoformat(first), date.fromisoformat(last)
+    )
+    assert result is (covered == "true")

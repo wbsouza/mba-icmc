@@ -15,6 +15,18 @@ machinery (wiring only, not new ablation infrastructure).
 
 ## 1. Background — what this is and where it came from
 
+> **Update 2026-09-26 (Spec 04h landed, so part of this background is out of date).** A default
+> perception layer for F1 now exists. `algo-backtest/src/algo_backtest/chain/wiring.py`'s
+> `price_features()` fills `trend_direction` (sign of EMA(3) minus EMA(8)), `trend_strength` (an
+> EMA-gap proxy, not ADX) and `higher_tf_trend_direction` (sign of price minus EMA(60)) from live
+> LEAN indicators in `algos/{baseline,hybrid}/main.py`. The offline F7 training path uses the
+> same function. The "no real implementation populating them yet" statement below (and in
+> `f1_trend.py`'s docstring) was true when written and is no longer. That module is this
+> candidate's natural integration point: §5's third open question now has a concrete default
+> shape to match. It is still unresolved which module should host the candidate.
+> No `perception_source` selector exists yet. This story's own work has not started.
+
+
 `algo_backtest/chain/filters/f1_trend.py` decides BUY/SELL/veto from three feature keys
 (`trend_direction`, `trend_strength`, `higher_tf_trend_direction`) but has **no real
 implementation populating them yet** — its own docstring says so: "No upstream perception layer

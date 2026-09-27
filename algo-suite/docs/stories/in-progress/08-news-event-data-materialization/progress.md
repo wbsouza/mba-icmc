@@ -8,6 +8,26 @@ Assumptions table and Reproducibility section for the full reasoning.
 PR #24 (opened earlier the same session, captured an intermediate state of
 this work) was closed without merging — superseded by everything below.
 
+## Status snapshot — 2026-09-26 (checked on the NAS data root, not assumed)
+
+Checked by listing `/media/nas/wellington/mba/algo-suite/data` directly at 2026-09-26 17:30 PDT.
+**Partial:** the GDELT Events lane is running. GPR, the coverage rule, and the P2
+`VERIFY_ONLY` contract are not done.
+
+| Item (spec AC) | State |
+|---|---|
+| GDELT P1 AC#1 (`gdelt.events` CTAS) | done (see BigQuery state below) |
+| GDELT P1 AC#2 (local canonical Events Parquet + `.done`) | **partial.** `parquet/events/gdelt/year=2015/month=02..07` each have `data.parquet` + `.done`. `month=08` has `data.parquet` but no `.done` yet (last written 03:22). `year=2020/month=01` is done (pilot). The other 2015-08..2024-12 months are not materialized yet; the backfill continues per TD-56 |
+| GDELT event features (`algo-score events --kind gdelt`) | **partial.** `parquet/events/_features/gdelt/` has only `year=2015/month=02` and `year=2020/month=01`. The Spec 04h RUNBOOK's hybrid example (2015-02..2016-01) needs every touched month built first |
+| GDELT P1 AC#3/#4/#6/#7 (GKG + join) | on hold for V2 (spec Out of Scope). Not run |
+| GPR P1 AC#1 (raw download) | **partial.** `raw/gpr/data_gpr_export.xls` exists (2026-09-25 19:00). No sha256 sidecar is present next to it |
+| GPR P1 AC#2/#3 (canonical + event features) | **not done.** No `parquet/gpr/` and no `parquet/events/gpr/` |
+| Coverage rule (success criterion #1) | **not met.** `parquet/_meta/coverage.parquet` (2026-09-26 03:38) has GDELT rows only, all with `units_present=0`. It counts the old HTTP raw units, not the BigQuery-path Parquet, and has no GPR rows. It does not yet report a training window |
+| P2 `scripts/prepare-news-data.sh` | **mostly done.** Committed (`a0502d8`, updated `c096403`/`1d823d3`), `bash -n` clean, has an flock guard and the `SOURCES`/`FROM`/`TO` overrides. **Missing: P2 AC#4 `VERIFY_ONLY`.** The script has no such mode. Default `TO` is `today`, not `2024-12` (P2 AC#3 drift) |
+
+Sections below are the 2026-09-25 working log. Items the table above contradicts are
+superseded by it.
+
 ## BigQuery state (permanent, already done)
 
 - [x] `mba-ai-509708.gdelt.events` — materialized (`CREATE TABLE ... SELECT *`,
@@ -29,19 +49,19 @@ this work) was closed without merging — superseded by everything below.
       ledger, flock guard. `py_compile` clean.
 - [x] `scripts/bigquery/gdelt_events_ctas.sql`, `gdelt_gkg_ctas.sql` —
       checked-in reference copies of the queries actually run in console.
-- [ ] **None of the three scripts above have actually been run yet.** No
-      local Parquet exists under `parquet/events/gdelt/`, `gdelt_gkg/`, or
-      `gdelt_joined/` from this session's BigQuery path.
-- [ ] `scripts/prepare-news-data.sh` — orchestration wrapper tying the three
-      BigQuery scripts + GPR + event features into one command. Not yet
-      rebuilt (was deleted in a scoped reset this session along with the
-      rest of the pre-rebuild GDELT artifacts).
+- [ ] ~~**None of the three scripts above have actually been run yet.**~~
+      *Superseded 2026-09-26:* the Events script has run. 2015-02..07 and
+      2020-01 are done and 2015-08 is in progress (see the status snapshot above).
+      The GKG and join scripts are on hold for V2 and have not been run.
+- [x] `scripts/prepare-news-data.sh` — orchestration wrapper. *Rebuilt and
+      committed 2026-09-25* (`a0502d8`). It wraps the Events script, GPR, and event
+      features, with an flock guard. It still lacks `VERIFY_ONLY` (P2 AC#4).
 
 ## GPR
 
-- [ ] Not started at all — original `algo-download`/`algo-transform`/
-      `algo-score` pipeline, unaffected by today's GDELT changes, still
-      needs to actually run.
+- [ ] Raw download only (2026-09-26 check): `raw/gpr/data_gpr_export.xls` is on
+      the NAS, with no sha256 sidecar. `algo-transform run --source gpr` and
+      `algo-score events --kind gpr` have not produced output yet.
 
 ## Price backfill (separate track, unaffected by this story)
 

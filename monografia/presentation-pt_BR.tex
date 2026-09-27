@@ -272,7 +272,7 @@
   \resizebox{0.95\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
 
   \vspace{0.25cm}
-  \footnotesize Filtros de contexto acumulam evidência; \emph{gates} duros com poder de veto curto-circuitam para HOLD; a regra terminal emite BUY/SELL/HOLD. Cada execução grava \emph{trades.parquet} (ledger) e \emph{decisions.parquet} (auditoria filtro a filtro, ligada por \texttt{trade\_id}).
+  \footnotesize Filtros de contexto acumulam evidência; \emph{gates} duros com poder de veto curto-circuitam para HOLD; a regra terminal emite BUY/SELL/HOLD. Cada execução grava \emph{trades.json} (\emph{ledger} de trades do motor, agrupado \emph{flat-to-flat}) e \emph{decisions.parquet} (auditoria filtro a filtro, ligada por \texttt{trade\_id}).
 \end{frame}
 
 \begin{frame}{Protocolo de \emph{backtesting} e avaliação}

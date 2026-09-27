@@ -272,7 +272,7 @@
   \resizebox{0.95\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
 
   \vspace{0.25cm}
-  \footnotesize Context filters accumulate evidence; hard veto gates short-circuit to HOLD; the terminal rule emits BUY/SELL/HOLD. Each run writes \emph{trades.parquet} (the ledger) and \emph{decisions.parquet} (the bar-level audit, linked by \texttt{trade\_id}).
+  \footnotesize Context filters accumulate evidence; hard veto gates short-circuit to HOLD; the terminal rule emits BUY/SELL/HOLD. Each run writes \emph{trades.json} (the engine's trade ledger, grouped flat-to-flat) and \emph{decisions.parquet} (the bar-level audit, linked by \texttt{trade\_id}).
 \end{frame}
 
 \begin{frame}{Backtesting and evaluation protocol}

@@ -35,6 +35,8 @@ from typing import Any
 
 from testcontainers.core.container import DockerContainer
 
+from algo_backtest.container_paths import LEAN_DATA_ROOT, RESULTS_MOUNT
+
 LEAN_IMAGE = "quantconnect/lean:17748"
 
 # Concurrent LEAN runs are independent (each gets its own container, temp algo
@@ -80,8 +82,8 @@ def _lean_slot(poll_interval: float = 0.5) -> Iterator[None]:
         time.sleep(poll_interval)
 
 _ALGO_MNT = "/LeanCLI"
-_DATA_ROOT = "/Lean/Data"
-_RESULTS_MNT = "/Results"
+_DATA_ROOT = str(LEAN_DATA_ROOT)
+_RESULTS_MNT = str(RESULTS_MOUNT)
 _CONFIG_MNT = "/Lean/Launcher/bin/Debug/config.json"
 
 # Generous default for a cold run (first pull is ~10 GB); override via LEAN_TEST_TIMEOUT.
@@ -155,6 +157,7 @@ def run_lean(
     data_mounts: Mapping[str, Path] | None = None,
     parameters: Mapping[str, str] | None = None,
     timeout: int = DEFAULT_TIMEOUT_S,
+    algo_files: Mapping[str, Path] | None = None,
 ) -> LeanRun:
     """Run one LEAN backtest in the pinned image; return its exit code, logs, results dir.
 
@@ -166,9 +169,12 @@ def run_lean(
             baked Data tree (keeping the baked market-hours/symbol-properties DBs).
         parameters: backtest parameters exposed to the algorithm via get_parameter().
         timeout: seconds to wait for the backtest to exit.
+        algo_files: {plain filename: host file} copied next to main.py after `algo_dir`,
+            replacing any bundled file of the same name (e.g. a non-default F7 model).
 
     Raises:
         FileNotFoundError: if `algo_dir` has no `main.py` (fail fast — misconfigured run).
+        ValueError: if an `algo_files` name is not a plain filename, or is `main.py`.
     """
     if not (algo_dir / "main.py").is_file():
         raise FileNotFoundError(
@@ -176,8 +182,17 @@ def run_lean(
             f"algorithm-location=/LeanCLI/main.py (a main.py with class `main`)."
         )
 
+    overrides = dict(algo_files or {})
+    for name in overrides:
+        if Path(name).name != name or name in {"", ".", "..", "main.py"}:
+            raise ValueError(
+                f"algo_files name {name!r} must be a plain filename other than main.py"
+            )
+
     work = Path(tempfile.mkdtemp(prefix="lean-algo-"))
     shutil.copytree(algo_dir, work, dirs_exist_ok=True)
+    for name, source in overrides.items():
+        shutil.copyfile(source, work / name)
     # Every algorithm imports the shared order-execution engine (Spec 04a) as a
     # top-level `engine` package next to main.py — copied fresh each run from the
     # single source of truth (algo_backtest/engine/), never duplicated in an algo_dir.
@@ -204,6 +219,20 @@ def run_lean(
     algo_core_src = Path(algo_core.__file__).resolve().parent
     shutil.copytree(
         algo_core_src, work / "algo_core", dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    # F4 (Spec 04e, chain/filters/f4_news_context.py) additionally imports algo_score's
+    # own value objects/paths (algo_score.events.models/paths, algo_score.paths) to read
+    # the real Spec 03 news Parquet -- needed by any algo using F4 (Spec 04h's `hybrid`),
+    # not by `baseline`, but copied unconditionally here, same reasoning as algo_core
+    # above: single source of truth, fresh copy per run, harmless for an algo that never
+    # imports it. algo_score's own declared deps (algo-core, pyarrow, typer) are already
+    # satisfied by what's copied/present, so this adds no new package requirement.
+    import algo_score  # noqa: PLC0415
+
+    algo_score_src = Path(algo_score.__file__).resolve().parent
+    shutil.copytree(
+        algo_score_src, work / "algo_score", dirs_exist_ok=True,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
     cfg_dir = Path(tempfile.mkdtemp(prefix="lean-cfg-"))

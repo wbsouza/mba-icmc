@@ -61,15 +61,23 @@ stream is still produced from the global GPR index as a risk-regime feature.
 
 ```
 algo_score/
-├── cli.py               # algo-score --scorer finbert|lm [--source ...] [--month/range]
+├── cli.py               # algo-score --scorer lm [--source ...] [--month/range]; algo-score events
+│                        #   --kind gdelt|gpr [--month/range] (finbert not built yet)
+├── scoring.py           # orchestrates LM scoring → bucketing → per-currency attribution
+├── attribution.py       # per-currency + derived pair (EURUSD/USDJPY) sentiment features
+├── storage.py / paths.py # sentiment inputs, score cache (algo-core LocalCache), output paths
 ├── scorers/
-│   ├── base.py          # Scorer ABC: score(texts) -> ScoreResult (polarity, confidence) — single value object
-│   ├── finbert.py       # transformer inference (batched, cached)
+│   ├── models.py        # scoring value objects (NewsArticle, ArticleScore, *SentimentFeature)
+│   ├── base.py          # NOT BUILT — Scorer ABC
+│   ├── finbert.py       # NOT BUILT — transformer inference (batched, cached)
 │   └── lexicon.py       # Loughran–McDonald dictionary scorer
 ├── events/
+│   ├── build.py         # build [from, to] feature partitions; merges into existing months
+│   ├── grid.py          # minute grid + forward fill with one-day PUBLICATION_LAG
+│   ├── features.py / readers.py / models.py / paths.py
 │   ├── gdelt.py         # event aggregation features
 │   └── gpr.py           # GPR continuous regime feature
-└── bucket.py            # per-article scores → minute grid (duckdb)
+└── bucket.py            # per-article scores → minute grid
 # score caching uses algo-core's Cache port (keyed by article_id, model, version);
 # data access uses algo-core's Repository — algo-score adds no storage of its own
 ```
@@ -172,10 +180,22 @@ confidence**.
 | `event_intensity` | float | GDELT aggregate — the **unweighted mean of `goldstein_scale`** across all `GdeltEvent` rows sharing the same `event_date` (confirmed by the user 2026-09-22; `avg_tone` is not folded in, kept available for a possible future scorer-side use) |
 
 Daily-resolution event aggregates are **forward-filled** onto the minute grid
-(consistent with the methodology). Sentiment is bucketed by article publish
+(consistent with the methodology) with a **one-day publication lag**: day D's
+aggregate summarizes the whole UTC day, so it first appears at 00:00 UTC on D+1
+and every minute of D itself carries D-1's value (`events/grid.py`'s
+`PUBLICATION_LAG`). Exposing D's aggregate on D would leak up to 24h of future
+information into every backtest bar and F7 training label that reads it. Residual
+caveat: `event_date` is GDELT's `SQLDATE` (when the event happened), not
+`DATEADDED` (when it was reported); events reported more than a day late still
+land in an already-published day — see `docs/technical-debt.md` TD-59. Sentiment is bucketed by article publish
 time, not forward-filled across empty minutes. Neither `gpr` nor
 `event_intensity` fabricates a value before its series' first observation —
 minutes before the first daily value are absent (null), not zero.
+
+A build over [from, to] rewrites only those days' minutes: each touched monthly
+partition keeps its existing rows outside the range (`events/build.py`
+`_merge_outside`), so a partial-month build — e.g. `algo-backtest run`'s remediation
+reaching one day into the next month — never truncates an already-built month.
 
 ## 7. Error handling
 

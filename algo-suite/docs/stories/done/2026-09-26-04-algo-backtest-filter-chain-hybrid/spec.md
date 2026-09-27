@@ -1,9 +1,10 @@
 # Spec 04 — algo-backtest: order-execution engine (LEAN integration) + filter chain (F1–F7) + hybrid strategy
 
-**Tool:** `algo-suite/algo-backtest/` · **Status:** LEAN engine integration +
-two price-only strategies (`baseline_ma`, `baseline_meanrev`) done; the
-filter-chain's own order-executor wiring, the meta-learner, and the hybrid
-strategy do not exist yet.
+**Tool:** `algo-suite/algo-backtest/` · **Status:** Done (2026-09-26) — all
+lanes (04a-04h) landed; `baseline`/`hybrid` both run against the real pinned
+LEAN container producing a `decisions.parquet`↔`trades.json` `trade_id` join.
+Still a wiring smoke test, not a methodology result — see
+`docs/technical-debt.md` TD-51.
 **Blocks:** Spec 06 (Ch.4 hybrid results); partially blocks the tail of Spec 05
 (ablation needs real hybrid runs, though Spec 05's machinery is built against
 existing price-only runs first).

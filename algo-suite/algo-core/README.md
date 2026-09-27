@@ -20,12 +20,13 @@ place the cross-cutting contracts live, so the tools never diverge.
 - **Config** (`config/`): the schema-driven **loader policy** — hard-stop on a
   missing trading-impactful param, default-with-log on operational, explicit-null
   disables, schema-version check, provenance per parameter. *Not* built on
-  pydantic-settings; reading/merging the YAML files + env overrides (the
-  convention-over-config resolution) is **deferred — TD-3**.
+  pydantic-settings; `config.resolve()` reads/merges the YAML files + `ALGO_*`
+  env overrides (the convention-over-config resolution, TD-3 resolved).
 - **DuckDB helpers** (`duck.py`): connection factory + Parquet read.
 - **`Repository[M]` port**: `put` / `read_all` / `exists` over typed value
   objects; `ParquetRepository` (pyarrow writer) + `DuckDBRepository` (DuckDB
-  reader, composing the writer). A query/analytical interface (filtered/joined
+  reader, composing the writer; imported lazily so a duckdb-less environment such
+  as the LEAN container can still use `ParquetRepository`). A query/analytical interface (filtered/joined
   reads with pushdown) is **deferred — TD-14**.
 - **`Cache` port**: read-through `get_or_compute`; `LruCache` (bounded
   in-process default) selected via `build_cache(name)`; two-tier `LocalCache`
