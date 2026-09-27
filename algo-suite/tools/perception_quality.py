@@ -89,6 +89,44 @@ def function_scores(source: str, data: dict[str, Any]) -> list[tuple[str, int, f
     return scores
 
 
+def merge_native_coverage(coverage_path: Path, native_dir: Path, output: Path) -> None:
+    """Union native traced lines with the host's executable-line universe."""
+    traces = list(native_dir.rglob("perception-native-lines.json"))
+    if len(traces) != 1:
+        raise ValueError(f"Expected one native trace artifact, found {len(traces)}")
+    native = json.loads(traces[0].read_text())
+    report = json.loads(coverage_path.read_text())
+    for path in sorted(PACKAGE.glob("*.py")):
+        if path.stem == "__init__":
+            continue
+        data = covered_file(report["files"], path)
+        suffix = f"algo_backtest/perception/{path.name}"
+        traced = [lines for name, lines in native.items() if name.endswith(suffix)]
+        if path.stem in {"lean_indicator", "multi_timeframe"} and len(traced) != 1:
+            raise ValueError(f"{path.name}: missing or ambiguous native trace")
+        statements = set(data["executed_lines"]) | set(data["missing_lines"])
+        executed = (set(data["executed_lines"]) | set().union(*traced)) & statements
+        data["executed_lines"] = sorted(executed)
+        data["missing_lines"] = sorted(statements - executed)
+        # Host percentages/branch data no longer describe this merged line-only report.
+        for field in ("summary", "executed_branches", "missing_branches"):
+            data.pop(field, None)
+    report.pop("totals", None)
+    report["meta"]["branch_coverage"] = False
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2))
+
+
+def check_architecture() -> int:
+    """Run the dependency gate without coverage or a native runtime."""
+    errors = [error for path in sorted(PACKAGE.glob("*.py"))
+              for error in architecture_errors(path, path.read_text())]
+    for error in errors:
+        print(f"FAIL: {error}")
+    print(f"Perception architecture gate: {'FAIL' if errors else 'PASS'}")
+    return int(bool(errors))
+
+
 def check(coverage_path: Path, threshold: float) -> int:
     """Print reviewable function scores and fail on dependency or CRAP violations."""
     files = json.loads(coverage_path.read_text())["files"]
@@ -116,9 +154,21 @@ def check(coverage_path: Path, threshold: float) -> int:
 def main() -> int:
     """Read the coverage artifact and run the story's deterministic Cleaner gate."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--coverage", type=Path, required=True)
+    parser.add_argument("--architecture-only", action="store_true")
+    parser.add_argument("--coverage", type=Path)
+    parser.add_argument("--native-lines-dir", type=Path)
+    parser.add_argument(
+        "--merged-coverage", type=Path, default=Path("build/perception-coverage.json")
+    )
     parser.add_argument("--threshold", type=float, default=8.0)
     args = parser.parse_args()
+    if args.architecture_only:
+        return check_architecture()
+    if args.coverage is None:
+        parser.error("--coverage is required unless --architecture-only is selected")
+    if args.native_lines_dir is not None:
+        merge_native_coverage(args.coverage, args.native_lines_dir, args.merged_coverage)
+        args.coverage = args.merged_coverage
     return check(args.coverage, args.threshold)
 
 

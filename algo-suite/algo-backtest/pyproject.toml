@@ -64,4 +64,7 @@ only_mutate = [
     "src/algo_backtest/training.py",
     "src/algo_backtest/chain/filters/f7_model_io.py",
     "src/algo_backtest/market_hours.py",
+    # Spec 04k pure perception; LEAN adapters require make check-perception.
+    "src/algo_backtest/perception/config.py",
+    "src/algo_backtest/perception/heikin_ashi.py",
 ]

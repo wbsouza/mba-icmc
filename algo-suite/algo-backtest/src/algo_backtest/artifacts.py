@@ -50,6 +50,7 @@ from typing import Any
 from algo_core.atomicio import write_text_atomic
 
 from algo_backtest.metrics import Metrics
+from algo_backtest.strategies import StrategyChainConfig
 
 
 @dataclass(frozen=True)
@@ -129,3 +130,20 @@ def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:
     if not math.isfinite(fractional_return):
         return without_return
     return {**without_return, "return": fractional_return}
+
+
+def write_strategy_config(results_dir: Path, config: StrategyChainConfig) -> None:
+    """Atomically snapshot resolved config.raw before a chain run starts.
+
+    Raises:
+        ValueError: configuration includes unsupported or non-finite JSON values.
+        OSError: the filesystem cannot atomically publish the artifact.
+    """
+    try:
+        text = json.dumps(dict(config.raw), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"strategy {config.name!r} cannot be recorded as JSON; use JSON-safe finite "
+            "values in its config.yaml"
+        ) from exc
+    write_text_atomic(results_dir / "strategy-config.json", text)

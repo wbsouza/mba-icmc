@@ -28,35 +28,18 @@ scikit-learn's transitive dependency.
 
 ## Reproduce
 
-From `algo-suite`:
+From `algo-suite`, `make check-perception` runs host coverage, native observations
+and assertions, automatic coverage merging, the architecture/CRAP checker, and
+native mutation tests in order. Docker is required; `make check` stays offline and
+includes the dependency-boundary check. `make -C algo-backtest check` runs the
+package regression suite; `make audit` checks dependency vulnerabilities.
 
-```sh
-make -C algo-backtest check
-uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py \
-  algo-backtest/tests/steps/test_perception_hardening.py -m integration \
-  --basetemp=/tmp/04k-native-final
-uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py \
-  algo-backtest/tests/steps/test_perception_hardening.py \
-  --cov=algo_backtest.perception --cov-report=json:build/perception-host-coverage.json
-uv run python tools/perception_mutations.py --native
-make audit
-```
-
-The native probe emits `perception-native-lines.json` below the fixed pytest
-base directory. The LEAN image lacks coverage.py, so it uses Python's stdlib trace.
-To reproduce `build/perception-coverage.json`, match native/host file names by their
-`algo_backtest/perception/<filename>` suffix. For each host file, retain the executable
-line universe (`executed_lines ∪ missing_lines`), union native traced lines with host
-executed lines, and intersect with that universe; remaining executable lines are
-missing. Then run:
-
-```sh
-uv run python tools/perception_quality.py --coverage build/perception-coverage.json
-```
-
-Mutation tests copy the package to a private temporary tree and verify its imported
-location; the native runner mounts that mutated copy. They never modify the shared
-production files. Resource/time limits apply to subprocesses and LEAN containers.
+Gauntlet-driven stories retain the measured quality and mutation reports alongside
+their spec, progress and lessons learned so gate claims can be independently audited.
+Native line coverage uses stdlib tracing because the pinned container lacks coverage.py.
+Mutation tests use isolated package copies and bounded subprocesses; production is
+never mutated. Standard mutmut covers the host-importable config and HA modules;
+`make check-perception` additionally covers real native adapters and engine wiring.
 
 ## QuantConnect references checked
 

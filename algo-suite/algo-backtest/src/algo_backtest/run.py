@@ -107,6 +107,12 @@ def _validate_baseline(params: Params) -> None:
     _validate_size(params, "baseline")
 
 
+def _validate_baseline_dsha(params: Params) -> None:
+    """Validate the frozen-model candidate with its own diagnostic label."""
+    _check_keys(params, {"size"}, "baseline-dsha")
+    _validate_size(params, "baseline-dsha")
+
+
 def _validate_hybrid(params: Params) -> None:
     """hybrid params: size in (0, 1] only (baseline's chain + F4/news, config.yaml `extends`)."""
     _check_keys(params, {"size"}, "hybrid")
@@ -173,7 +179,7 @@ STRATEGIES: dict[str, StrategySpec] = {
     "baseline-ma": StrategySpec("baseline_ma", _validate_baseline_ma),
     "baseline-meanrev": StrategySpec("baseline_meanrev", _validate_baseline_meanrev),
     "baseline": StrategySpec("baseline", _validate_baseline, model_file=_F7_MODEL_FILE),
-    "baseline-dsha": StrategySpec("baseline", _validate_baseline, model_file=_F7_MODEL_FILE),
+    "baseline-dsha": StrategySpec("baseline", _validate_baseline_dsha, model_file=_F7_MODEL_FILE),
     "hybrid": StrategySpec(
         "hybrid", _validate_hybrid, needs_news_data=True, model_file=_F7_MODEL_FILE
     ),

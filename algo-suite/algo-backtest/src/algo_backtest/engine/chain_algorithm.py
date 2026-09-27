@@ -17,7 +17,6 @@ to match ``DecisionRecorder.on_fill`` — written once at end of algorithm.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, date
 from pathlib import Path
 
@@ -26,6 +25,7 @@ from engine.algorithm import ExecutionAlgorithm  # noqa: E402
 from engine.order_executor import Decision as OrderDecision  # noqa: E402
 from engine.order_executor import FillStatus, SizingContext  # noqa: E402
 
+from algo_backtest.artifacts import write_strategy_config
 from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
@@ -104,9 +104,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
         self._subscribe_indicators(config.perception)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
-        Path(DECISIONS_FILE).with_name("strategy-config.json").write_text(
-            json.dumps(dict(config.raw), indent=2)
-        )
+        write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
         meta_learner = load_model(self.model_path)
         self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")

@@ -1,5 +1,6 @@
 """BDD acceptance for the selectable native LEAN HA perception."""
 
+import pytest
 from algo_backtest.perception.config import parse_perception_config
 from algo_backtest.perception.heikin_ashi import (
     OHLC,
@@ -153,41 +154,48 @@ def _ablation_only(ctx):
 @given("native primary and higher-timeframe Heikin-Ashi perception")
 def _native(ctx, native_dsha_probe):
     """A native double-smoothed heikin-ashi indicator with periods 6 and 2."""
-    ctx["native_logs"] = native_dsha_probe
+    ctx["native"] = native_dsha_probe
 
 
 @when("six completed primary bars have been supplied")
 @then("the indicator reports not ready and refuses to expose direction")
 def _not_ready(ctx):
     """Six completed primary bars have been supplied."""
-    assert "DSHA|SIX_UNREADY" in ctx["native_logs"]
+    assert ctx["native"]["six"] == {
+        "updates": [False] * 6, "ready": False, "direction": "unready", "values": "unready"}
 
 
 @when("the seventh completed primary bar is supplied")
 @then("the indicator is ready with a classified direction")
 def _ready(ctx):
     """The seventh completed primary bar is supplied."""
-    assert "DSHA|SEVEN_READY" in ctx["native_logs"]
+    observed = ctx["native"]["seven"]
+    assert observed["updated"] is True
+    assert observed["ready"] is True
+    assert observed["direction"] == -1
 
 
 @when("the primary indicator is ready but the higher indicator is not")
 @then("no multi-timeframe directional features are exposed")
 def _mtf_unready(ctx):
     """The primary indicator is ready but the higher indicator is not."""
-    assert "DSHA|MTF_UNREADY" in ctx["native_logs"]
+    assert ctx["native"]["mtf_unready"] == {"ready": False, "features": "unready"}
 
 
 @when("enough higher-timeframe bars close to make both indicators ready")
 @then("both F1 directional features are exposed")
 def _mtf_ready(ctx):
     """Enough higher-timeframe bars close to make both indicators ready."""
-    assert "DSHA|MTF_READY" in ctx["native_logs"]
+    assert ctx["native"]["mtf_ready"] == {
+        "ready": True, "features": {"trend_direction": 1, "higher_tf_trend_direction": 1}}
 
 
 @then("an unfinished higher-timeframe bar does not change higher-timeframe direction")
 def _mtf_closed(ctx):
     """An unfinished higher-timeframe bar does not change higher-timeframe direction."""
-    assert "DSHA|MTF_CLOSED_ONLY" in ctx["native_logs"]
+    observed = ctx["native"]["mtf_closed"]
+    assert [row["higher_tf_trend_direction"] for row in observed["unfinished"]] == [1] * 4
+    assert observed["closed"]["higher_tf_trend_direction"] == -1
 
 
 @when("the native indicator receives completed TradeBars")
@@ -195,45 +203,88 @@ def _mtf_closed(ctx):
 @then("its warm-up period is seven bars")
 def _contract(ctx):
     """The native indicator receives completed tradebars."""
-    assert "DSHA|CONTRACT" in ctx["native_logs"]
+    observed = ctx["native"]["seven"]
+    assert observed["python_indicator"] is True
+    assert observed["warm_up_period"] == 7
+    assert observed["time"] == observed["current_time"] == "2014-05-07T00:07:00"
+    assert observed["value"] == observed["current_value"] == observed["direction"] == -1
+    assert observed["events"] == [
+        [f"2014-05-07T00:0{minute}:00", 0 if minute < 7 else -1]
+        for minute in range(1, 8)
+    ]
+    assert observed["samples"] == 7
 
 
 @then("native Wilder and LWMA produce the expected smoothed values")
 def _native_values(ctx):
     """Native wilder and lwma produce the expected smoothed values."""
-    assert "DSHA|VALUES" in ctx["native_logs"]
+    assert ctx["native"]["seven"]["values"] == pytest.approx(
+        [94 / 9, 112 / 9, 11, 103 / 9], rel=0, abs=1e-10)
 
 
 @when("a ready native indicator is reset")
 @then("it becomes unready and a replay matches a fresh indicator")
 def _reset(ctx):
     """A ready native indicator is reset."""
-    assert "DSHA|RESET" in ctx["native_logs"]
+    assert ctx["native"]["reset"] == {
+        "ready": False, "samples": 0, "value": 0, "current_value": 0,
+        "time": "0001-01-01T00:00:00", "direction": "unready"}
+    replay = ctx["native"]["replay"]
+    assert replay["updates"] == [[False, False]] * 6 + [[True, True]]
+    assert replay["values"] == replay["fresh_values"]
+    assert replay["values"] == pytest.approx([25, 17, 257 / 12, 21.25], rel=0, abs=1e-10)
+    assert replay["direction"] == replay["fresh_direction"] == 1
 
 
 @when("default perception receives 419 completed minute bars")
 @then("the default hourly direction remains unavailable")
 def _hourly_unready(ctx):
     """Default perception receives 419 completed minute bars."""
-    assert "DSHA|HOURLY_UNREADY" in ctx["native_logs"]
+    assert ctx["native"]["hourly_unready"] == {"ready": False, "features": "unready"}
 
 
 @when("the 420th minute closes the seventh hourly bar")
 @then("the default hourly direction becomes available")
 def _hourly_ready(ctx):
     """The 420th minute closes the seventh hourly bar."""
-    assert "DSHA|HOURLY_READY" in ctx["native_logs"]
+    assert ctx["native"]["hourly_ready"] == {
+        "ready": True, "features": {"trend_direction": 1, "higher_tf_trend_direction": 1}}
 
 
 @when("a native indicator receives a fully flat candle after warm-up")
 @then("the native direction is down on equal smoothed extrema")
 def _native_tie(ctx):
     """A native indicator receives a fully flat candle after warm-up."""
-    assert "DSHA|NATIVE_TIE" in ctx["native_logs"]
+    assert ctx["native"]["tie"] == {
+        "updated": True, "values": [10, 10, 10, 10], "direction": -1}
 
 
 @when("completed quote bars have asymmetric bid and ask candles")
 @then("both directions follow the midpoint candle")
 def _midpoint(ctx):
     """Completed quote bars have asymmetric bid and ask candles."""
-    assert "DSHA|MIDPOINT" in ctx["native_logs"]
+    assert ctx["native"]["midpoint"] == {
+        "trend_direction": -1, "higher_tf_trend_direction": -1}
+
+
+@given("the packaged hybrid strategy configuration")
+def _hybrid_config(ctx):
+    """Exercise the real inherited strategy rather than an empty config stand-in."""
+    ctx["raw"] = load_strategy_chain_config("hybrid").raw
+
+
+@when("the primary direction changes before the higher candle closes")
+@then("F1 vetoes the real direction conflict")
+def _f1_conflict(ctx):
+    """Every measured unfinished bucket direction conflict must veto downstream."""
+    assert ctx["native"]["f1"]["unfinished"] == [
+        {"veto": True, "recommendation": "NEUTRAL", "enrichment": {}}
+    ] * 4
+
+
+@when("the higher candle closes aligned with the primary")
+@then("F1 recommends SELL with DSHA direction times EMA strength")
+def _f1_aligned(ctx):
+    """Pin the disclosed HA-sign times EMA-strength enrichment with native directions."""
+    assert ctx["native"]["f1"]["closed"] == {
+        "veto": False, "recommendation": "SELL", "enrichment": {"trend_score": -0.2}}

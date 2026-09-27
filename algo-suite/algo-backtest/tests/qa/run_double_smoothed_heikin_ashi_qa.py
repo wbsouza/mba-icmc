@@ -19,7 +19,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pyarrow.parquet as pq
-from algo_backtest.strategies import load_strategy_chain_config
 
 
 def require(condition: bool, message: str) -> None:
@@ -52,14 +51,11 @@ def inspect_run(root: Path, run_id: str, strategy: str, out: Path) -> dict:
     model_hashes = set(re.findall(r"MODEL_SHA256=([a-f0-9]{64})", (run / "log.txt").read_text()))
     require(len(model_hashes) == 1, f"{run_id}: missing/inconsistent actual model hash")
     config_path = run / "strategy-config.json"
-    if config_path.is_file():
-        config = json.loads(config_path.read_text())
-        hashes["strategy-config.json"] = digest(config_path)
-        origin = "engine-written strategy-config.json"
-    else:
-        config = dict(load_strategy_chain_config(strategy).raw)
-        origin = "QA snapshot of resolved packaged config; not an engine-written artifact"
-    (destination / "qa-resolved-config.json").write_text(json.dumps(config, indent=2) + "\n")
+    require(config_path.is_file(), f"{run_id}: missing engine-written strategy-config.json")
+    config = json.loads(config_path.read_text())
+    hashes["strategy-config.json"] = digest(config_path)
+    origin = "engine-written strategy-config.json"
+    shutil.copyfile(config_path, destination / "strategy-config.json")
     return {
         "run_id": run_id,
         "manifest": manifest,
@@ -136,6 +132,8 @@ def compare_decisions(root: Path, run_ids: list[str]) -> dict:
             all(float(number) in (-1.0, 1.0) for number in directions),
             f"consumed unready/non-directional candidate: {reason}",
         )
+    require(min(candidate) > min(baseline), "candidate warm-up no longer starts later")
+    require(len(candidate) < len(baseline), "candidate warm-up no longer omits early decisions")
     shared = sorted(baseline.keys() & candidate.keys())
     require(bool(shared), "no overlapping decisions")
     changed = sum(baseline[t]["features_hash"] != candidate[t]["features_hash"] for t in shared)
@@ -158,6 +156,7 @@ def compare_decisions(root: Path, run_ids: list[str]) -> dict:
         "changed_features": changed,
         "changed_f1_results": f1_changed,
         "equal_strength_observations": strengths_checked,
+        "first_baseline_timestamp": str(min(baseline)),
         "first_candidate_timestamp": str(min(candidate)),
         "timing_limit": (
             "Per-bar readiness/candle state absent; "
@@ -195,7 +194,7 @@ def ablation(root: Path, run_ids: list[str], out: Path) -> list[dict]:
         "unexpected ablation run IDs",
     )
     with (out / "ablation.csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     (out / "commands.txt").write_text(
@@ -230,9 +229,9 @@ def write_report(out: Path, evidence: dict) -> None:
             "default second period of 2 (the historical Java implementation used 1). "
             "Ties classify down. LEAN warmup and bar boundaries may differ from MT4.",
             "",
-            "Some runs may predate the engine configuration sidecar: "
-            "qa-resolved-config.json is an explicitly labeled QA snapshot when that "
-            "sidecar is absent. Actual model parity is checked from each engine log.",
+            "Both resolved configurations are engine-written strategy-config.json artifacts. "
+            "Their hashes are recorded; no QA snapshot fallback is accepted. "
+            "Actual model parity is checked from each engine log.",
             "",
             "Decision artifacts expose consumed directions and feature hashes, but "
             "not per-bar readiness or underlying candle times. Native integration "
@@ -270,6 +269,7 @@ def main() -> None:
     parser.add_argument("--data-root", required=True, type=Path)
     parser.add_argument("--runs", action="append", required=True)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--code-revision", required=True, help="Clean commit used for both runs")
     args = parser.parse_args()
     require(len(args.runs) == 2 and len(set(args.runs)) == 2, "provide two distinct --runs IDs")
     args.out.mkdir(parents=True, exist_ok=True)
@@ -281,6 +281,7 @@ def main() -> None:
     compare_configs(*runs)
     evidence = {
         "scope": "real completed-run artifact QA; native and quality gates separate",
+        "code_revision": args.code_revision,
         "runs": runs,
         "data_provenance": data_provenance(root, runs[0]["manifest"]),
         "decision_comparison": compare_decisions(root, args.runs),

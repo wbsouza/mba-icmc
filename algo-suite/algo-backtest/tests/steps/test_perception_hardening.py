@@ -51,13 +51,27 @@ def _result(ctx, result):
 
 @given("the native strategy source wiring probe")
 def _native_wiring(ctx, native_dsha_probe):
-    ctx["wiring_logs"] = native_dsha_probe
+    ctx["wiring"] = native_dsha_probe["wiring"]
 
 
 @when("EMA and candidate source configurations are exercised")
 @then("candidate readiness gates the chain and replaces only both trend directions")
 def _wiring(ctx):
-    assert "DSHA|SOURCE_WIRING" in ctx["wiring_logs"]
+    observed = ctx["wiring"]
+    assert {key: value for key, value in observed.items() if key not in {
+        "candidate_features", "ema_features", "primary_direction", "higher_direction"}} == {
+            "ema_selected": True, "ema_ready": True, "ema_unready": False,
+            "candidate_selected": True, "candidate_initial_ready": False,
+            "empty_samples": 0, "first_samples": 1, "primary_only_ready": False,
+            "both_ready": True, "other_indicator_unready": False,
+        }
+    candidate, ema = observed["candidate_features"], observed["ema_features"]
+    assert candidate["trend_direction"] == observed["primary_direction"] == 1
+    assert candidate["higher_tf_trend_direction"] == observed["higher_direction"] == 1
+    assert ema["trend_direction"] == 0
+    assert ema["higher_tf_trend_direction"] == -1
+    unrelated = ema.keys() - {"trend_direction", "higher_tf_trend_direction"}
+    assert {key: candidate[key] for key in unrelated} == {key: ema[key] for key in unrelated}
 
 
 @given("a direct higher timeframe of one minute")

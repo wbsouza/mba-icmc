@@ -186,3 +186,21 @@ and [native consolidator](https://github.com/QuantConnect/Lean/blob/master/Commo
 The indicator is manually updated and publishes `current`/`on_updated`; do not
 also register it for automatic updates. LEAN streaming initialization and session
 boundaries can differ from the original MT4 historical-array calculations.
+
+### Resolved strategy config artifact
+
+Chain-driven runs (`baseline`, `baseline-dsha`, `hybrid`) publish
+`strategy-config.json` in the run results directory during initialization.
+It contains the fully resolved `StrategyChainConfig.raw` mapping, including
+inherited settings, serialized as deterministic UTF-8 JSON. It is published via
+the shared atomic writer (same-directory temporary file followed by replace).
+Unsupported or non-finite JSON values fail explicitly before replacing an
+existing artifact. Its presence records configuration, **not successful run
+completion**; completed runs still require `run.json`/`metrics.json`.
+Ablation QA requires and hashes the engine-written config for both runs.
+
+`make check` includes the offline perception dependency-boundary gate.
+`make check-perception` runs the full host/native coverage, CRAP and mutation
+gauntlet (requires the pinned LEAN Docker image). Pure perception modules also
+belong to the package's standard mutmut scope; native adapters are tested by the
+Docker-backed target. See the done story's validation report for measured results.

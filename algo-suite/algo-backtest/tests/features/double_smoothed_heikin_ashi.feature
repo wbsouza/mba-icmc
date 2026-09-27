@@ -107,3 +107,16 @@ Feature: Double-smoothed Heikin-Ashi is a selectable F1 perception candidate
     When the inherited strategy configurations are resolved
     Then baseline keeps EMA and baseline-dsha selects double-smoothed Heikin-Ashi
     And the model artifact and remaining filter configuration are identical
+
+  Scenario: The packaged hybrid strategy preserves its EMA perception default
+    Given the packaged hybrid strategy configuration
+    When the perception configuration is parsed
+    Then the selected perception source is "ema"
+
+  @integration
+  Scenario: Real DSHA directions feed the F1 conflict gate and combined score
+    Given native primary and higher-timeframe Heikin-Ashi perception
+    When the primary direction changes before the higher candle closes
+    Then F1 vetoes the real direction conflict
+    When the higher candle closes aligned with the primary
+    Then F1 recommends SELL with DSHA direction times EMA strength

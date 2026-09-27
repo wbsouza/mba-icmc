@@ -15,26 +15,26 @@ def verify_source_wiring(bar):
                                rsi=lambda *args: indicator,
                                macd=lambda *args: indicator)
     ChainAlgorithm._subscribe_indicators(receiver)
-    assert receiver._trend_perception is None
-    assert ChainAlgorithm._indicators_ready(receiver)
+    observed = {"ema_selected": receiver._trend_perception is None,
+                "ema_ready": ChainAlgorithm._indicators_ready(receiver)}
     indicator.is_ready = False
-    assert not ChainAlgorithm._indicators_ready(receiver)
+    observed["ema_unready"] = ChainAlgorithm._indicators_ready(receiver)
     indicator.is_ready = True
     ChainAlgorithm._subscribe_indicators(receiver, PerceptionConfig(
         source="double_smoothed_heikin_ashi", period1=1, period2=1, higher_tf_minutes=2))
     candidate = receiver._trend_perception
-    assert isinstance(candidate, MultiTimeframeHeikinAshi)
-    assert not ChainAlgorithm._indicators_ready(receiver)
+    observed["candidate_selected"] = isinstance(candidate, MultiTimeframeHeikinAshi)
+    observed["candidate_initial_ready"] = ChainAlgorithm._indicators_ready(receiver)
     receiver._indicators_ready = lambda: ChainAlgorithm._indicators_ready(receiver)
     ChainAlgorithm.on_data(receiver, SimpleNamespace(quote_bars={}))
-    assert candidate._primary.samples == 0
+    observed["empty_samples"] = candidate._primary.samples
     ChainAlgorithm.on_data(receiver, SimpleNamespace(quote_bars={bar.symbol: bar}))
-    assert candidate._primary.samples == 1
-    assert not ChainAlgorithm._indicators_ready(receiver)
+    observed["first_samples"] = candidate._primary.samples
+    observed["primary_only_ready"] = ChainAlgorithm._indicators_ready(receiver)
     candidate._higher.update(bar)
-    assert ChainAlgorithm._indicators_ready(receiver)
+    observed["both_ready"] = ChainAlgorithm._indicators_ready(receiver)
     indicator.is_ready = False
-    assert not ChainAlgorithm._indicators_ready(receiver)
+    observed["other_indicator_unready"] = ChainAlgorithm._indicators_ready(receiver)
     indicator.is_ready = True
     receiver._ema_htf = SimpleNamespace(is_ready=True, current=SimpleNamespace(value=20))
     receiver.securities = {bar.symbol: SimpleNamespace(price=12)}
@@ -45,9 +45,7 @@ def verify_source_wiring(bar):
     candidate_features = ChainAlgorithm._features(receiver)
     receiver._trend_perception = None
     ema_features = ChainAlgorithm._features(receiver)
-    assert candidate_features["trend_direction"] == candidate._primary.direction
-    assert candidate_features["higher_tf_trend_direction"] == candidate._higher.direction
-    assert candidate_features["trend_direction"] != ema_features["trend_direction"]
-    assert candidate_features["higher_tf_trend_direction"] != ema_features["higher_tf_trend_direction"]
-    for key in ema_features.keys() - {"trend_direction", "higher_tf_trend_direction"}:
-        assert candidate_features[key] == ema_features[key], key
+    observed.update(candidate_features=candidate_features, ema_features=ema_features,
+                    primary_direction=candidate._primary.direction,
+                    higher_direction=candidate._higher.direction)
+    return observed

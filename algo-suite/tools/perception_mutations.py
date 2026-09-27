@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import cast
 
 _harness = import_module("mutation_harness")
-_cap_memory = _harness._cap_memory
+cap_memory = _harness.cap_memory
 generate_mutants = _harness.generate_mutants
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,7 +43,7 @@ raise SystemExit(pytest.main(sys.argv[2:]))
                str(TESTS / "test_perception_hardening.py"), "-q", "-m",
                "" if native else "not integration", "-p", "no:cacheprovider",
                "--basetemp", str(scratch / "pytest-results")]
-    command, preexec = _cap_memory(command)
+    command, preexec = cap_memory(command)
     environment = dict(os.environ, PYTHONPATH=str(scratch), PYTHONDONTWRITEBYTECODE="1")
     process = subprocess.Popen(command, cwd=ROOT, env=environment,
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
