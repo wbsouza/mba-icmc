@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from perception_quality import function_scores
+from quality_common import function_scores
 
 PACKAGE = Path(__file__).resolve().parents[1] / "algo-analyze/src/algo_analyze"
 CORE = ("deflated", "significance", "portfolio", "reports")
@@ -19,8 +19,11 @@ ALLOWED = {
                      "numpy.typing", "algo_analyze.deflated"},
     "portfolio": {"__future__", "hashlib", "json", "math", "dataclasses", "datetime",
                   "pathlib", "typing", "algo_analyze.deflated"},
-    "reports": {"__future__", "dataclasses", "pathlib", "typing", "algo_backtest.metrics",
-                "algo_analyze.deflated", "algo_analyze.portfolio", "algo_analyze.significance"},
+    "reports": {
+        "__future__", "json", "dataclasses", "pathlib", "statistics", "typing",
+        "algo_backtest.metrics", "algo_analyze.deflated", "algo_analyze.portfolio",
+        "algo_analyze.significance",
+    },
 }
 
 
@@ -60,6 +63,8 @@ def score_module(module: str, files: dict[str, Any]) -> list[str]:
     coverage = executed / (executed + missing)
     if module in CORE and coverage < .95:
         errors.append(f"{module}: line coverage {coverage:.1%} below 95%")
+    if module == "cli" and coverage < .95:
+        errors.append(f"{module}: line coverage {coverage:.1%} below 95%")
     for name, complexity, covered, crap in function_scores(source, data):
         if module == "cli" and name not in CLI_FUNCTIONS:
             continue
@@ -72,8 +77,19 @@ def score_module(module: str, files: dict[str, Any]) -> list[str]:
 def main() -> int:
     """Run the fixed story scope without excluding newly uncovered paths."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--coverage", type=Path, required=True)
+    parser.add_argument("--architecture-only", action="store_true")
+    parser.add_argument("--coverage", type=Path)
     args = parser.parse_args()
+    if args.architecture_only:
+        architecture_failures = [error for module in CORE for error in architecture_errors(
+            module, (PACKAGE / f"{module}.py").read_text()
+        )]
+        for error in architecture_failures:
+            print(f"FAIL: {error}")
+        print(f"Inference architecture gate: {'FAIL' if architecture_failures else 'PASS'}")
+        return int(bool(architecture_failures))
+    if args.coverage is None:
+        parser.error("--coverage is required unless --architecture-only is selected")
     files = json.loads(args.coverage.read_text())["files"]
     errors: list[str] = []
     for module in (*CORE, "cli"):

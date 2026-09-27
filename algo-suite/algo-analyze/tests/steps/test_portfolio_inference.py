@@ -45,7 +45,7 @@ def write_portfolio(path: Path, offset: float = 0.0) -> None:
             "timezone": "UTC",
             "annualization": 365,
             "risk_free_daily": 0,
-            "costs": "engine costs",
+            "costs": "brokerage:fixture",
             "symbol": "EURUSD",
             "start": "2020-01-01",
             "end": "2020-04-30",
@@ -77,14 +77,10 @@ def metrics(pctx: dict[str, Any]) -> None:
     path = pctx["root"] / "selection.json"
     path.write_text(
         json.dumps(
-            dict(
-                n_trials=10,
-                trial_count=20,
-                interim_looks=1,
-                trial_sharpe_std=0.02,
-                frequency="calendar-day",
-                provenance="registered development search",
-            )
+            dict(n_trials=10, interim_looks=1, frequency="calendar-day",
+                 provenance="registered development search",
+                 trials=[{"run_id": f"candidate-{i}", "daily_sharpe": i / 100}
+                         for i in range(20)])
         )
     )
     pctx["report"] = metrics_report(pctx["a"], path)
@@ -101,6 +97,8 @@ def metric_assert(pctx: dict[str, Any]) -> None:
     assert result["descriptive_metrics"]["sharpe"] == 99
     assert len(result["portfolio"]["source_sha256"]) == 64
     assert len(result["selection"]["source_sha256"]) == 64
+    assert result["selection"]["source_kind"] == "computed"
+    assert result["selection"]["trial_count"] == 20
 
 
 @when("paired portfolio significance is reported")

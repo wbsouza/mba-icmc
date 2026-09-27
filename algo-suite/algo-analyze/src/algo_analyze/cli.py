@@ -92,7 +92,7 @@ def metrics(
         result = metrics_report(
             config.data_root / "runs" / run, Path(selection) if selection else None
         )
-    except (FileNotFoundError, ValueError, TypeError) as exc:
+    except (FileNotFoundError, ValueError) as exc:
         _fail(exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 
@@ -123,7 +123,7 @@ def significance(
             seed=seed,
             block_rule=block_rule,
         )
-    except (FileNotFoundError, ValueError, TypeError) as exc:
+    except (FileNotFoundError, ValueError) as exc:
         _fail(exc)
     typer.echo(json.dumps(result, indent=2, sort_keys=True))
 

@@ -77,10 +77,15 @@ def _match_manifest(run_dir: Path, data: dict[str, Any]) -> None:
 
 
 def _point(row: Any) -> tuple[int, float]:
-    """Read LEAN line [epoch,y] or candle [epoch,open,high,low,close] points."""
+    """Read LEAN line or candle points at the bucket-start mark.
+
+    LEAN stamps candle rows at the start of their aggregation bucket.  The open
+    is therefore the mark at the timestamp; the close is a later intra-bucket
+    observation and cannot represent an exact midnight endpoint.
+    """
     if not isinstance(row, list) or len(row) not in (2, 5):
         raise ValueError("equity points require [epoch,value] or [epoch,open,high,low,close]")
-    timestamp, value = row[0], row[-1]
+    timestamp, value = row[0], row[1] if len(row) == 5 else row[-1]
     if type(timestamp) is not int:
         raise ValueError("equity timestamp must be integer Unix seconds")
     if type(value) not in (int, float):

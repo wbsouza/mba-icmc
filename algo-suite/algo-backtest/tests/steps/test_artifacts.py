@@ -48,6 +48,11 @@ def _run_json(art_ctx: dict[str, Any], strategy: str, symbol: str) -> None:
     assert doc["strategy"] == strategy
     assert doc["symbol"] == symbol
     assert doc["start"] == "2014-05-07" and doc["end"] == "2014-05-09"
+    contract = json.loads(art_ctx["artifacts"].inference_inputs_json.read_text())
+    assert contract["symbol"] == symbol
+    assert contract["end"] == "2014-05-10"
+    assert contract["costs"] == "brokerage:unknown"
+    assert len(doc["inference_inputs_sha256"]) == 64
 
 
 @then(parsers.parse("trades.json lists {n:d} closed trades"))

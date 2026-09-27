@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from pathlib import Path
+from statistics import stdev
 from typing import Any
 
 from algo_backtest.metrics import metrics_from_artifact
@@ -17,7 +19,6 @@ from algo_analyze.deflated import (
 from algo_analyze.portfolio import (
     align_portfolios,
     load_portfolio_returns,
-    read_object,
     source_hash,
 )
 from algo_analyze.significance import paired_block_test, validate_block_settings
@@ -26,10 +27,18 @@ LEGACY_NOTICE = "pre-v2 deflated_sharpe adjustments and pooled-trade p-values ar
 
 
 def _selection(path: Path | None) -> dict[str, Any]:
-    """Load declared search history in the same nonannualized return frequency."""
+    """Load a computed trial ledger or an explicitly declared external history."""
     if path is None or not path.exists():
         raise InferenceUnavailable("selection history absent; supply --selection manifest.json")
-    data = read_object(path)
+    raw = json.loads(path.read_text())
+    if isinstance(raw, list):
+        data = _selection_from_ledger(raw)
+    elif isinstance(raw, dict) and isinstance(raw.get("trials"), list):
+        data = _selection_from_ledger(raw["trials"], raw)
+    elif isinstance(raw, dict):
+        data = {**raw, "source_kind": "declared"}
+    else:
+        raise ValueError("selection history must be an object or trial ledger")
     required = {
         "n_trials",
         "trial_sharpe_std",
@@ -45,6 +54,33 @@ def _selection(path: Path | None) -> dict[str, Any]:
     _validate_selection_counts(data)
     data["source_sha256"] = source_hash(path)
     return data
+
+
+def _selection_from_ledger(
+    trials: list[Any], metadata: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Compute DSR selection dispersion from an auditable trial ledger."""
+    values = []
+    for trial in trials:
+        value = trial.get("daily_sharpe") if isinstance(trial, dict) else trial
+        if type(value) not in (int, float) or not isinstance(value, (int, float)):
+            raise ValueError("selection ledger requires finite daily_sharpe values")
+        values.append(float(value))
+    if len(values) < 2:
+        raise ValueError("selection ledger requires at least two trials")
+    result = dict(metadata or {})
+    result.update(
+        n_trials=result.get("n_trials", len(values)),
+        trial_count=len(values),
+        trial_sharpe_std=stdev(values),
+        frequency=result.get("frequency", "calendar-day"),
+        provenance=result.get("provenance", "computed from trial ledger"),
+        interim_looks=result.get("interim_looks", 1),
+        source_kind="computed",
+    )
+    if result["n_trials"] > len(values):
+        raise ValueError("effective n_trials cannot exceed trial ledger length")
+    return result
 
 
 def _validate_selection_counts(data: dict[str, Any]) -> None:
@@ -116,8 +152,8 @@ def significance_report(
         validate_block_settings(length, n_resamples, seed)
     report: dict[str, Any] = {
         "schema_version": 2,
-        "run_a": str(run_a),
-        "run_b": str(run_b),
+        "run_a": run_a.name,
+        "run_b": run_b.name,
         "legacy_notice": LEGACY_NOTICE,
         "block_rule": block_rule,
         "prespecified_block_lengths": block_lengths,

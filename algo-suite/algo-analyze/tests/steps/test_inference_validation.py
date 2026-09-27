@@ -46,7 +46,8 @@ def _change_equity(data: dict[str, Any], change: str) -> None:
         "zero equity": lambda: rows[0].__setitem__(1, 0),
         "overflow return": lambda: rows[0].__setitem__(1, 1e-320),
         "candle points": lambda: series.update(values=[
-            [row[0], 123, 456, 78, row[1]] for row in rows]),
+            [row[0], row[1], row[1] + 2, row[1] - 2, row[1] + 1] for row in rows]),
+        "duplicate": lambda: rows.insert(10, rows[10]),
         "missing charts": lambda: data.pop("charts"),
     }
     changes[change]()
@@ -99,6 +100,15 @@ def analyze_evidence(evidence: dict[str, Any]) -> None:
         evidence["error"] = str(exc)
 
 
+@then(parsers.parse('the evidence outcome is "{outcome}"'))
+def outcome(evidence: dict[str, Any], outcome: str) -> None:
+    """Keep malformed artifacts on the error channel and missing data unavailable."""
+    if outcome == "error":
+        assert "error" in evidence
+    else:
+        assert evidence.get("result", {}).get("status") == "unavailable"
+
+
 @then(parsers.parse('the evidence diagnostic includes "{diagnostic}"'))
 def diagnosis(evidence: dict[str, Any], diagnostic: str) -> None:
     """Require precise diagnostics rather than a generic exception or NaN output."""
@@ -107,7 +117,7 @@ def diagnosis(evidence: dict[str, Any], diagnostic: str) -> None:
 
 @then("the evidence has 120 daily observations and a finite probability")
 def valid_result(evidence: dict[str, Any]) -> None:
-    """Candle open/high/low must not substitute for marked-to-market close."""
+    """Candle open is the bucket-start mark; later OHLC fields are ignored."""
     result = evidence["result"]
     assert result["status"] == "available"
     assert result["moments"]["n_returns"] == 120

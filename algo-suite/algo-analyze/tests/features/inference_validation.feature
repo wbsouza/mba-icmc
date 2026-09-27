@@ -27,11 +27,22 @@ Feature: Inference rejects malformed evidence instead of fabricating certainty
       | selection.json | excessive n_trials | cannot exceed |
       | selection.json | empty provenance | provenance must be nonempty |
 
-  Scenario: Candle close is used for portfolio mark to market
+  Scenario: Candle open is used for the bucket-start portfolio mark
     Given valid inference evidence
     And artifact main.json has candle points
     When the evidence is analyzed
     Then the evidence has 120 daily observations and a finite probability
+
+  Scenario Outline: Invalid artifacts and unavailable inference use distinct channels
+    Given valid inference evidence
+    And artifact <artifact> has <change>
+    When the evidence is analyzed
+    Then the evidence outcome is "<outcome>"
+    Examples:
+      | artifact | change | outcome |
+      | main.json | absent | unavailable |
+      | main.json | duplicate | error |
+      | run.json | unsuccessful | error |
 
   Scenario: Portfolio pairs cannot mix cost assumptions
     Given valid inference evidence

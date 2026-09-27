@@ -41,9 +41,11 @@ rather than a corrupt one.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from dataclasses import asdict, dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +66,7 @@ class RunManifest:
     params: dict[str, str]
     success: bool
     closed_trades: int
+    broker_adapter: str = "unknown"
 
 
 @dataclass(frozen=True)
@@ -73,6 +76,7 @@ class Artifacts:
     run_json: Path
     trades_json: Path
     metrics_json: Path
+    inference_inputs_json: Path
 
 
 def write_run_artifacts(
@@ -96,10 +100,32 @@ def write_run_artifacts(
     trades_path = results_dir / "trades.json"
     write_text_atomic(trades_path, json.dumps(normalized_trades, indent=2))
 
+    inference_path = results_dir / "inference-inputs.json"
+    inference = {
+        "source": "main.json",
+        "frequency": "calendar-day",
+        "timezone": "UTC",
+        "annualization": 365,
+        "risk_free_daily": 0,
+        "costs": f"brokerage:{manifest.broker_adapter}",
+        "symbol": manifest.symbol,
+        "start": manifest.start,
+        "end": (date.fromisoformat(manifest.end) + timedelta(days=1)).isoformat(),
+    }
+    write_text_atomic(inference_path, json.dumps(inference, indent=2))
+    manifest_doc = asdict(manifest)
+    manifest_doc["inference_inputs_sha256"] = hashlib.sha256(
+        inference_path.read_bytes()
+    ).hexdigest()
+    write_text_atomic(run_path, json.dumps(manifest_doc, indent=2))
+
     metrics_path = results_dir / "metrics.json"
     write_text_atomic(metrics_path, json.dumps(metrics.as_dict(), indent=2))
 
-    return Artifacts(run_json=run_path, trades_json=trades_path, metrics_json=metrics_path)
+    return Artifacts(
+        run_json=run_path, trades_json=trades_path, metrics_json=metrics_path,
+        inference_inputs_json=inference_path,
+    )
 
 
 def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:

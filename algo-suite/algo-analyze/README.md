@@ -4,7 +4,9 @@
 metrics from `deflated_sharpe_probability`. Missing source/search history produces
 an explicit unavailable result. No default trial count or normal moments exists.
 
-Each run needs `inference-inputs.json`, an explicit reproducibility contract:
+`algo-backtest run` emits `inference-inputs.json` beside each completed run as an
+explicit reproducibility contract. External historical runs may provide the same
+file through a separately archived producer manifest:
 
 ```json
 {"source":"main.json","frequency":"calendar-day","timezone":"UTC",
@@ -15,7 +17,8 @@ Each run needs `inference-inputs.json`, an explicit reproducibility contract:
 Dates delimit return intervals: start is the initial midnight equity endpoint;
 end is exclusive relative to the inclusive `run.json` evaluation dates. They must
 match the run symbol and full window. The loader reads LEAN's actual marked-to-market
-`charts/Strategy Equity/series/Equity/values` (`[epoch,value]` or OHLC close), retaining
+`charts/Strategy Equity/series/Equity/values` (`[epoch,value]` or candle open at the
+bucket start), retaining
 flat periods. Every exact UTC midnight endpoint must exist. No weekend filling,
 interpolation, trimming, or trade-ledger substitution is allowed. Downsampled engine
 charts without those endpoints are unavailable: rerun with a complete equity export.
@@ -23,16 +26,20 @@ Changing analysis does not itself require model retraining. Source and contract 
 hashes are recorded. Costs are an explicit engine convention, not a claim of realistic
 execution. Zero daily risk-free rate and 365 calendar periods/year are deliberate.
 
-Selection manifest example (numbers must come from the actual search record):
+Selection ledger example (the analyzer computes dispersion from the search record):
 
 ```json
-{"n_trials":10,"trial_count":20,"interim_looks":1,"trial_sharpe_std":0.02,
- "frequency":"calendar-day","provenance":"registered candidate ledger and dependence estimate"}
+{"n_trials":10,"interim_looks":1,"frequency":"calendar-day",
+ "provenance":"registered candidate ledger",
+ "trials":[{"run_id":"candidate-01","daily_sharpe":0.02}]}
 ```
 
 `n_trials` is effective independent count; `trial_count` retains actual searched
-variants. Dispersion is the across-trial SD of nonannualized daily Sharpe, never
-one strategy's standard error. One registered trial permits null dispersion and uses
+variants. The ledger form computes and hashes the across-trial SD of nonannualized
+daily Sharpe, never one strategy's standard error. A legacy manifest form remains
+accepted only for explicitly registered external histories and is labeled
+`source_kind: declared`; computed ledgers are labeled `source_kind: computed`.
+One registered trial permits null dispersion and uses
 PSR against zero. Return moments use sample SD (ddof1) for SR and uncorrected central
 moments for skew/Pearson kurtosis. DSR implements Bailey–López de Prado (2014), Eq2,
 including the expected-maximum selection threshold. Its classical asymptotic assumptions

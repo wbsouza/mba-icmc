@@ -40,9 +40,13 @@ differences are unavailable because uncertainty cannot be estimated. Stationarit
 weak dependence and finite moments are assumptions, not effects of daily
 aggregation. Structural breaks and long memory need separate assessment.
 
-For illustrative development validation, declare L=20 primary and L=10,40
-sensitivity before evaluation. These are not validated trading-experiment
-settings and may not be chosen retrospectively to minimize a p-value.
+For the planned daily windows, register the deterministic rule
+`L = max(1, floor(n^(1/3)))` before evaluation, with any fixed sensitivity
+lengths declared alongside it. This yields feasible primary blocks at n≈90–180
+while retaining the `n/L >= 10` guard. The L=20/10/40 settings below remain
+illustrative development validation settings only and may not be chosen
+retrospectively to minimize a p-value. The calibration study must include n=90
+and n=180 before this rule is used for confirmatory claims.
 
 ## Independent validation study (registered configuration)
 

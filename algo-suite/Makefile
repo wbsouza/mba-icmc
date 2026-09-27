@@ -24,7 +24,7 @@ type: ## mypy across the workspace
 test: ## pytest across the workspace (exit 5 = no tests collected, not a failure)
 	@uv run pytest; rc=$$?; [ $$rc -eq 0 ] || [ $$rc -eq 5 ]
 
-check: lint type test check-perception-architecture ## Lint + type + test
+check: lint type test check-perception-architecture check-inference-architecture ## Lint + type + test
 
 audit: ## Scan third-party dependencies for known vulnerabilities (pip-audit)
 	uv run --with pip-audit pip-audit --skip-editable
@@ -46,6 +46,9 @@ report-html: ## Generate a single-file Allure HTML report (opens via file://)
 
 check-perception-architecture: ## Check pure/native perception dependency boundaries (offline)
 	uv run python tools/perception_quality.py --architecture-only
+
+check-inference-architecture: ## Check inference dependency boundaries (offline)
+	uv run python tools/inference_quality.py --architecture-only
 
 check-perception: ## Run perception coverage, native LEAN assertions, CRAP and mutations (Docker)
 	uv run pytest algo-backtest/tests/steps/test_double_smoothed_heikin_ashi.py algo-backtest/tests/steps/test_perception_hardening.py algo-backtest/tests/steps/test_offline_dsha.py --cov=algo_backtest.perception --cov-report=json:build/perception-host-coverage.json
