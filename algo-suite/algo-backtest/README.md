@@ -23,8 +23,11 @@ score → **backtest** → analyze.
   MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
   Working Orders, the two-column A/C Summary, then Performance and Parameters with
   provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
-  prices carry), and an **`equity.png`** equity/drawdown chart, both built purely from
-  those artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`. The target `trades.parquet` schema and `parameters.txt` are not built yet
+  prices carry), an **`equity.png`** equity/drawdown chart and **`equity.csv`** (the
+  chart's series, one row per LEAN equity sample: `time` ISO-8601 UTC, `equity`,
+  `drawdown_pct` — the input of `algo-analyze equity-curves`), all built purely from
+  those artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`.
+  The target `trades.parquet` schema and `parameters.txt` are not built yet
   (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.
@@ -34,7 +37,7 @@ score → **backtest** → analyze.
 | Direction | Item |
 |---|---|
 | In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` also reads `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
-| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, `statement.md` + `equity.png` (end-of-run statement and chart), and `decisions.parquet` for `baseline`/`hybrid` |
+| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, `statement.md` + `equity.png` + `equity.csv` (end-of-run statement, chart and its `time,equity,drawdown_pct` series), and `decisions.parquet` for `baseline`/`hybrid` |
 
 ## CLI
 
@@ -52,11 +55,13 @@ uv run algo-backtest lean-smoke
 uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2014-05-07 --to 2014-05-09
 #   -> writes run.json + trades.json + metrics.json to runs/<strategy>/<stamp>/, prints
 #      metrics: total_return=… sharpe=… max_drawdown=… hit_rate=…, then writes the
-#      broker-style statement.md + equity.png there and prints its A/C summary lines.
+#      broker-style statement.md + equity.png + equity.csv there and prints its A/C
+#      summary lines.
 # Re-extract the four Chapter-4 metrics from a finished run's artifacts:
 uv run algo-backtest metrics --run <results-dir>
-# Regenerate statement.md + equity.png for a finished run (any run on disk, including
-# ones that predate the statement); --out DIR writes them elsewhere. Exits 2 naming the
+# Regenerate statement.md + equity.png + equity.csv for a finished run (any run on disk,
+# including ones that predate the statement — `algo-analyze equity-curves` needs the
+# equity.csv this writes); --out DIR writes them elsewhere. Exits 2 naming the
 # file when run.json / trades.json / main.json / main-order-events.json is missing or
 # malformed. S/L and T/P columns show "—" and the statement says "no trade plan
 # recorded for this run" until the plan-driven executor writes trade-plans.json:

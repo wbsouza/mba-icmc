@@ -19,11 +19,13 @@ from algo_backtest.statement import (
     Statement,
     build_statement,
     drawdowns,
+    equity_rows,
     equity_series,
     format_time,
     header_line,
     load_run_artifacts,
     price_precision,
+    render_equity_csv,
     render_markdown,
     summary_lines,
     unix_time,
@@ -385,6 +387,13 @@ def _read_equity(st_ctx: dict[str, Any]) -> None:
     st_ctx["series"] = equity_series(json.loads((run_dir / "main.json").read_text()))
 
 
+@when("I build the equity rows")
+def _build_equity_rows(st_ctx: dict[str, Any]) -> None:
+    run_dir = _materialize(st_ctx)
+    series = equity_series(json.loads((run_dir / "main.json").read_text()))
+    st_ctx["equity_rows_out"] = equity_rows(series)
+
+
 @when(parsers.parse("I compute drawdowns for the equity values {values}"))
 def _compute_drawdowns(st_ctx: dict[str, Any], values: str) -> None:
     st_ctx["drawdowns"] = drawdowns([float(v) for v in values.split(",")])
@@ -657,6 +666,20 @@ def _equity_series_is(st_ctx: dict[str, Any], datatable: list[list[str]]) -> Non
     assert st_ctx["series"] == expected
 
 
+@then("the equity rows are")
+def _equity_rows_are(st_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    _header, *rows = datatable
+    got = st_ctx["equity_rows_out"]
+    assert [row.time for row in got] == [t for t, _, _ in rows]
+    assert [row.equity for row in got] == pytest.approx([float(e) for _, e, _ in rows])
+    assert [row.drawdown_pct for row in got] == pytest.approx([float(d) for _, _, d in rows])
+
+
+@then("the equity CSV text is")
+def _equity_csv_text(st_ctx: dict[str, Any], docstring: str) -> None:
+    assert render_equity_csv(st_ctx["equity_rows_out"]).splitlines() == docstring.splitlines()
+
+
 @then(parsers.parse("the drawdowns are {values}"))
 def _drawdowns_are(st_ctx: dict[str, Any], values: str) -> None:
     assert st_ctx["drawdowns"] == pytest.approx([float(v) for v in values.split(",")])
@@ -697,11 +720,27 @@ def _out_dir_contains(st_ctx: dict[str, Any], first: str, second: str) -> None:
     assert not (st_ctx["run_dir"] / first).exists()
 
 
-@then(parsers.parse('the output prints the A/C summary balance "{balance}" and both file paths'))
+@then(
+    parsers.parse(
+        'the run directory\'s "{name}" has the header "{header}" and {count:d} data row'
+    )
+)
+def _run_dir_csv(st_ctx: dict[str, Any], name: str, header: str, count: int) -> None:
+    lines = (st_ctx["run_dir"] / name).read_text().splitlines()
+    assert lines[0] == header and len(lines) - 1 == count, lines
+
+
+@then(
+    parsers.parse(
+        'the output prints the A/C summary balance "{balance}" and all three file paths'
+    )
+)
 def _cli_output(st_ctx: dict[str, Any], balance: str) -> None:
     out = st_ctx["cli"].output
+    run_dir: Path = st_ctx["run_dir"]
     assert f"statement: Balance: {balance}" in out, out
-    assert str(st_ctx["run_dir"] / "statement.md") in out and "equity.png" in out, out
+    for name in ("statement.md", "equity.png", "equity.csv"):
+        assert str(run_dir / name) in out, out
 
 
 @then(parsers.parse('the output names "{artifact}"'))
