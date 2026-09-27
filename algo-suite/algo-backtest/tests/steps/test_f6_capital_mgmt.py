@@ -11,6 +11,7 @@ import yaml
 from algo_backtest.chain.filters.f6_capital_mgmt import (
     CapitalMgmtConfig,
     CapitalMgmtFilter,
+    capital_mgmt_mapping,
     parse_capital_mgmt_config,
 )
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
@@ -196,3 +197,38 @@ def _parsed_config(
 def _parse_failure_names(f6_ctx: _F6Ctx, fragment: str) -> None:
     assert f6_ctx.parse_error is not None
     assert fragment in str(f6_ctx.parse_error)
+
+
+@given("a complete five-key capital_mgmt section")
+def _five_key_section(f6_ctx: _F6Ctx) -> None:
+    """The pre-story-12 section: the five sizing keys, no trade-plan key."""
+    f6_ctx.section = dict(_SECTION_DEFAULTS)
+
+
+@given(parsers.parse("the capital_mgmt section sets {key} to {value}"))
+def _section_sets(f6_ctx: _F6Ctx, key: str, value: str) -> None:
+    """Add or override one key; the table cell is flow-style YAML (lists, mappings, null)."""
+    f6_ctx.section[key] = yaml.safe_load(value)
+
+
+def _mapping(f6_ctx: _F6Ctx) -> dict[str, Any]:
+    """The effective values of the parsed config, as the loader writes them back."""
+    assert f6_ctx.parsed_config is not None
+    return capital_mgmt_mapping(f6_ctx.parsed_config)
+
+
+@then(parsers.parse("the capital-mgmt mapping records {key} {value}"))
+def _mapping_records(f6_ctx: _F6Ctx, key: str, value: str) -> None:
+    assert _mapping(f6_ctx)[key] == yaml.safe_load(value)
+
+
+@then("parsing the capital-mgmt mapping again yields an equal config")
+def _mapping_round_trips(f6_ctx: _F6Ctx) -> None:
+    assert parse_capital_mgmt_config(_mapping(f6_ctx), strategy="rt") == f6_ctx.parsed_config
+
+
+@then("the capital-mgmt mapping survives a YAML safe_dump round trip")
+def _mapping_yaml_safe(f6_ctx: _F6Ctx) -> None:
+    """`yaml.safe_dump` must not need python-specific tags (tuples), or safe_load breaks."""
+    mapping = _mapping(f6_ctx)
+    assert yaml.safe_load(yaml.safe_dump(mapping)) == mapping

@@ -87,6 +87,64 @@ Feature: Strategy-chain config loading (Spec 04h)
       Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 240, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
       And the loaded strategy's raw config records price_features.ema_higher_tf 240
 
+    Scenario: execution is always resolved, defaulting when the section is absent (story 12)
+      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      When strategy "plain" is loaded
+      Then the loaded strategy's execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0
+      And the loaded strategy's raw config records execution.spread_pips 0.0
+      And the loaded strategy's parameter "execution.min_hold_bars" comes from "default"
+
+    Scenario: a partial execution section overrides, the rest defaults, each with its provenance
+      Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
+      And "custom" adds a "execution" section {spread_pips: 1.0}
+      When strategy "custom" is loaded
+      Then the loaded strategy's execution config is spread_pips 1.0, commission_per_lot 0.0, min_hold_bars 0
+      And the loaded strategy's raw config records execution.commission_per_lot 0.0
+      And the loaded strategy's parameter "execution.spread_pips" comes from "custom/config.yaml"
+      And the loaded strategy's parameter "execution.commission_per_lot" comes from "default"
+
+    Scenario Outline: a five-key capital_mgmt section resolves the trade-plan default for <key> and records it
+      Given a strategy config directory with "sized" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      When strategy "sized" is loaded
+      Then the loaded strategy's raw config records capital_mgmt.<key> <value>
+      And the loaded strategy's parameter "capital_mgmt.<key>" comes from "default"
+      And the loaded strategy's parameter "capital_mgmt.risk_per_trade" comes from "sized/config.yaml"
+
+      Examples:
+        | key                  | value                                        |
+        | stop_loss_shrink     | 0.0                                          |
+        | targets              | [{at_level_ratio: 2.0, close_fraction: 1.0}] |
+        | trail_stops          | []                                           |
+        | min_reward_risk      | null                                         |
+        | stop_distance_source | fixed                                        |
+
+    Scenario: an explicit trade-plan key keeps its file as provenance
+      Given a strategy config directory with "planned" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      And "planned" also declares capital_mgmt.min_reward_risk as 2.0
+      When strategy "planned" is loaded
+      Then the loaded strategy's raw config records capital_mgmt.min_reward_risk 2.0
+      And the loaded strategy's parameter "capital_mgmt.min_reward_risk" comes from "planned/config.yaml"
+
+    Scenario Outline: an invalid <section> trade-plan or execution value fails fast at load (<case>)
+      Given a strategy config directory with "bad" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      And "bad" also declares <section>.<key> as <value>
+      When loading strategy "bad" fails
+      Then the failure names "<key>"
+      And the failure names "bad"
+
+      Examples:
+        | case                     | section      | key                  | value |
+        | stop shrink of 100%      | capital_mgmt | stop_loss_shrink     | 1.0   |
+        | unknown stop source      | capital_mgmt | stop_distance_source | swing |
+        | negative spread          | execution    | spread_pips          | -1    |
+        | fractional hold          | execution    | min_hold_bars        | 1.5   |
+
+    Scenario: an execution section that is not a mapping fails fast
+      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      And "odd" replaces its "execution" section with a scalar
+      When loading strategy "odd" fails
+      Then the failure names "execution"
+
     Scenario Outline: <filter> listed without its optional <section> section resolves defaults and records them
       Given a strategy config directory with "defaulted" filters "<filter>" and families "trend"
       And "defaulted" drops its "<section>" section
@@ -257,6 +315,31 @@ Feature: Strategy-chain config loading (Spec 04h)
         | baseline      |
         | baseline-dsha |
         | hybrid        |
+
+    Scenario Outline: every bundled strategy resolves the A05 trade plan and execution costs (<name>: <section>.<key>)
+      When the real strategy "<name>" is loaded with the default root
+      Then the loaded strategy's raw config records <section>.<key> <value>
+      And the loaded strategy's parameter "<section>.<key>" comes from "baseline/config.yaml"
+
+      Examples:
+        | name          | section      | key                               | value                                          |
+        | baseline      | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline      | capital_mgmt | min_stop_pips                     | 5.0                                            |
+        | baseline      | capital_mgmt | targets                           | [{at_level_ratio: 2.0, close_fraction: 0.5}]   |
+        | baseline      | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | baseline      | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | baseline      | capital_mgmt | stop_distance_source              | fixed                                          |
+        | baseline      | capital_mgmt | atr_multiplier                    | 2.0                                            |
+        | baseline      | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | baseline      | execution    | spread_pips                       | 1.0                                            |
+        | baseline      | execution    | commission_per_lot                | 0.0                                            |
+        | baseline      | execution    | min_hold_bars                     | 0                                              |
+        | hybrid        | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | hybrid        | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | hybrid        | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | hybrid        | execution    | spread_pips                       | 1.0                                            |
+        | baseline-dsha | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline-dsha | execution    | spread_pips                       | 1.0                                            |
 
   Rule: An empty resolved filters list fails fast, whether absent or explicitly empty
 

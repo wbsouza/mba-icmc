@@ -9,6 +9,10 @@ without re-running the engine:
                  trade augmented with a normalized fractional `return` field (Spec 05f)
   metrics.json — the four Chapter-4 metrics (see metrics.py)
 
+Chain-driven runs additionally snapshot the resolved strategy configuration at
+initialization (`write_strategy_config`): `strategy-config.json` and, since story 12,
+`strategy-config.yaml` — the same mapping in the form a strategy `config.yaml` takes.
+
 This layer is pure persistence: the caller parses LEAN's (large) result JSON once and
 passes the derived ledger + metrics in, so a backtest sweep never re-reads it here.
 
@@ -52,7 +56,7 @@ from typing import Any
 from algo_core.atomicio import write_text_atomic
 
 from algo_backtest.metrics import Metrics
-from algo_backtest.strategies import StrategyChainConfig
+from algo_backtest.strategies import StrategyChainConfig, resolved_yaml
 
 
 @dataclass(frozen=True)
@@ -162,11 +166,15 @@ def _normalize_trade(trade: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_strategy_config(results_dir: Path, config: StrategyChainConfig) -> None:
-    """Atomically snapshot resolved config.raw before a chain run starts.
+    """Atomically snapshot resolved config.raw before a chain run starts, twice from the
+    same mapping: `strategy-config.json` (read by the QA and provenance tooling) and
+    `strategy-config.yaml` (story 12; the form a `strategies/<name>/config.yaml` takes, so
+    a run's exact parameters can seed a new variant). The JSON check runs first, so a value
+    JSON rejects never reaches either file.
 
     Raises:
         ValueError: configuration includes unsupported or non-finite JSON values.
-        OSError: the filesystem cannot atomically publish the artifact.
+        OSError: the filesystem cannot atomically publish an artifact.
     """
     try:
         text = json.dumps(dict(config.raw), indent=2, sort_keys=True, allow_nan=False) + "\n"
@@ -176,3 +184,4 @@ def write_strategy_config(results_dir: Path, config: StrategyChainConfig) -> Non
             "values in its config.yaml"
         ) from exc
     write_text_atomic(results_dir / "strategy-config.json", text)
+    write_text_atomic(results_dir / "strategy-config.yaml", resolved_yaml(config))

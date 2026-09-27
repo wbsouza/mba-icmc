@@ -6,9 +6,9 @@
 # probability enters", monografia §"late-fusion"). filters: is written out in full
 # (this module's own merge policy does not diff/insert lists) so the complete chain is
 # auditable here without cross-referencing baseline/config.yaml. The F5/F6/F7 sections
-# (risk_guard, capital_mgmt, meta_learner thresholds and gate) are inherited from
-# baseline unchanged, so both variants face identical execution assumptions; only F4's
-# own section is added here.
+# (risk_guard, capital_mgmt incl. the A05 trade plan, meta_learner thresholds and gate)
+# and the execution costs section are inherited from baseline unchanged, so both variants
+# face identical execution assumptions; only F4's own section is added here.
 schema_version: 2
 extends: baseline
 

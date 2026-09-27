@@ -44,19 +44,45 @@ risk_guard:
   portfolio_at_risk_cap: 0.10
   daily_drawdown_limit: -0.05
   weekly_drawdown_limit: -0.15
-  max_concurrent_trades_per_account: 5
+  max_concurrent_trades_per_account: 2   # A05 `openOrderByHasArrow.maxLimit` (specs.md §14.7)
   max_leverage: 30
 
-# F6 — fixed-fractional sizing (specs.md §14.7, 3% for Strategy A05) and the per-lot
-# economics the chain feeds it. No ATR indicator is wired yet (TD-51): the stop distance
-# is this fixed value, not volatility-derived. pip_value_per_lot follows the standard
-# EURUSD convention (~$10/pip per 100k-unit lot); assumed_leverage derives margin per lot.
+# F6 — fixed-fractional sizing (specs.md §14.7, 3% for Strategy A05), the per-lot
+# economics the chain feeds it, and — since story 12 (execution realism) — the fx-manager
+# A05 trade plan (specs.md §14.5–14.7): stop first, lot from risk_per_trade and the stop
+# distance, targets and trailing steps as multiples of that distance. pip_value_per_lot
+# follows the standard EURUSD convention (~$10/pip per 100k-unit lot); assumed_leverage
+# derives margin per lot. The plan keys have defaults (a single full-size target at 2 ×
+# the stop, nothing else); they are spelled out here so the run records A05 explicitly.
 capital_mgmt:
   risk_per_trade: 0.03
-  stop_loss_pips: 20.0
+  stop_loss_pips: 20.0            # base stop distance when stop_distance_source is fixed
   pip_value_per_lot: 10.0
   lot_notional_units: 100000
   assumed_leverage: 30
+  # Fraction the base stop distance is shrunk toward entry, in [0, 1) — A05
+  # `openOrderByHasArrowOnTrend80SL.stopLossDecrease` = 20 %.
+  stop_loss_shrink: 0.20
+  # Floor on the shrunk stop distance, in pips — A05 uses 1.2 × the broker STOP_LEVEL;
+  # 5 pips stands in for that broker constant in the backtest.
+  min_stop_pips: 5.0
+  # Take-profit levels as multiples of the stop distance and the fraction of the position
+  # closed at each; the fractions sum to at most 1 (the rest rides the trailing stop) —
+  # A05 `finalTargetFactor` 2.0, `finalTargetLotPercentage` 50 %.
+  targets:
+    - {at_level_ratio: 2.0, close_fraction: 0.5}
+  # Trailing-stop steps: armed when price has moved at_level_ratio × stop distance in the
+  # trade's favour, stop moved to to_level_ratio × stop distance from entry (negative =
+  # still below entry) — A05 `trailStopAtLevelFactor` 0.5, `trailStopToLevelFactor` -0.66.
+  trail_stops:
+    - {at_level_ratio: 0.5, to_level_ratio: -0.66}
+  # Minimum final-target distance / stop distance before F6 lets a signal through; null
+  # disables the veto. 2.0 = the A05 final target itself.
+  min_reward_risk: 2.0
+  # Where the base stop distance comes from: fixed (stop_loss_pips) or atr (atr_multiplier
+  # × the bar's ATR in pips, price_features.atr_period). A05 used fixed template stops.
+  stop_distance_source: fixed
+  atr_multiplier: 2.0
 
 # F7 — the terminal threshold rule. theta_high/theta_low are calibrated on the validation
 # span and held fixed. regime_gate=true is the dissertation's rule (BUY needs F1's bull
@@ -72,3 +98,11 @@ meta_learner:
   theta_low: 0.45
   regime_gate: false
   label_horizon_minutes: 15   # training label look-ahead (optional; default 15)
+
+# Execution costs and holding rule (story 12, execution realism; specs.md §14.7). Not tied
+# to a filter: always resolved, every key optional (defaults are the frictionless case),
+# recorded in the run's strategy-config.{json,yaml}.
+execution:
+  spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (A05 broker ~1 pip)
+  commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (A05 broker: none)
+  min_hold_bars: 0          # bars a position must stay open before an opposite signal closes it

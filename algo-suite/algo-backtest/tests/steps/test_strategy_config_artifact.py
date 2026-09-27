@@ -1,34 +1,45 @@
-"""BDD contract for the engine-written strategy config snapshot."""
+"""BDD contract for the engine-written strategy config snapshots (JSON + YAML)."""
 
 import json
 from dataclasses import replace
 
 import pytest
+import yaml
 from algo_backtest.artifacts import write_strategy_config
-from algo_backtest.strategies import load_strategy_chain_config
+from algo_backtest.strategies import load_resolved_strategy, load_strategy_chain_config
 from algo_core import atomicio
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/strategy_config_artifact.feature")
 
+_SIDECARS = ("strategy-config.json", "strategy-config.yaml")
 
-@given("a resolved baseline-dsha config and an existing config sidecar")
+
+def _parse(name, text):
+    """Parse a sidecar's text by its format (both hold one mapping)."""
+    return json.loads(text) if name.endswith(".json") else yaml.safe_load(text)
+
+
+@given("a resolved baseline-dsha config and existing config sidecars")
 def _setup(ctx, tmp_path, monkeypatch):
     """Observe the actual atomic replacement rather than mocking the writer."""
     ctx["config"] = load_strategy_chain_config("baseline-dsha")
     ctx["directory"] = tmp_path
-    ctx["path"] = tmp_path / "strategy-config.json"
-    ctx["prior"] = '{"old": true}\n'
-    ctx["path"].write_text(ctx["prior"])
+    ctx["paths"] = {name: tmp_path / name for name in _SIDECARS}
+    ctx["prior"] = {
+        "strategy-config.json": '{"old": true}\n', "strategy-config.yaml": "old: true\n",
+    }
+    for name, path in ctx["paths"].items():
+        path.write_text(ctx["prior"][name])
     original = atomicio.os.replace
-    ctx["replacements"] = []
+    ctx["replacements"] = {name: [] for name in _SIDECARS}
 
     def observe(source, destination):
-        """Require a complete temporary JSON before publishing the new version."""
-        assert destination == ctx["path"]
+        """Require a complete temporary document before publishing the new version."""
+        assert destination in ctx["paths"].values()
         assert source.parent == destination.parent
-        assert destination.read_text() == ctx["prior"]
-        ctx["replacements"].append(json.loads(source.read_text()))
+        assert destination.read_text() == ctx["prior"][destination.name]
+        ctx["replacements"][destination.name].append(_parse(destination.name, source.read_text()))
         original(source, destination)
 
     monkeypatch.setattr(atomicio.os, "replace", observe)
@@ -50,13 +61,13 @@ def _filesystem_failure(monkeypatch):
     monkeypatch.setattr(atomicio.os, "replace", reject)
 
 
-@when("the resolved config sidecar is written")
+@when("the resolved config sidecars are written")
 def _write(ctx):
     """Use the production helper called from ChainAlgorithm.initialize."""
     write_strategy_config(ctx["directory"], ctx["config"])
 
 
-@when("writing the config sidecar fails")
+@when("writing the config sidecars fails")
 def _failure(ctx):
     """Capture explicit serialization or filesystem failures."""
     with pytest.raises((ValueError, OSError)) as error:
@@ -64,18 +75,32 @@ def _failure(ctx):
     ctx["error"] = str(error.value)
 
 
-@then("the replacement publishes the full resolved config atomically")
-def _published(ctx):
+@then(parsers.parse("the {sidecar} replacement publishes the full resolved config atomically"))
+def _published(ctx, sidecar):
     """Exactly one atomic replacement publishes the unmodified resolved mapping."""
-    assert ctx["replacements"] == [dict(ctx["config"].raw)]
-    assert json.loads(ctx["path"].read_text()) == ctx["config"].raw
+    assert ctx["replacements"][sidecar] == [dict(ctx["config"].raw)]
+    assert _parse(sidecar, ctx["paths"][sidecar].read_text()) == ctx["config"].raw
 
 
-@then("the prior config sidecar is unchanged")
+@then(parsers.parse('strategy-config.yaml loads back as the resolved "{name}" strategy'))
+def _yaml_reloads(ctx, name):
+    """The YAML sidecar is a resolved document the strategy loader accepts as-is."""
+    reloaded = load_resolved_strategy(ctx["paths"]["strategy-config.yaml"], name=name)
+    assert reloaded == replace(ctx["config"], extends=None)
+
+
+@then("strategy-config.json and strategy-config.yaml hold the same document")
+def _same_document(ctx):
+    documents = [_parse(name, path.read_text()) for name, path in ctx["paths"].items()]
+    assert documents[0] == documents[1]
+
+
+@then("the prior config sidecars are unchanged")
 def _unchanged(ctx):
     """Never replace a good artifact with a partial or invalid document."""
-    assert ctx["path"].read_text() == ctx["prior"]
-    assert ctx["replacements"] == []
+    for name, path in ctx["paths"].items():
+        assert path.read_text() == ctx["prior"][name], name
+        assert ctx["replacements"][name] == [], name
 
 
 @then("the error explains how to fix the strategy config")
@@ -89,4 +114,4 @@ def _remediation(ctx):
 @then("no temporary config file remains")
 def _cleaned(ctx):
     """The shared atomic writer cleans temporary files on publication failure."""
-    assert list(ctx["directory"].iterdir()) == [ctx["path"]]
+    assert sorted(ctx["directory"].iterdir()) == sorted(ctx["paths"].values())

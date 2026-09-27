@@ -59,15 +59,16 @@ uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 -
 #   size = fraction of equity per position (0, 1]; cash = the account's starting deposit.
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
-#   (F4), risk_guard (F5), capital_mgmt (F6), meta_learner (F7 thresholds, regime_gate,
-#   label horizon). A new strategy is a new YAML, never a code change: drop
+#   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the A05 trade plan), meta_learner (F7
+#   thresholds, regime_gate, label horizon), execution (spread, commission, min hold). A new
+#   strategy is a new YAML, never a code change: drop
 #   strategies/<name>/config.yaml (bundled) or point --strategies-dir at a folder of them;
 #   a variant states only its diff via `extends:` (any depth, like compose overrides):
 uv run algo-backtest run --strategy baseline-tight --strategies-dir experiments/strategies \
     --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param cash=10000
 #   Every run prints `strategy[<name>] key = value  # <source>` at bootstrap (which
 #   config.yaml in the extends chain set it, or `default`) and writes the same map to
-#   runs/<name>/<stamp>/strategy-provenance.json next to strategy-config.json. To see it
+#   runs/<name>/<stamp>/strategy-provenance.json next to strategy-config.{json,yaml}. To see it
 #   without running:
 uv run algo-backtest explain-strategy hybrid
 uv run algo-backtest explain-strategy baseline-tight --strategies-dir experiments/strategies
@@ -233,10 +234,13 @@ ABSTAIN-on-tie is still the separate TD-61 research question.
 ### Resolved strategy config artifact
 
 Chain-driven runs (`baseline`, `baseline-dsha`, `hybrid`) publish
-`strategy-config.json` in the run results directory during initialization.
-It contains the fully resolved `StrategyChainConfig.raw` mapping, including
-inherited settings, serialized as deterministic UTF-8 JSON. It is published via
-the shared atomic writer (same-directory temporary file followed by replace).
+`strategy-config.json` and, since story 12, `strategy-config.yaml` in the run
+results directory during initialization — the same fully resolved
+`StrategyChainConfig.raw` mapping, including inherited settings and defaults the
+loader filled in, as deterministic UTF-8 JSON and as a resolved YAML document the
+strategy loader accepts as-is (so a run's exact parameters can seed a new variant).
+Both are published via the shared atomic writer (same-directory temporary file
+followed by replace); the JSON check runs first, so a rejected value reaches neither.
 Unsupported or non-finite JSON values fail explicitly before replacing an
 existing artifact. Its presence records configuration, **not successful run
 completion**; completed runs still require `run.json`/`metrics.json`.

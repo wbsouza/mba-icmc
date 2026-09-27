@@ -144,6 +144,17 @@ def _amend_max_leverage(strategies_ctx: _StrategiesCtx, name: str, value: float)
     )
 
 
+@given(parsers.parse('"{name}" also declares {section}.{key} as {value}'))
+def _amend_section_key(
+    strategies_ctx: _StrategiesCtx, name: str, section: str, key: str, value: str
+) -> None:
+    """Set one key of any section (created if absent); the value is flow-style YAML."""
+    _amend_config(
+        strategies_ctx.root, name,
+        lambda b: b.setdefault(section, {}).__setitem__(key, yaml.safe_load(value)),
+    )
+
+
 @given(parsers.parse('"{name}" adds meta_learner key "{key}" with value {value}'))
 def _add_meta_learner_key(strategies_ctx: _StrategiesCtx, name: str, key: str, value: str) -> None:
     _amend_config(
@@ -425,6 +436,21 @@ def _loaded_price_features(  # noqa: PLR0913 - one parameter per table column
     pf = strategies_ctx.loaded.price_features
     assert (pf.ema_fast, pf.ema_slow, pf.ema_higher_tf) == (fast, slow, htf)
     assert (pf.rsi_period, pf.macd_fast, pf.macd_slow, pf.macd_signal) == (rsi, mf, ms, sig)
+
+
+@then(
+    parsers.parse(
+        "the loaded strategy's execution config is spread_pips {spread:g}, "
+        "commission_per_lot {commission:g}, min_hold_bars {hold:d}"
+    )
+)
+def _loaded_execution(
+    strategies_ctx: _StrategiesCtx, spread: float, commission: float, hold: int
+) -> None:
+    assert strategies_ctx.loaded is not None
+    execution = strategies_ctx.loaded.execution
+    assert (execution.spread_pips, execution.commission_per_lot) == (spread, commission)
+    assert execution.min_hold_bars == hold
 
 
 @then(parsers.parse("the loaded strategy's raw config records {section}.{key} {value}"))
