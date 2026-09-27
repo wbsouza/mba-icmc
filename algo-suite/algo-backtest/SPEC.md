@@ -146,7 +146,8 @@ algo_backtest/
 │                           #   manifest; fail-fast → experiment-error.json (Stage F1)
 ├── engine/
 │   ├── algorithm.py        # IMPLEMENTED (Spec 04a) — ExecutionAlgorithm(QCAlgorithm): init_execution
-│   │                       #   (brokerage-adapter selection + OrderExecutor wiring), on_order_event.
+│   │                       #   (brokerage-adapter selection + configured fill costs + OrderExecutor
+│   │                       #   wiring), on_order_event.
 │   │                       #   Container-only (imports AlgorithmImports); excluded from ruff/mypy like
 │   │                       #   algos/, proven via tests/features/order_execution.feature (real LEAN).
 │   ├── chain_algorithm.py  # IMPLEMENTED (Spec 04h) — ChainAlgorithm(ExecutionAlgorithm): the shared
@@ -154,6 +155,16 @@ algo_backtest/
 │   │                       #   features via chain/wiring.py, chain run, order routing, decisions
 │   │                       #   audit, <TAG>_MODEL_SHA256 log). Container-only like algorithm.py
 │   │                       #   (mypy-excluded); proven via run_{baseline,hybrid}_chain.feature.
+│   ├── costs.py            # IMPLEMENTED (story 12, C) — pure fill-cost math: slippage_price (half the
+│   │                       #   spread per side), commission_amount (per-lot rate pro rata on |qty|),
+│   │                       #   pip_size_for (pip = 10 × minimum price variation). LEAN-free, typed,
+│   │                       #   BDD via fill_costs.feature; negative rates fail fast.
+│   ├── fill_models.py      # IMPLEMENTED (story 12, C) — LEAN adapters over costs.py: PipSpread
+│   │                       #   SlippageModel (ISlippageModel), PerLotFeeModel (FeeModel subclass) and
+│   │                       #   apply_fill_costs(), which installs both on every subscribed security
+│   │                       #   (zero = keep the brokerage adapter's default) and logs one
+│   │                       #   <TAG>_FILL_COSTS|model=... line each. Imports AlgorithmImports by name
+│   │                       #   (mypy-checked); the BDD suite fakes that module offline.
 │   ├── order_executor.py   # IMPLEMENTED (Spec 04a) — Decision/SizingContext/FillRecord + OrderExecutor:
 │   │                       #   Decision + sizing in, places the order (calculate_order_quantity →
 │   │                       #   market_order), consumes OnOrderEvent, returns a normalized fill.
@@ -446,6 +457,22 @@ filter observing a different timeframe is a lookup, not a recomputation. Like th
 order, the per-filter timeframe is a hyperparameter: selected on the
 training/validation folds and frozen before the test pass, part of the same
 ablation.
+
+**Fill costs are configured, never constants (story 12, item C).** The strategy YAML's
+`execution` section carries `spread_pips` and `commission_per_lot`; `ExecutionAlgorithm.
+init_execution(broker_adapter, spread_pips=…, commission_per_lot=…)` installs, on every
+subscribed security, a slippage model charging half the spread per side
+(`spread_pips / 2 × pip_size`, in price units) and a fee model charging the per-lot rate
+pro rata on the absolute filled quantity against the 100,000-unit standard lot (e.g. 7
+USD/lot on 25,000 units → 1.75 USD per side). Zero for either keeps the brokerage
+adapter's default model for that cost, so a strategy without an `execution` section
+behaves as before. The pip size is derived per security from LEAN's
+`SymbolProperties.minimum_price_variation` — pip = 10 × tick for fractional-pip FX
+quotes (EURUSD 0.00001 → 0.0001, USDJPY 0.001 → 0.01) — or given explicitly. The math is
+the LEAN-free `engine/costs.py` (BDD `fill_costs.feature`); the adapters in
+`engine/fill_models.py` only call it, and each installed model logs one
+`<TAG>_FILL_COSTS|model=slippage|…` / `|model=fee|…` line the integration scenarios can
+assert on. Negative rates fail fast before the first bar.
 
 **Lot units are broker-specific and come from LEAN, not hard-coded.** Risk math
 (`risk_math.py`) sizes the position in notional/standard lots using
