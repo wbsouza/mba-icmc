@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from AlgorithmImports import *  # noqa: F403  (LEAN injects its API into this namespace)
 from engine.brokerage import build_brokerage_adapter  # noqa: E402
+from engine.fill_models import apply_fill_costs  # noqa: E402
 from engine.order_executor import OrderExecutor  # noqa: E402
 
 
@@ -25,10 +26,17 @@ class ExecutionAlgorithm(QCAlgorithm):  # noqa: F405
 
     ``strategy_name`` labels this algorithm's :meth:`_required` failures; each
     subclass overrides it (defaults to the class name so a strategy that forgets
-    to set one still fails with a useful, non-generic label).
+    to set one still fails with a useful, non-generic label). ``log_tag`` prefixes
+    the grep-able ``<TAG>_...`` debug lines (``ChainAlgorithm`` sets it per strategy);
+    when empty the label falls back to ``strategy_name``, then the class name.
     """
 
     strategy_name: str = ""
+    log_tag: str = ""
+
+    def _label(self) -> str:
+        """The tag naming this algorithm in failures and ``<TAG>_...`` log lines."""
+        return self.log_tag or self.strategy_name or type(self).__qualname__
 
     def _required(self, name: str) -> str:
         """Fetch a required run parameter, failing fast if the runner didn't inject it.
@@ -38,19 +46,43 @@ class ExecutionAlgorithm(QCAlgorithm):  # noqa: F405
         """
         value = self.get_parameter(name)
         if not value:
-            label = self.strategy_name or type(self).__qualname__
-            raise ValueError(f"{label} requires the '{name}' parameter (none supplied)")
+            raise ValueError(f"{self._label()} requires the '{name}' parameter (none supplied)")
         return value
 
-    def init_execution(self, broker_adapter_name: str) -> None:
-        """Apply the config-selected brokerage model and build the OrderExecutor.
+    def init_execution(
+        self,
+        broker_adapter_name: str,
+        *,
+        spread_pips: float = 0.0,
+        commission_per_lot: float = 0.0,
+        lot_notional_units: float = 100_000.0,
+        pip_size: float | None = None,
+    ) -> None:
+        """Apply the brokerage model, then the configured fill costs, then build the executor.
 
         Called from a subclass's own ``initialize()``, after subscribing to its
         symbol(s). Raises ``UnknownBrokerageAdapterError`` before the first bar
         if ``broker_adapter_name`` names no registered adapter — a hard stop,
         never a silent default brokerage model (it changes fill economics).
+
+        The keyword arguments are the strategy YAML's ``execution`` section (story 12):
+        a positive ``spread_pips`` installs a half-spread-per-side slippage model and a
+        positive ``commission_per_lot`` a per-lot fee model on every subscribed security
+        (``engine/fill_models.py``), each logged as one ``<TAG>_FILL_COSTS|model=...``
+        line. Zero (the default) keeps the brokerage adapter's own model for that cost.
+        ``pip_size`` is derived per security from LEAN's ``minimum_price_variation``
+        (pip = 10 × tick for fractional-pip FX quotes, ``costs.pip_size_for``) unless
+        given explicitly; ``lot_notional_units`` is the standard 100,000-unit FX lot.
         """
         build_brokerage_adapter(broker_adapter_name).apply(self)
+        apply_fill_costs(
+            self,
+            spread_pips=spread_pips,
+            commission_per_lot=commission_per_lot,
+            lot_notional_units=lot_notional_units,
+            pip_size=pip_size,
+            log_tag=self._label(),
+        )
         self.order_executor = OrderExecutor(self)
 
     def on_order_event(self, order_event: OrderEvent) -> None:  # noqa: F405
