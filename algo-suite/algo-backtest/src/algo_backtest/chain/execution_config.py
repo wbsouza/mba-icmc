@@ -41,7 +41,7 @@ class ExecutionConfig:
     commission_per_lot: float = 0.0
     min_hold_bars: int = 0
     broker_stop_level_pips: float = 0.0
-    close_on_veto: bool = True
+    close_on_veto: bool = False
 
 
 _KEYS = tuple(field.name for field in fields(ExecutionConfig))
@@ -63,12 +63,13 @@ def _min_hold_bars(section: Section, *, strategy: str) -> int:
 
 
 def _close_on_veto(section: Section, *, strategy: str) -> bool:
-    """`close_on_veto` as a YAML boolean, defaulting to true; `1`/`"yes"` and the like fail.
+    """`close_on_veto` as a YAML boolean, defaulting to false (A05: a signal change does
+    not close a planned trade; its stop, targets, trail and min-hold exits do); `1`/`"yes"` and the like fail.
 
     Raises:
         ValueError: the value is not `true`/`false`.
     """
-    value = section.get("close_on_veto", True)
+    value = section.get("close_on_veto", False)
     if not isinstance(value, bool):
         raise ValueError(
             f"strategy {strategy!r}: {_SECTION}.close_on_veto must be true or false, got "

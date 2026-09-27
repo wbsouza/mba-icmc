@@ -117,4 +117,6 @@ execution:
   # The broker's minimum distance between price and a stop/target order, in pips (OANDA's
   # is not exposed by LEAN, so it is declared). F6 floors the stop at min_stop_factor × this.
   broker_stop_level_pips: 0.0
-  close_on_veto: true       # a filter veto (NO_TRADE) closes an open position at once; false leaves it to its stop/targets/trail
+  close_on_veto: false     # a filter veto (NO_TRADE) leaves an open position to its stop, targets,
+                            # trail and min-hold exits (fx-manager A05 did not close on a signal change;
+                            # only its USD/JPY variant did). true = close at once on any veto.

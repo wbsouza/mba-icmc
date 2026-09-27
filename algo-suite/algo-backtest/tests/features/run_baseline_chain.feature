@@ -43,7 +43,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
         | meta_learner.regime_gate  | false | baseline/config.yaml |
         | capital_mgmt.risk_per_trade | 0.03 | baseline/config.yaml |
         | price_features.ema_fast   | 3     | baseline/config.yaml |
-        | execution.close_on_veto   | true  | baseline/config.yaml |
+        | execution.close_on_veto   | false | baseline/config.yaml |
 
   Rule: A validated run executes the full F1-F7 chain on the engine without crashing
 
