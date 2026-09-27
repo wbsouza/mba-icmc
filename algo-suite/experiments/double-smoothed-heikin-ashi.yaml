@@ -10,7 +10,6 @@ runs:
     from: 2015-08-03
     to: 2015-08-07
     params:
-      size: 0.5
       cash: 10000
   - id: double-smoothed-heikin-ashi
     strategy: baseline-dsha
@@ -18,5 +17,4 @@ runs:
     from: 2015-08-03
     to: 2015-08-07
     params:
-      size: 0.5
       cash: 10000

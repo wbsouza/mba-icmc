@@ -541,8 +541,10 @@ fail fast) and `meta_learner.theta_high` / `theta_low` / `regime_gate` /
 `label_horizon_minutes` (F7; the gate is the dissertation's `r_t` agreement,
 switchable; the horizon is the training label's look-ahead, default 15). A top-level
 `execution` section tied to no filter (`chain/execution_config.py`, story 12) carries
-the fill costs and holding rule — `spread_pips`, `commission_per_lot`, `min_hold_bars`,
-all defaulting to the frictionless case — and is always resolved, like `price_features`.
+the fill costs, holding rule and veto rule — `spread_pips`, `commission_per_lot`,
+`min_hold_bars`, and `close_on_veto` (default `true`: a NO_TRADE closes an open position at
+once; `false` leaves it to its stop, targets and trailing stop) — defaulting to the
+frictionless, hold-free case, and is always resolved, like `price_features`.
 Sections with defaults may be omitted; the loader writes the effective values back into the
 resolved config so every run's `strategy-config.json` and `strategy-config.yaml` show what
 was used, and `strategy-provenance.json` attributes each to its config.yaml or `default`. A filter listed without
@@ -551,8 +553,11 @@ is a hard stop before the first bar, as are an unknown filter name, F7 keys in
 `meta_learner` without `f7_meta_learner` listed, and a `schema_version` other than
 the integer 2. `hybrid` inherits F5/F6/F7's sections from
 `baseline` through `extends:` and adds only `news_context`, so both variants face
-identical execution assumptions. The chain strategies take two run parameters,
-`--param size=<fraction>` and `--param cash=<starting deposit>`; `cash` is also a
+identical execution assumptions. The chain strategies take one run parameter,
+`--param cash=<starting deposit>` — no `size`: the executor sizes every order from F6's
+trade plan (`capital_mgmt.risk_per_trade` and the stop distance) and places the plan's
+stop-market, take-profit and trailing orders (`engine/trade_plan.py`, story 12 item D),
+recording each entry in the run's `trade-plans.json`; `cash` is also a
 required parameter of every code-registered strategy (`baseline-ma`, `baseline-meanrev`,
 `buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), so no bundled
 algorithm hard-codes a deposit and a control is compared from the same account as the

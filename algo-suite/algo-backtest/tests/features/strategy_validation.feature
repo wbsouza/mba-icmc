@@ -6,7 +6,8 @@ Feature: Strategy parameter validation
   experiments.md #0) are the engine-sanity-check strategies — none here claims a news/
   sentiment signal. Every strategy, code-registered or YAML-resolved, takes `cash` — the
   account's starting deposit (story 12, TD-65) — so a control and a chain strategy can be
-  compared from the same deposit.
+  compared from the same deposit. The chain strategies take nothing else: F6's trade plan
+  sizes every order (story 12, item D), so `size` is a control-only parameter.
 
   Rule: Each strategy accepts its own closed parameter set, cash included
 
@@ -25,13 +26,13 @@ Feature: Strategy parameter validation
         | buyhold           | size=1 cash=250.5                      |
         | random            | size=0.5 seed=-7 cash=0.5              |
 
-      Examples: the config.yaml chain strategies
-        | strategy      | params              |
-        | baseline      | size=0.5 cash=10000 |
-        | baseline-dsha | size=0.5 cash=10000 |
-        | hybrid        | size=0.5 cash=10000 |
-        | baseline      | size=0.5 cash=250.5 |
-        | baseline      | size=0.5 cash=0.5   |
+      Examples: the config.yaml chain strategies take cash alone
+        | strategy      | params     |
+        | baseline      | cash=10000 |
+        | baseline-dsha | cash=10000 |
+        | hybrid        | cash=10000 |
+        | baseline      | cash=250.5 |
+        | baseline      | cash=0.5   |
 
   Rule: An unknown strategy or invalid parameters are rejected (fail fast)
 
@@ -60,11 +61,11 @@ Feature: Strategy parameter validation
         | perfect_foresight | size=0.5 cash=-100                    |
 
       Examples: the config.yaml chain strategies
-        | strategy      | params              |
-        | baseline      | size=0.5 cash=0     |
-        | baseline      | size=0.5 cash=-100  |
-        | hybrid        | size=0.5 cash=lots  |
-        | baseline-dsha | size=0.5 cash=0     |
+        | strategy      | params    |
+        | baseline      | cash=0    |
+        | baseline      | cash=-100 |
+        | hybrid        | cash=lots |
+        | baseline-dsha | cash=0    |
 
     Scenario Outline: <strategy> without a starting cash is rejected as an incomplete param set
       Given strategy "<strategy>" with params <params>
@@ -79,19 +80,25 @@ Feature: Strategy parameter validation
         | buyhold           | size=0.5                      |
         | random            | size=0.5 seed=42              |
         | perfect_foresight | size=0.5                      |
-        | baseline          | size=0.5                      |
 
-    Scenario Outline: the chain strategies reject an out-of-range size naming the strategy (<strategy>)
+    Scenario: a chain strategy with no params at all is rejected naming the missing cash
+      Given strategy "baseline" with no params
+      When I validate the run inputs expecting failure
+      Then validation fails saying the params must be exactly the strategy's set
+      And validation fails naming "cash"
+
+    Scenario Outline: the chain strategies reject a size param — F6's trade plan sizes the trade (<strategy>)
       Given strategy "<strategy>" with params size=<size> cash=10000
       When I validate the run inputs expecting failure
-      Then validation fails naming "size"
+      Then validation fails saying the params must be exactly the strategy's set
+      And validation fails naming "size"
       And validation fails naming "<strategy>"
 
       Examples:
         | strategy      | size |
-        | baseline      | 1.5  |
-        | hybrid        | 0    |
-        | baseline-dsha | -0.1 |
+        | baseline      | 0.5  |
+        | hybrid        | 1    |
+        | baseline-dsha | 0.25 |
 
     Scenario: buyhold rejects an out-of-range size
       Given strategy "buyhold" with params size=1.5 cash=10000
@@ -142,10 +149,10 @@ Feature: Strategy parameter validation
     Then validation fails naming "baseline-dsha"
 
     Examples:
-      | params                |
-      | wrong=0.5 cash=10000  |
-      | size=wrong cash=10000 |
-      | size=1.5 cash=10000   |
+      | params               |
+      | wrong=0.5 cash=10000 |
+      | cash=wrong           |
+      | size=0.5 cash=10000  |
 
   Rule: A model must have been trained on the strategy's price-feature parameters
 
@@ -164,13 +171,13 @@ Feature: Strategy parameter validation
   Rule: Chain strategies are resolved from their YAML, not from a code registry (2026-09-27)
     A new `strategies/<name>/config.yaml` — bundled or in an external `--strategies-dir` —
     runs without a code change. The YAML decides which LEAN algorithm hosts it (F4 listed →
-    the news-aware one, with the news Parquet mounted) and always takes size + cash.
+    the news-aware one, with the news Parquet mounted) and always takes cash alone.
 
     Scenario Outline: a YAML variant in an external directory resolves from its filters (<name>)
       Given an external strategies directory holding "<name>" extending "<base>" with extra "<extra_yaml>"
       When strategy "<name>" is resolved from that directory
       Then the resolved strategy runs on algorithm "<algo_dir>" with news data <news>
-      And validating strategy "<name>" with params size=0.5 cash=10000 from that directory passes
+      And validating strategy "<name>" with params cash=10000 from that directory passes
 
       Examples:
         | name    | base     | extra_yaml                                      | algo_dir | news  |

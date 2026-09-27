@@ -106,3 +106,4 @@ execution:
   spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (A05 broker ~1 pip)
   commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (A05 broker: none)
   min_hold_bars: 0          # bars a position must stay open before an opposite signal closes it
+  close_on_veto: true       # a filter veto (NO_TRADE) closes an open position at once; false leaves it to its stop/targets/trail

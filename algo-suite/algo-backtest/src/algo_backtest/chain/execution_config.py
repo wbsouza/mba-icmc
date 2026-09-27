@@ -1,14 +1,15 @@
 """The fill-cost and holding-rule parameters of a strategy: its `execution` section.
 
 Story 12 (execution realism, 2026-09-27): the spread every fill pays, the per-lot
-commission and the minimum bars a position is held are strategy parameters — the
+commission, the minimum bars a position is held and whether a chain veto closes an open
+position are strategy parameters — the
 optional top-level `execution:` section of `strategies/<name>/config.yaml` (specs.md
 §14.7, Strategy A05) — not code constants and not brokerage-model defaults. The section
 belongs to no filter: the loader always resolves it (like `price_features`), defaulting
 every key it omits, and writes the effective values back into the resolved config so a
 run's `strategy-config.{json,yaml}` records the cost assumptions its result rests on. The
 LEAN adapters (story 12 item C) read the typed object; the executor (item D) reads
-`min_hold_bars`.
+`min_hold_bars` and `close_on_veto`.
 """
 
 from __future__ import annotations
@@ -29,11 +30,14 @@ class ExecutionConfig:
     - ``commission_per_lot``: account-currency fee per 1.0 lot traded, per side.
     - ``min_hold_bars``: bars a position must stay open before an opposite signal may
       close it (0 = a reversal closes immediately).
+    - ``close_on_veto``: whether a NO_TRADE (a filter veto) closes an open position at
+      once; ``false`` leaves the position to its stop, targets and trailing stop.
     """
 
     spread_pips: float = 0.0
     commission_per_lot: float = 0.0
     min_hold_bars: int = 0
+    close_on_veto: bool = True
 
 
 _KEYS = tuple(field.name for field in fields(ExecutionConfig))
@@ -54,12 +58,28 @@ def _min_hold_bars(section: Section, *, strategy: str) -> int:
     return value
 
 
+def _close_on_veto(section: Section, *, strategy: str) -> bool:
+    """`close_on_veto` as a YAML boolean, defaulting to true; `1`/`"yes"` and the like fail.
+
+    Raises:
+        ValueError: the value is not `true`/`false`.
+    """
+    value = section.get("close_on_veto", True)
+    if not isinstance(value, bool):
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.close_on_veto must be true or false, got "
+            f"{value!r} — fix it under '{_SECTION}:' in strategies/{strategy}/config.yaml"
+        )
+    return value
+
+
 def parse_execution_config(section: Section, *, strategy: str) -> ExecutionConfig:
     """The section's values, defaulting every key it omits (fail fast on anything else).
 
     Raises:
-        ValueError: an unknown key, a negative or non-numeric cost, or a `min_hold_bars`
-            that is not a non-negative integer — each named with the strategy and section.
+        ValueError: an unknown key, a negative or non-numeric cost, a `min_hold_bars` that
+            is not a non-negative integer, or a non-boolean `close_on_veto` — each named
+            with the strategy and section.
     """
     reject_unknown_keys(section, _KEYS, section=_SECTION, strategy=strategy)
     return ExecutionConfig(
@@ -70,6 +90,7 @@ def parse_execution_config(section: Section, *, strategy: str) -> ExecutionConfi
             section, "commission_per_lot", default=0.0, section=_SECTION, strategy=strategy
         ),
         min_hold_bars=_min_hold_bars(section, strategy=strategy),
+        close_on_veto=_close_on_veto(section, strategy=strategy),
     )
 
 

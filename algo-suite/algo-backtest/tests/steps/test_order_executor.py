@@ -45,6 +45,45 @@ def _fake_order_status() -> Iterator[None]:
 @dataclass
 class _Ticket:
     order_id: int
+    quantity: float = 0.0
+    stop_price: float | None = None
+    limit_price: float | None = None
+    tag: str = ""
+    cancelled: bool = False
+
+    def update_stop_price(self, price: float) -> None:
+        self.stop_price = price
+
+    def update_quantity(self, quantity: float) -> None:
+        self.quantity = quantity
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+
+@dataclass
+class _Order:
+    """LEAN `Order` as `Transactions.get_open_orders` returns it (id + quantity read)."""
+
+    id: int
+    quantity: float
+
+
+class _Transactions:
+    """Stand-in for `algorithm.transactions`: tickets by id, open = not cancelled."""
+
+    def __init__(self) -> None:
+        self.tickets: dict[int, _Ticket] = {}
+
+    def get_order_ticket(self, order_id: int) -> _Ticket | None:
+        return self.tickets.get(order_id)
+
+    def get_open_orders(self, symbol: Any) -> list[_Order]:
+        return [
+            _Order(id=t.order_id, quantity=t.quantity)
+            for t in self.tickets.values()
+            if not t.cancelled
+        ]
 
 
 @dataclass
@@ -71,6 +110,7 @@ class _FakeAlgorithm:
         self.orders: list[tuple[Any, float]] = []
         self.liquidated: list[Any] = []
         self.utc_time = datetime(2020, 1, 2, 14, 30, tzinfo=UTC)
+        self.transactions = _Transactions()
 
     def calculate_order_quantity(self, symbol: Any, target: float) -> float:
         return target  # identity: unit tests pass sizes straight through
@@ -80,6 +120,22 @@ class _FakeAlgorithm:
         order_id = next(self._ids)
         self._fire(order_id)
         return _Ticket(order_id=order_id)
+
+    def stop_market_order(
+        self, symbol: Any, quantity: float, stop_price: float, tag: str
+    ) -> _Ticket:
+        ticket = _Ticket(
+            order_id=next(self._ids), quantity=quantity, stop_price=stop_price, tag=tag
+        )
+        self.transactions.tickets[ticket.order_id] = ticket
+        return ticket
+
+    def limit_order(self, symbol: Any, quantity: float, limit_price: float, tag: str) -> _Ticket:
+        ticket = _Ticket(
+            order_id=next(self._ids), quantity=quantity, limit_price=limit_price, tag=tag
+        )
+        self.transactions.tickets[ticket.order_id] = ticket
+        return ticket
 
     def liquidate(self, symbol: Any) -> list[_Ticket]:
         if self._multi_ticket:
@@ -227,3 +283,126 @@ def _stop_take(context: dict[str, Any]) -> None:
     sizing: SizingContext = context["sizing"]
     assert fill.stop_loss == sizing.stop_loss
     assert fill.take_profit == sizing.take_profit
+
+
+# --- Story 12: quantity entries and the plan's working orders ---------------------------
+
+
+@when(parsers.parse("OrderExecutor executes a {decision} decision for {quantity:g} units"))
+def _execute_quantity(context: dict[str, Any], decision: str, quantity: float) -> None:
+    executor: OrderExecutor = context["executor"]
+    context["fill"] = executor.execute_quantity(_SYMBOL, Decision(decision), quantity)
+
+
+@when(
+    parsers.parse("OrderExecutor executing a {decision} decision for {quantity:g} units fails")
+)
+def _execute_quantity_fails(context: dict[str, Any], decision: str, quantity: float) -> None:
+    executor: OrderExecutor = context["executor"]
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        executor.execute_quantity(_SYMBOL, Decision(decision), quantity)
+    context["error"] = exc_info.value
+
+
+@then(parsers.parse('the executor failure names "{fragment}"'))
+def _executor_failure(context: dict[str, Any], fragment: str) -> None:
+    assert fragment in str(context["error"]), str(context["error"])
+
+
+@when(
+    parsers.parse(
+        'OrderExecutor places a stop for {quantity:g} units at {price:g} tagged "{tag}"'
+    )
+)
+@given(
+    parsers.parse(
+        'OrderExecutor placed a stop for {quantity:g} units at {price:g} tagged "{tag}"'
+    )
+)
+def _place_stop(context: dict[str, Any], quantity: float, price: float, tag: str) -> None:
+    executor: OrderExecutor = context["executor"]
+    context["stop_id"] = executor.place_stop(_SYMBOL, quantity, price, tag)
+
+
+@when(
+    parsers.parse(
+        'OrderExecutor places a limit for {quantity:g} units at {price:g} tagged "{tag}"'
+    )
+)
+@given(
+    parsers.parse(
+        'OrderExecutor placed a limit for {quantity:g} units at {price:g} tagged "{tag}"'
+    )
+)
+def _place_limit(context: dict[str, Any], quantity: float, price: float, tag: str) -> None:
+    executor: OrderExecutor = context["executor"]
+    context.setdefault("limit_ids", []).append(executor.place_limit(_SYMBOL, quantity, price, tag))
+
+
+def _tickets(context: dict[str, Any]) -> dict[int, _Ticket]:
+    algorithm: _FakeAlgorithm = context["algorithm"]
+    return algorithm.transactions.tickets
+
+
+@then(
+    parsers.parse(
+        'the fake algorithm holds a stop-market order for {quantity:g} at {price:g} tagged "{tag}"'
+    )
+)
+def _holds_stop(context: dict[str, Any], quantity: float, price: float, tag: str) -> None:
+    ticket = _tickets(context)[context["stop_id"]]
+    assert (ticket.quantity, ticket.stop_price, ticket.tag) == (quantity, price, tag)
+
+
+@then(
+    parsers.parse(
+        'the fake algorithm holds a limit order for {quantity:g} at {price:g} tagged "{tag}"'
+    )
+)
+def _holds_limit(context: dict[str, Any], quantity: float, price: float, tag: str) -> None:
+    ticket = _tickets(context)[context["limit_ids"][-1]]
+    assert (ticket.quantity, ticket.limit_price, ticket.tag) == (quantity, price, tag)
+
+
+@then(parsers.parse("the executor reports {count:d} open orders for the symbol"))
+def _open_count(context: dict[str, Any], count: int) -> None:
+    executor: OrderExecutor = context["executor"]
+    assert len(executor.open_orders(_SYMBOL)) == count
+
+
+@when(parsers.parse("OrderExecutor moves that stop to {price:g}"))
+def _move_stop(context: dict[str, Any], price: float) -> None:
+    executor: OrderExecutor = context["executor"]
+    executor.update_stop_price(context["stop_id"], price)
+
+
+@when(parsers.parse("OrderExecutor resizes that stop to {quantity:g}"))
+def _resize_stop(context: dict[str, Any], quantity: float) -> None:
+    executor: OrderExecutor = context["executor"]
+    executor.update_quantity(context["stop_id"], quantity)
+
+
+@then(parsers.parse("the stop ticket's price is {price:g} and its quantity {quantity:g}"))
+def _stop_ticket(context: dict[str, Any], price: float, quantity: float) -> None:
+    ticket = _tickets(context)[context["stop_id"]]
+    assert (ticket.stop_price, ticket.quantity) == (price, quantity)
+
+
+@when("OrderExecutor cancels every open order for the symbol")
+def _cancel_all(context: dict[str, Any]) -> None:
+    executor: OrderExecutor = context["executor"]
+    executor.cancel(order.order_id for order in executor.open_orders(_SYMBOL))
+
+
+@then("every fake ticket is cancelled")
+def _all_cancelled(context: dict[str, Any]) -> None:
+    tickets = _tickets(context)
+    assert tickets and all(t.cancelled for t in tickets.values())
+
+
+@when(parsers.parse("OrderExecutor moving stop {order_id:d} to {price:g} fails"))
+def _move_missing(context: dict[str, Any], order_id: int, price: float) -> None:
+    executor: OrderExecutor = context["executor"]
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        executor.update_stop_price(order_id, price)
+    context["error"] = exc_info.value

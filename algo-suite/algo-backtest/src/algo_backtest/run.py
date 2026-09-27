@@ -8,10 +8,11 @@ added without touching the run path.
 
 Each strategy carries its own parameters (baseline-ma: fast/slow/size/cash;
 baseline-meanrev: window/band/size/cash; buyhold/perfect_foresight: size/cash; random:
-size/seed/cash; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
-size/cash), validated by that strategy and passed to its algorithm verbatim. `cash` is the
-account's starting deposit and is common to every strategy (story 12, TD-65), so a chain
-strategy and an engine control can be compared from the same deposit.
+size/seed/cash; the config.yaml chain strategies baseline/baseline-dsha/hybrid: cash
+only — F6's trade plan sizes every order, story 12), validated by that strategy and passed
+to its algorithm verbatim. `cash` is the account's starting deposit and is common to every
+strategy (story 12, TD-65), so a chain strategy and an engine control can be compared from
+the same deposit.
 `baseline`/`hybrid` additionally drive the real F1-F7 filter chain; `hybrid` (Spec 04h)
 adds F4/news to `baseline`'s price-only chain, so it alone needs a second data mount —
 `StrategySpec.needs_news_data` marks that in the registry instead of special-casing the
@@ -133,9 +134,12 @@ def _validate_cash(params: Params, strategy: str) -> None:
 
 
 def _validate_chain_params(params: Params, strategy: str) -> None:
-    """The config.yaml-driven chain strategies share one closed param set: size + cash."""
-    _check_keys(params, {"size", "cash"}, strategy)
-    _validate_size(params, strategy)
+    """The config.yaml-driven chain strategies share one closed param set: cash only.
+
+    Position size is not a run parameter: the executor sizes every order from F6's trade
+    plan (`capital_mgmt.risk_per_trade` and the stop distance, story 12 item D).
+    """
+    _check_keys(params, {"cash"}, strategy)
     _validate_cash(params, strategy)
 
 
@@ -220,7 +224,7 @@ def resolve_strategy(strategy: str, *, strategies_root: Path | None = None) -> S
 
     A chain strategy's YAML decides everything the run path needs: the LEAN algorithm
     that hosts it (`algos/hybrid` when `f4_news_context` is listed, else `algos/baseline`),
-    whether the news Parquet is mounted, and that it takes the `size` + `cash` params.
+    whether the news Parquet is mounted, and that it takes the `cash` param alone.
     `strategies_root` is an external directory searched before the bundled one.
 
     Raises:

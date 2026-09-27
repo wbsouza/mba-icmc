@@ -29,6 +29,12 @@ def _given(vctx: dict[str, Any], strategy: str, params: str) -> None:
     vctx["params"] = dict(token.split("=", 1) for token in params.split())
 
 
+@given(parsers.parse('strategy "{strategy}" with no params'))
+def _given_no_params(vctx: dict[str, Any], strategy: str) -> None:
+    vctx["strategy"] = strategy
+    vctx["params"] = {}
+
+
 @when("I validate the run inputs")
 def _validate(vctx: dict[str, Any]) -> None:
     validate_run_inputs(vctx["strategy"], vctx["params"], _START, _END)
@@ -136,7 +142,7 @@ def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str
     vctx["model"] = tmp_path / "model.json"
     vctx["model"].write_text(json.dumps(document))
     vctx["strategy"] = "baseline"
-    vctx["params"] = {"size": "0.5", "cash": "10000"}
+    vctx["params"] = {"cash": "10000"}
 
 
 @when(parsers.parse('I validate the run inputs for strategy "{strategy}" with that model passes'))

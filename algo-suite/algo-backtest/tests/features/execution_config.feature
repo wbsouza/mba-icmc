@@ -1,6 +1,6 @@
 Feature: Execution parameters come from the strategy config.yaml execution section
-  Story 12 (execution realism): the fill costs and the holding rule the executor applies
-  are strategy parameters, not code constants — the optional top-level `execution:`
+  Story 12 (execution realism): the fill costs, the holding rule and the veto-close rule the
+  executor applies are strategy parameters, not code constants — the optional top-level `execution:`
   section of `strategies/<name>/config.yaml` (specs.md §14.7, Strategy A05). It is not
   tied to any filter: the loader always resolves it, defaulting every key it omits, and
   writes the effective values back into the resolved config so the run's
@@ -11,7 +11,7 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
     Scenario: an empty section resolves every default
       Given an empty execution section
       When the execution config is parsed for strategy "baseline"
-      Then the parsed execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0
+      Then the parsed execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0, close_on_veto true
 
     Scenario Outline: a partial section overrides only the key it names (<case>)
       Given an execution section with <key> set to <value>
@@ -25,6 +25,8 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
         | ECN commission per lot  | commission_per_lot | 7.0   | spread_pips        | 0.0           |
         | hold at least three bars| min_hold_bars      | 3     | commission_per_lot | 0.0           |
         | integer spread          | spread_pips        | 2     | min_hold_bars      | 0             |
+        | veto leaves the plan    | close_on_veto      | false | min_hold_bars      | 0             |
+        | veto closes at once     | close_on_veto      | true  | spread_pips        | 0.0           |
 
   Rule: An invalid or unknown value fails fast naming the strategy, section and key
 
@@ -43,4 +45,6 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
         | negative hold               | min_hold_bars      | -1    | execution.min_hold_bars must be an integer >= 0          |
         | fractional hold             | min_hold_bars      | 1.5   | execution.min_hold_bars must be an integer >= 0          |
         | boolean hold                | min_hold_bars      | true  | execution.min_hold_bars must be an integer >= 0          |
+        | integer veto flag           | close_on_veto      | 1     | execution.close_on_veto must be true or false            |
+        | string veto flag            | close_on_veto      | "yes" | execution.close_on_veto must be true or false            |
         | unknown key                 | slippage_pips      | 0.3   | execution has unknown keys ['slippage_pips']             |

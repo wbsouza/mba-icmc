@@ -14,9 +14,9 @@ pinned LEAN image, `ALGO_BROKER__ADAPTER=oanda`.
 1. Run, from `algo-suite/`, with `ALGO_DATA_ROOT` pointing at that data root:
 
        .venv/bin/algo-backtest run --strategy baseline --symbol EURUSD --from 2015-09-01 --to 2015-09-30 \
-         --param size=0.5 --param cash=10000 --model data/training/2026-09-26-six-month-pilot/baseline-f7.json
+         --param cash=10000 --model data/training/2026-09-26-six-month-pilot/baseline-f7.json
        .venv/bin/algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-09-01 --to 2015-09-30 \
-         --param size=0.5 --param cash=10000 --model data/training/2026-09-26-six-month-pilot/hybrid-f7.json
+         --param cash=10000 --model data/training/2026-09-26-six-month-pilot/hybrid-f7.json
 
    Each prints `run[<strategy>]: success=True closed_trades=<n>` and the results path.
    Expected: `success=True` and `closed_trades` greater than zero for both.

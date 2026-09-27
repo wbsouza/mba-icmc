@@ -54,22 +54,26 @@ uv run algo-backtest metrics --run <results-dir>
 # windows materialized + Docker; re-running replaces the whole experiment tree):
 uv run algo-backtest experiment run --spec experiments/baseline-smoke.yaml
 # The config.yaml-driven F1-F7 chain strategies (wiring smoke tests, see Status):
-uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
-uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param size=0.5 --param cash=10000
-#   size = fraction of equity per position (0, 1]; cash = the account's starting deposit.
-#   Every strategy takes cash — the price-only baselines and the engine controls too — so a
-#   control and a chain strategy are compared from the same deposit (story 12, TD-65):
+uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param cash=10000
+uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 --to 2016-01-31 --param cash=10000
+#   cash = the account's starting deposit. A chain strategy takes no size: F6's trade plan
+#   (capital_mgmt.risk_per_trade and the stop distance) sizes every order, and the executor
+#   places the plan's stop, take-profit and trailing orders (story 12). The price-only
+#   baselines and the engine controls keep `size` (fraction of equity per position, (0, 1]);
+#   every strategy takes cash, so a control and a chain strategy are compared from the same
+#   deposit (story 12, TD-65):
 uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param fast=20 --param slow=60 --param size=0.5 --param cash=10000
 uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
 #   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the A05 trade plan), meta_learner (F7
-#   thresholds, regime_gate, label horizon), execution (spread, commission, min hold). A new
+#   thresholds, regime_gate, label horizon), execution (spread, commission, min hold,
+#   close_on_veto). A new
 #   strategy is a new YAML, never a code change: drop
 #   strategies/<name>/config.yaml (bundled) or point --strategies-dir at a folder of them;
 #   a variant states only its diff via `extends:` (any depth, like compose overrides):
 uv run algo-backtest run --strategy baseline-tight --strategies-dir experiments/strategies \
-    --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param cash=10000
+    --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param cash=10000
 #   Every run prints `strategy[<name>] key = value  # <source>` at bootstrap (which
 #   config.yaml in the extends chain set it, or `default`) and writes the same map to
 #   runs/<name>/<stamp>/strategy-provenance.json next to strategy-config.{json,yaml}. To see it
@@ -95,8 +99,8 @@ The schema is closed — unknown keys are rejected.
 
 Chain-strategy definitions live in `src/algo_backtest/strategies/<name>/config.yaml`
 (the filter chain and meta-learner families; `hybrid` `extends: baseline`). Per-run
-strategy parameters are `--param key=value` (`size` + `cash` for `baseline`/`hybrid`;
-`cash`, the starting deposit, is common to every strategy).
+strategy parameters are `--param key=value` (`cash` alone for `baseline`/`hybrid` — F6's
+trade plan sizes each order; `cash`, the starting deposit, is common to every strategy).
 Backtest settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) resolve from `../conf/backtest.yaml`,
 `../conf/algo.yaml` or `ALGO_*` env.
 
@@ -202,7 +206,7 @@ The shared chain engine also honors this selector for `hybrid` strategy configs.
 
 Run the paired experiment with `experiments/double-smoothed-heikin-ashi.yaml`, or
 run `algo-backtest run` separately with `--strategy baseline` and
-`--strategy baseline-dsha`, the same window and `--param size=0.5 --param cash=10000`. Pass the two
+`--strategy baseline-dsha`, the same window and `--param cash=10000`. Pass the two
 result IDs to `algo-analyze ablation --runs <ema-id> --runs <dsha-id>`.
 
 Implementation follows QuantConnect's [custom indicator contract](https://www.quantconnect.com/docs/v2/writing-algorithms/indicators/custom-indicators)
@@ -233,7 +237,7 @@ uv run python scripts/train_baseline_meta_learner.py --strategy baseline-dsha \
 baseline training. Both training scripts include the resolved strategy config in
 model provenance. To evaluate the separately trained candidate, use
 `algo-backtest run --strategy baseline-dsha --model /tmp/dsha-f7.json` with the
-normal symbol/window/size arguments and a held-out evaluation window. No new
+normal symbol/window/cash arguments and a held-out evaluation window. No new
 trained model or performance claim is included in this story. Ties remain down;
 ABSTAIN-on-tie is still the separate TD-61 research question.
 
