@@ -6,7 +6,9 @@ Feature: Strategy parameter validation
   experiments.md #0) are the engine-sanity-check strategies — none here claims a news/
   sentiment signal. Every strategy, code-registered or YAML-resolved, takes `cash` — the
   account's starting deposit (story 12, TD-65) — so a control and a chain strategy can be
-  compared from the same deposit.
+  compared from the same deposit. Every behaviour parameter is external: `random`'s
+  per-bar entry/exit probabilities and its long/short split are run parameters too, never
+  literals in the algorithm.
 
   Rule: Each strategy accepts its own closed parameter set, cash included
 
@@ -20,10 +22,11 @@ Feature: Strategy parameter validation
         | baseline-ma       | fast=3 slow=8 size=0.5 cash=10000      |
         | baseline-meanrev  | window=20 band=0.001 size=0.5 cash=10000 |
         | buyhold           | size=0.5 cash=10000                    |
-        | random            | size=0.5 seed=42 cash=10000            |
+        | random            | size=0.5 seed=42 cash=10000 entry_probability=0.02 exit_probability=0.05 long_probability=0.5 |
         | perfect_foresight | size=0.5 cash=10000                    |
         | buyhold           | size=1 cash=250.5                      |
-        | random            | size=0.5 seed=-7 cash=0.5              |
+        | random            | size=0.5 seed=-7 cash=0.5 entry_probability=1 exit_probability=1 long_probability=0 |
+        | random            | size=0.5 seed=7 cash=10000 entry_probability=0.5 exit_probability=0.5 long_probability=1 |
 
       Examples: the config.yaml chain strategies
         | strategy      | params              |
@@ -56,7 +59,7 @@ Feature: Strategy parameter validation
         | baseline-ma       | fast=3 slow=8 size=0.5 cash=0         |
         | baseline-meanrev  | window=20 band=0.001 size=0.5 cash=-1 |
         | buyhold           | size=0.5 cash=0                       |
-        | random            | size=0.5 seed=42 cash=lots            |
+        | random            | size=0.5 seed=42 cash=lots entry_probability=0.02 exit_probability=0.05 long_probability=0.5 |
         | perfect_foresight | size=0.5 cash=-100                    |
 
       Examples: the config.yaml chain strategies
@@ -77,7 +80,7 @@ Feature: Strategy parameter validation
         | baseline-ma       | fast=3 slow=8 size=0.5        |
         | baseline-meanrev  | window=20 band=0.001 size=0.5 |
         | buyhold           | size=0.5                      |
-        | random            | size=0.5 seed=42              |
+        | random            | size=0.5 seed=42 entry_probability=0.02 exit_probability=0.05 long_probability=0.5 |
         | perfect_foresight | size=0.5                      |
         | baseline          | size=0.5                      |
 
@@ -99,9 +102,39 @@ Feature: Strategy parameter validation
       Then validation fails naming "size"
 
     Scenario: random rejects a non-integer seed
-      Given strategy "random" with params size=0.5 seed=notanumber cash=10000
+      Given strategy "random" with params size=0.5 seed=notanumber cash=10000 entry_probability=0.02 exit_probability=0.05 long_probability=0.5
       When I validate the run inputs expecting failure
       Then validation fails naming "seed"
+
+    Scenario Outline: random rejects an out-of-range or non-numeric <param> (<value>)
+      Given strategy "random" with params size=0.5 seed=42 cash=10000 <params>
+      When I validate the run inputs expecting failure
+      Then validation fails naming "<param>"
+      And validation fails naming "random"
+
+      Examples: entry/exit probabilities must be in (0, 1]
+        | param             | value  | params                                                              |
+        | entry_probability | 0      | entry_probability=0 exit_probability=0.05 long_probability=0.5      |
+        | entry_probability | 1.5    | entry_probability=1.5 exit_probability=0.05 long_probability=0.5    |
+        | exit_probability  | 0      | entry_probability=0.02 exit_probability=0 long_probability=0.5      |
+        | exit_probability  | often  | entry_probability=0.02 exit_probability=often long_probability=0.5  |
+
+      Examples: the long/short split must be in [0, 1]
+        | param            | value | params                                                            |
+        | long_probability | -0.1  | entry_probability=0.02 exit_probability=0.05 long_probability=-0.1 |
+        | long_probability | 1.1   | entry_probability=0.02 exit_probability=0.05 long_probability=1.1  |
+
+    Scenario Outline: random without <param> is rejected as an incomplete param set
+      Given strategy "random" with params size=0.5 seed=42 cash=10000 <params>
+      When I validate the run inputs expecting failure
+      Then validation fails saying the params must be exactly the strategy's set
+      And validation fails naming "<param>"
+
+      Examples:
+        | param             | params                                        |
+        | entry_probability | exit_probability=0.05 long_probability=0.5    |
+        | exit_probability  | entry_probability=0.02 long_probability=0.5   |
+        | long_probability  | entry_probability=0.02 exit_probability=0.05  |
 
     Scenario: baseline-meanrev with a non-positive band is rejected
       Given strategy "baseline-meanrev" with params window=20 band=0 size=0.5 cash=10000

@@ -60,7 +60,9 @@ uv run algo-backtest run --strategy hybrid   --symbol EURUSD --from 2015-08-01 -
 #   Every strategy takes cash — the price-only baselines and the engine controls too — so a
 #   control and a chain strategy are compared from the same deposit (story 12, TD-65):
 uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param fast=20 --param slow=60 --param size=0.5 --param cash=10000
-uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000
+uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param size=0.5 --param seed=42 --param cash=10000 --param entry_probability=0.02 --param exit_probability=0.05 --param long_probability=0.5
+#   random's per-bar entry/exit probabilities and its BUY share (0.5 = unbiased coin) are
+#   run parameters too: no behaviour number is a literal in any bundled algorithm.
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
 #   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the A05 trade plan), meta_learner (F7

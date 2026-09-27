@@ -8,8 +8,9 @@ added without touching the run path.
 
 Each strategy carries its own parameters (baseline-ma: fast/slow/size/cash;
 baseline-meanrev: window/band/size/cash; buyhold/perfect_foresight: size/cash; random:
-size/seed/cash; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
-size/cash), validated by that strategy and passed to its algorithm verbatim. `cash` is the
+size/seed/cash/entry_probability/exit_probability/long_probability; the config.yaml chain
+strategies baseline/baseline-dsha/hybrid: size/cash), validated by that strategy and
+passed to its algorithm verbatim. `cash` is the
 account's starting deposit and is common to every strategy (story 12, TD-65), so a chain
 strategy and an engine control can be compared from the same deposit.
 `baseline`/`hybrid` additionally drive the real F1-F7 filter chain; `hybrid` (Spec 04h)
@@ -146,12 +147,38 @@ def _validate_buyhold(params: Params) -> None:
     _validate_cash(params, "buyhold")
 
 
+def _validate_probability(
+    params: Params, name: str, strategy: str, *, zero_allowed: bool
+) -> None:
+    """A per-bar probability parameter: in (0, 1], or [0, 1] when zero is a valid split."""
+    value = _float_param(params, name, strategy)
+    low_ok = value >= 0 if zero_allowed else value > 0
+    if not (low_ok and value <= 1):
+        bounds = "[0, 1]" if zero_allowed else "(0, 1]"
+        raise ValueError(
+            f"{name} ({value}) must be in range {bounds} — {strategy}'s per-bar probability, "
+            f"e.g. --param {name}=0.5"
+        )
+
+
 def _validate_random(params: Params) -> None:
-    """random params: size in (0, 1], seed any integer, cash > 0 (docs/experiments.md #0)."""
-    _check_keys(params, {"size", "seed", "cash"}, "random")
+    """random params (docs/experiments.md #0): size in (0, 1], seed any integer, cash > 0,
+    entry/exit probabilities in (0, 1], long_probability in [0, 1] (0.5 = unbiased coin).
+
+    Every behaviour parameter of the random control is external (story 12): the per-bar
+    chance of entering while flat, of exiting while invested, and the BUY share of entries.
+    """
+    _check_keys(
+        params,
+        {"size", "seed", "cash", "entry_probability", "exit_probability", "long_probability"},
+        "random",
+    )
     _validate_size(params, "random")
     _int_param(params, "seed", "random")
     _validate_cash(params, "random")
+    _validate_probability(params, "entry_probability", "random", zero_allowed=False)
+    _validate_probability(params, "exit_probability", "random", zero_allowed=False)
+    _validate_probability(params, "long_probability", "random", zero_allowed=True)
 
 
 def _validate_perfect_foresight(params: Params) -> None:
