@@ -119,10 +119,16 @@ up    otherwise
 ```
 
 Because the tie (`==`) case is folded into **down**, this is not a symmetric `>`/`<` split: a flat
-reading classifies as down, never as a distinct "neutral". **Do not silently normalize this to a
-symmetric rule** — if the LEAN port wants a true neutral/ABSTAIN state on a tie (which fits this
-workspace's fail-fast/no-silent-default conventions better than MT4's binary up/down), that is a
-deliberate, documented deviation from the source, not a port of it. State the choice either way.
+reading classifies as down, never as a distinct "neutral".
+
+**Decision (2026-09-26): port `>=` byte-exact, do not add an ABSTAIN-on-tie branch.** Checked every
+sibling B-family file (`mtfHasB1.mq4`, `hasGridB1.mq4`, `trendHas.mq4`) — all use the identical
+unremarked `>=` with no comment anywhere justifying it as a trading rule; it reads as the original
+author's unexamined default, not a considered decision. On continuously-moving real price the tie
+is effectively unreachable; it is reachable on an extended flat/no-movement stretch, but there is no
+evidence an ABSTAIN state there is better *or* worse than the ported default — deciding that needs a
+real ablation comparison, not another guess, and this thesis is scoped to defense first. Tracked as
+**TD-61**: implement and empirically compare an ABSTAIN-on-tie variant after the defense, not now.
 
 `hasTrend.mq4` (the trend-gate half) runs `trendMtfHasB1.mq4` at a **configurable higher timeframe**
 (`level` index into `periods[] = {1,5,15,30,60,240,1440,10080,43200}` minutes) and exposes up/down —
@@ -192,20 +198,30 @@ substance here, not left as a vague caveat):
 4. Wire both candidates through `algo-analyze`'s existing ablation-table machinery (already built,
    `docs/stories/done/2026-09-24-ablation-table`) — no new ablation infrastructure needed, just a
    second config variant to run through it.
-5. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
+5. **Train/serve parity — deferred for retraining (TD-62).** PR #43 correctly
+   identified that `training.py` currently generates EMA features only. This completed
+   implementation holds baseline's EMA-trained F7 model fixed and changes its live
+   direction inputs for an input ablation. It does not claim DSHA train/serve parity.
+   Before a DSHA-retrained comparison, implement offline feature generation and prove
+   parity against native LEAN smoothing and closed-bar timing. A second hand-written
+   moving-average engine is not added to this frozen-model story.
+6. Gherkin scenarios (per this repo's Gherkin-only rule): the HA-transform math against known
    input/output pairs (hand-computed, same style as `trail_stop.feature`), the §2 classification
-   rule's tie-handling (`smoothedFar == smoothedNear` → down, per source — or the documented
-   deviation if ABSTAIN is chosen instead), and a warm-up-period scenario asserting the filter
-   correctly reports "not ready"/abstains rather than emitting a wrong-but-plausible value before
-   enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own bug, see §2).
+   rule's tie-handling (`smoothedFar >= smoothedNear` → down, ported byte-exact per the §2 decision
+   — TD-61 tracks the deferred ABSTAIN-on-tie alternative), and a warm-up-period scenario asserting
+   the filter correctly reports "not ready"/abstains rather than emitting a wrong-but-plausible
+   value before enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own
+   bug, see §2).
 
-## 5. Open questions
+## 5. Resolved implementation decisions
 
 - **~~The exact classification rule~~ — RESOLVED (2026-09-26).** `trendMtfHasB1.mq4` is in the
   checkout (`related-work/projects/fx-manager/metatrader/experts/indicators/trendMtfHasB1.mq4`) and
   its rule is byte-exact, not inferred: down when `smoothedFar >= smoothedNear` (its own buffers 1
-  and 0), up otherwise. See §2. The one thing left to *decide*, not discover: whether the port
-  keeps MT4's fold-tie-into-down behavior or documents a deliberate ABSTAIN-on-tie deviation.
+  and 0), up otherwise. See §2. **Tie-handling decided too:** port `>=` byte-exact (fold tie into
+  down), do not add an ABSTAIN branch now — no sibling B-family file documents a trading rationale
+  for the tie case, and there is no evidence ABSTAIN would be better or worse without an actual
+  ablation run. Tracked as **TD-61** for a post-defense empirical comparison.
 - **~~`spockfx-engine`'s `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
   are now confirmed from primary sources, not guessed: `Heiken_Ashi_Smoothed.mq4`'s own `extern int
   MaPeriod2 = 2` default (the original, human-authored MQL source, not decompiled) is `2`;
@@ -216,22 +232,22 @@ substance here, not left as a vague caveat):
   **Decision: use `2`, the original MQL default**, since this port's reference is `outerHAS.mq4`/
   `hasTrend.mq4`/`trendMtfHasB1.mq4` (the MT4 side), and document that spockfx-engine's Java
   rewrite deliberately ran `period2=1` instead, as a fact about that other system, not this port.
-- **Exact module location for this perception-layer code** — still open. No `perception/` package
-  exists yet in `algo_backtest`; decide at implementation time whether this lives alongside F1, in
-  a new package, or as part of whatever 04a/04h's real indicator wiring introduces for the EMA/ADX
-  default, so the two candidates share a consistent integration shape. Suggested class name:
-  `DoubleSmoothedHeikinAshiTrend` (see the naming note at the top of this file).
+- **Module location — RESOLVED.** `algo_backtest/perception/` separates pure formula/config
+  from native LEAN adapters. `engine/chain_algorithm.py` integrates both sources. The
+  custom indicator is `DoubleSmoothedHeikinAshiTrend`.
 
 ## Definition of done
 
 - Double-Smoothed-Heikin-Ashi-based `trend_direction`/`higher_tf_trend_direction` implementation
   built on LEAN's native `WilderMovingAverage`/`LinearWeightedMovingAverage`, not a hand-rolled
-  reimplementation.
+  reimplementation, live/backtest side.
+- Frozen EMA-trained F7 model shared by both candidates; DSHA offline training/parity
+  explicitly deferred as TD-62 before any retrained-model comparison (§4 step 5).
 - Config-selectable alongside (not replacing) the default perception source.
 - Wired through the existing ablation-table machinery; at least one ablation run comparing both
   candidates exists.
-- The tie-handling decision and the `period2` choice in §5 are documented (not silently guessed
-  past); the module-location open question is resolved.
+- Tie folds into down, ported byte-exact (§2/§5); TD-61 filed for the deferred ABSTAIN-on-tie
+  comparison. The `period2=2` choice is documented. The module-location open question is resolved.
 - `make check` green.
 - Move to `docs/stories/done/<YYYY-MM-DD>-double-smoothed-heikin-ashi-trend-filter/` with
   `lessons-learned.md`.
