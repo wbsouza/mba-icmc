@@ -13,7 +13,7 @@ no new library code in these three tools; they are already built and merged).
 `algo-score`'s code is fully built and tested against fixtures, but its pipeline has
 never been *run* against real data. The NAS data root
 (`/media/nas/wellington/mba/algo-suite/data`) currently has only `parquet/forex/` —
-no sentiment or event Parquet exists. `docs/stories/done/2026-09-26-04e-algo-backtest-news-context-filter/spec.md`
+no sentiment or event Parquet exists. `docs/stories/done/2026-09-25-04e-algo-backtest-news-context-filter/spec.md`
 named this exact gap as its blocking precondition (since resolved — the event half is
 real+built; see that story's `progress.md`). This story is the operational
 runbook that closes it: bulk-materialize GDELT event/sentiment data and the GPR

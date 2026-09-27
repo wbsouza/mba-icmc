@@ -21,6 +21,12 @@ app = typer.Typer(
 _PARAM_OPTION = typer.Option(
     None, "--param", help="Strategy parameter key=value, repeatable (e.g. --param fast=3)."
 )
+_MODEL_OPTION = typer.Option(
+    None,
+    "--model",
+    help="F7 model JSON to use instead of the strategy's bundled one (baseline/hybrid "
+    "only); the algorithm logs its SHA-256.",
+)
 
 
 def _parse_params(items: list[str]) -> dict[str, str]:
@@ -142,6 +148,7 @@ def run(
     timeout: int = typer.Option(
         600, "--timeout", envvar="LEAN_RUN_TIMEOUT", help="Seconds to wait for the run."
     ),
+    model: Path | None = _MODEL_OPTION,
 ) -> None:
     """Run a single strategy over a window and report success + closed-trade count.
 
@@ -155,9 +162,15 @@ def run(
     from algo_core.instrument import build_instrument
 
     from algo_backtest.artifacts import RunManifest, write_run_artifacts
+    from algo_backtest.chain.filters.f4_news_context import news_build_command
     from algo_backtest.config import load_backtest_config
     from algo_backtest.metrics import metrics_from_results
-    from algo_backtest.run import lean_data_covers, run_strategy, validate_run_inputs
+    from algo_backtest.run import (
+        lean_data_covers,
+        news_coverage_errors,
+        run_strategy,
+        validate_run_inputs,
+    )
 
     try:
         start = datetime.strptime(from_, "%Y-%m-%d").date()
@@ -167,7 +180,7 @@ def run(
         raise typer.Exit(2) from None
     try:
         params = _parse_params(param or [])
-        validate_run_inputs(strategy, params, start, end)
+        validate_run_inputs(strategy, params, start, end, model)
     except ValueError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(2) from exc
@@ -186,11 +199,20 @@ def run(
         )
         raise typer.Exit(2)
 
+    news_errors = news_coverage_errors(strategy, config.data_root, symbol, start, end)
+    if news_errors:
+        typer.echo(
+            f"GDELT event features cannot serve {strategy} over {start}..{end}: "
+            f"{'; '.join(news_errors)}; build them first: `{news_build_command(start, end)}`",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     results_dir = _fresh_results_dir(config.data_root, strategy)
     result = run_strategy(
         strategy, data_root=config.data_root, instrument=instrument, start=start, end=end,
         params=params, results_dir=results_dir, timeout=timeout,
-        broker_adapter=config.broker_adapter,
+        broker_adapter=config.broker_adapter, model=model,
     )
     typer.echo(
         f"run[{strategy}]: success={result.success} closed_trades={result.closed_trades} "

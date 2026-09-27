@@ -1,6 +1,67 @@
 # Progress — Spec 04h (hybrid strategy integration, final)
 
-## Update (2026-09-26, later same session): the "baseline" chain now runs for real
+## Closure (2026-09-26, final session): the "hybrid" chain now runs for real too
+
+`algos/hybrid/main.py` now exists, wiring the full F1+F2+F3+F4+F5+F6+F7 chain
+(`strategies/hybrid/config.yaml`'s `extends: baseline` chain) against the real pinned
+LEAN container:
+
+1. **New integration tests** (`tests/features/run_hybrid_chain.feature` +
+   `tests/steps/test_run_hybrid_chain.py`, `@integration`): the chain runs to completion
+   against a synthetic price swing plus a synthetic GDELT event-feature Parquet, in two
+   scenarios — no active high-risk event (chain evaluates normally) and an active
+   high-risk event (F4 vetoes every bar, `trades.json` stays empty). Both pass, plus 3
+   fast CLI-validation scenarios (size range, unknown param, missing required param).
+2. **Real run**: trained `scripts/train_hybrid_meta_learner.py` on the real materialized
+   `2015-02` GDELT event-feature Parquet (same window as `baseline`'s own real run,
+   `--train-end 2015-02-03 --validation-end 2015-02-05 --test-end 2015-02-06`) —
+   `rows=28744 train=2997 validation=2875 test=1319`. Ran the real container over the
+   same `2015-02-02`→`2015-02-06` window as `baseline`'s own real run.
+3. **`decisions.parquet` joins `trades.json` by `trade_id` — the last remaining item**:
+   a new shared `chain/decision_recorder.py` (`DecisionRecorder`) tracks the
+   currently-open trade's id (LEAN's own entry `orderIds[0]`, threaded through
+   `OrderExecutor.execute()`'s `FillRecord.order_id`) across bars and writes the full
+   batch to `/Results/decisions.parquet` at `on_end_of_algorithm()`. Retrofitted into
+   `algos/baseline/main.py` too (the same gap applied there — it never wrote
+   `decisions.parquet` at all before this). Proven end-to-end by new
+   `@integration` scenarios in both `run_baseline_chain.feature` and
+   `run_hybrid_chain.feature` asserting every non-null `trade_id` matches a real
+   `trades.json` entry order id.
+
+**Two new real, previously-unknown gaps found and fixed along the way** (both only
+surface once a chain-driven algorithm actually imports these paths inside the
+container for the first time):
+- `algo_core.repository`'s package `__init__.py` eagerly imported `DuckDBRepository`
+  (and therefore the real `duckdb` package), which the pinned container doesn't ship —
+  `algos/baseline/main.py` importing `chain/audit.py` (via the new `decision_recorder.py`)
+  hit `No module named 'duckdb'` on the very first real run. Fixed via a lazy
+  `__getattr__` (PEP 562) — nothing on the `ParquetRepository`-only path needs DuckDB.
+- An all-empty `enrichment`/`metadata` batch (the common case — F1/F2/F3/F5/F6 usually
+  set neither) made pyarrow infer a childless struct column, which its Parquet writer
+  rejects outright ("Cannot write struct type 'metadata' with no child field"). Fixed by
+  mapping an empty dict to `None` at the `FilterResultRow` boundary — verified
+  empirically against the real pyarrow writer before landing the fix.
+- `lean_runner.py` also needed to copy `algo_score` into the container (F4 imports
+  `algo_score.events.models`/`.paths`) — nothing previously imported it there.
+- `run.py`'s `run_strategy()` gained a `StrategySpec.needs_news_data` flag: `hybrid`
+  additionally mounts the real Spec 03 Parquet tree read-only at `news/parquet` under
+  the container's data root, preserving its on-disk layout so `algo_score`'s own path
+  builders work unchanged inside the container.
+
+**Mutation testing**: adding `run.py`/`chain/decision_recorder.py` to the differential
+`mutmut` scope (the first time `run.py` was ever in scope) landed at 202/340 killed
+after fixing a real, newly-surfaced `_check_keys` `or`→`and` logic gap (new
+"params must be exactly" message assertions) and 2 `DecisionRecorder` mutants (new
+HOLD-decision scenarios distinguishing `""` from `None`). The remaining 70 survivors are
+almost entirely pre-existing debt in `run.py`'s other strategy validators, surfaced for
+the first time by this scope expansion, not part of this story's own diff — see
+`docs/technical-debt.md` TD-57.
+
+Both `baseline` and `hybrid` are still wiring smoke tests, not methodology results (see
+below and each `main.py`'s own docstring). Parent `04-algo-backtest-filter-chain-hybrid`
+moves to `done/` alongside this story.
+
+## Update (2026-09-26, earlier same session): the "baseline" chain now runs for real
 
 `algos/baseline/main.py` now exists and runs the full F1+F2+F3+F5+F6+F7 chain (no F4)
 against the real pinned LEAN container, verified two ways:
@@ -123,40 +184,43 @@ window before deciding whether to widen it to the rest of `2015-02` or the full 
       exact proven `baseline_ma`/`baseline_meanrev` pattern, registered in `run.py`'s
       `STRATEGIES` with real Gherkin-covered param validators. **Not run against the real
       LEAN container this pass** (see below).
-- [ ] End-to-end integration test: `algo-backtest run --strategy hybrid --symbol EURUSD` —
-      **not done.** `run.py`'s `STRATEGIES` has no `"baseline"`/`"hybrid"` entry: that
-      needs `algos/baseline/main.py`/`algos/hybrid/main.py` reading a strategy's
-      `config.yaml` and populating `ExecutionState.features` each bar from live
-      LEAN-native indicators (F1-F3), `self.portfolio` (F5/F6), the real news Parquet
-      (F4), and a persisted meta-learner artifact (F7) — the single largest remaining
-      engineering surface in `algo-backtest`. Deliberately deferred this pass: the
-      pinned LEAN image is ~10 GB, `pyarrow`/`lightgbm`/`scikit-learn` availability
-      inside it is unverified, and pulling/running it risked NAS I/O contention with the
-      concurrent, unrelated 10-year FX price backfill running in the original working
-      tree during this session. See `docs/technical-debt.md` TD-51 for the itemized
-      remaining scope.
-- [ ] `decisions.parquet` joins `trades.parquet` by `trade_id` (end-to-end check) — **not
-      done**, blocked on the item above (no strategy drives the chain end-to-end yet, so
-      there is no real run to join). Also note: the real ledger today is `trades.json`
-      (TD-47 already corrected `SPEC.md` §6.1's stale `trades.parquet` plan) — the actual
-      join target for a future check is `trades.json`, not `trades.parquet` as originally
-      worded in this checklist item.
+- [x] End-to-end integration test: `algo-backtest run --strategy hybrid --symbol EURUSD` —
+      `algos/hybrid/main.py` reads `strategies/hybrid/config.yaml`, populates
+      `ExecutionState.features` each bar from live LEAN-native indicators (F1-F3),
+      `self.portfolio` (F5/F6), the real news Parquet via a merged `NewsContextIndex`
+      (F4), and a persisted meta-learner artifact (F7); registered in `run.py`'s
+      `STRATEGIES`. Run against the real pinned LEAN container (2 new `@integration`
+      scenarios, `run_hybrid_chain.feature`) and a real 2015-02-02→2015-02-06 window.
+- [x] `decisions.parquet` joins `trades.json` by `trade_id` (end-to-end check) —
+      `chain/decision_recorder.py`'s `DecisionRecorder` threads LEAN's own entry
+      `orderIds[0]` (via `OrderExecutor.execute()`'s `FillRecord.order_id`) into every
+      row; proven by new `@integration` assertions in both `run_baseline_chain.feature`
+      and `run_hybrid_chain.feature` (every non-null `trade_id` matches a real
+      `trades.json` entry order id). (TD-47 already corrected the join target from the
+      originally-worded `trades.parquet` to the real `trades.json` ledger.)
 - [x] Mermaid filter-chain diagram per strategy README —
       `src/algo_backtest/strategies/{baseline,hybrid}/README.md`.
 - [x] Update `algo-backtest/SPEC.md`, `00-PLAN.md` §1, `ch04-deliverables.md` — all three
       updated to describe F4/F7/`chain/terminal.py`/`strategies.py` as built, and to
       honestly scope the remaining LEAN-container wiring as the one open item.
-- [ ] Move `04-algo-backtest-filter-chain-hybrid/` (+ lanes) to `done/`, add
-      `lessons-learned.md` — **deliberately not done.** The parent story's real
-      Definition of Done (a LEAN-container hybrid run producing `decisions.parquet` +
-      `trades.json`) is not met; moving it to `done/` would misrepresent status to future
-      readers. Revisit once TD-51's remaining scope lands.
-- [x] `make check` green (algo-backtest + algo-score scoped: see final report for count);
-      `make audit` — see final report.
-- [x] Gauntlet (differential mutmut, `uncle-bob-agent-gauntlet`): 112/122 killed (91.8%)
-      after adding boundary/edge scenarios for `chain/terminal.py` and `strategies.py`
-      (empty `filter_results`, `decision_to_order_action` coverage, non-mapping config,
-      missing-vs-empty `filters`, a real `_deep_merge` `and`→`or` gap, missing-`families`-
-      key, default-root-parameter coverage). Remaining 10 survivors: 8 message-text
-      canaries (TD-34/36/40/49 class, new row TD-52) + 2 confirmed-equivalent mutants on
-      an unobservable default-value substitution.
+- [x] Move `04-algo-backtest-filter-chain-hybrid/` (+ lanes) to `done/`, add
+      `lessons-learned.md` — the parent story's real Definition of Done (a
+      LEAN-container hybrid run producing `decisions.parquet` + `trades.json`,
+      verifiably joined) is now met.
+- [x] `make check` green (algo-backtest full non-integration suite: 288 passed;
+      algo-core: 80 passed; both ruff-clean, mypy-clean except the pre-existing
+      `joblib` stub gap already noted for `scripts/train_baseline_meta_learner.py`,
+      now also present in `scripts/train_hybrid_meta_learner.py`); `@integration`
+      suite: 22/23 passed (1 pre-existing, unrelated `test_lean_run_smoke.py`
+      failure confirmed via `git stash` to already fail on unmodified `main` —
+      not caused by this story, not fixed by it either, out of this diff's scope).
+- [x] Gauntlet (differential mutmut, `uncle-bob-agent-gauntlet`): `chain/terminal.py`/
+      `strategies.py` unchanged from the prior 112/122 pass. New files
+      (`chain/decision_recorder.py`, `run.py` — the latter's first time in scope)
+      landed at 202/340 killed after fixing a real `_check_keys` `or`→`and` gap and
+      2 `DecisionRecorder` `""`-vs-`None` gaps; 68 "no tests" are `run_strategy`/
+      `lean_data_covers` container-launch paths only reachable via `@integration`
+      tests (mutmut's default gate excludes them, same class as `algos/*/main.py`'s
+      full exclusion); 70 survivors are pre-existing debt in `run.py`'s other
+      strategy validators, surfaced for the first time by this scope expansion —
+      see `docs/technical-debt.md` TD-57.

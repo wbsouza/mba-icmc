@@ -2,7 +2,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
   `algo-backtest run --strategy baseline` wires the config.yaml-driven F1+F2+F3+F5+F6+F7
   chain (no F4/news) into a real LEAN algorithm for the first time (2026-09-26). This is
   a wiring smoke test, not a methodology result -- see technical-debt.md's TD-51 and
-  docs/stories/planned/04h-algo-backtest-hybrid-integration/progress.md: F3's
+  docs/stories/done/2026-09-26-04h-algo-backtest-hybrid-integration/progress.md: F3's
   candlestick-pattern feature is never populated (no real detector), F5/F6's
   account-risk features use fixed placeholder economics (no real ATR/margin model), and
   F7's meta-learner is trained on a short window by
@@ -15,17 +15,28 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
       Then the run command exits with code 2
       And the error says size must be in range
 
+    Scenario: a model trained for hybrid is rejected for baseline before any container starts
+      When I run baseline with the bundled hybrid model as --model
+      Then the run command exits with code 2
+      And the error names the model's families and the strategy's declared families
+
     Scenario: an unknown param is rejected
       When I run "algo-backtest run --strategy baseline --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param bogus=1"
       Then the run command exits with code 2
+      And the error says params must be exactly
 
   Rule: A validated run executes the full F1-F7 chain on the engine without crashing
 
     @integration
-    Scenario: the baseline chain runs to completion against a price swing
-      Given materialized EUR/USD minute data with a price swing in 2014-05
-      When I run baseline over 2014-05-07 to 2014-05-09 with size 0.5
+    Scenario: the baseline chain trades a sine cycle and every decision joins its LEAN trade
+      Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09
+      And a baseline F7 model trained on it: train through 2014-05-06, validate on 2014-05-07, test 2014-05-08 to 2014-05-09
+      When I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5 and that model
       Then the strategy run exits successfully
+      And the container log shows the algorithm loaded the fixture model
       And a metrics summary is reported
       And the run artifacts are written under the data root
       And the container log shows the F1-F7 chain actually evaluated a decision
+      And decisions.parquet is written under the run's results directory
+      And every decisions.parquet row's trade_id names the LEAN trade open at that row's instant
+      And at least one decisions.parquet row is joined to a trades.json trade

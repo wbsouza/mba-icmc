@@ -25,3 +25,19 @@ Feature: Repository data-access pattern
     When I put 0 bars with the bar schema
     Then the written file has the ts and close columns
     And it has 0 rows
+
+  Rule: ParquetRepository does not require duckdb to be installed
+
+    A pyarrow-only consumer (e.g. a chain-driven LEAN algorithm inside the pinned
+    container, which ships pyarrow but not duckdb) must be able to import and use
+    ParquetRepository without duckdb present at all.
+
+    Scenario: Importing algo_core.repository.parquet succeeds without duckdb
+      Given duckdb is not installed
+      When algo_core.repository.parquet is imported fresh
+      Then ParquetRepository is importable and duckdb was never imported
+
+    Scenario: Accessing DuckDBRepository still fails clearly when duckdb truly is absent
+      Given duckdb is not installed
+      When algo_core.repository is imported fresh
+      Then accessing DuckDBRepository on it raises ImportError

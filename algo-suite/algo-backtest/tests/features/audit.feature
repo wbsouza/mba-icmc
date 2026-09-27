@@ -61,6 +61,12 @@ Feature: decisions.parquet audit trail
       Then the Parquet file exists on disk
       And reading it back yields the same decision rows
 
+    Scenario: A batch whose filter_results carry no enrichment or metadata still writes
+      Given a single decision row with a filter_result that has no enrichment or metadata
+      When the decision rows are written to "decisions.parquet"
+      Then the Parquet file exists on disk
+      And reading it back yields the same decision rows
+
     Scenario: A NO_TRADE row's null trade_id round-trips through decisions.parquet
       Given a single NO_TRADE decision row
       When the decision rows are written to "decisions.parquet"

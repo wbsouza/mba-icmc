@@ -18,5 +18,5 @@ Split into lanes per `spec.md`. Track each lane's own progress in its own folder
   `summary`/`metrics`/`significance`/`ablation`/`figures` per `docs/experiments.md`
   §2/§3; wrote `SPEC.md` fresh (the old one was lost from `main` without ever being
   deleted in its own history — orphaned on a branch that never merged); `make check`
-  and `make audit` green. See `../../planned/05e-integration/progress.md` for the
+  and `make audit` green. See `../2026-09-25-05e-integration/progress.md` for the
   detailed checklist.

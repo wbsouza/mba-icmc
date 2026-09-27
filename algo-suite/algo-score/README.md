@@ -49,8 +49,11 @@ UTC `publish_ts`. `algo-score --scorer lm` writes minute sentiment under
 
 Event-feature slice implemented: `algo-score events --kind gpr|gdelt` reads the
 canonical event Parquet from `algo-transform`, forward-fills daily values onto
-the minute grid, and writes provider-specific feature partitions under
-`parquet/events/_features/<kind>/...`. The GDELT `event_intensity` feature is
+the minute grid with a **one-day publication lag** (day D's value first appears at
+00:00 UTC on D+1, so no bar sees a same-day aggregate), and writes provider-specific
+feature partitions under `parquet/events/_features/<kind>/...`. A `--from/--to`
+build over part of a month merges into the existing monthly partition, keeping its
+rows outside the range. The GDELT `event_intensity` feature is
 the unweighted daily mean of `goldstein_scale`; `avg_tone` is kept out of this
 feature. FinBERT remains planned. CPU path always works.
 

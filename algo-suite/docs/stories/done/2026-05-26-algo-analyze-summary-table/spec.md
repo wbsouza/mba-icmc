@@ -6,7 +6,7 @@ path — second price-only strategy, baseline-meanrev").
 
 This is separate from `../2026-09-23-algo-analyze-deflated-sharpe/` (Spec
 05a, deflated Sharpe, which swarmforge built yesterday) and from
-`../../in-progress/05-algo-analyze-metrics-significance/` (the parked
+`../2026-09-25-algo-analyze-metrics-significance/` (the parked
 metrics/significance/ablation/figures epic). The summary-table piece of
 `algo-analyze` was already built and working nearly four months before that
 session; the session only added deflated Sharpe on top of it.

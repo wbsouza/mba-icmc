@@ -19,7 +19,11 @@ mounted file.
 |---|---|
 | `algo.yaml` | global / cross-cutting (`data_root`, `log_level`, shared defaults) |
 | `<tool>.yaml` | one tool, e.g. `download.yaml` (source list), `score.yaml` |
-| `backtest/<strategy>.yaml` | a strategy definition for `algo-backtest` |
+| `backtest.yaml` | `algo-backtest` settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) |
+
+Strategy definitions (filter chain, meta-learner families) are not here: they are
+version-controlled with the code in
+`algo-backtest/src/algo_backtest/strategies/<name>/config.yaml`.
 
 `*.sample` files show what can be set. To activate, copy to the real name
 (e.g. `cp algo.yaml.sample algo.yaml`) and adjust the values for your machine
@@ -37,7 +41,7 @@ ALGO_CONF_DIR=/conf          # relocate this dir (container mount)
 ALGO_DOWNLOAD__SOURCES=...    # nested into the download tool
 ```
 
-## In Docker
+## In Docker (planned — TD-11; no tool ships a Dockerfile yet)
 
 ```
 docker run --rm \

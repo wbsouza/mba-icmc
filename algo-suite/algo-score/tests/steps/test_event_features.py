@@ -237,9 +237,29 @@ def _build_through_source_helper(context: dict[str, object], source: str) -> Non
 def _forward_filled(context: dict[str, object], column: str) -> None:
     source = context["source"]
     assert isinstance(source, str)
-    assert _minute_value(context, source, column, datetime(2020, 1, 5, 0, 0, tzinfo=UTC)) == 10.0
-    assert _minute_value(context, source, column, datetime(2020, 1, 6, 12, 0, tzinfo=UTC)) == 20.0
-    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 30.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 6, 0, 0, tzinfo=UTC)) == 10.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 12, 0, tzinfo=UTC)) == 20.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 20.0
+
+
+@then(
+    parsers.re(
+        r"the last minute of 2020-01-06 still carries the 2020-01-05 (?P<column>[a-z_]+) value"
+    )
+)
+def _same_day_not_visible(context: dict[str, object], column: str) -> None:
+    source = context["source"]
+    assert isinstance(source, str)
+    assert _minute_value(context, source, column, datetime(2020, 1, 6, 23, 59, tzinfo=UTC)) == 10.0
+
+
+@then(
+    parsers.re(r"the first minute of 2020-01-07 carries the 2020-01-06 (?P<column>[a-z_]+) value")
+)
+def _next_day_visible(context: dict[str, object], column: str) -> None:
+    source = context["source"]
+    assert isinstance(source, str)
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 0, 0, tzinfo=UTC)) == 20.0
 
 
 @then(
@@ -256,7 +276,7 @@ def _not_interpolated(context: dict[str, object]) -> None:
     source = context["source"]
     assert isinstance(source, str)
     column = "gpr" if source == "gpr" else "event_intensity"
-    assert _minute_value(context, source, column, datetime(2020, 1, 6, 23, 59, tzinfo=UTC)) == 10.0
+    assert _minute_value(context, source, column, datetime(2020, 1, 7, 23, 59, tzinfo=UTC)) == 10.0
 
 
 @then(parsers.re(r"minutes before day 2 have no (?P<column>[a-z_]+) value"))
@@ -278,10 +298,11 @@ def _absence_not_zero(context: dict[str, object]) -> None:
     assert values == [None, None]
 
 
-@then(parsers.re(r"every minute of 2020-01-05 carries event_intensity (?P<expected>-?\d+\.\d+)"))
+@then(parsers.re(r"every minute of 2020-01-06 carries event_intensity (?P<expected>-?\d+\.\d+)"))
 def _golden_intensity(context: dict[str, object], expected: str) -> None:
+    """2020-01-05's aggregate, visible on 2020-01-06 under the one-day publication lag."""
     table = _read_output(context, "gdelt")
-    values = table.column("event_intensity").to_pylist()[: 24 * 60]
+    values = table.column("event_intensity").to_pylist()[24 * 60 : 2 * 24 * 60]
     assert set(values) == {float(expected)}
 
 
@@ -303,3 +324,77 @@ def _known_kinds(context: dict[str, object]) -> None:
     stdout = context["result"].stdout  # type: ignore[attr-defined]
     assert "gdelt" in stdout
     assert "gpr" in stdout
+
+
+def _goldstein_for(day: date) -> float:
+    """A distinct, deterministic daily value so each day's carried value is identifiable."""
+    return float(day.toordinal() % 97)
+
+
+@given(
+    "raw GDELT events with a distinct goldstein_scale for every day from 2020-01-30 to "
+    "2020-03-01"
+)
+def _raw_distinct(context: dict[str, object]) -> None:
+    from datetime import timedelta
+
+    days = [date(2020, 1, 30) + timedelta(days=i) for i in range(32)]
+    by_month: dict[tuple[int, int], list[tuple[date, float, float]]] = {}
+    for day in days:
+        by_month.setdefault((day.year, day.month), []).append((day, _goldstein_for(day), 0.0))
+    for (year, month), rows in by_month.items():
+        path = (
+            _root(context) / "parquet" / "events" / "gdelt" / f"year={year:04d}"
+            / f"month={month:02d}" / "data.parquet"
+        )
+        _write_gdelt_at(path, rows)
+    context["source"] = "gdelt"
+
+
+@given("GDELT event features already built for all of 2020-02")
+def _built_february(context: dict[str, object]) -> None:
+    result = runner.invoke(
+        app, ["events", "--kind", "gdelt", "--from", "2020-02-01", "--to", "2020-02-29"]
+    )
+    assert result.exit_code == 0, result.output
+    context["february_before"] = _february(context)
+
+
+@when(parsers.parse("I build GDELT event features from {first} to {last}"))
+def _build_range(context: dict[str, object], first: str, last: str) -> None:
+    result = runner.invoke(app, ["events", "--kind", "gdelt", "--from", first, "--to", last])
+    assert result.exit_code == 0, result.output
+
+
+def _february(context: dict[str, object]) -> dict[datetime, float | None]:
+    """The 2020-02 feature partition as {minute: event_intensity}."""
+    path = _feature_path(context, "gdelt").parent.parent / "month=02" / "data.parquet"
+    table = pq.read_table(path)
+    timestamps = table.column("timestamp").to_pylist()
+    return dict(zip(timestamps, table.column("event_intensity").to_pylist(), strict=True))
+
+
+@then("the 2020-02 partition still has every minute of February")
+def _all_february(context: dict[str, object]) -> None:
+    february = _february(context)
+    assert len(february) == 29 * 24 * 60
+    assert min(february) == datetime(2020, 2, 1, tzinfo=UTC)
+    assert max(february) == datetime(2020, 2, 29, 23, 59, tzinfo=UTC)
+
+
+@then("every 2020-02 minute from 2020-02-02 on is unchanged")
+def _unchanged(context: dict[str, object]) -> None:
+    before = context["february_before"]
+    assert isinstance(before, dict)
+    after = _february(context)
+    cutoff = datetime(2020, 2, 2, tzinfo=UTC)
+    assert {t: v for t, v in after.items() if t >= cutoff} == {
+        t: v for t, v in before.items() if t >= cutoff
+    }
+
+
+@then("the 2020-02-01 minutes carry the 2020-01-31 value")
+def _feb_first(context: dict[str, object]) -> None:
+    after = _february(context)
+    first_day = {v for t, v in after.items() if t.date() == date(2020, 2, 1)}
+    assert first_day == {_goldstein_for(date(2020, 1, 31))}
