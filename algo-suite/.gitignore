@@ -28,6 +28,8 @@ raw/
 parquet/
 lean-data/
 runs/
+data/
+data-nas/
 
 algo.yaml
 download.yaml
