@@ -198,6 +198,18 @@ def _invalid_sidecar(preflight_ctx: _PreflightCtx) -> None:
     )
 
 
+@given(
+    "an availability provenance sidecar for that window with one observation whose "
+    "available_at equals its decision timestamp"
+)
+def _equal_sidecar(preflight_ctx: _PreflightCtx) -> None:
+    assert preflight_ctx.arm is not None
+    decision = preflight_ctx.arm.window_start + timedelta(hours=1)
+    preflight_ctx.arm.sidecar = pf.AvailabilitySidecar(
+        observations=[pf.AvailabilityObservation(decision_time=decision, available_at=decision)]
+    )
+
+
 # --- Running ---
 
 

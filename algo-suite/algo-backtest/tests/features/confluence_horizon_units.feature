@@ -81,6 +81,14 @@ Feature: Horizon unit re-derivation — normalized returns versus true price pip
       And the re-derived row's price_pips is null
       And the re-derived row's unit_status is "missing_price"
 
+    Scenario: a gap exactly at the source series boundary is still a missing price, not a future-horizon overrun
+      Given a decision at "2016-03-01T10:00:00Z" with archived close 1.08650
+      And the source price series ends exactly at "2016-03-01T14:00:00Z" with no close there
+      When the horizon is re-derived to a new output path
+      Then the re-derived row's normalized_return_pips is null
+      And the re-derived row's price_pips is null
+      And the re-derived row's unit_status is "missing_price"
+
   Rule: The archive's bytes are checked before and after, and never change (CC-26)
 
     Scenario: the archive's sha256 hash is identical before and after a successful re-derivation

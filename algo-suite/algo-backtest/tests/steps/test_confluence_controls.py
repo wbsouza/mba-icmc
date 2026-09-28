@@ -117,6 +117,12 @@ def _no_enrichment(controls_ctx: _ControlsCtx) -> None:
     assert controls_ctx.result.enrichment == {}
 
 
+@then(parsers.parse('the constant-direction result gives the reason "{reason}"'))
+def _reason(controls_ctx: _ControlsCtx, reason: str) -> None:
+    assert controls_ctx.result is not None
+    assert controls_ctx.result.reason == reason
+
+
 @then(parsers.parse('both constant-direction results recommend "{direction}"'))
 def _both_recommend(controls_ctx: _ControlsCtx, direction: str) -> None:
     assert len(controls_ctx.results) == 2, controls_ctx.results

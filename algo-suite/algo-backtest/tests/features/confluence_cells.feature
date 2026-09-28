@@ -26,6 +26,9 @@ Feature: Fourteen-cell manifest generator — the fixed confluence-chain study g
       And every cell ID in the manifest is unique
       And the manifest's arms are exactly "A, B, A-plan, T-only, M-only, always-short, always-long"
       And each arm appears exactly once on clock 60 minutes and once on clock 240 minutes
+      And the "A" cell on clock 60 minutes has cell ID "a-h1"
+      And the "A-plan" cell on clock 240 minutes has cell ID "a-plan-h4"
+      And the "always-long" cell on clock 60 minutes has cell ID "always-long-h1"
 
     Scenario Outline: each cell's clock carries the registered momentum lookback (<clock_label>) (CC-28)
       When the fourteen-cell manifest is generated
@@ -164,6 +167,7 @@ Feature: Fourteen-cell manifest generator — the fixed confluence-chain study g
       When the fourteen-cell manifest is generated
       Then every manifest row has a non-empty config_hash
       And no two manifest rows share the same config_hash
+      And every manifest row's config_hash is a 64-character hex SHA-256 digest
 
     Scenario: regenerating the manifest from the same inputs yields identical hashes and cell IDs
       When the fourteen-cell manifest is generated

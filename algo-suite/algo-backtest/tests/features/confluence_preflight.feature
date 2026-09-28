@@ -150,6 +150,12 @@ Feature: Confluence preflight — input population and point-in-time availabilit
       When the population ledger is computed and fails
       Then the preflight failure names "available_at is not strictly before its decision timestamp"
 
+    Scenario: a sidecar whose availability timestamp exactly equals the decision timestamp is refused, not treated as strictly prior
+      Given a preflight ledger for the "A" arm on clock 60 minutes over "2016-03-01".."2016-03-31"
+      And an availability provenance sidecar for that window with one observation whose available_at equals its decision timestamp
+      When the population ledger is computed and fails
+      Then the preflight failure names "available_at is not strictly before its decision timestamp"
+
   Rule: The five ledger counts always reconcile for every reported cell (CC-24)
 
     Scenario: calendar-expanded, closures, valid, warmup and missing sum consistently for one full month

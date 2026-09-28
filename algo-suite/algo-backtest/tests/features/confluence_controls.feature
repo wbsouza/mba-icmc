@@ -24,6 +24,7 @@ Feature: Constant-direction control filter — the two drift-control votes (stor
       Then the constant-direction result recommends "<direction>"
       And the constant-direction result does not veto
       And the constant-direction result has no enrichment
+      And the constant-direction result gives the reason "constant control direction: <direction>"
 
       Examples:
         | case                                                         | direction | momentum | intensity |

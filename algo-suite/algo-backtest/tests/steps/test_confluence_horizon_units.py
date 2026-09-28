@@ -121,6 +121,14 @@ def _gap(horizon_ctx: _HorizonCtx, time: str) -> None:
     horizon_ctx.closes.pop(_utc(time), None)
 
 
+@given(parsers.parse('the source price series ends exactly at "{time}" with no close there'))
+def _ends_exactly_with_gap(horizon_ctx: _HorizonCtx, time: str) -> None:
+    """`series_end` equals the missing timestamp itself: at-or-before-boundary is still a gap."""
+    at = _utc(time)
+    horizon_ctx.closes.pop(at, None)
+    horizon_ctx.series_end = at
+
+
 def _source(horizon_ctx: _HorizonCtx) -> object:
     series_end = horizon_ctx.series_end
     assert series_end is not None

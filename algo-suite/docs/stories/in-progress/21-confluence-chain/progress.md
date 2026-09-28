@@ -709,3 +709,51 @@ No behaviour changed: every existing scenario/assertion is untouched; only one
 new scenario was added. Agent: cleaner (Claude Sonnet 5). Branch
 `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, phase commits
 `3bbbbf8..13fcf4c`.
+
+## Hardener phase 2 (2026-09-28)
+
+Manual mutation testing (no `mutmut` in the workspace) of the five Phase-2 production
+modules: `chain/time_exit.py` (11 mutations), `chain/filters/constant_direction.py` (6),
+`experiments/confluence-chain/rederive_horizon.py` (7), `.../preflight.py` (6),
+`.../make_cells.py` (6) — 36 total, each applied one at a time in place, run against its
+covering step file, then restored, with `git status --porcelain` confirmed to match
+baseline after every mutation. Full table, traces and killing scenarios in
+`mutation-phase2.md`.
+
+Result: 33 KILLED, 3 SURVIVED. All three survivors are on `time_exit.py` and were traced
+(not assumed) to be genuine equivalent mutants: the two flagged "removed guard" lines in
+`stop_filled`/`order_status_report` (`self._open_trade_id = None`) are unobservable
+through every public method and caller path, because the sole reader of
+`_open_trade_id`, `_open_trade()`, already filters a closed trade by its own `status`
+field, and the only other writers (`entry_filled`, `reversal_filled`) unconditionally
+overwrite it on the next open trade regardless — confirmed by a contrast mutation (M8,
+removing the *load-bearing* assignment in `entry_filled`) which was cleanly KILLED. The
+third (`_is_repeat_of_last_candle`'s `<=`→`<`) is equivalent because
+`_validate_candle_bounds` (always called first) forces `end == last_end` to imply
+`start == last_start`, so the mutated boundary is never actually reached with a
+differing pair.
+
+Six other initial survivors were genuine test gaps, each closed with a new Gherkin
+scenario (feature first) rather than an equivalent-mutant claim: a too-long
+(120-minute, grid-aligned) candle in `confluence_time_exit.feature`; the
+constant-direction filter's reason text in `confluence_controls.feature`; a gap
+exactly at the source series boundary in `confluence_horizon_units.feature`; an
+`available_at` exactly equal to `decision_time` in `confluence_preflight.feature`; and
+the SHA-256 hash format plus exact cell-ID strings in `confluence_cells.feature`. Also
+added (documentation, not required to kill any listed mutant): two scenarios proving a
+brand new entry is accepted immediately after a trade fully closes via stop-fill or via
+order-fill expiry, to lock in the single-open-trade invariant for future refactors.
+
+Negative controls (M11, H7) confirmed KILLED. Harness note: an initial flaky
+KILLED/SURVIVED flip on two `time_exit.py` mutations traced to stale `__pycache__`
+bytecode reused across rapid same-second rewrites of the same source file; fixed by
+wiping `__pycache__` and setting `PYTHONDONTWRITEBYTECODE=1` for the mutation
+subprocesses, then re-confirmed stable across three repeat runs.
+
+The five Phase-2 step files now collect 138 scenarios (was 134), all passing. Full
+suite: `uv run pytest algo-backtest/tests -q -p no:cacheprovider` — 1937 passed, 53
+deselected. `uv run ruff check algo-backtest experiments` clean. `uv run mypy --strict
+algo-backtest experiments/confluence-chain` clean (69 source files); `.mypy_cache`
+removed after the run. No production code was changed by this pass — only new Gherkin
+scenarios and step definitions. Agent: hardener (Claude Sonnet 5). Branch
+`feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit `324a1e0`.

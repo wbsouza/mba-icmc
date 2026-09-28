@@ -120,6 +120,12 @@ def _ids_unique(cells_ctx: _CellsCtx) -> None:
     assert len(ids) == len(set(ids)), ids
 
 
+@then(parsers.parse('the "{arm}" cell on clock {clock:d} minutes has cell ID "{cell_id}"'))
+def _cell_id_exact(cells_ctx: _CellsCtx, arm: str, clock: int, cell_id: str) -> None:
+    (cell,) = [c for c in cells_ctx.cells if c.arm == arm and c.clock_minutes == clock]  # type: ignore[attr-defined]
+    assert cell.cell_id == cell_id  # type: ignore[attr-defined]
+
+
 @then(parsers.parse('the manifest\'s arms are exactly "{arms}"'))
 def _arms_exactly(cells_ctx: _CellsCtx, arms: str) -> None:
     expected = [token.strip() for token in arms.split(",")]
@@ -382,6 +388,14 @@ def _non_empty_hash(cells_ctx: _CellsCtx) -> None:
 def _hashes_unique(cells_ctx: _CellsCtx) -> None:
     hashes = [cell.config_hash for cell in cells_ctx.cells]  # type: ignore[attr-defined]
     assert len(hashes) == len(set(hashes)), hashes
+
+
+@then("every manifest row's config_hash is a 64-character hex SHA-256 digest")
+def _hash_is_sha256(cells_ctx: _CellsCtx) -> None:
+    for cell in cells_ctx.cells:
+        digest = cell.config_hash  # type: ignore[attr-defined]
+        assert len(digest) == 64, digest
+        int(digest, 16)  # raises ValueError if not valid hexadecimal
 
 
 @then("the two manifests list the same 14 cell IDs in the same order")

@@ -136,6 +136,7 @@ Feature: Time exit — the causal bar-count expiry as a pure lifecycle (story 21
         | a candle off the clock grid       | 2016-03-04T20:30:00Z | 2016-03-04T21:30:00Z | is not on the 60-minute UTC grid           |
         | a candle ending before the last   | 2016-03-04T18:00:00Z | 2016-03-04T19:00:00Z | is not after the last completed candle     |
         | a naive candle time               | 2016-03-04T20:00:00  | 2016-03-04T21:00:00  | must be timezone-aware UTC                 |
+        | a 120-minute double bucket        | 2016-03-04T20:00:00Z | 2016-03-04T22:00:00Z | is not one complete 60-minute candle       |
 
     Scenario: a candle completed before the entry fill does not count toward the trade
       Given a time-exit lifecycle on a 60-minute clock with exit_after_bars 4
@@ -217,6 +218,14 @@ Feature: Time exit — the causal bar-count expiry as a pure lifecycle (story 21
         | the stop fills before the horizon               | 2016-03-01T11:00:00Z | 2016-03-01T11:30:00Z |
         | the stop fills at the due time, ahead of expiry | 2016-03-01T13:00:00Z | 2016-03-01T14:00:00Z |
 
+    Scenario: a brand new entry is accepted immediately after a full stop fill closes the prior trade
+      Given a time-exit lifecycle on a 60-minute clock with exit_after_bars 4
+      And the entry of trade "T1" filled at "2016-03-01T10:00:30Z" for 1000 units
+      When the stop of trade "T1" filled at "2016-03-01T11:30:00Z" for -1000 units at price 1.0980
+      And the entry of trade "T2" filled at "2016-03-01T11:31:00Z" for 500 units
+      Then trade "T2" is "HOLDING"
+      And the lifecycle tracks exactly the trades "T1, T2"
+
     Scenario Outline: a partial stop fill of <stop_quantity> leaves <remaining> units eligible for the expiry (<case>)
       Given a time-exit lifecycle on a 60-minute clock with exit_after_bars 4
       And the entry of trade "T1" filled at "2016-03-01T10:00:30Z" for 1000 units
@@ -256,6 +265,9 @@ Feature: Time exit — the causal bar-count expiry as a pure lifecycle (story 21
       Then trade "T1" is "CLOSED" with reason "expiry"
       And the exit record of trade "T1" has fill_time "2016-03-01T14:02:00Z", fill_quantity -1000 and fill_price 1.101
       And the remaining quantity of trade "T1" is 0
+      When the entry of trade "T2" filled at "2016-03-01T14:03:00Z" for 500 units
+      Then trade "T2" is "HOLDING"
+      And the lifecycle tracks exactly the trades "T1, T2"
 
     Scenario Outline: a <status> close order returns the trade to DUE and the retry waits for a later real event (<case>)
       Given a time-exit lifecycle on a 60-minute clock with exit_after_bars 4
