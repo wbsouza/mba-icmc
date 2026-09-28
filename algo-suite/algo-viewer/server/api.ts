@@ -10,15 +10,19 @@
  *   GET /api/runs/:id/parameters                 ParameterRow[]
  *   GET /api/runs/:id/trades                     TradeRow[]
  *   GET /api/runs/:id/decision-summary           DecisionSummaryRow[]
- *   GET /api/runs/:id/trades/:tradeId            TradeDetail
+ *   GET /api/runs/:id/trades/:tradeId            TradeDetail (with the events while the trade was open)
+ *   GET /api/runs/:id/decisions?mode=vetoes&page=1&size=200   DecisionLogPage (mode vetoes|entries|all; size 1..1000)
+ *   GET /api/runs/:id/decisions/:decisionId      DecisionDetail (one bar's chain with the run's parameters)
  *   GET /api/patterns/:name/examples?limit=3     PatternExample[] (most recent distinct entry times, limit 1..50)
  *
  * Unknown runs and trades answer 404 with `{error}`; unknown routes 404; other methods 405.
  */
 
 import type { Queryable } from "./db.js";
-import { SCHEMA_VERSION } from "../src/model/types.js";
+import { SCHEMA_VERSION, type DecisionLogMode } from "../src/model/types.js";
 import {
+  decisionDetail,
+  decisionLog,
   decisionSummary,
   equitySamples,
   getRun,
@@ -31,6 +35,8 @@ import {
 } from "./queries.js";
 
 const MAX_EXAMPLES = 50;
+const MAX_LOG_PAGE = 1000;
+const LOG_MODES: readonly DecisionLogMode[] = ["vetoes", "entries", "all"];
 
 export interface ApiResponse {
   status: number;
@@ -55,7 +61,7 @@ function notFound(what: string): ApiResponse {
   return { status: 404, body: { error: `${what} not found` } };
 }
 
-function runResponse(db: Queryable, runId: string, rest: string[]): ApiResponse {
+function runResponse(db: Queryable, runId: string, rest: string[], search: URLSearchParams): ApiResponse {
   const run = getRun(db, runId);
   if (run === null) return notFound(`run ${runId}`);
   const [resource, tradeId, ...extra] = rest;
@@ -64,9 +70,38 @@ function runResponse(db: Queryable, runId: string, rest: string[]): ApiResponse 
     const detail = tradeDetail(db, runId, tradeId);
     return detail === null ? notFound(`trade ${tradeId} of run ${runId}`) : ok(detail);
   }
+  if (resource === "decisions" && tradeId !== undefined && extra.length === 0) {
+    const id = Number(tradeId);
+    if (!Number.isInteger(id) || id < 1) return { status: 400, body: { error: `decision id must be a positive integer, got ${tradeId}` } };
+    const detail = decisionDetail(db, runId, id);
+    return detail === null ? notFound(`decision ${tradeId} of run ${runId}`) : ok(detail);
+  }
+  if (resource === "decisions" && tradeId === undefined) return decisionsResponse(db, runId, search);
   const query = RUN_RESOURCES[resource];
   if (query === undefined || tradeId !== undefined) return notFound(`route /api/runs/${runId}/${rest.join("/")}`);
   return ok(query(db, runId));
+}
+
+function positiveInt(search: URLSearchParams, name: string, fallback: number, max: number): number | ApiResponse {
+  const raw = search.get(name);
+  if (raw === null) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > max) {
+    return { status: 400, body: { error: `${name} must be an integer between 1 and ${max}, got ${raw}` } };
+  }
+  return value;
+}
+
+function decisionsResponse(db: Queryable, runId: string, search: URLSearchParams): ApiResponse {
+  const mode = search.get("mode") ?? "vetoes";
+  if (!LOG_MODES.includes(mode as DecisionLogMode)) {
+    return { status: 400, body: { error: `mode must be one of ${LOG_MODES.join(", ")}, got ${mode}` } };
+  }
+  const page = positiveInt(search, "page", 1, Number.MAX_SAFE_INTEGER);
+  if (typeof page !== "number") return page;
+  const size = positiveInt(search, "size", 200, MAX_LOG_PAGE);
+  if (typeof size !== "number") return size;
+  return ok(decisionLog(db, runId, mode as DecisionLogMode, page, size));
 }
 
 function examplesResponse(db: Queryable, name: string, query: URLSearchParams): ApiResponse {
@@ -89,7 +124,7 @@ export function handleApi(db: Queryable, method: string, path: string, query: UR
   if (parts[1] === "runs") {
     if (parts.length === 2) return ok(listRuns(db));
     const runId = parts[2];
-    if (runId !== undefined) return runResponse(db, runId, parts.slice(3));
+    if (runId !== undefined) return runResponse(db, runId, parts.slice(3), query);
   }
   if (parts[1] === "patterns" && parts[2] !== undefined && parts[3] === "examples" && parts.length === 4) {
     return examplesResponse(db, parts[2], query);

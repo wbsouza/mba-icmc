@@ -11,5 +11,5 @@
     "jsx": "preserve",
     "rootDir": "."
   },
-  "include": ["server", "src/model/types.ts"]
+  "include": ["server", "src/model/types.ts", "src/model/veto.ts"]
 }

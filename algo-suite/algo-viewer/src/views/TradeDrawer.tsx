@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import type { DecisionEvent } from "../model/types";
 import type { TradeDetail, TrailStep } from "../model/types";
-import { explainFilter } from "../model/explain";
 import { EXIT_KIND_LABELS, lots, minutes, money, price, priceDecimals, when } from "../model/format";
 import { CandleChart } from "../charts/CandleChart";
-import { PatternCard } from "./PatternCard";
+import { ChainSteps } from "./ChainSteps";
+import { vetoLine } from "../model/veto";
 import { routeHash } from "../router";
 import type { ApiClient } from "../api/client";
 
@@ -32,7 +33,7 @@ async function copyText(text: string): Promise<boolean> {
 
 /** Why the chain entered, the plan, the exit and the realized P/L of one trade. */
 export function TradeDrawer({ detail, dark, onClose, api }: Props) {
-  const { trade, plan, filters, trailMoves, bars, parameters, run } = detail;
+  const { trade, plan, filters, events, trailMoves, bars, parameters, run } = detail;
   const decimals = priceDecimals(trade.entry_price);
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const link = tradeLink(run.run_id, trade.trade_id);
@@ -41,7 +42,6 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-  const explanations = filters.map((f) => explainFilter(f, parameters));
   return (
     <>
       <div className="drawer-backdrop" onClick={onClose} />
@@ -63,26 +63,21 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
         </header>
         <section className="panel" aria-label="Why we entered">
           <h2>Why we entered <span className="muted">— the chain at {detail.entryDecision ? when(detail.entryDecision.timestamp) : when(trade.entry_time)}</span></h2>
-          {explanations.length === 0 ? (
+          {filters.length === 0 ? (
             <p className="muted">No entry decision is stored for this trade (the database was built without the chain's audit rows).</p>
           ) : (
-            <ol className="chain" data-testid="chain">
-              {explanations.map((x, i) => (
-                <li key={i} data-filter={filters[i]?.filter_name}>
-                  <span className="step">{i + 1}</span>
-                  <div>
-                    <div className="title">
-                      {x.title} <span className={`badge ${x.recommendation === "BUY" ? "buy" : x.recommendation === "SELL" ? "sell" : ""}`}>{x.recommendation}</span>
-                      {x.veto ? <span className="badge veto">veto</span> : null}
-                      {x.pattern ? <span className="badge" data-testid="pattern-name">{x.pattern.title}</span> : null}
-                    </div>
-                    <div className="summary">{x.summary}</div>
-                    {x.pattern ? <PatternCard pattern={x.pattern} api={api} /> : x.details.map((d, j) => <div key={j} className="details">{d}</div>)}
-                    <div className="reason">{x.reason}</div>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <ChainSteps filters={filters} parameters={parameters} api={api} />
+          )}
+        </section>
+        <section className="panel" aria-label="Events while open">
+          <h2>Events while open <span className="muted">— every chain evaluation that carried this trade's id after the entry</span></h2>
+          {events.length === 0 ? (
+            <p className="muted">No repeat signal or veto was recorded while this trade was open.</p>
+          ) : (
+            <table className="grid" data-testid="trade-events">
+              <thead><tr><th>When</th><th>Decision</th><th>Vetoed by</th><th>Why</th></tr></thead>
+              <tbody>{events.map((e) => <EventRow key={e.decision.id} event={e} parameters={parameters} api={api} />)}</tbody>
+            </table>
           )}
         </section>
         <section className="panel" aria-label="Entry bars">
@@ -118,6 +113,24 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
           </section>
         </div>
       </aside>
+    </>
+  );
+}
+
+function EventRow({ event, parameters, api }: { event: DecisionEvent; parameters: readonly import("../model/types").ParameterRow[]; api?: ApiClient | undefined }) {
+  const [open, setOpen] = useState(false);
+  const { decision, filters } = event;
+  const vetoing = filters.find((f) => f.veto !== 0) ?? null;
+  const vetoed = decision.vetoed_by !== null;
+  return (
+    <>
+      <tr className={`clickable ${vetoed ? "vetoed" : ""}`} data-decision-id={decision.id} data-vetoed={vetoed ? "yes" : "no"} onClick={() => setOpen(!open)}>
+        <td>{when(decision.timestamp)}</td>
+        <td><span className={`badge ${decision.final_decision === "BUY" ? "buy" : decision.final_decision === "SELL" ? "sell" : ""}`}>{decision.final_decision}</span></td>
+        <td className="mono">{decision.vetoed_by ?? ""}</td>
+        <td className="mono why">{vetoLine(vetoing, parameters) ?? ""}</td>
+      </tr>
+      {open ? <tr className="expanded"><td colSpan={4}><ChainSteps filters={filters} parameters={parameters} api={api} testId="event-chain" /></td></tr> : null}
     </>
   );
 }

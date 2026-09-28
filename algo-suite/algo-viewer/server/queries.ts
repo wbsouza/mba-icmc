@@ -1,7 +1,13 @@
 /** Typed queries over the results database (one function per endpoint). */
 
 import type { Queryable } from "./db.js";
+import { vetoLine, vetoParameter } from "../src/model/veto.js";
 import type {
+  DecisionDetail,
+  DecisionEvent,
+  DecisionLogGroup,
+  DecisionLogMode,
+  DecisionLogPage,
   DecisionRow,
   DecisionSummaryRow,
   EntryBar,
@@ -105,6 +111,7 @@ export function tradeDetail(db: Queryable, runId: string, tradeId: string): Trad
     plan: plan(db, runId, tradeId),
     entryDecision,
     filters,
+    events: tradeEvents(db, runId, tradeId),
     trailMoves: db.rows<TrailMove>(
       "SELECT time, from_stop, to_stop FROM trail_moves WHERE run_id = ? AND trade_id = ? ORDER BY time",
       [runId, tradeId],
@@ -161,4 +168,79 @@ export function patternExamples(db: Queryable, pattern: string, limit: number): 
     [pattern, limit * CANDIDATES_PER_EXAMPLE],
   );
   return selectExamples(candidates, limit);
+}
+
+// ---- chain evaluations: events while a trade was open, the run's decision log, one bar's chain
+
+function filtersOf(db: Queryable, decisionId: number): FilterRow[] {
+  return db.rows<FilterRow>(
+    "SELECT position, filter_name, recommendation, veto, reason, pattern_name FROM decision_filters WHERE decision_id = ? ORDER BY position",
+    [decisionId],
+  );
+}
+
+/** Chain evaluations carrying the trade's id after its entry, oldest first, each with its filters. */
+export function tradeEvents(db: Queryable, runId: string, tradeId: string): DecisionEvent[] {
+  const rows = db.rows<DecisionRow>(
+    "SELECT * FROM decisions WHERE run_id = ? AND trade_id = ? AND is_entry = 0 ORDER BY timestamp, id",
+    [runId, tradeId],
+  );
+  return rows.map((decision) => ({ decision, filters: filtersOf(db, decision.id) }));
+}
+
+/** One chain evaluation by id, with the run's parameters (for the limits the vetoes name). */
+export function decisionDetail(db: Queryable, runId: string, decisionId: number): DecisionDetail | null {
+  const decision = db.rows<DecisionRow>("SELECT * FROM decisions WHERE run_id = ? AND id = ?", [runId, decisionId])[0];
+  if (decision === undefined) return null;
+  return { decision, filters: filtersOf(db, decision.id), parameters: parameters(db, runId) };
+}
+
+interface LogRow extends DecisionRow {
+  veto_filter: string | null;
+  veto_reason: string | null;
+}
+
+const MODE_WHERE: Record<DecisionLogMode, string> = {
+  vetoes: "AND d.vetoed_by IS NOT NULL",
+  entries: "AND d.is_entry = 1",
+  all: "",
+};
+
+/** Pure: consecutive rows with the same outcome, vetoing filter and breached parameter become one group. */
+export function groupDecisions(rows: readonly LogRow[], runParameters: readonly ParameterRow[]): DecisionLogGroup[] {
+  const groups: DecisionLogGroup[] = [];
+  for (const row of rows) {
+    const filter: FilterRow | null = row.veto_filter === null || row.veto_reason === null
+      ? null
+      : { position: 0, filter_name: row.veto_filter, recommendation: "", veto: 1, reason: row.veto_reason, pattern_name: null };
+    const parameter = vetoParameter(filter, runParameters);
+    const last = groups[groups.length - 1];
+    if (last !== undefined && last.final_decision === row.final_decision && last.vetoed_by === row.vetoed_by && last.parameter === parameter && last.trade_id === row.trade_id) {
+      last.last_time = row.timestamp;
+      last.bars += 1;
+      continue;
+    }
+    groups.push({
+      first_id: row.id, first_time: row.timestamp, last_time: row.timestamp, bars: 1,
+      final_decision: row.final_decision, vetoed_by: row.vetoed_by, trade_id: row.trade_id,
+      parameter, why: vetoLine(filter, runParameters),
+    });
+  }
+  return groups;
+}
+
+/** The run's chain evaluations in `mode`, grouped, one page of groups. */
+export function decisionLog(db: Queryable, runId: string, mode: DecisionLogMode, page: number, size: number): DecisionLogPage {
+  const rows = db.rows<LogRow>(
+    `SELECT d.*, f.filter_name AS veto_filter, f.reason AS veto_reason
+     FROM decisions d
+     LEFT JOIN decision_filters f ON f.decision_id = d.id AND f.veto = 1
+       AND f.position = (SELECT MIN(position) FROM decision_filters g WHERE g.decision_id = d.id AND g.veto = 1)
+     WHERE d.run_id = ? ${MODE_WHERE[mode]}
+     ORDER BY d.timestamp, d.id`,
+    [runId],
+  );
+  const groups = groupDecisions(rows, parameters(db, runId));
+  const start = (page - 1) * size;
+  return { mode, page, size, total_rows: rows.length, total_groups: groups.length, groups: groups.slice(start, start + size) };
 }
