@@ -310,3 +310,76 @@ def _parsed_direction(f4_ctx: _F4Ctx, expected: str) -> None:
 def _parse_failure_names(f4_ctx: _F4Ctx, fragment: str) -> None:
     assert f4_ctx.parse_error is not None
     assert fragment in str(f4_ctx.parse_error)
+
+
+# --- Rule: With direction_source intensity, F4's direction comes from the event intensity ---
+
+
+@given(parsers.parse('a materialized GDELT event_intensity of {intensity:g} at "{ts}"'))
+def _one_event_minute(f4_ctx: _F4Ctx, intensity: float, ts: str) -> None:
+    """One real-shaped GdeltFeature row written through the repository round-trip, so the
+    scenario's intensity is what F4 reads back, not a value handed to the filter."""
+    f4_ctx.event_rows = [GdeltFeature(timestamp=_parse_ts(ts), event_intensity=intensity)]
+    path = event_feature_path(f4_ctx.data_root, "gdelt", 2020, 1)
+    ParquetRepository(GdeltFeature, path).put(f4_ctx.event_rows)
+    f4_ctx.event_parquet_written = True
+
+
+@given(
+    parsers.parse(
+        "a news-context config with veto {veto:g}, direction_source intensity, buy {buy:g}, "
+        "sell {sell:g}, sign {sign:d}"
+    )
+)
+def _config_intensity(f4_ctx: _F4Ctx, veto: float, buy: float, sell: float, sign: int) -> None:
+    f4_ctx.config = parse_news_context_config(
+        {
+            "event_intensity_veto_threshold": veto, "sentiment_direction_threshold": None,
+            "direction_source": "intensity", "intensity_buy_threshold": buy,
+            "intensity_sell_threshold": sell, "intensity_sign": sign,
+        },
+        strategy="scenario",
+    )
+
+
+@then(parsers.parse("F4's result {veto}"))
+def _veto_outcome(f4_ctx: _F4Ctx, veto: str) -> None:
+    """`vetoes` / `does not veto`, so an outline row can carry either expectation."""
+    assert f4_ctx.result is not None
+    assert veto in ("vetoes", "does not veto"), veto
+    assert f4_ctx.result.veto is (veto == "vetoes")
+
+
+@given(
+    parsers.parse(
+        "a news_context section with direction_source {source}, intensity_buy_threshold {buy}, "
+        "intensity_sell_threshold {sell} and intensity_sign {sign}"
+    )
+)
+def _news_context_section_intensity(
+    f4_ctx: _F4Ctx, source: str, buy: str, sell: str, sign: str
+) -> None:
+    """`absent` leaves a key out; every other cell is flow-style YAML."""
+    section: dict[str, Any] = {**_SECTION_DEFAULTS, "direction_source": source}
+    for key, cell in (
+        ("intensity_buy_threshold", buy), ("intensity_sell_threshold", sell),
+        ("intensity_sign", sign),
+    ):
+        if cell != "absent":
+            section[key] = yaml.safe_load(cell)
+    f4_ctx.section = section
+
+
+@then(
+    parsers.parse(
+        'the parsed news-context config has direction_source "{source}", buy {buy}, sell {sell} '
+        "and sign {sign}"
+    )
+)
+def _parsed_direction_source(f4_ctx: _F4Ctx, source: str, buy: str, sell: str, sign: str) -> None:
+    config = f4_ctx.parsed_config
+    assert config is not None
+    assert config.direction_source == source
+    assert config.intensity_buy_threshold == _parse_threshold(buy)
+    assert config.intensity_sell_threshold == _parse_threshold(sell)
+    assert config.intensity_sign == (1 if sign == "absent" else int(sign))

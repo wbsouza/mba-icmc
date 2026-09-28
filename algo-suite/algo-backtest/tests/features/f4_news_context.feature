@@ -196,3 +196,62 @@ Feature: F4 — News-context filter
         | key                            |
         | event_intensity_veto_threshold |
         | sentiment_direction_threshold  |
+
+  Rule: With direction_source intensity, F4's direction comes from the event intensity itself (story 14)
+    The veto still fires first; between the two thresholds F4 is NEUTRAL, and intensity_sign
+    -1 swaps BUY and SELL so the Goldstein sign convention is a registered cell, not a guess.
+
+    Scenario Outline: intensity <intensity> with buy <buy>, sell <sell>, sign <sign> recommends <recommendation> (<case>)
+      Given a materialized GDELT event_intensity of <intensity> at "2020-01-15T00:05:00+00:00"
+      And a news-context config with veto -0.5, direction_source intensity, buy <buy>, sell <sell>, sign <sign>
+      When F4 applies to timestamp "2020-01-15T00:05:00+00:00" for pair "EURUSD"
+      Then F4's recommendation is "<recommendation>"
+      And F4's result <veto>
+      And F4 enriches "news_event_intensity" with value <intensity>
+      And F4's reason mentions "<reason>"
+
+      Examples:
+        | case                              | intensity | buy | sell | sign | recommendation | veto          | reason                                     |
+        | at the buy threshold buys         | 0.9       | 0.9 | 0.3  | 1    | BUY            | does not veto | intensity_buy_threshold=0.9                |
+        | above the buy threshold buys      | 1.4       | 0.9 | 0.3  | 1    | BUY            | does not veto | event_intensity=1.4000                     |
+        | at the sell threshold sells       | 0.3       | 0.9 | 0.3  | 1    | SELL           | does not veto | intensity_sell_threshold=0.3               |
+        | below the sell threshold sells    | -0.2      | 0.9 | 0.3  | 1    | SELL           | does not veto | : SELL                                     |
+        | between the thresholds is neutral | 0.6       | 0.9 | 0.3  | 1    | NEUTRAL        | does not veto | : NEUTRAL                                  |
+        | sign -1 swaps a buy into a sell   | 1.4       | 0.9 | 0.3  | -1   | SELL           | does not veto | intensity_sign=-1                          |
+        | sign -1 swaps a sell into a buy   | -0.2      | 0.9 | 0.3  | -1   | BUY            | does not veto | intensity_sign=-1                          |
+        | sign -1 keeps neutral neutral     | 0.6       | 0.9 | 0.3  | -1   | NEUTRAL        | does not veto | : NEUTRAL                                  |
+        | the veto still fires first        | -0.7      | 0.9 | -1.0 | 1    | ABSTAIN        | vetoes        | active high-risk event                     |
+        | veto at the boundary beats a sell | -0.5      | 0.9 | 0.3  | -1   | ABSTAIN        | vetoes        | event_intensity=-0.5000 <= veto threshold  |
+
+    Scenario Outline: a news_context section with direction_source intensity parses its thresholds and sign (<case>)
+      Given a news_context section with direction_source <source>, intensity_buy_threshold <buy>, intensity_sell_threshold <sell> and intensity_sign <sign>
+      When the news-context config is parsed for strategy "news-rule"
+      Then the parsed news-context config has direction_source "<source>", buy <buy>, sell <sell> and sign <sign>
+
+      Examples:
+        | case                    | source    | buy | sell | sign   |
+        | placeholders, sign 1    | intensity | 0.9 | 0.3  | 1      |
+        | negative band, sign -1  | intensity | 0.0 | -1.0 | -1     |
+        | sign omitted defaults 1 | intensity | 0.9 | 0.3  | absent |
+
+    Scenario: a news_context section without direction_source defaults to sentiment with no intensity thresholds
+      Given a news_context section with event_intensity_veto_threshold=-0.5, sentiment_direction_threshold=0.15
+      When the news-context config is parsed for strategy "hybrid"
+      Then the parsed news-context config has direction_source "sentiment", buy null, sell null and sign 1
+
+    Scenario Outline: an invalid direction-source section fails fast naming the key and the strategy (<case>)
+      Given a news_context section with direction_source <source>, intensity_buy_threshold <buy>, intensity_sell_threshold <sell> and intensity_sign <sign>
+      When parsing the news-context config for strategy "news-rule" fails
+      Then the news-context config failure names "<message>"
+
+      Examples:
+        | case                         | source    | buy    | sell   | sign   | message                                                                                                             |
+        | missing buy threshold        | intensity | absent | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold is missing                                              |
+        | missing sell threshold       | intensity | 0.9    | absent | 1      | strategy 'news-rule': news_context.intensity_sell_threshold is missing                                             |
+        | buy equal to sell            | intensity | 0.3    | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold (0.3) must be strictly above intensity_sell_threshold (0.3) |
+        | buy below sell               | intensity | 0.1    | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold (0.1) must be strictly above intensity_sell_threshold (0.3) |
+        | non-numeric buy threshold    | intensity | soon   | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold must be a number                                        |
+        | unknown source               | goldstein | 0.9    | 0.3    | 1      | strategy 'news-rule': news_context.direction_source must be one of ['intensity', 'sentiment'], got 'goldstein'      |
+        | sign 0                       | intensity | 0.9    | 0.3    | 0      | strategy 'news-rule': news_context.intensity_sign must be 1 or -1, got 0                                            |
+        | sign true                    | intensity | 0.9    | 0.3    | true   | strategy 'news-rule': news_context.intensity_sign must be 1 or -1, got True                                         |
+        | thresholds under sentiment   | sentiment | 0.9    | 0.3    | 1      | strategy 'news-rule': news_context declares ['intensity_buy_threshold', 'intensity_sell_threshold'] but direction_source is 'sentiment' |
