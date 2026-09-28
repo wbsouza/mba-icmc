@@ -150,6 +150,36 @@ Continue minute-level protection when higher-timeframe setup gates veto.
 Review TD-71 (OCO), TD-67 (financing) and TD-70 (code provenance) before results
 depend on them. Unresolved relevant defects block readiness claims.
 
+### Momentum-literature filters (Antonacci, *Dual Momentum Investing*, 2015)
+
+Ideas to enter the contest as ordinary filter combinations, not as a standalone strategy
+(added 2026-09-28; the book's evidence is monthly, on equity and bond indices, so every
+claim below is a hypothesis to test on our clocks, not a result):
+
+- **Absolute-momentum regime gate** (Appendix B): trade long only when the pair's
+  trailing excess return over a long lookback is positive, short only when negative.
+  Lookback candidates 6 and 12 months of daily closes (about 130 and 250 trading days;
+  our data starts 2015-01, so 12 months is available from the first test bar). This is a
+  time-series momentum filter at a horizon far above F1's higher-timeframe EMA (60 H4
+  bars, about ten days), so it is a distinct component. Implementation shape: an F1
+  variant or a second regime input to the F7 gate; the value is computed from bars
+  closed before the decision bar.
+- **Momentum crash guard** (Ch. 7): stand aside on the side opposite the long-lookback
+  trend after a sharp reversal (e.g. the 20-day return against the 250-day sign exceeds a
+  registered threshold), which is where momentum strategies take their largest losses.
+- **Exposure by regime instead of lockout after loss**: an F5 alternative to compare
+  in story 17: reduce `risk_per_trade` when absolute momentum is flat or against the
+  side, rather than only after the daily/weekly drawdown limit has been hit.
+- **Relative momentum across pairs** (Ch. 8–9): rank a G10 universe by 1–12-month
+  returns and trade the leaders/laggards. Out of scope until more pairs are downloaded
+  (only EUR/USD and USD/JPY exist locally); recorded for the commodity-currency
+  follow-up of story 18.
+
+Contest cells: baseline price-only; + absolute-momentum gate (6 and 12 months); + crash
+guard; the F5 exposure variant belongs to story 17's comparison of management policies
+with fixed entry logic. Same registration, ranking and untouched-months discipline as the
+other combinations.
+
 ## 4. Acceptance criteria and verification
 
 Write Gherkin scenarios before code; implement pytest-bdd steps, not plain tests.
