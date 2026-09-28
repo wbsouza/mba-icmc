@@ -20,8 +20,13 @@ Feature: Backend API over the results database
       | /api/runs/20260928T010000-fixture/monthly                  | is a list of 2 items                                                    |
       | /api/runs/20260928T010000-fixture/parameters               | is a list of 13 items                                                   |
       | /api/runs/20260928T010000-fixture/trades                   | is a list of 2 items                                                    |
-      | /api/runs/20260928T010000-fixture/decision-summary         | is a list of 3 items                                                    |
+      | /api/runs/20260928T010000-fixture/decision-summary         | is a list of 5 items                                                    |
+      | /api/runs/20260928T010000-fixture/decisions                | is a decision log of 5 bars in 4 groups, page 1                         |
+      | /api/runs/20260928T010000-fixture/decisions?mode=all&size=2&page=2 | is a decision log of 7 bars in 6 groups, page 2                 |
+      | /api/runs/20260928T010000-fixture/decisions/7              | is the chain of a bar vetoed by "f4_news_context" with 4 filters        |
       | /api/runs/20260928T010000-fixture/trades/1                 | has 8 filters, 5 bars and 0 trail moves                                 |
+      | /api/runs/20260928T010000-fixture/trades/1                 | has 1 event(s) while open                                               |
+      | /api/runs/20260928T010000-fixture/trades/5                 | has 0 event(s) while open                                               |
       | /api/runs/20260928T010000-fixture/trades/5                 | has 8 filters, 5 bars and 1 trail moves                                 |
 
   Scenario: the run's parameter provenance and the trade detail come through the client
@@ -98,3 +103,15 @@ Feature: Backend API over the results database
       | --db x.sqlite --static dist --port 9000     | db x.sqlite, port 9000, static dist            |
       | --static dist                               | an error containing "--db <results.sqlite>"    |
       | --db x.sqlite --bogus 1                     | an error containing "unknown flag --bogus"     |
+
+  Scenario Outline: the decision log refuses a bad mode, page or size
+    When I GET "<path>"
+    Then the status is 400
+    And the error says "<text>"
+
+    Examples:
+      | path                                                              | text                                     |
+      | /api/runs/20260928T010000-fixture/decisions?mode=bogus            | mode must be one of vetoes, entries, all |
+      | /api/runs/20260928T010000-fixture/decisions?size=0                | size must be an integer between 1 and    |
+      | /api/runs/20260928T010000-fixture/decisions?page=x                | page must be an integer between 1 and    |
+      | /api/runs/20260928T010000-fixture/decisions/abc                   | decision id must be a positive integer   |

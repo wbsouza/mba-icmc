@@ -191,3 +191,25 @@ When("I select {int} examples", function (limit: number) {
 Then("the chosen examples are {}", function (expected: string) {
   assert.deepEqual(chosen.map((c) => `${c.run_id}/${c.trade_id}`), expected.split(",").map((s) => s.trim()));
 });
+
+Then("the JSON is a decision log of {int} bars in {int} groups, page {int}", function (bars: number, groups: number, page: number) {
+  const log = obj();
+  assert.equal(log["total_rows"], bars);
+  assert.equal(log["total_groups"], groups);
+  assert.equal(log["page"], page);
+  assert.ok(Array.isArray(log["groups"]));
+});
+
+Then("the JSON is the chain of a bar vetoed by {string} with {int} filters", function (vetoedBy: string, filters: number) {
+  const detail = obj();
+  const decision = detail["decision"] as Record<string, unknown>;
+  assert.equal(decision["vetoed_by"], vetoedBy);
+  assert.ok(Array.isArray(detail["filters"]));
+  assert.equal(detail["filters"].length, filters);
+});
+
+Then("the JSON has {int} event\\(s) while open", function (events: number) {
+  const detail = obj();
+  assert.ok(Array.isArray(detail["events"]));
+  assert.equal(detail["events"].length, events);
+});
