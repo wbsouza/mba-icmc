@@ -11,7 +11,7 @@
  *   GET /api/runs/:id/trades                     TradeRow[]
  *   GET /api/runs/:id/decision-summary           DecisionSummaryRow[]
  *   GET /api/runs/:id/trades/:tradeId            TradeDetail
- *   GET /api/patterns/:name/examples?limit=3     PatternExample[] (most recent first, limit 1..50)
+ *   GET /api/patterns/:name/examples?limit=3     PatternExample[] (most recent distinct entry times, limit 1..50)
  *
  * Unknown runs and trades answer 404 with `{error}`; unknown routes 404; other methods 405.
  */

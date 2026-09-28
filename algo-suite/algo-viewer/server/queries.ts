@@ -125,12 +125,40 @@ export interface PatternExample {
   profit: number;
 }
 
-/** The most recent closed trades whose entry decision carried `pattern` (F3's pattern_name). */
+/** Candidates fetched per requested example: enough to find distinct entry times and runs. */
+const CANDIDATES_PER_EXAMPLE = 25;
+
+/**
+ * Pick `limit` examples from candidates sorted most recent first: one per entry time
+ * (sibling runs over the same window fire on the same bar, which would show triplicates),
+ * preferring a run not chosen yet when several candidates share an entry time.
+ */
+export function selectExamples(candidates: readonly PatternExample[], limit: number): PatternExample[] {
+  const chosen: PatternExample[] = [];
+  const usedRuns = new Set<string>();
+  const byTime = new Map<string, PatternExample[]>();
+  for (const c of candidates) {
+    const group = byTime.get(c.entry_time) ?? [];
+    group.push(c);
+    byTime.set(c.entry_time, group);
+  }
+  for (const group of byTime.values()) {
+    if (chosen.length >= limit) break;
+    const pick = group.find((c) => !usedRuns.has(c.run_id)) ?? group[0];
+    if (pick === undefined) continue;
+    chosen.push(pick);
+    usedRuns.add(pick.run_id);
+  }
+  return chosen;
+}
+
+/** Up to `limit` closed trades whose entry decision carried `pattern`, most recent distinct entry times first. */
 export function patternExamples(db: Queryable, pattern: string, limit: number): PatternExample[] {
-  return db.rows<PatternExample>(
+  const candidates = db.rows<PatternExample>(
     "SELECT d.run_id, d.trade_id, t.entry_time, t.direction, t.profit FROM decision_filters f " +
       "JOIN decisions d ON d.id = f.decision_id JOIN trades t ON t.run_id = d.run_id AND t.trade_id = d.trade_id " +
-      "WHERE d.is_entry = 1 AND f.pattern_name = ? ORDER BY t.entry_time DESC LIMIT ?",
-    [pattern, limit],
+      "WHERE d.is_entry = 1 AND f.pattern_name = ? ORDER BY t.entry_time DESC, d.run_id, d.trade_id LIMIT ?",
+    [pattern, limit * CANDIDATES_PER_EXAMPLE],
   );
+  return selectExamples(candidates, limit);
 }

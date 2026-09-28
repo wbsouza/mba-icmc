@@ -1,5 +1,5 @@
 import "../support/dom";
-import { Given, Then, When } from "@cucumber/cucumber";
+import { DataTable, Given, Then, When } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { ApiClient } from "../../src/api/client";
 import type { ParameterRow, TradeDetail } from "../../src/model/types";
 import { openResultsDatabase } from "../../server/db";
+import { selectExamples, type PatternExample } from "../../server/queries";
 import { parseArgs, type CliOptions } from "../../server/main";
 import { apiClient, backendUrl } from "../support/server";
 
@@ -171,4 +172,22 @@ Then("the JSON lists the example run {string} trade {string} {word} {int}", func
 Then("the JSON says {string}", function (text: string) {
   const error = String(obj()["error"]);
   assert.ok(error.includes(text), `${error} lacks ${text}`);
+});
+
+let candidates: PatternExample[] = [];
+let chosen: PatternExample[] = [];
+
+Given("these candidate examples, most recent first:", function (table: DataTable) {
+  candidates = table.hashes().map((r) => ({
+    run_id: r["run_id"] ?? "", trade_id: r["trade_id"] ?? "", entry_time: r["entry_time"] ?? "",
+    direction: r["direction"] === "sell" ? "sell" : "buy", profit: Number(r["profit"]),
+  }));
+});
+
+When("I select {int} examples", function (limit: number) {
+  chosen = selectExamples(candidates, limit);
+});
+
+Then("the chosen examples are {}", function (expected: string) {
+  assert.deepEqual(chosen.map((c) => `${c.run_id}/${c.trade_id}`), expected.split(",").map((s) => s.trim()));
 });

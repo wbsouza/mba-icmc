@@ -43,6 +43,21 @@ Feature: Backend API over the results database
       | /api/patterns/hammer/examples?limit=0         | 400    | says "limit must be an integer between 1 and 50"               |
       | /api/patterns/hammer/examples?limit=x         | 400    | says "limit must be an integer between 1 and 50"               |
 
+  Scenario: example selection takes distinct entry times, preferring runs not chosen yet
+    Given these candidate examples, most recent first:
+      | run_id | trade_id | entry_time                | direction | profit |
+      | A      | 9        | 2016-12-23T09:00:00+00:00 | sell      | -57.6  |
+      | B      | 9        | 2016-12-23T09:00:00+00:00 | sell      | -60.4  |
+      | C      | 9        | 2016-12-23T09:00:00+00:00 | sell      | -59.1  |
+      | A      | 7        | 2016-12-12T00:00:00+00:00 | sell      | -79.5  |
+      | B      | 7        | 2016-12-12T00:00:00+00:00 | sell      | -79.1  |
+      | A      | 5        | 2016-11-02T13:00:00+00:00 | buy       | 99.2   |
+      | A      | 2        | 2016-05-02T13:00:00+00:00 | buy       | 85.6   |
+    When I select 3 examples
+    Then the chosen examples are A/9, B/7, A/5
+    When I select 5 examples
+    Then the chosen examples are A/9, B/7, A/5, A/2
+
   Scenario Outline: unknown resources are refused with a message
     When I GET "<path>"
     Then the status is <status>
