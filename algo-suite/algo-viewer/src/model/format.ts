@@ -17,6 +17,11 @@ export function money(value: number | null): string {
 }
 
 /** Quote precision: JPY-style prices (> 20) carry 3 decimals, everything else 5. */
+/** `+587.18` / `-30.70`: money with an explicit sign. */
+export function signedMoney(value: number): string {
+  return `${value >= 0 ? "+" : "-"}${money(Math.abs(value))}`;
+}
+
 export function priceDecimals(sample: number): number {
   return Math.abs(sample) > 20 ? 3 : 5;
 }

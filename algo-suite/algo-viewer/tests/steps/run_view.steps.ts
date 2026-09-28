@@ -11,11 +11,35 @@ import { apiClient } from "../support/server";
 
 let months: MonthlyReturn[] = [];
 
+let noOpenPositions = false;
+
+Given("the fixture run had no open positions", function () {
+  noOpenPositions = true;
+});
+
 When("I open the run page of {string}", async function (runId: string) {
-  const api = apiClient();
+  const client = apiClient();
+  const api = noOpenPositions
+    ? Object.create(client, { openPositions: { value: () => Promise.resolve([]) } }) as typeof client
+    : client;
+  noOpenPositions = false;
   const run = await api.run(runId);
   render(createElement(RunView, { api, run, dark: false, onSelectTrade: () => undefined }));
   await waitFor(() => screen.getByTestId("trades-table"));
+});
+
+Then("the open positions section lists:", async function (expected: DataTable) {
+  const table = await waitFor(() => screen.getByTestId("open-positions"));
+  const rows = [...table.querySelectorAll("tbody tr")].map((tr) => {
+    const cells = [...tr.querySelectorAll("td")].map((td) => td.textContent?.replace(/\s+/g, " ").trim() ?? "");
+    const [ticket, side, lots, opened, open_price, stop, targets, mark, floating_pl] = cells;
+    return { ticket: ticket ?? "", side: side ?? "", lots: lots ?? "", opened: opened ?? "", open_price: open_price ?? "", stop: stop ?? "", targets: targets ?? "", mark: mark ?? "", floating_pl: floating_pl ?? "" };
+  });
+  assert.deepEqual(rows, expected.hashes());
+});
+
+Then("the page says {string}", async function (text: string) {
+  await waitFor(() => screen.getByText(text));
 });
 
 Then("the KPI {string} reads {string}", function (label: string, value: string) {

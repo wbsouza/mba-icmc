@@ -68,6 +68,43 @@ Feature: Results database from run directories
       And the trade plan of trade "1" has stop_loss 1.098, stop_pips 20, 2 targets and 1 trail step
       And table "trade_plans" has 1 row
 
+    Scenario: the positions still open at the end of the run and the account summary come from the statement
+      Given a finished run "20260928T010000-open" of strategy "news-rule" on EURUSD from 2016-03-01 to 2017-02-28 with cash 10000
+      And its statement lists the open trades:
+        | ticket | open_time        | type | lots | price   | stop    | targets           | mark    | profit |
+        | 157    | 2016.11.10 00:00 | sell | 0.17 | 1.09191 | 1.11091 | 1.01542 / 0.97722 | 1.05693 | 587.18 |
+        | 161    | 2017.02.20 08:00 | buy  | 0.10 | 1.06000 | —       | —                 | 1.05693 | -30.70 |
+      And its statement's account summary is balance 10,633.10, floating P/L 556.48 and equity 11,189.58
+      When I build the results database
+      Then table "open_positions" has 2 rows
+      And the open positions of the run are:
+        | ticket | open_time                 | direction | lots | open_price | stop_loss | take_profits_json | mark_price | floating_pl |
+        | 157    | 2016-11-10T00:00:00+00:00 | sell      | 0.17 | 1.09191    | 1.11091   | [1.01542, 0.97722] | 1.05693    | 587.18      |
+        | 161    | 2017-02-20T08:00:00+00:00 | buy       | 0.1  | 1.06       | none      | []                | 1.05693    | -30.7       |
+      And the run "20260928T010000-open" has:
+        | column      | value    |
+        | balance     | 10633.10 |
+        | floating_pl | 556.48   |
+        | equity_end  | 11189.58 |
+
+    Scenario: a statement without an Open Trades table leaves the run with no open positions and no summary
+      Given a finished run "20260928T010000-flat" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-04-30 with cash 10000
+      When I build the results database
+      Then table "open_positions" has 0 rows
+      And the run "20260928T010000-flat" has:
+        | column      | value |
+        | balance     | none  |
+        | floating_pl | none  |
+        | equity_end  | none  |
+
+    Scenario: an Open Trades row with a non-numeric floating P/L stops the build naming the statement
+      Given a finished run "20260928T010000-bad" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-04-30 with cash 10000
+      And its statement lists the open trades:
+        | ticket | open_time        | type | lots | price   | stop | targets | mark    | profit |
+        | 9      | 2016.04.29 00:00 | buy  | 0.10 | 1.10000 | —    | —       | 1.10100 | ten    |
+      When I build the results database expecting failure
+      Then the failure message contains "statement.md"
+
     Scenario: a plan without a recorded stop distance gets it from its entry price and the pip
       Given a finished run "20260928T010000-aaab" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
       And its closed trades are:

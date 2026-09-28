@@ -189,18 +189,19 @@ The job label of a root is `LABEL`, else the nearest ancestor of DIR not named
 and re-inserted in one transaction). A finished directory with a missing or malformed
 artifact stops the build naming the file (`trades.json is missing from <dir>; ...`,
 `metrics.json in <dir> is not valid JSON (...)`, `main.json in <dir> has no order 2, the
-closing order of a trade in trades.json; ...`). Nothing is estimated: every value is read
-from the run's artifacts.
+closing order of a trade in trades.json; ...`, `statement.md in <dir>: floating P/L is not
+a number: 'n/a'`). Nothing is estimated: every value is read from the run's artifacts.
 
-Schema (table `schema_version` = 1; every table carries `run_id`):
+Schema (table `schema_version` = 2; every table carries `run_id`):
 
 | table | one row per | columns |
 |---|---|---|
-| `runs` | run | `run_id, job, run_dir, strategy, symbol, start, end, cash, bar_minutes, model_sha256, code_revision, success, closed_trades, total_return, sharpe, max_drawdown, hit_rate, statement_path, report_path, equity_png_path, ingested_at` — `bar_minutes` from `price_features.bar_minutes` (engine default when the config omits it), `model_sha256` from the `<TAG>_MODEL_SHA256=` log line, `code_revision` from `run.json` when recorded (NULL otherwise), the four metrics from `metrics.json` |
+| `runs` | run | `run_id, job, run_dir, strategy, symbol, start, end, cash, bar_minutes, model_sha256, code_revision, success, closed_trades, total_return, sharpe, max_drawdown, hit_rate, statement_path, report_path, equity_png_path, ingested_at, balance, floating_pl, equity_end` — `bar_minutes` from `price_features.bar_minutes` (engine default when the config omits it), `model_sha256` from the `<TAG>_MODEL_SHA256=` log line, `code_revision` from `run.json` when recorded (NULL otherwise), the four metrics from `metrics.json`; `balance` (deposit plus closed P/L), `floating_pl` and `equity_end` (balance plus floating) from the `A/C Summary` block of `statement.md` (schema 2; NULL when the statement or the block is absent) |
 | `run_parameters` | config leaf + `--param` | `key, value (JSON), source` — every leaf of `strategy-config.yaml` with the `config.yaml` that set it (`strategy-provenance.json`, `unknown` when unrecorded), then `run.json` `params` with source `--param` |
 | `equity_samples` | `equity.csv` row | `seq, time, equity, drawdown_pct` (clustered on `run_id, seq`) |
 | `monthly_returns` | month | `month, start_equity, end_equity, return_pct, trades` (same rule as `report.html`: a month starts at the previous month's last sample) |
 | `trades` | closed trade | `trade_id (= entry order id), entry_order_id, direction, lots, quantity, entry_time, entry_price, exit_time, exit_price, profit, fees, is_win, exit_kind, exit_order_id, exit_order_type, holding_minutes` — lots from the plan, else quantity / `capital_mgmt.lot_notional_units`, else NULL |
+| `open_positions` | position still open when the run ended | `ticket, open_time, direction, lots, open_price, stop_loss, take_profits_json, mark_price, floating_pl` (primary key `run_id, ticket`; schema 2) — the `Open Trades` table of `statement.md`: `direction` is the side lower-cased, `take_profits_json` the `/`-separated targets as a JSON list (`[]` when none), `lots`/`stop_loss`/`mark_price` NULL for the statement's absence marker; a run without the section has no rows |
 | `trade_plans` | planned entry | `stop_loss, stop_pips, targets_json, trail_steps_json, spread_pips` from `trade-plans.json`; `stop_pips` = \|entry − stop\| / pip when the plan does not record it |
 | `decisions` | chain invocation | `id, trade_id, timestamp, final_decision, vetoed_by, p_hat, is_entry` — `p_hat` lifted from F7's enrichment; `is_entry` marks the **first** BUY/SELL row of each trade id (a later same-side signal repeats the id but opened nothing) |
 | `decision_filters` | filter result | `decision_id, position, filter_name, recommendation, veto, reason, pattern_name` — `pattern_name` extracted from F3's reason (`detected candlestick pattern 'hammer'`, or `pattern=hammer`) |
@@ -216,6 +217,17 @@ engine log: a **limit** order → `target`; a **stop** order → `trail_stop` wh
 `reversal` when a `<TAG>_OCO_CANCEL|reason=reversal` line was logged at the exit minute,
 `liquidation` when its reason is `veto`, else `unknown`; any other order type →
 `unknown`. `log.txt` is therefore required as soon as `trades.json` has a trade.
+
+**Statement facts** (`open_positions` and the three `runs` summary columns), read by
+`algo_analyze/resultsdb/statement.py` from `statement.md`, the audited account view
+`algo-backtest statement --run` writes: the closed-trades ledger is realized P/L only while
+`equity.csv` is mark-to-market, so a position left open at the end of the run never
+appears in `trades` and the two disagree by exactly its floating P/L. The statement carries
+that reconciliation: `equity_end` = `balance` + `floating_pl`, and `floating_pl` is the
+sum of `open_positions.floating_pl`. A missing `statement.md`, or a statement without the
+`Open Trades` / `A/C Summary` section, means no open positions and NULL summary columns
+(a run that closed everything); a malformed cell (a non-numeric price or P/L, an open time
+not `YYYY.MM.DD HH:MM`) stops the build naming `statement.md` and the directory.
 
 **`--decisions`**: `full` (default) keeps every chain decision with all its filter rows —
 the complete audit trail, ~3–4 MB per nine-month H1 run; `entries` keeps only the entry
