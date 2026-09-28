@@ -10,6 +10,7 @@ import {
 } from "lightweight-charts";
 import { canRenderCharts, chartColors, toTime } from "./support";
 import type { EntryBar, TradePlan, TradeRow, TrailMove } from "../model/types";
+import { priceDecimals } from "../model/format";
 
 interface Props {
   bars: EntryBar[];
@@ -44,9 +45,11 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
       timeScale: { timeVisible: true, secondsVisible: false },
       rightPriceScale: { borderColor: colors.grid },
     });
+    const decimals = priceDecimals(trade.entry_price);
     const candles = chart.addSeries(CandlestickSeries, {
       upColor: "#1a8f4a", downColor: "#c0392b", borderVisible: false, wickUpColor: "#1a8f4a", wickDownColor: "#c0392b",
       priceLineVisible: false, lastValueVisible: false,
+      priceFormat: { type: "price", precision: decimals, minMove: 10 ** -decimals },
     });
     candles.setData(bars.map((b) => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
     candles.createPriceLine({ price: trade.entry_price, color: "#1f6feb", lineWidth: 2, lineStyle: LineStyle.Solid, title: "entry" });
