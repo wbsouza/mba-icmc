@@ -45,6 +45,15 @@ Feature: Incremental data and label-maturity adapter (Story 19, T2)
       And the ledger watermark is 2016-01-04T14:00:00Z
       And the ledger holds 2 rows
 
+    Scenario: A batch whose earliest new row lands exactly on the watermark does not regress it
+      Given the batch "jan-a" is consumed
+      And the batch "at-watermark" from partition "eurusd/h1/2016-02" carries the rows
+        | key     | available_at         | label_time           | label |
+        | bar-010 | 2016-01-04T11:00:00Z | 2016-01-04T15:00:00Z | 1     |
+      When the batch "at-watermark" is consumed
+      Then the ledger watermark is 2016-01-04T11:00:00Z
+      And the ledger holds 4 rows
+
     Scenario: The persisted ledger reopens with the same watermark and row state
       Given the batch "jan-a" is consumed
       And the batch "jan-b" is consumed
@@ -104,6 +113,7 @@ Feature: Incremental data and label-maturity adapter (Story 19, T2)
         | availability in a non-UTC offset      | 2016-01-04T09:00:00+01:00 | 2016-01-04T10:00:00Z      | UTC          |
         | naive label_time                      | 2016-01-04T09:00:00Z      | 2016-01-04T10:00:00       | UTC          |
         | label_time before availability        | 2016-01-04T09:00:00Z      | 2016-01-04T08:00:00Z      | label_time   |
+        | label_time equal to availability      | 2016-01-04T09:00:00Z      | 2016-01-04T09:00:00Z      | label_time   |
 
     Scenario: A row with unknown label maturity (label_time None) is rejected in the adaptive path (RWT-24)
       Given the batch "unknown-maturity" from partition "eurusd/h1/2016-01" carries the rows
@@ -122,6 +132,14 @@ Feature: Incremental data and label-maturity adapter (Story 19, T2)
       When consuming the batch "unordered" fails
       Then the ingestion failure names "ordered"
       And the ledger holds 0 rows
+
+    Scenario: Rows sharing the same availability are non-decreasing, not out of order
+      Given the batch "same-availability" from partition "eurusd/h1/2016-01" carries the rows
+        | key     | available_at         | label_time           | label |
+        | bar-001 | 2016-01-04T09:00:00Z | 2016-01-04T10:00:00Z | 1     |
+        | bar-002 | 2016-01-04T09:00:00Z | 2016-01-04T11:00:00Z | 0     |
+      When the batch "same-availability" is consumed
+      Then the ledger holds 2 rows
 
     Scenario: A partition that declares more bars than it delivers is rejected as a missing bar
       Given the batch "short" from partition "eurusd/h1/2016-01" declares 4 bars and carries the rows

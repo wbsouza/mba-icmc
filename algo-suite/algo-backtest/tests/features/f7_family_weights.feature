@@ -77,6 +77,14 @@ Feature: F7 family-model fitting accepts optional row-aligned sample weights (St
         | NaN              | 0        | nan   | finite   |
         | positive infinity| 39       | inf   | finite   |
 
+  Rule: Zero is a valid weight, not rejected as negative (RWT-02)
+
+    Scenario: A weight of exactly zero is accepted and the family is still fitted
+      Given LightGBM fits are observed
+      And family_weights are 40 values of 1.0 except position 5 which is 0.0
+      When the meta-learner is trained with those family_weights on the trend and indicator families
+      Then 2 LightGBM fits were observed
+
   Rule: A weighted fit really changes the family model (not just the argument plumbing)
 
     Scenario Outline: On the balanced identical-feature fixture the trend family's P(up) follows the weights (<case>)

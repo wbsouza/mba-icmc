@@ -376,3 +376,38 @@ dates is exploratory. No unexamined confirmation dataset or live readiness is
 claimed. TD-71 execution failures remain failures and cannot be patched away in
 the report. Historical replay can pause simulated time during a bounded model
 fit; this is not evidence of meeting a live wall-clock deployment deadline.
+
+## 2026-09-28 — Hardener phase 1: mutation testing complete
+
+Agent role: hardener, worktree `/tmp/mba-impl-19`, branch
+`feat/19-adaptive-retraining`, base SHA `82d3908` (unchanged by this pass).
+Manual behaviour-level mutation testing (`mutmut` unavailable) across
+`retraining/{ingestion,schedule,weights,utc}.py` and the phase-1
+`family_weights` diff of `chain/filters/f7_meta_learner.py`: 35 mutations
+(1 negative control, confirmed KILLED), one at a time, backed up/applied/
+tested/restored in place in this shared worktree with a `git status
+--porcelain` check after every restore. Full table, method and the
+cleaner-flagged `_class_counts` check are in
+[mutation-phase1.md](mutation-phase1.md).
+
+Result: 31/34 non-control mutations KILLED on first run; 4 SURVIVED
+(ING-1, ING-2, ING-5 in `ingestion.py`; F7-3 in the F7 diff), all genuine
+boundary-equality gaps (label_time == available_at, equal-availability
+ordering, watermark-equality, and a zero `family_weights` value). Added one
+new Gherkin scenario per survivor to `retraining_ingestion.feature` and
+`f7_family_weights.feature`, reconfirmed all 4 KILLED. 0 equivalent-mutant
+justifications needed.
+
+Command: `uv run pytest algo-backtest/tests/steps/test_retraining_ingestion.py
+test_retraining_schedule.py test_retraining_weights.py
+test_f7_family_weights.py test_f7_meta_learner.py -q -p no:cacheprovider -x`
+(cwd `algo-suite/`), plus full-suite/lint/type gates after restore:
+`pytest algo-backtest/tests` → 1727 passed, 53 deselected; `ruff check
+algo-backtest` → clean; `mypy --strict algo-backtest` → clean (68 files).
+
+No production module was changed — only the two feature files above and
+this story's docs. Deviation: mutated in place in the shared worktree
+(backup/restore) rather than in an isolated `git worktree add` scratch copy
+per `STAGES.md`'s default Hardener recipe, per explicit team-lead direction
+for this resumed session, after confirming the concurrent specifier agent
+sharing this worktree never touches the mutated tracked files.
