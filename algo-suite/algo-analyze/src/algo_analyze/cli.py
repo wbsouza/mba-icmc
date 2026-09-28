@@ -2,7 +2,8 @@
 
 Wires the library modules into the exact command surface `docs/experiments.md` §2/§3
 specifies: `summary`, `metrics`, `significance`, `ablation`, `figures`, plus
-`equity-curves` (story 12: the consolidated multi-run equity overlay). Each command
+`equity-curves` (story 12: the consolidated multi-run equity overlay) and `results-db
+build` (every finished run directory into one SQLite file for `algo-viewer`). Each command
 resolves the data root via the shared config convention and reads run artifacts under
 `<data_root>/runs/<run-id>/` — except `equity-curves`, whose `--run` values are results
 directories given explicitly — and fails fast with an actionable message on malformed
@@ -28,6 +29,7 @@ from algo_analyze.figures import (
     equity_curve_figure,
 )
 from algo_analyze.reports import metrics_report, migration_inventory, significance_report
+from algo_analyze.resultsdb import BuildRequest, RunsRoot, build_database
 
 app = typer.Typer(
     name="algo-analyze",
@@ -55,6 +57,21 @@ _EQUITY_LABELS_OPTION = typer.Option(
 _EQUITY_OUT_OPTION = typer.Option(
     ..., "--out", help="Directory for equity-consolidated.{csv,png,html}."
 )
+_RESULTS_ROOTS_OPTION = typer.Option(
+    ..., "--runs-root",
+    help="[LABEL=]DIR holding <strategy>/<stamp>/ run directories (repeatable).",
+)
+_RESULTS_OUT_OPTION = typer.Option(..., "--out", help="The SQLite file to build/update.")
+_BARS_ROOT_OPTION = typer.Option(
+    None, "--bars-root",
+    help="Data root with parquet/forex/<SYMBOL>/m1/ partitions; enables entry_bars.",
+)
+
+results_db_app = typer.Typer(
+    name="results-db", help="Build the SQLite results database the viewer opens.",
+    no_args_is_help=True,
+)
+app.add_typer(results_db_app, name="results-db")
 
 
 @app.callback()
@@ -227,6 +244,35 @@ def equity_curves(
     typer.echo(f"equity-curves: {paths.csv}")
     typer.echo(f"equity-curves: {paths.chart}")
     typer.echo(f"equity-curves: {paths.html}")
+
+
+@results_db_app.command("build")
+def results_db_build(
+    runs_root: list[str] = _RESULTS_ROOTS_OPTION,
+    out: Path = _RESULTS_OUT_OPTION,
+    bars_root: Path | None = _BARS_ROOT_OPTION,
+    bars_before: int = typer.Option(30, "--bars-before", help="Bars kept before each entry."),
+    bars_after: int = typer.Option(30, "--bars-after", help="Bars kept after each entry."),
+) -> None:
+    """Ingest every finished run under each --runs-root into one SQLite file (upsert by run id).
+
+    A run directory without run.json is still in progress: it is skipped and counted.
+    A finished directory with a missing or malformed artifact stops the build naming the
+    file. With --bars-root, the ±N bars around every entry are aggregated from the M1
+    bid/ask mid into the run's bar size (entry_bars table).
+    """
+    try:
+        request = BuildRequest(
+            roots=[RunsRoot.parse(text) for text in runs_root], out=out, bars_root=bars_root,
+            bars_before=bars_before, bars_after=bars_after,
+        )
+        report = build_database(request)
+    except (FileNotFoundError, ValueError) as exc:
+        _fail(exc)
+    typer.echo(f"results-db: {len(report.ingested)} run(s) ingested -> {report.out}")
+    if report.skipped:
+        typer.echo(f"results-db: skipped {len(report.skipped)} unfinished run director"
+                   f"{'y' if len(report.skipped) == 1 else 'ies'} (no run.json)")
 
 
 def _configured(logger_name: str) -> AnalyzeConfig:
