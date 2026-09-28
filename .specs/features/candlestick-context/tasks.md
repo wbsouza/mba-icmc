@@ -154,8 +154,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Docs (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Docs gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Docs gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `docs(candles): review and freeze the source-rule ledger`
 

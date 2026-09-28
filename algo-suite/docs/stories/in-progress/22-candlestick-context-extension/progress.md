@@ -37,3 +37,68 @@ Main owns cross-story link checks and final planning validation. This lane runs
 the canonical spec/tasks structural validators only; no code tests or studies.
 Publication is blocked by read-only `.git` and unavailable Forgejo approval;
 no new branch, commit, push or PR is claimed. Preserve the existing directory moves.
+
+## Working tree and ownership
+
+- Agent role: Claude coder, lane C (Story 22), Phase 1 T1–T6 only.
+- Worktree `/tmp/mba-impl-22`, branch `feat/22-candlestick-rules`, base SHA `ef0111d`
+  (`docs: plan parallel stories 19, 21 and 22 without Laya`), branched from `main`.
+- Specifier-authored feature files (untracked at hand-off, committed with their task):
+  `candle_contract.feature` (T2), `candle_catalog.feature` (T3), `candle_context.feature`
+  (T4), `candle_sequence.feature` (T5), `f3_policy_modes.feature` (T6);
+  `qa-procedure-phase1.md` in this directory.
+- Test baseline recorded before T1 (cwd `algo-suite`, exit 0):
+  `uv run pytest algo-backtest/tests -q -p no:cacheprovider --collect-only` →
+  1598/1651 collected (53 deselected);
+  `uv run pytest algo-backtest/tests/steps/test_candlestick_detector.py algo-backtest/tests/steps/test_f3_pattern.py -q -p no:cacheprovider`
+  → 110 passed.
+- Environment repair (worktree-local, not a repo change): the worktree `.venv` held a
+  truncated `scipy` 1.17.1 (6 files under `scipy/sparse`), which broke 18 collections
+  with `module 'scipy.sparse' has no attribute 'spmatrix'`;
+  `uv sync --all-packages --reinstall-package scipy` restored it (same pinned version).
+
+## Phase checklist (mirrors tasks.md; ticked in the delivering commit)
+
+- [x] T1 Review and freeze the source-rule ledger
+- [ ] T2 Define immutable pattern evidence and configuration
+- [ ] T3 Implement the expanded geometry catalog
+- [ ] T4 Implement causal context evaluation
+- [ ] T5 Implement next-bar confirmation state machine
+- [ ] T6 Implement explicit F3 policy modes
+- [ ] T7 Integrate shared closed-bar evidence into native signals
+- [ ] T8 Fingerprint the complete signal contract
+- [ ] T9 Version the F7 pattern feature encoder
+- [ ] T10 Integrate evidence into training rows
+- [ ] T11 Serialize decision evidence
+- [ ] T12 Ingest old and new evidence in results database
+- [ ] T13 Extend viewer catalog metadata
+- [ ] T14 Render separate pattern and decision evidence
+- [ ] T15 Validate reviewed rules-recognition data and split boundaries
+- [ ] T16 Register bounded recognition and trading protocol
+- [ ] T22 Record complete experiment attempts and parameters
+- [ ] T23 Publish comparison evidence with parameters beside results
+- [ ] T24 Update the monograph from verified evidence
+
+T17–T21 are DEFERRED and never implemented.
+
+## Task log
+
+### 2026-09-28 — T1 review and freeze the source-rule ledger (CND-01)
+
+- Artifact: `candlestick-rule-ledger.md` (this directory). All four sources readable;
+  SHA-256 verified for the book, both presentation copies and the transcript.
+  Page offset verified per cited page: PDF = printed + 6 in the major-signals chapter,
+  PDF = printed + 4 in the high-profit-patterns chapter.
+- Adopted every formula pinned by the specifier (feature description blocks and
+  `qa-procedure-phase1.md`) unchanged; refined two citations only (bullish harami
+  criteria p.76/82; hanging-man OCR line is criteria 1 on p.61/67). No disputed
+  scenario.
+- TA-Lib relation column verified empirically (`talib` 0.8.1) on every ledger example
+  after 20 context candles; scores recorded in the ledger.
+- Docs gate (cwd repo root): `git diff --check` exit 0;
+  `python3 ~/.claude/skills/tlc-spec-driven/scripts/validate_spec.py .specs/features/candlestick-context/spec.md --strict`
+  exit 0 (0 errors, 0 warnings);
+  `... validate_tasks.py .specs/features/candlestick-context/tasks.md --strict` exit 0.
+- Status: tasks.md T1 boxes ticked; spec.md CND-01 → `Implemented (T1)`.
+- Commit: `docs(candles): review and freeze the source-rule ledger` (SHA recorded below
+  after commit).
