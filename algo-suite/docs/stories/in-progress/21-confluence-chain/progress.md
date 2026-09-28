@@ -26,7 +26,7 @@
 
 - [x] T1 Add the named agreement terminal
 - [x] T2 Add F1 momentum context
-- [ ] T3 Calculate immutable monthly intensity snapshots
+- [x] T3 Calculate immutable monthly intensity snapshots
 - [ ] T4 Add F4 relative intensity mode
 - [ ] T5 Define the optional F6 bar-count plan
 - [ ] T6 Model causal expiry as a pure lifecycle
@@ -97,3 +97,36 @@
 - Status updates: tasks.md T2 both boxes; spec.md CC-06, CC-07, CC-08, CC-28 →
   `Implemented (T2)`; CC-20 → `Implemented (T1, T2)`.
 - Next: T3.
+
+### 2026-09-28 — T3: Calculate immutable monthly intensity snapshots (CC-09, CC-10, CC-13, CC-14, CC-31)
+
+- What: new pure module `chain/intensity_history.py`: `calibration_window(t)` (fixed UTC
+  month start M and M-30d), `IntensityObservation` (aware-UTC `bar_closed_at` and
+  `available_at`, finite intensity, non-empty `source_id`; null availability or an empty
+  source is refused), `IntensityHistory(clock_minutes, collection_started_at)` with
+  `declare_closure(start, end)` (documented closures as an explicit input, coordinator
+  decision 4), `record(observation)` (clock-grid and strict chronological order; a
+  rejected row leaves the history unchanged) and `snapshot_for(decision_time)` (cached
+  per cutoff, so the month is frozen and a mid-month start rebuilds the same one).
+  Sample = one observation per completed bar with close in `[M-30d, M)` and
+  `available_at < M`; a row available at/after M satisfies coverage but leaves the
+  sample (coordinator decision 1). Coverage of every grid close (closures exempt) is
+  checked only when the declared collection reaches `window_start`; otherwise the
+  snapshot is `WARMUP` with null quantiles. Linear quantiles at `(n-1)q` in pure Python
+  (numpy `linear` semantics, cross-checked). `IntensitySnapshot` carries the 12
+  provenance fields (status READY/WARMUP, quantile_method "linear", schema_version 1,
+  coordinator decision 3) and round-trips via `as_mapping`/`from_mapping`.
+- Scenario correction: `confluence_history.feature`, scenario "a gap inside a documented
+  market closure is not a missing bar": the expected `q_high` 1.37 contradicted the
+  spec's own quantile definition. Removing the 2016-03-18 row drops the value 1.40; the
+  29-value sample interpolates index 25.2 between 1.30 and 1.35 → 1.31 (numpy
+  `quantile(..., 0.9, method="linear")` agrees: 1.31). Cell changed to 1.31; `q_low`
+  0.19 was already right.
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_confluence_history.py -q -p no:cacheprovider`
+  → 32 collected, 32 passed; `uv run ruff check algo-backtest` clean (C901 included);
+  `ruff format --check` clean on the two new files; `uv run mypy --strict algo-backtest`
+  → 64 source files, no issues.
+- Status updates: tasks.md T3 both boxes; spec.md CC-09, CC-10, CC-13, CC-14, CC-31 →
+  `Implemented (T3)`.
+- Next: T4.

@@ -152,8 +152,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Linear q10/q90 match independent examples; exact month boundary, mid-month start, late arrivals, revised suffix and repeated lookup preserve prior snapshots; missing/invalid rows fail; valid initial collection reports WARMUP; provenance fields round-trip through plain values.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Linear q10/q90 match independent examples; exact month boundary, mid-month start, late arrivals, revised suffix and repeated lookup preserve prior snapshots; missing/invalid rows fail; valid initial collection reports WARMUP; provenance fields round-trip through plain values.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_history.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_history.py` in this task; at least 12 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_history.py`; Build and applicable Regression before handoff.
