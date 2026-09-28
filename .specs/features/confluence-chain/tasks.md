@@ -190,8 +190,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Omitted option round-trips legacy defaults; bool/fraction/zero/negative N fail; explicit time plan has no targets/trail or target-based reward-risk veto; existing ATR, stop floors, spread and sizing remain in effect. Record the accepted timing contract before adding this field.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Omitted option round-trips legacy defaults; bool/fraction/zero/negative N fail; explicit time plan has no targets/trail or target-based reward-risk veto; existing ATR, stop floors, spread and sizing remain in effect. Record the accepted timing contract before adding this field.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_capital_plan.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_capital_plan.py` in this task; at least 8 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_capital_plan.py`; Build and applicable Regression before handoff.

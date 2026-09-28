@@ -28,7 +28,7 @@
 - [x] T2 Add F1 momentum context
 - [x] T3 Calculate immutable monthly intensity snapshots
 - [x] T4 Add F4 relative intensity mode
-- [ ] T5 Define the optional F6 bar-count plan
+- [x] T5 Define the optional F6 bar-count plan
 - [ ] T6 Model causal expiry as a pure lifecycle
 - [ ] T7 Provide explicit drift-control votes
 - [ ] T8 Build a separate evidence-unit re-derivation tool
@@ -164,3 +164,33 @@
 - Status updates: tasks.md T4 both boxes; spec.md CC-11, CC-12 → `Implemented (T4)`;
   CC-09, CC-10, CC-14, CC-31 → `Implemented (T3, T4)`; CC-20 → `Implemented (T1, T2, T4)`.
 - Next: T5.
+
+### 2026-09-28 — T5: Define the optional F6 bar-count plan (CC-20, CC-21, CC-22)
+
+- What: `chain/filters/f6_capital_mgmt.py` gains `CapitalMgmtConfig.exit_after_bars:
+  int | None = None` (N). Absent or `null` → None and the legacy plan byte for byte:
+  `capital_mgmt_mapping` and the `trade_plan` enrichment carry the key ONLY when set
+  (coordinator decision 10), so legacy resolved-config sidecars are unchanged. A bool,
+  float (even whole), zero, negative, string or list is rejected with the full
+  remediation ("... must be a positive integer (completed signal bars to hold; the exit
+  is submitted at the open of bar t+N) or null to disable, got X — fix
+  strategies/<name>/config.yaml"). N may coexist with targets at parse time (decision
+  9); the time arms use `targets: []`/`trail_stops: []`, so no target and no
+  reward:risk veto, while the ATR stop, shrink, floors, spread, lot and margin veto
+  still apply. The accepted D5 bar-open timing contract is recorded in the module
+  docstring (item 5) next to the field; the lifecycle itself is T6.
+- Scenario correction (per coordinator decision 10): `confluence_capital_plan.feature`,
+  scenario "a five-key section resolves exit_after_bars to null ...": the line
+  `And the capital-mgmt mapping records exit_after_bars null` became
+  `And the capital-mgmt mapping has no key "exit_after_bars"`.
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_confluence_capital_plan.py -q -p no:cacheprovider`
+  → 25 collected, 25 passed; with `test_f6_capital_mgmt.py`,
+  `test_strategy_config_artifact.py`, `test_strategies.py`, `test_strategy_explain.py`
+  → 312 passed; `f6_capital_mgmt.feature` unchanged; `uv run ruff check algo-backtest`
+  clean; `ruff format --check` clean on the new step file (`f6_capital_mgmt.py` was on
+  the pre-existing would-reformat list; not reformatted wholesale);
+  `uv run mypy --strict algo-backtest` → no issues.
+- Status updates: tasks.md T5 both boxes; spec.md CC-21, CC-22 → `Implemented (T5)`;
+  CC-20 → `Implemented (T1, T2, T4, T5)`.
+- Next: Phase 1 close-out (full suite counts), then T6 (Phase 2) in a later lane run.

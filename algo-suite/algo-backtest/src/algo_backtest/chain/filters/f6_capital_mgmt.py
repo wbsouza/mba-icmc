@@ -26,6 +26,20 @@ market feature (story 12, execution realism, item B):
 4. **Reward:risk** = first target's pips / stop pips (the legacy reward:risk ratio);
    `None` with no target. With `min_reward_risk` set, a side whose ratio falls below it
    VETOES the bar (F6 runs before the direction is known, so either side failing vetoes).
+5. **Bar-count exit** (story 21, optional `exit_after_bars`, N): the number of completed
+   signal bars a position is held before a time exit. Absent or `null` = no time exit and
+   the legacy plan byte for byte (the key is written neither into the effective mapping
+   nor into the plan). When set, the plan carries `exit_after_bars` for the executor
+   while everything above still applies (stop, shrink, floors, spread, lot, margin veto);
+   the registered time arms use `targets: []` and `trail_stops: []`, so no target and no
+   reward:risk veto. Accepted timing contract (D5, user decision 2026-09-28; the
+   lifecycle itself is `chain/time_exit.py`, T6): let t be
+   the bar during which the entry filled (the signal bar after the decision bar; t
+   counts even for a mid-bar fill). The exit is at the open of bar t+N. Expiry is due
+   at the close of bar t+N-1, which is the open of bar t+N; the engine submits one
+   market closure on the first tradable event at or after that open, after stop
+   reconciliation, at the executor's actual fill price — never the historical bar open.
+   N = 4 spans the four closes of the horizon check.
 
 `state.features` contract — the account keys always (`chain/wiring.py`'s
 `account_features`), the market keys per source:
@@ -44,7 +58,8 @@ and `trade_plan`, a plain JSON-safe dict the executor (item D) places orders fro
     {"lot_size": float, "spread_pips": float,
      "long":  {"stop_pips": float, "targets": [{"pips": float, "close_fraction": float}],
                "trail_stops": [{"at_pips": float, "to_pips": float}], "reward_risk": float|None},
-     "short": {...same...}}
+     "short": {...same...},
+     "exit_after_bars": int}            # only when configured (item 5)
 
 `risk_per_trade` (specs.md §14.7: 3% for the reference strategy, its
 symbol-deployment risk), the sizing economics and the plan keys are the
@@ -162,6 +177,9 @@ class CapitalMgmtConfig:
       ``swing_low_pips`` / ``swing_high_pips`` features — the distance to the rolling
       swing low/high, one per side; the reference strategy's structural template stop).
     - ``atr_multiplier``: ATR multiple for the ``"atr"`` source (> 0).
+    - ``exit_after_bars``: completed signal bars to hold before the time exit (a positive
+      integer; the exit is submitted at the open of bar t+N, see the module docstring), or
+      ``None`` = no time exit (the legacy plan).
     """
 
     risk_per_trade: float
@@ -177,6 +195,7 @@ class CapitalMgmtConfig:
     min_reward_risk: float | None = None
     stop_distance_source: StopDistanceSource = "fixed"
     atr_multiplier: float = 2.0
+    exit_after_bars: int | None = None
 
 
 _KEYS = tuple(field.name for field in fields(CapitalMgmtConfig))
@@ -368,6 +387,27 @@ def _min_stop_factor(section: Section, *, strategy: str) -> float:
     return value
 
 
+def _exit_after_bars(section: Section, *, strategy: str) -> int | None:
+    """`exit_after_bars` (N, a positive integer) or `None` when absent or `null`.
+
+    Raises:
+        ValueError: a boolean, a float (even a whole one), zero, a negative number, a
+            string or a list — never coerced.
+    """
+    if "exit_after_bars" not in section:
+        return None
+    value = section["exit_after_bars"]
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(
+            f"strategy {strategy!r}: {_SECTION}.exit_after_bars must be a positive integer "
+            "(completed signal bars to hold; the exit is submitted at the open of bar t+N) or "
+            f"null to disable, got {value!r} — fix strategies/{strategy}/config.yaml"
+        )
+    return value
+
+
 def parse_capital_mgmt_config(section: Section, *, strategy: str) -> CapitalMgmtConfig:
     """F6's parameters from a strategy config.yaml `capital_mgmt` section (fail fast).
 
@@ -406,15 +446,20 @@ def parse_capital_mgmt_config(section: Section, *, strategy: str) -> CapitalMgmt
         atr_multiplier=optional_positive(
             section, "atr_multiplier", default=2.0, section=_SECTION, strategy=strategy
         ),
+        exit_after_bars=_exit_after_bars(section, strategy=strategy),
     )
 
 
 def capital_mgmt_mapping(config: CapitalMgmtConfig) -> dict[str, Any]:
     """The effective values as a plain YAML/JSON-safe mapping (lists, not tuples), for the
-    resolved config and provenance; `parse_capital_mgmt_config` accepts it back unchanged."""
+    resolved config and provenance; `parse_capital_mgmt_config` accepts it back unchanged.
+    `exit_after_bars` is written only when set, so a legacy section's resolved config is
+    byte-identical to before the option existed."""
     mapping = asdict(config)
     mapping["targets"] = [asdict(target) for target in config.targets]
     mapping["trail_stops"] = [asdict(step) for step in config.trail_stops]
+    if config.exit_after_bars is None:
+        del mapping["exit_after_bars"]
     return mapping
 
 
@@ -507,11 +552,7 @@ class CapitalMgmtFilter:
         }
         widest_stop = max(side.stop_pips for side in sides.values())
         lot_size = calculate_lot_size(balance, self.config.risk_per_trade, pip_value, widest_stop)
-        plan: TradePlan = {
-            "lot_size": lot_size,
-            "spread_pips": self.spread_pips,
-            **{name: side.as_dict() for name, side in sides.items()},
-        }
+        plan = self._plan(sides, lot_size)
         enrichment: dict[str, object] = {"proposed_lot_size": lot_size, "trade_plan": plan}
         summary = self._summary(sides, lot_size)
         shortfall = self._reward_risk_shortfall(sides)
@@ -528,6 +569,17 @@ class CapitalMgmtFilter:
             f"sufficient margin for proposed lot size {lot_size!r}; {summary}",
             veto=False, enrichment=enrichment,
         )
+
+    def _plan(self, sides: dict[str, _SidePlan], lot_size: float) -> TradePlan:
+        """The JSON-safe `trade_plan`; `exit_after_bars` only when configured (item 5)."""
+        plan: TradePlan = {
+            "lot_size": lot_size,
+            "spread_pips": self.spread_pips,
+            **{name: side.as_dict() for name, side in sides.items()},
+        }
+        if self.config.exit_after_bars is not None:
+            plan["exit_after_bars"] = self.config.exit_after_bars
+        return plan
 
     def _base_stop_pips(self, features: dict[str, object]) -> tuple[float, float]:
         """(long, short) base stop distance in pips per `stop_distance_source`, before the

@@ -180,9 +180,9 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-17 | P1 exits | Stop precedence | T6, T13 | 2, 3 | In Tasks |
 | CC-18 | P1 exits | Trade lifecycle | T6, T13, T14 | 2, 3 | In Tasks |
 | CC-19 | P1 exits | Entry suppression | T6, T13 | 2, 3 | In Tasks |
-| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1, T2, T4) |
-| CC-21 | P1 exits | F6/config | T5, T10, T11 | 1–3 | In Tasks |
-| CC-22 | P1 exits | F6/config | T5 | 1 | In Tasks |
+| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1, T2, T4, T5) |
+| CC-21 | P1 exits | F6/config | T5, T10, T11 | 1–3 | Implemented (T5) |
+| CC-22 | P1 exits | F6/config | T5 | 1 | Implemented (T5) |
 | CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | In Tasks |
 | CC-24 | P1 protocol | Availability gate | T9, T17 | 2, 4 | In Tasks |
 | CC-25 | P1 evidence | Re-derivation | T8, T19, T20 | 2, 4 | In Tasks |
