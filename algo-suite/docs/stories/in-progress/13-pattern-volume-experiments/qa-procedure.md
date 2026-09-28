@@ -29,7 +29,7 @@ Experimental results use the actual archived EURUSD/GDELT data.
 | Native legacy parity | `feature_parity.feature` | Existing EMA/news/DSHA parity, gaps and ties, preserving old contracts. Two probe initializers were repaired to supply Story 12 economics. |
 | Native risk calendar | `minute_pnl_anchors.feature` | Actual `ChainAlgorithm.on_data` imported inside LEAN; unrelated collaborators stubbed. Every quote updates real `PnlWindows` before candle checks. Daily/week/year rollover, idempotence and no-quote behavior. Not a fills/PnL-economic reconciliation. |
 | Real chain/orders | `run_baseline_chain.feature`, `run_hybrid_chain.feature` | Complete production wiring, fills, audit joins, stop, partial target, trailing and spread with pinned LEAN. Slower than pure/probe tests. |
-| Experiment runner | `spockfx_experiments.feature` | Fresh disjoint roots, full parameter/source archives, isolated fingerprints, exact child exits, timeout/failure channels, bounded workers, before/after immutable-input checks. Child execution mocked; actual runs are separate. |
+| Experiment runner | `heikin_ashi_experiments.feature` | Fresh disjoint roots, full parameter/source archives, isolated fingerprints, exact child exits, timeout/failure channels, bounded workers, before/after immutable-input checks. Child execution mocked; actual runs are separate. |
 | Figures/evidence | `evidence/tests/features/intermediate_figures.feature` | Real completed source artifacts; rejects unfinished/tampered sources, preserves equity/drawdown samples and parameter links. |
 
 All behavior tests are Gherkin plus pytest-bdd steps. Native tests carry `integration`
@@ -40,8 +40,8 @@ and are excluded by default. No native import stub is represented as an engine t
 ```sh
 uv sync --all-packages
 uv run pytest algo-backtest/tests -m 'not integration' -q
-uv run ruff check algo-backtest experiments/spockfx-signals tools/perception_quality.py
-uv run mypy algo-backtest/src algo-backtest/scripts experiments/spockfx-signals/runner.py tools/perception_quality.py
+uv run ruff check algo-backtest experiments/heikin-ashi-signals tools/perception_quality.py
+uv run mypy algo-backtest/src algo-backtest/scripts experiments/heikin-ashi-signals/runner.py tools/perception_quality.py
 uv run python tools/perception_quality.py --architecture-only
 uv run python tools/inference_quality.py --architecture-only
 make audit
@@ -104,11 +104,11 @@ Do not kill another session's or predecessor job's processes.
 Every matrix has two workers, six shared LEAN slots, 4 CPU/8 GiB containers and four
 training numeric threads. Each cell trains a separate CPU model. Training:
 2015-02-02–06-30; combiner calibration: July; evaluation: September 2015. Cash 10,000,
-EURUSD/OANDA, H4, Dragon08 risk/exit proxy, spread 1 pip, commission 0. Thresholds and
+EURUSD/OANDA, H4, Heikin-Ashi H4 template risk/exit proxy, spread 1 pip, commission 0. Thresholds and
 parameters are fixed before observation; no result-driven retries/tuning.
 
 Each cell's `parameters.md` explains every filter setting and embeds the full plan.
-`strategy-config.json`, `strategy-provenance.json`, `source-mapping.md`, XML copies,
+`strategy-config.json`, `strategy-provenance.json`, `template-settings.md`,
 `commands.json`, `hashes.json` and `provenance.json` provide the machine-readable join.
 Inspect `training.log`, `backtest.log`, `status.json`, then the successful
 `results/run.json`, `metrics.json`, statement/equity files and the engine result.
@@ -118,7 +118,7 @@ these files instead of launching a second copy:
 
 ```sh
 rg --files build/experiments | rg 'status.json|exit-status.json|final-input-check.json|training.log|backtest.log|run.json|metrics.json'
-ps -eo pid,ppid,etime,pcpu,args | rg 'spockfx-signals/runner.py|train_.*meta_learner|QuantConnect.Lean.Launcher'
+ps -eo pid,ppid,etime,pcpu,args | rg 'heikin-ashi-signals/runner.py|train_.*meta_learner|QuantConnect.Lean.Launcher'
 docker stats --no-stream
 ```
 
@@ -183,10 +183,10 @@ mutation coverage. **The full mutation campaign was not rerun in this takeover.*
 ### Publishing results
 
 All three raw matrix directories (accepted baseline v1, failed hybrid v1, accepted
-hybrid v2) are preserved in
-[`h4-run-artifacts-20260928T011114Z.tar.gz`](evidence/h4-run-artifacts-20260928T011114Z.tar.gz).
-SHA-256: `7bdc1ef9a4ee56706cb74a9c0e8ca0ee27ce24eea79c8afebe76780a78c1cf2c`.
-It contains the actual model bytes, effective settings, engine/decision/ledger/equity
+hybrid v2) are preserved in the controller's archive
+`h4-run-artifacts-20260928T011114Z.tar.gz`, retained locally outside the repository because it
+embeds third-party configuration files; the [removal note](evidence/h4-run-artifacts-20260928T011114Z.REMOVED.md) records its
+SHA-256. It contains the actual model bytes, effective settings, engine/decision/ledger/equity
 outputs, execution logs and integrity manifests—not just screenshots or summaries.
 No market/news source dataset is duplicated. `tar -dzf` against the original three
 directories verifies archive contents. This archive survives `/tmp` cleanup when

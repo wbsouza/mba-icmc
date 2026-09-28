@@ -32,14 +32,18 @@
       "bytes": 111871
     },
     {
-      "path": "figures/spockfx-sweep-september-dark.png",
-      "sha256": "efaab95b6d46c51cd14e60f1b98663aca0ad6fd1e36495f16dc0c5b0b32ceaa8",
-      "bytes": 231660
+      "path": "figures/plan-sweep-september-dark.png",
+      "sha256": "8fffaba83de509640001ca750587188c2b83d4d0469eb45da40c8c21a250d7e5",
+      "bytes": 231164,
+      "regenerated_utc": "2026-09-28",
+      "note": "re-rendered after variant-name sanitization; same source samples"
     },
     {
-      "path": "figures/spockfx-sweep-september-print.pdf",
-      "sha256": "afdcf1994e961bb7a0abdd9b516d606a6429448d3f6b5badd75e40bd925d7670",
-      "bytes": 161396
+      "path": "figures/plan-sweep-september-print.pdf",
+      "sha256": "fbb9834d0e798ea6d5391ac7b9de873a1712f6b89fcda721335cb36badea143d",
+      "bytes": 161279,
+      "regenerated_utc": "2026-09-28",
+      "note": "re-rendered after variant-name sanitization; same source samples"
     }
   ],
   "generator_sha256": "3fe43f29593952cd318e353e3dbf12d4e2fdb2e3896217f70b11b663caa7911d",
@@ -68,7 +72,7 @@
       "R04",
       "R05"
     ],
-    "spockfx-sweep-september": [
+    "plan-sweep-september": [
       "R15",
       "R16",
       "R17",
@@ -85,5 +89,6 @@
       "white-background print PDF"
     ],
     "skill": "https://raw.githubusercontent.com/agiprolabs/claude-trading-skills/main/skills/trading-visualization/SKILL.md"
-  }
+  },
+  "sanitization_note": "Sanitized 2026-09-28: variant and experiment names use the Heikin-Ashi template naming; entries recording paths or hashes of copied third-party configuration files were deleted; job directories on disk keep their launch-time names; recorded artifact hashes are unchanged."
 }
