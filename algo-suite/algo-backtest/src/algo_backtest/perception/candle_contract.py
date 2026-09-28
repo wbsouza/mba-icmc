@@ -424,6 +424,11 @@ class FibonacciEvidence:
     def __post_init__(self) -> None:
         """Closed status vocabulary; a level exists only when READY and is one of the ratios."""
         _one_of(self.status, "status", (READY, WARMUP, UNDEFINED))
+        self._validate_swings()
+        self._validate_level()
+
+    def _validate_swings(self) -> None:
+        """``swing_high``/``swing_low`` are ``IndicatorValue``s matching the overall readiness."""
         if not isinstance(self.swing_high, IndicatorValue) or not isinstance(
             self.swing_low, IndicatorValue
         ):
@@ -438,6 +443,9 @@ class FibonacciEvidence:
             raise ValueError(
                 f"fibonacci status {self.status} contradicts swing readiness; repair the evaluator"
             )
+
+    def _validate_level(self) -> None:
+        """A level is set only when READY and is one of the registered retracement ratios."""
         if self.level is not None and (self.status != READY or self.level not in FIBONACCI_LEVELS):
             raise ValueError(
                 f"fibonacci level {self.level!r} must be one of {FIBONACCI_LEVELS} and only set "

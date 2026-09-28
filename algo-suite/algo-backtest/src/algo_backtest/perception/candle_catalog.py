@@ -141,15 +141,19 @@ def _bearish_harami(bars: Sequence[ClosedBar]) -> bool:
     )
 
 
+def _body_midpoint(prior: _Geometry) -> float:
+    """The midpoint of the prior bar's real body."""
+    return (prior.open + prior.close) / 2
+
+
 def _piercing_line(bars: Sequence[ClosedBar]) -> bool:
     """Opens below the prior close, closes above the prior body midpoint, short of its open."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bearish
         and current.bullish
         and current.open < prior.close
-        and current.close > mid
+        and current.close > _body_midpoint(prior)
         and current.close < prior.open
     )
 
@@ -157,12 +161,11 @@ def _piercing_line(bars: Sequence[ClosedBar]) -> bool:
 def _dark_cloud_cover(bars: Sequence[ClosedBar]) -> bool:
     """Opens above the prior close, closes below the prior body midpoint, short of its open."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bullish
         and current.bearish
         and current.open > prior.close
-        and current.close < mid
+        and current.close < _body_midpoint(prior)
         and current.close > prior.open
     )
 
@@ -209,11 +212,10 @@ def _inverted_hammer(bars: Sequence[ClosedBar]) -> bool:
 def _bearish_counterattack_line(bars: Sequence[ClosedBar]) -> bool:
     """Bullish prior gaps up past its close; the close returns to it above the dark-cloud mid."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bullish
         and current.open > prior.close
-        and current.close > mid
+        and current.close > _body_midpoint(prior)
         and abs(current.close - prior.close) <= COUNTERATTACK_TOLERANCE * current.range
     )
 
@@ -221,11 +223,10 @@ def _bearish_counterattack_line(bars: Sequence[ClosedBar]) -> bool:
 def _bullish_counterattack_line(bars: Sequence[ClosedBar]) -> bool:
     """Bearish prior gaps down past its close; the close returns to it below the piercing mid."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bearish
         and current.open < prior.close
-        and current.close < mid
+        and current.close < _body_midpoint(prior)
         and abs(current.close - prior.close) <= COUNTERATTACK_TOLERANCE * current.range
     )
 

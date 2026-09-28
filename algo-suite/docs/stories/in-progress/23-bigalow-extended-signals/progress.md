@@ -94,3 +94,30 @@ No blockers. Scope not delivered: the four items explicitly deferred in
 `spec.md`'s Out of Scope table (named/factory filter-chain instances,
 money-management rules, the SMA entry-trigger context field, Tweezer
 Top/Bottom) — all by prior user decision, not incomplete work.
+
+## Cleaner review, 2026-09-28
+
+Baseline `ebac509..6ab39b0`, scope `algo-backtest/src` (candle_catalog.py,
+candle_contract.py, candle_context.py) plus their three step files. Complexity
+computed with `radon cc -s` (importable); ruff's own C901 engine scores some
+of these functions lower than radon (e.g. `fibonacci_evidence` C901 <= 5 vs.
+radon 14) and was used only for the repo's own gate (threshold 8, passed
+throughout), not for CRAP.
+
+| File | Ruff C901/PLR (thresh 8) | mypy --strict | Coverage (branch) | Max CRAP/cc (radon) | Actions |
+| --- | --- | --- | --- | --- | --- |
+| candle_catalog.py | All checks passed | Success | 100% | `_methods_rising` cc=8 (at threshold, not over); all else <= 5 after refactor | Extracted `_body_midpoint(prior)` shared by `_piercing_line`, `_dark_cloud_cover`, `_bearish_counterattack_line`, `_bullish_counterattack_line` (identical `(open+close)/2` formula duplicated 4x) |
+| candle_context.py | All checks passed | Success | 100% | `fibonacci_evidence` was cc=14 (CRAP 14 at 100% cov) — over threshold | Split into `_swing(window)` (cc=7) and `_nearest_level(...)` (cc=6); `fibonacci_evidence` now cc=3 |
+| candle_contract.py | All checks passed | Success | 94% (14 lines uncovered, all pre-existing "repair the evaluator/producer" invariant guards unreachable via the public API — same untested-defensive-guard pattern already present at `ContextEvidence`/`CandleEvidence`/`SequenceEvidence` before Story 23; not a new gap) | `FibonacciEvidence.__post_init__` was cc=9 (CRAP ~13 given its 3 raise branches are among the uncovered lines) — over threshold | Split into `_validate_swings()` (cc=6) and `_validate_level()` (cc=4); `__post_init__` now cc=1 |
+
+Reviewed, not changed: `DEFAULT_ENABLED_RULES` is a separate literal tuple
+rather than `ADMITTED_RULES` minus the three Story 23 ids — this is
+intentional (the module docstring and BEXT-06 require the default to stay
+byte-identical against future `CATALOG` growth, so an explicit frozen list is
+correct; a derived exclusion-set would silently re-admit any new rule by
+default). No duplication defect found.
+
+Post-refactor: all three step files green (312 passed, unchanged assertions),
+`uv run ruff check algo-backtest` all checks passed, `uv run mypy --strict
+algo-backtest` success on 67 source files (`.mypy_cache` removed after), `make
+check-perception-architecture` PASS.

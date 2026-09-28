@@ -120,6 +120,29 @@ def _t_line_position(close: float, ema: IndicatorValue) -> str:
 _TREND = {"ABOVE": "UP", "BELOW": "DOWN", "ON": "FLAT", WARMUP: WARMUP}
 
 
+def _swing(window: Sequence[ClosedBar]) -> tuple[float, float, bool]:
+    """Swing high, low and whether the leg is rising (the high occurred at or after the low)."""
+    high = max(bar.high for bar in window)
+    low = min(bar.low for bar in window)
+    high_index = max(index for index, bar in enumerate(window) if bar.high == high)
+    low_index = max(index for index, bar in enumerate(window) if bar.low == low)
+    return high, low, high_index >= low_index
+
+
+def _nearest_level(
+    close: float, high: float, low: float, rising: bool, tolerance: float
+) -> float | None:
+    """The retracement ratio nearest ``close`` within ``tolerance``, or ``None``."""
+    level: float | None = None
+    best_distance: float | None = None
+    for ratio in FIBONACCI_LEVELS:
+        price = high - ratio * (high - low) if rising else low + ratio * (high - low)
+        distance = abs(close - price)
+        if distance <= tolerance and (best_distance is None or distance < best_distance):
+            level, best_distance = ratio, distance
+    return level
+
+
 def fibonacci_evidence(bars: Sequence[ClosedBar], config: ContextConfig) -> FibonacciEvidence:
     """Retracement confluence between the causal swing high and low (BEXT-07..09).
 
@@ -134,23 +157,13 @@ def fibonacci_evidence(bars: Sequence[ClosedBar], config: ContextConfig) -> Fibo
     if len(bars) < lookback:
         return FibonacciEvidence(_WARMING, _WARMING, None, WARMUP)
     window = bars[-lookback:]
-    high = max(bar.high for bar in window)
-    low = min(bar.low for bar in window)
+    high, low, rising = _swing(window)
     swing_high, swing_low = IndicatorValue(high, READY), IndicatorValue(low, READY)
     if high == low:
         return FibonacciEvidence(swing_high, swing_low, None, UNDEFINED)
-    high_index = max(index for index, bar in enumerate(window) if bar.high == high)
-    low_index = max(index for index, bar in enumerate(window) if bar.low == low)
-    rising = high_index >= low_index
     current = bars[-1]
     tolerance = FIB_TOLERANCE_RATIO * (current.high - current.low)
-    level: float | None = None
-    best_distance: float | None = None
-    for ratio in FIBONACCI_LEVELS:
-        price = high - ratio * (high - low) if rising else low + ratio * (high - low)
-        distance = abs(current.close - price)
-        if distance <= tolerance and (best_distance is None or distance < best_distance):
-            level, best_distance = ratio, distance
+    level = _nearest_level(current.close, high, low, rising, tolerance)
     return FibonacciEvidence(swing_high, swing_low, level, READY)
 
 
