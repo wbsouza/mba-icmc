@@ -423,3 +423,58 @@ Next: T8 (`experiments/confluence-chain/rederive_horizon.py`, the horizon
 evidence-unit re-derivation tool). Blockers: none. Agent: coder (Claude Sonnet
 5). Branch `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base
 commit `3bbbbf8`.
+
+## 2026-09-28 — Coder phase 2, T8
+
+Implemented `experiments/confluence-chain/rederive_horizon.py` (CC-25, CC-26):
+a standalone, LEAN-free script (`experiments/heikin-ashi-signals/` layout, not
+part of the `algo_backtest` package) that re-derives the session-2 H1 decision
+archive's normalized-return statistic alongside true EUR/USD price pips from
+independently, timestamp-matched source closes — never from the archive's own
+recorded value beyond the decision's own bar. Public API: `ArchivedDecision`,
+`SourceCloseSeries` (a sparse close map plus a `series_end` coverage boundary,
+so a lookup beyond it is `missing_future_horizon` and a gap inside it is
+`missing_price` — these are deliberately distinct, per the specifier's gap-list
+#2), `RederivedRow`, `rederive_horizon` (pure), `rederive_and_write` (adds the
+output-path contract: required, must not equal the archive path), and `main`
+(the CLI: `--archive`, `--out`, `--decisions`/`--source` Parquet inputs; absent
+`--decisions`/`--source` raises an explicit "no source close data configured"
+error rather than fabricating a result — real Parquet loading via
+`algo_core.duck` is implemented but untested here, since no fixture Parquet
+exists in this environment; this is the QA procedure's documented BLOCKED path,
+not a Phase 2 defect).
+
+No SPEC_DEVIATION: the specifier's `confluence_horizon_units.feature` needed no
+correction. Verified the two example rows' normalized-return/price-pip pairs
+independently in Python before implementing
+(`(1.09010/1.08650-1)/1e-4 == 33.1339`, etc.) — all three scenario rows matched
+the formulas in the feature's own preamble exactly.
+
+The specifier's step file location (`algo-backtest/tests/steps/`) sits inside
+the `algo_backtest` package's test tree while the production script sits
+outside it (top-level `experiments/`); the step file loads it by file path via
+`importlib.util.spec_from_file_location` rather than a dotted import (there is
+no precedent step file for a Phase-1 standalone script to follow, since
+`experiments/heikin-ashi-signals/runner.py` has no test file). T9 and T10 will
+need the same loading pattern for their own scripts.
+
+Gate (cwd `algo-suite`): `uv run pytest
+algo-backtest/tests/steps/test_confluence_horizon_units.py -q` → 14 passed (14
+collected, matches the QA procedure's Phase 2 count); `uv run ruff check` →
+clean; `uv run ruff format --check` → clean; `uv run mypy --strict
+experiments/confluence-chain/rederive_horizon.py` → clean (`.mypy_cache`
+removed after). Regression (the eleven Phase-1/legacy step files plus
+`test_confluence_time_exit.py` and `test_confluence_controls.py`) → 521
+passed, 0 failed. No existing test was modified, skipped or deleted.
+
+Files touched: `experiments/confluence-chain/rederive_horizon.py` (new),
+`algo-backtest/tests/steps/test_confluence_horizon_units.py` (new),
+`.specs/features/confluence-chain/tasks.md` (T8 checkboxes),
+`.specs/features/confluence-chain/spec.md` (CC-25, CC-26 status). Not touched:
+`confluence_horizon_units.feature` (specifier's file, no deviation needed), any
+integration-owned file, or any other Story-21-private module.
+
+Next: T9 (`experiments/confluence-chain/preflight.py`, the population and
+availability preflight). Blockers: none. Agent: coder (Claude Sonnet 5).
+Branch `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit
+`b2f8442`.

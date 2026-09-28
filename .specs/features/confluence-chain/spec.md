@@ -185,8 +185,8 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-22 | P1 exits | F6/config | T5 | 1 | Implemented (T5) |
 | CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | Implemented (T7) |
 | CC-24 | P1 protocol | Availability gate | T9, T17 | 2, 4 | In Tasks |
-| CC-25 | P1 evidence | Re-derivation | T8, T19, T20 | 2, 4 | In Tasks |
-| CC-26 | P1 evidence | Archive preservation | T8, T19 | 2, 4 | In Tasks |
+| CC-25 | P1 evidence | Re-derivation | T8, T19, T20 | 2, 4 | Implemented (T8) |
+| CC-26 | P1 evidence | Archive preservation | T8, T19 | 2, 4 | Implemented (T8) |
 | CC-27 | P1 evidence | Registration/report | T16, T18, T19, T20, T21 | 4 | In Tasks |
 | CC-28 | P1 protocol | Clock contract | T2, T6, T10, T16, T20 | 1, 2, 4 | Implemented (T2, T6) |
 | CC-29 | P1 inference | Comparison | T16, T18 | 4 | In Tasks |

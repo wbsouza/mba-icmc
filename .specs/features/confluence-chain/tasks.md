@@ -249,8 +249,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] An independent example distinguishes a 1e-4 return from a 0.0001 price change; bad joins, missing future horizon and missing prices are explicit; original archive hash is checked before/after; outputs use a new caller-specified path. Do not rerun the PR #87 outlier analysis.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] An independent example distinguishes a 1e-4 return from a 0.0001 price change; bad joins, missing future horizon and missing prices are explicit; original archive hash is checked before/after; outputs use a new caller-specified path. Do not rerun the PR #87 outlier analysis.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_horizon_units.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_horizon_units.py` in this task; at least 5 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_horizon_units.py`; Build and applicable Regression before handoff.
