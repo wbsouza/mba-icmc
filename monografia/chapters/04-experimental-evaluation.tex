@@ -489,7 +489,39 @@ The six news-only cells have run (evidence \path{news-only-cells-20260928T0545Z.
 
 \subsection{One trading year, all arms} \label{subsec:trading-year}
 
-\textit{Pending: the ten cells are running; this subsection is filled from their run directories when they complete.}
+All ten cells completed (evidence \path{trading-year-cells-20260928T0640Z.md}, \path{trading-year-inference-20260928T0640Z.md}; registration in \path{trading-year-registration.md}). Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
+
+\begin{table}[htbp]
+\centering
+\caption{One trading year, March 1, 2016 to February 28, 2017, \$10,000 per cell, one-year models unchanged. Untouched months November 2016--February 2017; win rate is the share of closed trades with positive profit.}
+\label{tab:trading-year}
+\small
+\begin{tabular}{llrrrrrrrr}
+\toprule
+\textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
+\midrule
+H1 & price-only & 44 & 36\% & $+8.1$ & $-2.6$ & $-2.6$ & $+0.1$ & $-3.7$ & $-1.2$ \\
+H1 & hybrid & 43 & 37\% & $+15.0$ & $-2.6$ & $-2.6$ & $-2.5$ & $-6.7$ & $-0.8$ \\
+H1 & news-only & 252 & 27\% & $-35.1$ & $-11.9$ & $+7.7$ & $-2.3$ & $+2.4$ & $-38.4$ \\
+H1 & rule, registered sign & 180 & 18\% & $-31.8$ & $-10.6$ & $-13.1$ & $+8.6$ & $-10.4$ & $-48.5$ \\
+H1 & rule, reversed sign (short-only) & 39 & 28\% & $+6.3$ & $+5.1$ & $+1.0$ & $-4.0$ & $+3.4$ & $+12.2$ \\
+H4 & price-only & 223 & 36\% & $-8.5$ & $-0.8$ & $+11.7$ & $-1.5$ & $-4.2$ & $-4.5$ \\
+H4 & hybrid & 239 & 38\% & $-8.3$ & $-0.6$ & $+7.3$ & $-1.2$ & $-2.0$ & $-5.5$ \\
+H4 & news-only & 91 & 27\% & $-22.2$ & $+12.2$ & $-1.9$ & $-9.1$ & $+1.7$ & $-21.1$ \\
+H4 & rule, registered sign & 48 & 21\% & $-9.0$ & $-5.3$ & $-6.9$ & $+4.1$ & $-4.7$ & $-20.6$ \\
+H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6$ & $+2.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-trading-year-h1.png}{\includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-trading-year-h1.png}.}\vspace{2em}}}}
+\caption{Equity of the four H1 arms over the trading year, from \$10,000: price-only, hybrid, news-only and the reversed-sign rule. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-trading-year}
+\end{figure}
+
+The four extra months settle what ten could not. The two H1 chains that led through October, price-only and hybrid, gave the whole gain back between November and February and end the year at $-1.2$ and $-0.8\,\%$; the pre-declared primary comparison, hybrid against price-only at H1 on the untouched months, has a mean daily difference of $-0.048\,\%$ with a 95\,\% interval of $[-0.115, +0.019]$ percentage points ($p = 0.15$; block length 4, 999 null-centred stationary-bootstrap resamples, seed 42) and $+0.001\,\%$ per day over the full year ($p = 0.94$). The news family therefore adds nothing measurable to the price chain at either horizon, at H4 likewise ($p = 0.77$ on the untouched months). The learned news-only arm loses 38 and 21\,\% at H1 and H4. The one cell above the deposit is the reversed-sign rule at H1, $+12.2\,\%$ on 39 short trades, positive in three of the four untouched months; its paired difference against price-only is $+0.116\,\%$ per day on those months ($[-0.072, +0.304]$, $p = 0.22$) and $+0.036\,\%$ over the year ($p = 0.67$), and against the hybrid $p = 0.085$ on the untouched months. With twelve registered cells and the sign chosen as one of two arms, a single positive cell at these $p$-values is what the null predicts, and the euro's 5\,\% decline over the year remains the simplest explanation of a short-only rule's profit. The conclusion of Chapter~\ref{cap:conclusion} is unchanged by the full year: no arm demonstrates an edge, and the news signal in the form available here does not improve the price chain.
 
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 
