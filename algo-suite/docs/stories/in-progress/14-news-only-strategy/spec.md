@@ -22,12 +22,18 @@ the news family.
   H1/H4 price models), symmetric quantile thresholds at 5 % and 10 % per side of the January
   distribution are used and reported as such — decided from the calibration JSON, never from a
   2016-03+ outcome.
-- Simulation: one $10,000 account per cell, 2016-03-01..2017-01-31 (January 2017 is the third
-  untouched month). Rank on March..October; read November, December and January last.
+- Simulation: one $10,000 account per cell, 2016-03-01..2016-12-31. Rank on March..October; read
+  November and December last.
 - Comparators, same clocks and splits: price-only baseline (`h1-candle-vol-off` / H4 talib-off
   cells) and hybrid (`h1-hybrid-vol-off` / H4 hybrid talib-off), already simulated.
-- Primary comparison: news-only vs price-only baseline at H1, paired daily equity on the three
-  untouched months. Trial count for this story: 6 cells (2 clocks × 3 threshold settings).
+- Rule-only arm (added 2026-09-28 06:05 UTC, before any cell ran): `news-rule` — F4 alone decides
+  direction from the event-intensity reading (BUY at or above the January-2016 90 % quantile,
+  SELL at or below the 10 % quantile, veto at ≤ −0.5), no F7; the chain terminates on F4. Both
+  sign conventions are registered as cells because the mapping from cooperation/conflict to
+  EUR/USD direction is not known a priori. Same money management, risk guard and clocks.
+- Primary comparison: news-only vs price-only baseline at H1, paired daily equity on the two
+  untouched months. Trial count for this story: 10 cells (news-only 2 clocks × 3 thresholds;
+  news-rule 2 clocks × 2 signs).
 
 ## Out of scope
 
