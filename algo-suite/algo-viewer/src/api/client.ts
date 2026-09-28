@@ -7,6 +7,7 @@ import type {
   DecisionSummaryRow,
   EquitySample,
   MonthlyReturn,
+  OpenPosition,
   ParameterRow,
   RunRow,
   TradeDetail,
@@ -64,6 +65,7 @@ export class ApiClient {
   monthly(runId: string): Promise<MonthlyReturn[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/monthly`); }
   parameters(runId: string): Promise<ParameterRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/parameters`); }
   trades(runId: string): Promise<TradeRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/trades`); }
+  openPositions(runId: string): Promise<OpenPosition[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/open-positions`); }
   decisionSummary(runId: string): Promise<DecisionSummaryRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/decision-summary`); }
   decisionLog(runId: string, mode: DecisionLogMode, page = 1, size = 200): Promise<DecisionLogPage> {
     return this.get(`/api/runs/${encodeURIComponent(runId)}/decisions?mode=${mode}&page=${page}&size=${size}`);

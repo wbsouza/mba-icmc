@@ -14,6 +14,7 @@ import type {
   EquitySample,
   FilterRow,
   MonthlyReturn,
+  OpenPosition,
   ParameterRow,
   PlanTarget,
   RunRow,
@@ -58,6 +59,20 @@ export function parameters(db: Queryable, runId: string): ParameterRow[] {
 
 export function trades(db: Queryable, runId: string): TradeRow[] {
   return db.rows<TradeRow>("SELECT * FROM trades WHERE run_id = ? ORDER BY entry_time", [runId]);
+}
+
+interface OpenPositionRow extends Omit<OpenPosition, "take_profits"> {
+  take_profits_json: string;
+}
+
+/** The positions still open when the run ended, oldest first. */
+export function openPositions(db: Queryable, runId: string): OpenPosition[] {
+  return db
+    .rows<OpenPositionRow>(
+      "SELECT ticket, open_time, direction, lots, open_price, stop_loss, take_profits_json, mark_price, floating_pl FROM open_positions WHERE run_id = ? ORDER BY open_time, ticket",
+      [runId],
+    )
+    .map(({ take_profits_json, ...row }) => ({ ...row, take_profits: JSON.parse(take_profits_json) as number[] }));
 }
 
 export function decisionSummary(db: Queryable, runId: string): DecisionSummaryRow[] {
