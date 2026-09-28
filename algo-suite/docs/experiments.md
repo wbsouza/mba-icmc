@@ -32,8 +32,10 @@ the trainer's held-out partition, and September for the first simulation.
 - `trades.parquet`, `parameters.txt`, `--cv`, automatic rolling refits, CPCV,
   and per-fold orchestration are target contracts, not implemented CLI options.
 - Strategy names in the experiment catalog are a research plan, not proof of
-  implementation. Baseline, hybrid, and baseline-dsha are available; extended
-  feature/filter variants need their own configurations and evidence.
+  implementation. Baseline, hybrid, baseline-dsha and news-only (with its H4
+  variant news-only-h4) are available; extended feature/filter variants need
+  their own configurations and evidence. News-only has no trained model or run
+  yet (2026-09-27).
 - [Story 11](stories/done/11-statistical-inference-corrections/spec.md)
   implements schema-v2 DSR and paired stationary-bootstrap inference. Legacy
   outputs remain exploratory. Missing equity coverage, costs or trial-history
@@ -50,6 +52,7 @@ section). "Cmd" lists the producing commands; "Artifact" is the Chapter 4 output
 | 0 | **Engine sanity checks** (validate the backtester itself before trusting any signal) | known-answer strategies | `algo-backtest run --strategy {buyhold,random,perfect_foresight} --symbol EURUSD --param size=0.5 --param cash=10000` (`random` adds `--param seed=<int> --param entry_probability=<(0,1]> --param exit_probability=<(0,1]> --param long_probability=<[0,1]>`, e.g. 0.02 / 0.05 / 0.5 for roughly one entry per 50 flat bars, a 20-bar expected hold and an unbiased coin; `cash` is the same starting deposit as the chain strategy under test) → `algo-analyze metrics` | **Table** sanity bounds: buy-and-hold Sharpe ≈ 0 (FX no drift); random ≈ 0 with ~50% hit rate; perfect-foresight very high Sharpe, ≈ 0 drawdown. A baseline Sharpe is only trusted once these land where expected. |
 | 1 | Calibrate price-only **baseline** on EUR/USD | LightGBM hyperparameters | `algo-backtest run --strategy baseline --symbol EURUSD` → `algo-analyze metrics --run <id>` | **Table** baseline metrics (Sharpe, max drawdown) + **equity-curve figure** |
 | 2 | Evaluate **full hybrid vs baseline** on EUR/USD | presence/absence of news | `algo-backtest run --strategy hybrid --symbol EURUSD` → `algo-analyze ablation --runs baseline --runs hybrid` | **Table** hybrid-vs-baseline (Sharpe, drawdown, hit rate) + overlaid equity curves |
+| 2b | **News-only** on EUR/USD: the news family alone decides (F4 → F5 → F6 → F7, no price filter; Heikin-Ashi H4 template risk/exit values) | news family alone vs excluded (baseline) vs fused (hybrid) | `train_hybrid_meta_learner.py --strategy news-only --out <model>` → `algo-backtest run --strategy news-only --symbol EURUSD --param cash=10000 --model <model>` → `algo-analyze ablation --runs baseline --runs news-only --runs hybrid` | **Table** three-way metrics (Sharpe, drawdown, hit rate) + overlaid equity curves |
 | 3 | **Replicate Exp 2 on USD/JPY** | currency pair | `algo-backtest run --strategy hybrid --symbol USDJPY` → `algo-analyze ablation --runs baseline_jpy --runs hybrid_jpy` + `significance --runs baseline_jpy --runs hybrid_jpy --block-length <L> --block-rule <registered-rule>` | **Table** USD/JPY metrics + statistical-test result |
 | 4 | **Ablation: feature-family contributions** | news sub-family activated | `algo-backtest run --strategy hybrid_{ta,ind,pat,news}` → `algo-analyze ablation --runs ...` (repeat `--runs` per run) | **Table** marginal contribution per feature family |
 | 5 | **Compare vs Zhang (2025)** | validation protocol | `algo-analyze metrics --run hybrid` (deflated Sharpe) | **Table** this-work vs Zhang (cost-adjusted + deflated Sharpe) |

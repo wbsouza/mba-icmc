@@ -13,6 +13,15 @@ It covers two demo milestones within one tool:
 - **Baseline** (phase 3): price-only strategy → Sharpe + equity curve.
 - **Hybrid** (phase 4): full filter chain incl. the news-context filter →
   hybrid vs baseline.
+- **News-only** (the third experiment, 2026-09-27): F4 → F5 → F6 → F7 with no price
+  filter; the meta-learner is trained on the `news` family alone
+  (`scripts/train_hybrid_meta_learner.py --strategy news-only`, which trains exactly
+  the strategy's declared families — any non-empty subset including `news`), F4 vetoes on
+  high-risk events, F5/F6 govern the trade with the Heikin-Ashi H4 template's risk/exit
+  values on H1 bars (`news-only-h4`: H4). Its `config.yaml` `extends: baseline` and drops
+  the inherited `indicator:`/`pattern:` sections with a top-level `null`; a run needs its
+  own `--model`, since the bundled hybrid model's families are refused. It isolates the
+  news family's own contribution between baseline (no news) and hybrid (fused).
 
 Out of scope: feature *production* (price features computed natively inside the
 engine; text features come pre-computed from `algo-score`); results *analysis*
@@ -318,7 +327,8 @@ algo_backtest/
 │                           #   back, per-parameter provenance (explain_lines, resolved_yaml)
 └── strategies/
     └── <name>/config.yaml  # hand-written, version-controlled: baseline; hybrid extends baseline (+F4);
-                            #   baseline-dsha extends baseline (perception_source only)
+                            #   baseline-dsha extends baseline (perception_source only); news-only extends
+                            #   baseline (F4-F7 only, news family alone); news-only-h4 extends news-only
 ```
 
 ### 3.1 LEAN-native materializer (`leandata.py`) — not a black box
@@ -564,7 +574,7 @@ value back into the resolved document, so `strategy-config.{json,yaml}` and
 |---|---|---|---|
 | `schema_version` | integer, must be `2` | required | The loader refuses any other value (v2 moved every filter's parameters into its own section). |
 | `extends` | strategy name | none | Base strategy. Chains of any depth (`base → variant → sub-variant`) are walked base-first with cycle detection (a name revisited is an error). The base is looked up in the same directory first, then in the bundled `strategies/`, so an external variant can extend `baseline`. Merge policy: the child's **top-level** keys replace the base's wholesale (including `filters:`); nested mappings (`meta_learner:`, `capital_mgmt:`, …) merge key by key, child wins. |
-| `filters` | non-empty list of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context`, `f5_risk_guard`, `f6_capital_mgmt`, `f7_meta_learner` | required | The chain, in order. Always written out in full (never a diff against the base). Listing `f4_news_context` selects the news-aware hosting algorithm (`algos/hybrid`) and mounts the GDELT feature Parquet; otherwise `algos/baseline` hosts the run. A filter listed without its section, or a section without its filter, is a hard stop. |
+| `filters` | non-empty list of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context`, `f5_risk_guard`, `f6_capital_mgmt`, `f7_meta_learner` | required | The chain, in order. Always written out in full (never a diff against the base). Listing `f4_news_context` selects the news-aware hosting algorithm (`algos/hybrid`) and mounts the GDELT feature Parquet; otherwise `algos/baseline` hosts the run. A filter listed without its section, or a section without its filter, is a hard stop; a child drops an inherited section by setting it to `null` at the top level. |
 | `perception_source` | `ema` \| `double_smoothed_heikin_ashi` | `ema` | F1's direction source (Spec 04k). |
 | `double_smoothed_heikin_ashi.period1` / `.period2` / `.higher_tf_minutes` | integers ≥ 1 / ≥ 1 / ≥ 2 | 6 / 2 / 60 | The DSHA smoothing lengths (bars of each timeframe) and the higher timeframe in minutes; read only when the selector above is `double_smoothed_heikin_ashi`. |
 
@@ -650,7 +660,7 @@ listed are a hard stop. None of these is learned by the model.
 
 | Key | Range | Default | `baseline` value | Meaning and effect |
 |---|---|---|---|---|
-| `families` | list of `trend`, `indicator`, `pattern`, `news` | `[]` | `[trend, indicator, pattern]` (`hybrid` adds `news`) | Which per-family sub-models the meta-learner combines; a `--model` whose families differ is refused. |
+| `families` | list of `trend`, `indicator`, `pattern`, `news` | `[]` | `[trend, indicator, pattern]` (`hybrid` adds `news`; `news-only` is `[news]`) | Which per-family sub-models the meta-learner combines; an unknown name fails at load, and a `--model` whose families differ is refused. |
 | `theta_high` | probability strictly inside (0, 1) | required with F7 | 0.55 | BUY when `p̂ > theta_high` (and F1's regime is bull, if gated). |
 | `theta_low` | probability, strictly below `theta_high` | required with F7 | 0.45 | SELL when `p̂ < theta_low` (and the regime is bear, if gated); between the two thresholds the bar is HOLD. |
 | `regime_gate` | boolean | required with F7 | `false` | `true` is the dissertation's rule (direction must agree with F1's `trend_score` regime); `false` trades on `p̂` alone. Off in both bundled strategies since the 2015-09 pilot found the fitted model anti-aligned with the regime (story 09). |
