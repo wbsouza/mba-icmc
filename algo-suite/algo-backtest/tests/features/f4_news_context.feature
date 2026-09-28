@@ -251,7 +251,7 @@ Feature: F4 — News-context filter
         | buy equal to sell            | intensity | 0.3    | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold (0.3) must be strictly above intensity_sell_threshold (0.3) |
         | buy below sell               | intensity | 0.1    | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold (0.1) must be strictly above intensity_sell_threshold (0.3) |
         | non-numeric buy threshold    | intensity | soon   | 0.3    | 1      | strategy 'news-rule': news_context.intensity_buy_threshold must be a number                                        |
-        | unknown source               | goldstein | 0.9    | 0.3    | 1      | strategy 'news-rule': news_context.direction_source must be one of ['intensity', 'sentiment'], got 'goldstein'      |
+        | unknown source               | goldstein | 0.9    | 0.3    | 1      | strategy 'news-rule': news_context.direction_source must be one of ['intensity', 'intensity_relative', 'sentiment'], got 'goldstein'      |
         | sign 0                       | intensity | 0.9    | 0.3    | 0      | strategy 'news-rule': news_context.intensity_sign must be 1 or -1, got 0                                            |
         | sign true                    | intensity | 0.9    | 0.3    | true   | strategy 'news-rule': news_context.intensity_sign must be 1 or -1, got True                                         |
         | thresholds under sentiment   | sentiment | 0.9    | 0.3    | 1      | strategy 'news-rule': news_context declares ['intensity_buy_threshold', 'intensity_sell_threshold'] but direction_source is 'sentiment' |

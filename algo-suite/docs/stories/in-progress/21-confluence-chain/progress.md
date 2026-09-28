@@ -27,7 +27,7 @@
 - [x] T1 Add the named agreement terminal
 - [x] T2 Add F1 momentum context
 - [x] T3 Calculate immutable monthly intensity snapshots
-- [ ] T4 Add F4 relative intensity mode
+- [x] T4 Add F4 relative intensity mode
 - [ ] T5 Define the optional F6 bar-count plan
 - [ ] T6 Model causal expiry as a pure lifecycle
 - [ ] T7 Provide explicit drift-control votes
@@ -130,3 +130,37 @@
 - Status updates: tasks.md T3 both boxes; spec.md CC-09, CC-10, CC-13, CC-14, CC-31 →
   `Implemented (T3)`.
 - Next: T4.
+
+### 2026-09-28 — T4: Add F4 relative intensity mode (CC-09..CC-12, CC-14, CC-20, CC-31)
+
+- What: `chain/filters/f4_news_context.py` gains `direction_source: intensity_relative`.
+  `F4NewsContextFilter` takes two injected sources, `snapshots` (cutoff →
+  `IntensitySnapshot`) and `availability` (decision minute → `available_at`), both
+  required in relative mode and refused at construction when absent (snapshots checked
+  first; coordinator decision 7). Vote after the veto: unswapped sign 1 is I >= q90 →
+  BUY, I <= q10 → SELL (decision 6); the registered sign -1 swaps it; strictly between
+  → NEUTRAL; q10 == q90 → HOLD ("degenerate snapshot"); WARMUP → HOLD with no static
+  fallback; an intensity available after the decision minute, a minute without an
+  availability record, or a month without a snapshot raises. The static thresholds are
+  refused under any non-`intensity` source. Metadata carries the six snapshot
+  provenance fields beside `sentiment_source_present`; the static and sentiment
+  branches are unchanged (the shared band helper reproduces the story-14 rule exactly).
+- Legacy feature extension (coordinator decision 5): `f4_news_context.feature`'s
+  "unknown source" example now expects the choices list
+  `['intensity', 'intensity_relative', 'sentiment']` — the only diff in that file.
+- Scenario correction: `confluence_relative_intensity.feature`, outline "WARMUP holds
+  at intensity <intensity>": the example `an extreme low intensity | -3.0` sits below
+  the scenario's own veto threshold -0.5, so the veto fires first (the feature's
+  preamble and the design keep the veto ahead of every direction source) and the row
+  could never be a non-veto HOLD. Replaced by `a low intensity above the veto | -0.4`;
+  the WARMUP-holds outcome is unchanged.
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_confluence_relative_intensity.py -q -p no:cacheprovider`
+  → 40 collected, 40 passed; with `test_f4_news_context.py` and
+  `test_filter_chain_mechanics.py` → 118 passed; `uv run ruff check algo-backtest`
+  clean; `ruff format --check` clean on the new step file (`f4_news_context.py` was
+  already on the pre-existing would-reformat list; not reformatted wholesale);
+  `uv run mypy --strict algo-backtest` → no issues.
+- Status updates: tasks.md T4 both boxes; spec.md CC-11, CC-12 → `Implemented (T4)`;
+  CC-09, CC-10, CC-14, CC-31 → `Implemented (T3, T4)`; CC-20 → `Implemented (T1, T2, T4)`.
+- Next: T5.
