@@ -114,9 +114,13 @@ LEAN runs locally (Apache 2.0); no QuantConnect cloud cost.
 
 All six packages are implemented and tested (BDD): Dukascopy/GDELT/GPR download,
 canonical Parquet transform, LM sentiment + GDELT/GPR event features, LEAN
-backtests (price-only baselines plus the F1–F7 `baseline`/`hybrid` filter-chain
-strategies — still wiring smoke tests, see `docs/technical-debt.md` TD-51), and
-`algo-analyze` metrics/significance/ablation/figures/equity-curves. Current Chapter-4 status:
+backtests (price-only baselines plus the config.yaml-driven F1–F7 `baseline`/`hybrid`
+filter-chain strategies with the fx-manager A05 trade plan and configured fill costs —
+pilot runs, not yet the registered one-year experiment; see
+`docs/ch04-deliverables.md`), and `algo-analyze`
+metrics/significance/ablation/figures/equity-curves. Every strategy parameter is a key
+of `strategies/<name>/config.yaml` with recorded provenance
+(`algo-backtest/SPEC.md` §6.4.1). Current Chapter-4 status:
 [`docs/ch04-deliverables.md`](docs/ch04-deliverables.md).
 
 ## Conventions

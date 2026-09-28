@@ -329,8 +329,8 @@ flowchart LR
     end
     F4["F4 news-context\n(hybrid only — GDELT event veto,\nsentiment ABSTAIN-safe, TD-48)"]
     subgraph gates["F5-F6: execution-viability gates"]
-        F5["F5 risk-guard\n(placeholder economics, TD-43)"]
-        F6["F6 capital-mgmt\n(placeholder economics, TD-43)"]
+        F5["F5 risk-guard\n(five caps from config.yaml risk_guard)"]
+        F6["F6 capital-mgmt\n(A05 trade plan from capital_mgmt + execution:\nstop, lot, targets, trail, reward:risk)"]
     end
     F7["F7 meta-learner\n(LightGBM sub-models + logistic combiner,\nterminal BUY/SELL/HOLD)"]
     AU["decisions.parquet\n(audit trail, joins trades.json by trade_id)"]
@@ -341,13 +341,25 @@ flowchart LR
 
     classDef placeholder fill:#fee,stroke:#c33
     classDef built fill:#dfd,stroke:#060
-    class F3,F5,F6 placeholder
-    class F1,F2,F4,F7 built
+    class F3 placeholder
+    class F1,F2,F4,F5,F6,F7 built
 ```
 
 `baseline`'s meta-learner is trained on the `{trend, indicator, pattern}` feature
 families; `hybrid`'s adds `news`. Both are smoke-test-verified end to end in the
 real LEAN container, not yet a methodology result (see `ch04-deliverables.md`).
+
+Since 2026-09-27 (stories 09 and 12) the whole chain is parameterised by the strategy's
+`config.yaml` alone: the ordered `filters:` list, one section per configurable filter
+(`price_features`, `indicator`, `pattern`, `news_context`, `risk_guard`, `capital_mgmt`,
+`meta_learner`) and an `execution` section (`spread_pips`, `commission_per_lot`,
+`min_hold_bars`, `broker_stop_level_pips`, `close_on_veto`, default `false`). Variants
+state their diff through `extends:` chains of any depth (cycle-checked; an external
+`--strategies-dir` variant may extend a bundled base). Each parameter's source is printed
+at run bootstrap, by `algo-backtest explain-strategy`, and written to the run's
+`strategy-provenance.json` beside the resolved `strategy-config.{json,yaml}`; F6's plan
+is placed by the executor (`engine/trade_plan.py`) and recorded in `trade-plans.json`.
+Every key, with range, unit, default and effect: `algo-backtest/SPEC.md` §6.4.1.
 
 ### 11.5 Dependency boundaries (architecture invariant)
 
