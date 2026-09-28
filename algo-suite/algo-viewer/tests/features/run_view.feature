@@ -43,14 +43,19 @@ Feature: Run page
         | 10000 | A exit 2016-03-10 +300 fee 2, B exit 2016-03-02 -50 fee 1  | 10247, 9949             |
         | 5000  | A exit 2016-03-02 +0 fee 0                          | 5000                    |
 
-  Rule: Positions still open at the end of the run are shown, and reconcile realized with final equity
+  Rule: Positions still open at the end of the run are shown last, and reconcile realized with final equity
 
-    Scenario: the open positions section lists the statement's open trades and the KPIs split realized from floating
+    Scenario: the open trades section is the last section of the page, after the trades table
+      When I open the run page of "20260928T010000-fixture"
+      Then the last two sections of the page are "Trades" and "Open trades"
+      And the open trades section is titled "Open trades at the end of the run"
+
+    Scenario: the open trades section lists the statement's open trades and the KPIs split realized from floating
       When I open the run page of "20260928T010000-fixture"
       Then the KPI "Final equity" reads "10,450.00"
       And the KPI "Realized" reads "10,400.00"
       And the KPI "Floating P/L" reads "+50.00 (1 open)"
-      And the open positions section lists:
+      And the open trades section lists:
         | ticket | side | lots | opened           | open_price | stop    | targets                     | mark    | floating_pl |
         | 9      | buy  | 0.50 | 2016-04-29 10:00 | 1.13000    | 1.12500 | T1 1.14000 · T2 1.15000     | 1.13100 | 50.00       |
 

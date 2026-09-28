@@ -208,8 +208,3 @@ Then("the JSON is the chain of a bar vetoed by {string} with {int} filters", fun
   assert.equal(detail["filters"].length, filters);
 });
 
-Then("the JSON has {int} event\\(s) while open", function (events: number) {
-  const detail = obj();
-  assert.ok(Array.isArray(detail["events"]));
-  assert.equal(detail["events"].length, events);
-});

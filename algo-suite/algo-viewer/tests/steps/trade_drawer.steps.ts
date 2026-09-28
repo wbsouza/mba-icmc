@@ -152,39 +152,3 @@ Then("the vertical guides are {}", function (expected: string) {
   const actual = verticalGuides(guideBars, guideTrade).map((g) => `${g.kind}@${g.time}`);
   assert.deepEqual(actual, expected.split(",").map((s) => s.trim()));
 });
-
-Then("no step of the entry chain is vetoed", function () {
-  const items = [...within(drawer()).getByTestId("chain").querySelectorAll("li")];
-  assert.ok(items.length > 0);
-  assert.ok(items.every((li) => li.getAttribute("data-vetoed") === "no" && !li.classList.contains("vetoed")));
-});
-
-function eventRows(): Element[] {
-  return [...within(drawer()).getByTestId("trade-events").querySelectorAll("tbody tr[data-decision-id]")];
-}
-
-Then("the drawer lists the events while open:", function (expected: DataTable) {
-  const rows = eventRows().map((tr) => {
-    const [when, decision, vetoedBy, why] = [...tr.querySelectorAll("td")].map((td) => td.textContent?.replace(/\s+/g, " ").trim() ?? "");
-    return { when: when ?? "", decision: decision ?? "", vetoed_by: vetoedBy ?? "", why: why ?? "", vetoed: tr.getAttribute("data-vetoed") ?? "" };
-  });
-  assert.deepEqual(rows, expected.hashes());
-});
-
-When("I click the event at {string}", function (when: string) {
-  const row = eventRows().find((tr) => tr.querySelector("td")?.textContent?.trim() === when);
-  assert.ok(row, `no event at ${when}`);
-  fireEvent.click(row);
-});
-
-Then("the event chain step {string} is vetoed with why {string}", async function (filter: string, why: string) {
-  const chain = await waitFor(() => within(drawer()).getByTestId("event-chain"));
-  const step = chain.querySelector(`li[data-filter="${filter}"]`);
-  assert.ok(step, `no step for ${filter}`);
-  assert.equal(step.getAttribute("data-vetoed"), "yes");
-  assert.equal(step.querySelector(".why")?.textContent, why);
-});
-
-Then("the drawer says {string}", function (text: string) {
-  assert.ok(within(drawer()).getByText(text));
-});

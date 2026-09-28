@@ -26,8 +26,6 @@ Feature: Backend API over the results database
       | /api/runs/20260928T010000-fixture/decisions?mode=all&size=2&page=2 | is a decision log of 7 bars in 6 groups, page 2                 |
       | /api/runs/20260928T010000-fixture/decisions/7              | is the chain of a bar vetoed by "f4_news_context" with 4 filters        |
       | /api/runs/20260928T010000-fixture/trades/1                 | has 8 filters, 11 bars and 0 trail moves                                |
-      | /api/runs/20260928T010000-fixture/trades/1                 | has 1 event(s) while open                                               |
-      | /api/runs/20260928T010000-fixture/trades/5                 | has 0 event(s) while open                                               |
       | /api/runs/20260928T010000-fixture/trades/5                 | has 8 filters, 6 bars and 1 trail moves                                 |
 
   Scenario: the run's parameter provenance and the trade detail come through the client

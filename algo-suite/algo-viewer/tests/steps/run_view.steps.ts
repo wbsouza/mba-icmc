@@ -28,7 +28,18 @@ When("I open the run page of {string}", async function (runId: string) {
   await waitFor(() => screen.getByTestId("trades-table"));
 });
 
-Then("the open positions section lists:", async function (expected: DataTable) {
+Then("the last two sections of the page are {string} and {string}", function (before: string, last: string) {
+  const labels = [...document.querySelectorAll("section.panel")].map((el) => el.getAttribute("aria-label"));
+  assert.deepEqual(labels.slice(-2), [before, last], labels.join(" > "));
+});
+
+Then("the open trades section is titled {string}", function (title: string) {
+  const heading = document.querySelector('section[aria-label="Open trades"] h2');
+  assert.ok(heading);
+  assert.ok(heading.textContent?.startsWith(title), heading.textContent ?? "");
+});
+
+Then("the open trades section lists:", async function (expected: DataTable) {
   const table = await waitFor(() => screen.getByTestId("open-positions"));
   const rows = [...table.querySelectorAll("tbody tr")].map((tr) => {
     const cells = [...tr.querySelectorAll("td")].map((td) => td.textContent?.replace(/\s+/g, " ").trim() ?? "");

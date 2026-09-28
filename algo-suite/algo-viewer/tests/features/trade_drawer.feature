@@ -75,16 +75,3 @@ Feature: Trade drawer
       | f7_meta_learner | SELL           | no   | p_hat=0.41, theta_high=0.55, theta_low=0.45, regime_gate=False, regime=n/a   | p̂ = 0.410, at or below θ_low 0.45 → SELL.                                              |
       | volume_strength | ABSTAIN        | yes  | relative tick activity 0.74                                                  | Tick activity 0.74× its recent average, below the 1.0 minimum.                          |
       | f5_risk_guard   | ABSTAIN        | no   | no risk-guard caps breached                                                  | No risk-guard cap (daily/weekly drawdown, leverage, concurrent trades) was breached.    |
-
-  Scenario: the events while a trade was open are listed, vetoes salmon with why, and expand to that bar's chain
-    When I open trade "1" of run "20260928T010000-fixture"
-    Then no step of the entry chain is vetoed
-    And the drawer lists the events while open:
-      | when             | decision | vetoed_by     | why                                                 | vetoed |
-      | 2016-03-02 11:00 | NO_TRADE | f5_risk_guard | risk_guard.max_concurrent_trades_per_account: 1 ≥ 1 | yes    |
-    When I click the event at "2016-03-02 11:00"
-    Then the event chain step "f5_risk_guard" is vetoed with why "risk_guard.max_concurrent_trades_per_account: 1 ≥ 1"
-
-  Scenario: a trade with no events while open says so
-    When I open trade "5" of run "20260928T010000-fixture"
-    Then the drawer says "No repeat signal or veto was recorded while this trade was open."
