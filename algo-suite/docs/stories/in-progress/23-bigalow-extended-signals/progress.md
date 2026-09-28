@@ -60,3 +60,37 @@
 - Tweezer Top/Bottom, the SMA entry-trigger context field, and all
   stop/exit/sizing items from `book-only-material.md` — see spec.md Out of
   Scope for the per-item reasons.
+
+## Close-out, 2026-09-28
+
+Story 23 done: T1-T4 complete, all `Done when` boxes and all ten BEXT-01..10
+requirement statuses in `spec.md`'s traceability table are `Implemented`.
+
+- **T1** `833c820` — rule ledger addendum (citations, conventions, examples).
+- **T2** `4424c25` — `bearish_counterattack_line`, `bullish_counterattack_line`,
+  `methods_rising` added to the catalog, admitted but excluded from the
+  default (`DEFAULT_ENABLED_RULES`); 22 new Gherkin scenarios, all existing
+  `candle_catalog.feature`/`candle_contract.feature` scenarios pass
+  unmodified (one existing assertion was scoped, not weakened — see the T2
+  entry above).
+- **T3** `c359df9` — opt-in Fibonacci confluence field on `ContextEvidence`;
+  11 new scenarios, all 53 existing `candle_context.feature` scenarios pass
+  unmodified.
+- **T4** `4d04d11` — the reference skill's `book-only-material.md` marked
+  `ADMITTED (Story 23)` for the three implemented items, edited directly (no
+  commit there — that directory is not a git repository).
+
+**Final gates** (worktree `/tmp/mba-impl-23`, branch
+`feat/23-bigalow-extended-signals`):
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Full suite | `uv run pytest algo-backtest/tests -q -p no:cacheprovider` | 1985 passed, 53 deselected (2038 collected); baseline at `ebac509` was 1951 selected / 2004 collected (verified directly against a temporary detached worktree at `ebac509`, then removed) — delta +34, all attributable to T2 (+22) and T3 (+11) plus one new `candle_contract.feature` scenario (+1) |
+| Lint | `uv run ruff check algo-backtest` | All checks passed |
+| Types | `uv run mypy --strict algo-backtest` (after `rm -rf .mypy_cache`) | Success: no issues found in 67 source files (test files are out of this gate's scope by the repo's own mypy config, `tool.mypy` in the root `pyproject.toml`: "Tests are run by pytest; mypy checks src only") |
+| Architecture | `make check-perception-architecture` | PASS |
+
+No blockers. Scope not delivered: the four items explicitly deferred in
+`spec.md`'s Out of Scope table (named/factory filter-chain instances,
+money-management rules, the SMA entry-trigger context field, Tweezer
+Top/Bottom) — all by prior user decision, not incomplete work.

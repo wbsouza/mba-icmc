@@ -136,7 +136,7 @@ close-out entry summarizing T1-T4.
 **Tests**: Documentation checks.
 **Gate**: Docs (commands above).
 **Done when**:
-- [ ] progress.md's T1-T4 checklist items are all checked with a dated close-out entry.
+- [x] progress.md's T1-T4 checklist items are all checked with a dated close-out entry.
 
 **Commit**: `docs(candles): close out story 23 progress`
 
