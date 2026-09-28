@@ -20,6 +20,24 @@ interface Props {
   dark: boolean;
 }
 
+export interface VerticalGuide {
+  kind: "entry" | "exit";
+  time: string;
+}
+
+/**
+ * Where the dotted vertical guides go: the decision bar (offset 0) for the entry and the
+ * bar containing the exit time for the exit (omitted when the exit is outside the window).
+ */
+export function verticalGuides(bars: EntryBar[], trade: Pick<TradeRow, "exit_time">): VerticalGuide[] {
+  const guides: VerticalGuide[] = [];
+  const entryBar = bars.find((b) => b.offset === 0);
+  if (entryBar) guides.push({ kind: "entry", time: entryBar.time });
+  const exitBar = barAt(bars, trade.exit_time, barMinutesOf(bars));
+  if (exitBar) guides.push({ kind: "exit", time: exitBar.time });
+  return guides;
+}
+
 /** Bar containing `iso`: the last bar whose start is at or before it (null when outside). */
 export function barAt(bars: EntryBar[], iso: string, barMinutes: number): EntryBar | null {
   const t = new Date(iso).getTime();
@@ -54,9 +72,11 @@ function ChartCaption({ trade }: { trade: TradeRow }) {
 /** The ±N bars around the entry with the entry, stop, targets, trail moves and exit marked. */
 export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const guidesHost = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = host.current;
-    if (element === null || !canRenderCharts() || bars.length === 0) return;
+    const guideLayer = guidesHost.current;
+    if (element === null || guideLayer === null || !canRenderCharts() || bars.length === 0) return;
     const colors = chartColors(dark);
     const chart: IChartApi = createChart(element, {
       autoSize: true,
@@ -105,8 +125,37 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
       });
     }
     createSeriesMarkers(candles, markers);
+    // Dotted vertical guides at the entry and exit bars: HTML lines over the canvas, kept
+    // in place from the time scale whenever the view pans, zooms or resizes.
+    const guides = verticalGuides(bars, trade).map((g) => {
+      const line = document.createElement("div");
+      line.className = `vguide ${g.kind}`;
+      line.style.borderLeftColor = g.kind === "entry" ? ENTRY_COLOR : EXIT_COLOR;
+      const tag = document.createElement("span");
+      tag.textContent = g.kind === "entry" ? "entry" : "exit";
+      line.appendChild(tag);
+      guideLayer.appendChild(line);
+      return { line, time: toTime(g.time) };
+    });
+    const place = () => {
+      for (const g of guides) {
+        const x = chart.timeScale().timeToCoordinate(g.time);
+        g.line.style.display = x === null ? "none" : "block";
+        if (x !== null) g.line.style.left = `${x}px`;
+      }
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(place);
+    chart.timeScale().subscribeSizeChange(place);
     chart.timeScale().fitContent();
-    return () => chart.remove();
+    place();
+    const frame = requestAnimationFrame(place); // after the chart's own autosize pass
+    return () => {
+      cancelAnimationFrame(frame);
+      chart.timeScale().unsubscribeSizeChange(place);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(place);
+      for (const g of guides) g.line.remove();
+      chart.remove();
+    };
   }, [bars, trade, plan, trailMoves, dark]);
   if (bars.length === 0) {
     return <div className="chart-fallback" data-testid="no-bars">No entry bars stored for this run (build the database with --bars-root).</div>;
@@ -121,7 +170,10 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
   }
   return (
     <>
-      <div ref={host} className="chart tall" />
+      <div className="chart-with-guides">
+        <div ref={host} className="chart tall" />
+        <div ref={guidesHost} className="guides" aria-hidden="true" />
+      </div>
       <ChartCaption trade={trade} />
     </>
   );

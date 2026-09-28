@@ -41,6 +41,17 @@ Feature: Trade drawer
     And the drawer shows the exit kind "Trailing stop"
     And the drawer lists the trail move "2016-03-10 12:00: 1.12800 → 1.12700"
 
+  Scenario Outline: the chart carries a vertical guide at the entry bar and at the exit bar
+    Given entry bars every <bar_minutes> minutes from <first> for <count> bars
+    And a trade entered at <entry> and exited at <exit>
+    Then the vertical guides are <guides>
+
+    Examples:
+      | bar_minutes | first                     | count | entry                     | exit                      | guides                                                    |
+      | 60          | 2016-03-02T07:00:00+00:00 | 5     | 2016-03-02T10:00:00+00:00 | 2016-03-02T10:30:00+00:00 | entry@2016-03-02T09:00:00+00:00, exit@2016-03-02T10:00:00+00:00 |
+      | 60          | 2016-03-02T07:00:00+00:00 | 5     | 2016-03-02T10:00:00+00:00 | 2016-03-05T10:00:00+00:00 | entry@2016-03-02T09:00:00+00:00                           |
+      | 240         | 2016-03-01T00:00:00+00:00 | 4     | 2016-03-01T12:00:00+00:00 | 2016-03-01T15:00:00+00:00 | entry@2016-03-01T08:00:00+00:00, exit@2016-03-01T12:00:00+00:00 |
+
   Scenario Outline: each filter's reason becomes one plain-English line
     Given a filter row "<filter>" recommending <recommendation> with veto <veto> and reason "<reason>"
     Then its explanation summary is "<summary>"
