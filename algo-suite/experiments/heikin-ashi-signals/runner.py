@@ -30,7 +30,6 @@ from algo_score.paths import symbol_path
 
 HERE = Path(__file__).resolve().parent
 SUITE = HERE.parents[1]
-XML_SOURCES = ("deploy.xml", "strategies/dragon.xml", "strategies/setupnow.xml")
 
 
 def digest(path: Path) -> str:
@@ -135,17 +134,12 @@ def input_files(root: Path, mode: str = "baseline") -> list[Path]:
     return sorted(set(paths + list(lean.glob("201509*_quote.zip")) + news))
 
 
-def validate_roots(input_root: Path, output_root: Path, source_conf: Path) -> list[Path]:
-    """Refuse overlap, reuse, absent XML, and absent inputs before creating output."""
+def validate_roots(input_root: Path, output_root: Path) -> list[Path]:
+    """Refuse overlap, reuse, and absent inputs before creating output."""
     if output_root.exists() or output_root.is_symlink():
         raise ValueError("Output already exists; choose a fresh experiment output directory.")
     if output_root.is_relative_to(input_root) or input_root.is_relative_to(output_root):
         raise ValueError("Input and output roots overlap; choose disjoint directories.")
-    if output_root.is_relative_to(source_conf) or source_conf.is_relative_to(output_root):
-        raise ValueError("XML source and output roots overlap; choose disjoint directories.")
-    for name in XML_SOURCES:
-        if not (source_conf / name).is_file():
-            raise ValueError(f"Missing XML source {source_conf / name}; supply --spockfx-conf.")
     return input_files(input_root)
 
 
@@ -227,18 +221,17 @@ def archive_run(run_dir: Path, manifest: dict[str, Any]) -> None:
         run_dir / "parameters.md",
         f"# {run_dir.name}\n\n"
         "Exploratory, previously inspected 2015 window; not confirmatory.\n\n"
-        "See provenance.json for exact windows, inputs and XML source hashes.\n\n"
-        "See source-mapping.md for every XML mapping and unsupported semantic; "
-        "source-configs/ and source-xml/ preserve the original files.\n\n"
+        "See provenance.json for exact windows and input hashes.\n\n"
+        "See template-settings.md for the reference template settings and every "
+        "unsupported semantic; source-configs/ preserves the original YAML files.\n\n"
         f"```text\n{parameters}\n```\n\n"
         f"```json\n{json.dumps(manifest['plan'], indent=2)}\n```\n",
     )
 
 
 def archive_sources(run_dir: Path) -> None:
-    """Keep original YAML inheritance and XML/source explanations beside every run."""
-    shutil.copyfile(HERE / "README.md", run_dir / "source-mapping.md")
-    shutil.copytree(run_dir.parent / "source-xml", run_dir / "source-xml")
+    """Keep original YAML inheritance and the template explanation beside every run."""
+    shutil.copyfile(HERE / "README.md", run_dir / "template-settings.md")
     sources = {run_dir.name: HERE / "strategies" / run_dir.name / "config.yaml"}
     for name in ("baseline", "hybrid"):
         sources[name] = strategies_root() / name / "config.yaml"
@@ -251,7 +244,6 @@ def archive_sources(run_dir: Path) -> None:
 def prepare(
     input_root: Path,
     output_root: Path,
-    source_conf: Path,
     *,
     mode: str = "baseline",
     workers: int | None = None,
@@ -259,12 +251,10 @@ def prepare(
     """Prepare four runs without training, launching LEAN, or mutating input trees."""
     if output_root.is_symlink():
         raise ValueError("Output is a symlink; choose a fresh experiment output directory.")
-    input_root, output_root, source_conf = (
-        path.resolve() for path in (input_root, output_root, source_conf)
-    )
+    input_root, output_root = (path.resolve() for path in (input_root, output_root))
     plan = select_plan(mode)
     plan["resources"] = resource_budget(plan, workers)
-    paths = validate_roots(input_root, output_root, source_conf)
+    paths = validate_roots(input_root, output_root)
     if mode == "hybrid":
         paths = sorted(set(paths + hybrid_input_files(input_root)))
     for name in plan["variants"]:
@@ -274,7 +264,6 @@ def prepare(
         "input_root": str(input_root),
         "code": code_hashes(),
         "inputs": {str(p): digest(p) for p in paths},
-        "source_xml": {str(source_conf / n): digest(source_conf / n) for n in XML_SOURCES},
         "prepared_at": datetime.now(UTC).isoformat(),
         "packages": {
             p: importlib.metadata.version(p)
@@ -296,10 +285,6 @@ def prepare(
     output_root.mkdir(parents=True, exist_ok=False)
     write_json(output_root / "manifest.json", manifest)
     shutil.copyfile(HERE / "README.md", output_root / "README.md")
-    for name in XML_SOURCES:
-        target = output_root / "source-xml" / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_conf / name, target)
     for name in plan["variants"]:
         archive_run(output_root / name, manifest)
     snapshots = [p for p in output_root.rglob("*") if p.is_file()]
@@ -431,7 +416,7 @@ def model_hashes(output_root: Path, manifest: dict[str, Any]) -> dict[str, str]:
 def immutable_check(output_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     """Compare source/input identities with the manifest, never mutable prepared-status hashes."""
     errors = []
-    groups = {key: check_hashes(manifest[key]) for key in ("code", "inputs", "source_xml")}
+    groups = {key: check_hashes(manifest[key]) for key in ("code", "inputs")}
     try:
         groups["models"] = check_hashes(model_hashes(output_root, manifest))
         if code_hashes() != manifest["code"]:
@@ -592,7 +577,7 @@ def main() -> int:
     prepare_parser = sub.add_parser("prepare")
     prepare_parser.add_argument("--mode", choices=("baseline", "hybrid"), default="baseline")
     prepare_parser.add_argument("--workers", type=int, choices=(1, 2))
-    for option in ("input-root", "output-root", "spockfx-conf"):
+    for option in ("input-root", "output-root"):
         prepare_parser.add_argument(f"--{option}", type=Path, required=True)
     execute_parser = sub.add_parser("execute")
     execute_parser.add_argument("--output-root", type=Path, required=True)
@@ -601,13 +586,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.action == "prepare":
         print(
-            prepare(
-                args.input_root,
-                args.output_root,
-                args.spockfx_conf,
-                mode=args.mode,
-                workers=args.workers,
-            )
+            prepare(args.input_root, args.output_root, mode=args.mode, workers=args.workers)
         )
         return 0
     if args.action == "execute":

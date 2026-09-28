@@ -1,6 +1,6 @@
 schema_version: 1
 classification: exploratory
-family: dragon08-h4-swing-proxy
+family: heikin-ashi-h4-template
 symbol: EURUSD
 cash: 10000
 broker_adapter: oanda
@@ -22,12 +22,12 @@ resources:
   training_device: cpu
 mode: baseline
 variants:
-  - dragon08-h4-disabled-volume-off
-  - dragon08-h4-disabled-volume-on
-  - dragon08-h4-talib-volume-off
-  - dragon08-h4-talib-volume-on
+  - heikin-ashi-h4-disabled-volume-off
+  - heikin-ashi-h4-disabled-volume-on
+  - heikin-ashi-h4-talib-volume-off
+  - heikin-ashi-h4-talib-volume-on
 hybrid_variants:
-  - dragon08-h4-hybrid-disabled-volume-off
-  - dragon08-h4-hybrid-disabled-volume-on
-  - dragon08-h4-hybrid-talib-volume-off
-  - dragon08-h4-hybrid-talib-volume-on
+  - heikin-ashi-h4-hybrid-disabled-volume-off
+  - heikin-ashi-h4-hybrid-disabled-volume-on
+  - heikin-ashi-h4-hybrid-talib-volume-off
+  - heikin-ashi-h4-hybrid-talib-volume-on
