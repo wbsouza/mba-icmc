@@ -50,7 +50,7 @@ convention; update both in the same tested task commit.
 - [x] T2: Build the incremental data and label-maturity adapter.
 - [x] T3: Implement exact-UTC epoch planning.
 - [x] T4: Implement exponential weights and feasibility checks.
-- [ ] T5: Pass weights through family-model fitting.
+- [x] T5: Pass weights through family-model fitting.
 - [ ] T6: Pass independent weights through combiner fitting.
 - [ ] T7: Publish immutable epoch bundles.
 - [ ] T8: Implement separate-span threshold calibration.
@@ -229,7 +229,73 @@ per-stage independence scenario; RWT-06 by the twelve boundary rows of the
 minima outline, the all-violations message and the length mismatch; RWT-02 by
 the half-life, future-row, naive/non-UTC, empty-stage and invalid-weight
 outlines; the extreme-scale rule by the 2^-20 ratio, partial-underflow and
-total-underflow scenarios. Next: T5.
+total-underflow scenarios. Commit `f784dca`, pushed. Next: T5.
+
+### 2026-09-28 T5: Pass weights through family-model fitting (Claude coder, Lane A)
+
+What changed and why: `chain/filters/f7_meta_learner.py` gains one optional
+keyword on `train_meta_learner`, `family_weights: Sequence[float] | None =
+None`, validated by the new `_validated_family_weights` (length equal to
+`split.train`, every value finite and non-negative, failures naming
+`family_weights`, both counts or the offending position) before any family is
+fitted, and forwarded to `_fit_family(..., sample_weights=...)`, which passes
+`sample_weight=` to `LGBMClassifier.fit` only when weights are given; with
+`None` the fit call is the legacy call unchanged (RWT-17). The combiner is
+untouched (T6). Steps in `tests/steps/test_f7_family_weights.py`, which observe
+the fits through a recording `LGBMClassifier` subclass monkeypatched into the
+module. No scenario was changed. No shared file outside the F7 module was
+touched. One incidental change rides along: `ruff format` on the touched F7
+module split a pre-existing three-argument `F7Config(...)` call onto three
+lines (whitespace only), which is what makes `ruff format --check` pass on
+that file.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_f7_family_weights.py -q
+  -p no:cacheprovider`: 13 passed (4 scenarios plus 9 Examples rows).
+- `uv run pytest` on `test_f7_meta_learner.py`, `test_f7_model_io.py`,
+  `test_training_family_contract.py`: 86 passed, the baseline count.
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on
+  the F7 module and the new step file: clean. `uv run mypy --strict
+  algo-backtest`: clean, 68 source files.
+
+Adequacy: RWT-17 by the legacy-versus-omitted and legacy-versus-uniform
+parity scenarios (equal p_hat on a held-out row and equal trend P(up) on every
+train row, exact equality); RWT-07 by the observed fits receiving the ramp
+weights in order and the 40 train rows in order, and by the balanced
+identical-feature outline where the unweighted trend P(up) is exactly 0.5 and
+weighting one class to ~0 moves it above 0.99 or below 0.01; RWT-02 by the
+length and negative/non-finite outlines with zero fits observed; RWT-05 in
+this task is the forwarding contract only (normalization is T4's).
+
+### 2026-09-28 Phase 1 closure (Build gate, Claude coder, Lane A)
+
+Commands from `/tmp/mba-impl-19/algo-suite`:
+
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider | tail -1`:
+  `1723/1776 tests collected (53 deselected)`; baseline `1598/1651`, so
+  Phase 1 added exactly its 125 scenarios (22 + 41 + 49 + 13), none removed.
+- `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1723 passed,
+  53 deselected, 0 failed, 0 skipped, exit 0 (71.6 s).
+- `uv run ruff check algo-backtest`, `uv run mypy --strict algo-backtest`:
+  clean, exit 0. `uv run ruff format --check` on every Phase 1 file: clean.
+- `make lint`: exit 2, 195 errors; `make type`: exit 2, 107 errors in 9 files.
+  Every failing file is outside this lane and pre-existing at `ef0111d`:
+  `docs/stories/done/20-session-2-clean-rerun/scripts/*.py`,
+  `scripts/bigquery_*.py`, `tools/mutation_harness.py`,
+  `docs/stories/done/13-pattern-volume-experiments/evidence/render_intermediate_figures.py`,
+  `algo-viewer/tests/fixtures/build_fixture.py`. The coordinator's separate
+  chore commit on the integration branch owns that fix; recorded here as a
+  pre-existing failure, not a Phase 1 pass.
+- `make audit`: exit 0, no known vulnerabilities (the six workspace members
+  are skipped as editable, as always).
+- Debt review: `docs/technical-debt.md` has no trigger met by Phase 1; TD-71
+  stays open and the protocol treats affected runs as failed candidates.
+
+Integration handoff: none needed in Phase 1. No file under `engine/`,
+`wiring.py`, `strategies.py`, `decision_recorder.py`, `run.py`, `cli.py`,
+`training.py`, `market_signals.py`, `tools/`, the Makefiles or the shared
+conftests was touched.
 
 ## Earlier planning verification (before this amendment)
 

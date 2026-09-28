@@ -266,9 +266,16 @@ def train_meta_learner(
     split: WalkForwardSplit,
     *,
     random_state: int = _DEFAULT_RANDOM_STATE,
+    family_weights: Sequence[float] | None = None,
 ) -> TrainedMetaLearner:
     """Fit one LightGBM sub-model per family on `split.train`, then a logistic meta-learner
     combining the families' out-of-sample probabilities (from `split.validation`) into p̂_t.
+
+    ``family_weights`` (Story 19, RWT-07): one finite non-negative weight per ``split.train``
+    row, in ``split.train`` order, forwarded verbatim as ``sample_weight`` to every family's
+    LightGBM fit. The retraining weights module produces and mean-one normalizes them; F7
+    only validates and forwards. Omitted (``None``), every family is fitted exactly as
+    before (RWT-17).
 
     The meta-learner is deliberately calibrated on `split.validation`, never on
     `split.train`: fitting it on the same rows the family models were trained on would
@@ -282,15 +289,19 @@ def train_meta_learner(
     proves this).
 
     Raises:
-        ValueError: if `families` is empty, or if `split.validation` doesn't contain
+        ValueError: if `families` is empty, if ``family_weights`` is not one finite
+            non-negative value per train row, or if `split.validation` doesn't contain
             both classes (a degenerate walk-forward window the logistic combiner
             cannot be fit on) — fail fast rather than silently returning a
             single-class-biased combiner.
     """
     if not families:
         raise ValueError(f"{_FILTER_NAME}: at least one feature family is required to train")
+    sample_weights = _validated_family_weights(family_weights, len(split.train))
     family_models = {
-        family: _fit_family(family, split.train, random_state=random_state)
+        family: _fit_family(
+            family, split.train, random_state=random_state, sample_weights=sample_weights
+        )
         for family in families
     }
     meta_inputs = _family_predictions(family_models, families, split.validation)
@@ -326,14 +337,50 @@ def _family_predictions(
     )
 
 
+def _validated_family_weights(
+    weights: Sequence[float] | None, row_count: int
+) -> Sequence[float] | None:
+    """`family_weights` checked for length, finiteness and sign before any family is fitted."""
+    if weights is None:
+        return None
+    if len(weights) != row_count:
+        raise ValueError(
+            f"{_FILTER_NAME}: family_weights has {len(weights)} values but split.train has "
+            f"{row_count} rows — pass exactly one weight per train row, in split.train order"
+        )
+    for index, weight in enumerate(weights):
+        if not math.isfinite(weight):
+            raise ValueError(
+                f"{_FILTER_NAME}: family_weights[{index}] is not finite ({weight!r}) — "
+                "every sample weight must be a finite non-negative number"
+            )
+        if weight < 0:
+            raise ValueError(
+                f"{_FILTER_NAME}: family_weights[{index}] is negative ({weight!r}) — "
+                "every sample weight must be a finite non-negative number"
+            )
+    return weights
+
+
 def _fit_family(
-    family: FeatureFamily, train: Sequence[TrainingRow], *, random_state: int
+    family: FeatureFamily,
+    train: Sequence[TrainingRow],
+    *,
+    random_state: int,
+    sample_weights: Sequence[float] | None = None,
 ) -> LightGBMFamilyModel:
-    """Fit one family's LightGBM sub-model on the walk-forward train split."""
+    """Fit one family's LightGBM sub-model on the walk-forward train split.
+
+    ``sample_weights`` (row-aligned with ``train``) is passed as LightGBM's ``sample_weight``
+    when given; when ``None`` the fit call is exactly the legacy one.
+    """
     inputs = np.array([family_vector(family, row.features) for row in train])
     labels = np.array([row.label for row in train])
     booster = LGBMClassifier(random_state=random_state, **_LGBM_PARAMS)
-    booster.fit(inputs, labels)
+    if sample_weights is None:
+        booster.fit(inputs, labels)
+    else:
+        booster.fit(inputs, labels, sample_weight=np.asarray(sample_weights, dtype=float))
     return LightGBMFamilyModel(booster=booster)
 
 
@@ -374,7 +421,9 @@ def parse_f7_config(section: Mapping[str, Any], *, strategy: str) -> F7Config:
         )
     regime_gate = require_bool(section, "regime_gate", section=_SECTION, strategy=strategy)
     return F7Config(
-        theta_high=theta_high, theta_low=theta_low, regime_gate=regime_gate,
+        theta_high=theta_high,
+        theta_low=theta_low,
+        regime_gate=regime_gate,
         label_horizon_minutes=_horizon(section, strategy),
     )
 
