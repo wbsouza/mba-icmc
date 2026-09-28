@@ -10,6 +10,7 @@ import { RunsTable } from "./views/RunsTable";
 import { CompareView } from "./views/CompareView";
 import { RunView } from "./views/RunView";
 import { TradeDrawer } from "./views/TradeDrawer";
+import { PatternsPage } from "./views/PatternsPage";
 
 interface Props {
   locateFile?: LocateFile;
@@ -83,12 +84,22 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
         <a href="#/runs" className={route.view === "runs" ? "active" : ""} onClick={(e) => { e.preventDefault(); navigate({ view: "runs" }); }}>Runs</a>
         <a href="#/compare" className={route.view === "compare" ? "active" : ""} onClick={(e) => { e.preventDefault(); navigate({ view: "compare", runIds: [...selected] }); }}>Compare ({selected.size})</a>
         {route.view === "run" ? <a href={routeHash(route)} className="active">Run</a> : null}
+        <a href="#/patterns" className={route.view === "patterns" ? "active" : ""} onClick={(e) => { e.preventDefault(); navigate({ view: "patterns" }); }}>Patterns</a>
       </nav>
       <span className="spacer" />
       <span className="db-name">{dbName}</span>
       <button aria-label="Toggle dark mode" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button>
     </header>
   );
+
+  if (route.view === "patterns") {
+    return (
+      <>
+        {nav}
+        <main><PatternsPage /></main>
+      </>
+    );
+  }
 
   if (db === null) {
     return (

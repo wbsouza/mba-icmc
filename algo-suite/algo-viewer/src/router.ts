@@ -2,12 +2,14 @@
 
 export type Route =
   | { view: "runs" }
+  | { view: "patterns" }
   | { view: "compare"; runIds: string[] }
   | { view: "run"; runId: string; tradeId: string | null };
 
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/").filter((p) => p !== "");
   const [head, a, b, c] = parts;
+  if (head === "patterns") return { view: "patterns" };
   if (head === "compare") return { view: "compare", runIds: a ? a.split(",").filter((s) => s !== "") : [] };
   if (head === "run" && a !== undefined) return { view: "run", runId: a, tradeId: b === "trade" && c !== undefined ? c : null };
   return { view: "runs" };
@@ -17,6 +19,8 @@ export function routeHash(route: Route): string {
   switch (route.view) {
     case "runs":
       return "#/runs";
+    case "patterns":
+      return "#/patterns";
     case "compare":
       return `#/compare/${route.runIds.join(",")}`;
     case "run":

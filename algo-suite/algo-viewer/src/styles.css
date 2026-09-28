@@ -113,3 +113,8 @@ details.params summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .error { color: var(--down); background: var(--panel); border: 1px solid var(--down); border-radius: 8px; padding: 10px 14px; }
 .funnel { display: flex; flex-wrap: wrap; gap: 8px; }
 .funnel .badge { padding: 4px 10px; }
+.pattern-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 6px; background: var(--bg); }
+.pattern-card .title { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+.pattern-card p { margin: 6px 0 0; }
+.pattern-card .links { font-size: 12px; }
+.pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }

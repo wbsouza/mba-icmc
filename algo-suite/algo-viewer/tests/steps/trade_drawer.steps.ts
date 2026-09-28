@@ -1,6 +1,6 @@
 import "../support/dom";
 import { DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { tradeDetail } from "../../src/db/queries";
@@ -43,7 +43,7 @@ Then("the drawer names the pattern {string}", function (label: string) {
 });
 
 Then("the drawer describes the pattern with {string}", function (text: string) {
-  const details = step("F3").querySelector(".details")?.textContent ?? "";
+  const details = step("F3").querySelector(".pattern-card p")?.textContent ?? "";
   assert.ok(details.includes(text), `${details} lacks ${text}`);
 });
 
@@ -81,4 +81,33 @@ Given("a filter row {string} recommending {word} with veto {word} and reason {st
 Then("its explanation summary is {string}", function (summary: string) {
   assert.ok(filterRow);
   assert.equal(explainFilter(filterRow, [{ key: "volume_strength.min_relative_activity", value: "1.0", source: "x" }]).summary, summary);
+});
+
+let clipboard = "";
+
+Then("the drawer shows a pattern card {string} \\({word}\\) linking to {string} and to TA-Lib {word}", function (title: string, direction: string, url: string, fn: string) {
+  const card = within(drawer()).getByTestId("pattern-card");
+  assert.equal(card.querySelector(".name")?.textContent, title);
+  assert.equal(card.querySelector(".badge")?.textContent, direction);
+  const links = within(card).getAllByRole("link");
+  assert.ok(links.some((a) => a.getAttribute("href") === url), `no link to ${url}`);
+  assert.ok(links.some((a) => a.textContent === `TA-Lib ${fn}`), `no TA-Lib ${fn} link`);
+});
+
+When("I press {string}", async function (label: string) {
+  clipboard = "";
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: (text: string) => { clipboard = text; return Promise.resolve(); } },
+  });
+  fireEvent.click(within(drawer()).getByText(label));
+  await waitFor(() => assert.notEqual(clipboard, ""));
+});
+
+Then("the copied link ends with {string}", function (suffix: string) {
+  assert.ok(clipboard.endsWith(suffix), `${clipboard} does not end with ${suffix}`);
+});
+
+Then("the button reads {string}", async function (label: string) {
+  await waitFor(() => assert.equal(within(drawer()).getByTestId("copy-link").textContent, label));
 });

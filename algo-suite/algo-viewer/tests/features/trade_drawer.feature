@@ -19,6 +19,7 @@ Feature: Trade drawer
       | F6 · Capital management  | ABSTAIN        |
       | F7 · Meta-learner        | BUY            |
     And the drawer names the pattern "Hammer"
+    And the drawer shows a pattern card "Hammer" (bullish) linking to "https://en.wikipedia.org/wiki/Hammer_(candlestick_pattern)" and to TA-Lib CDLHAMMER
     And the drawer describes the pattern with "closed near its high"
     And the drawer step "F7 · Meta-learner" reads "p̂ = 0.610, at or above θ_high 0.55 → BUY."
     And the drawer step "Activity ratio" reads "Tick activity 1.62× its recent average, at or above the 1.0 minimum."
@@ -26,6 +27,12 @@ Feature: Trade drawer
     And the drawer shows the plan stop "1.09800 (20.0 pips)"
     And the drawer shows the realized P/L "500.00"
     And the drawer offers 5 entry bars
+
+  Scenario: the drawer link encodes the run and the trade so it can be shared
+    When I open trade "1" of run "20260928T010000-fixture"
+    And I press "Copy link"
+    Then the copied link ends with "#/run/20260928T010000-fixture/trade/1"
+    And the button reads "Copied"
 
   Scenario: a trade without a pattern says F3 abstained and shows its trail moves
     When I open trade "5" of run "20260928T010000-fixture"

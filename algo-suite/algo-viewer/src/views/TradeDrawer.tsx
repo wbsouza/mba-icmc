@@ -1,8 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { TradeDetail, TrailStep } from "../model/types";
 import { explainFilter } from "../model/explain";
 import { EXIT_KIND_LABELS, lots, minutes, money, price, priceDecimals, when } from "../model/format";
 import { CandleChart } from "../charts/CandleChart";
+import { PatternCard } from "./PatternCard";
+import { routeHash } from "../router";
 
 interface Props {
   detail: TradeDetail;
@@ -10,10 +12,27 @@ interface Props {
   onClose: () => void;
 }
 
+/** The shareable address of a trade: the page plus its `#/run/<id>/trade/<id>` hash. */
+export function tradeLink(runId: string, tradeId: string): string {
+  const { origin, pathname } = window.location;
+  return `${origin}${pathname}${routeHash({ view: "run", runId, tradeId })}`;
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Why the chain entered, the plan, the exit and the realized P/L of one trade. */
 export function TradeDrawer({ detail, dark, onClose }: Props) {
   const { trade, plan, filters, trailMoves, bars, parameters, run } = detail;
   const decimals = priceDecimals(trade.entry_price);
+  const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
+  const link = tradeLink(run.run_id, trade.trade_id);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -29,6 +48,14 @@ export function TradeDrawer({ detail, dark, onClose }: Props) {
             Trade {trade.trade_id} · <span className={`badge ${trade.direction}`}>{trade.direction}</span> {run.symbol} · {lots(trade.lots)} lots ·{" "}
             <span className={trade.profit >= 0 ? "up" : "down"}>{money(trade.profit)}</span>
           </h2>
+          <button
+            data-testid="copy-link"
+            data-link={link}
+            title={link}
+            onClick={() => { void copyText(link).then((ok) => setCopied(ok ? "copied" : "failed")); }}
+          >
+            {copied === "copied" ? "Copied" : copied === "failed" ? "Copy failed — use the address bar" : "Copy link"}
+          </button>
           <button onClick={onClose} aria-label="Close">Close</button>
         </header>
         <section className="panel" aria-label="Why we entered">
@@ -44,10 +71,10 @@ export function TradeDrawer({ detail, dark, onClose }: Props) {
                     <div className="title">
                       {x.title} <span className={`badge ${x.recommendation === "BUY" ? "buy" : x.recommendation === "SELL" ? "sell" : ""}`}>{x.recommendation}</span>
                       {x.veto ? <span className="badge veto">veto</span> : null}
-                      {x.pattern ? <span className="badge" data-testid="pattern-name">{x.pattern.label}</span> : null}
+                      {x.pattern ? <span className="badge" data-testid="pattern-name">{x.pattern.title}</span> : null}
                     </div>
                     <div className="summary">{x.summary}</div>
-                    {x.details.map((d, j) => <div key={j} className="details">{d}</div>)}
+                    {x.pattern ? <PatternCard pattern={x.pattern} /> : x.details.map((d, j) => <div key={j} className="details">{d}</div>)}
                     <div className="reason">{x.reason}</div>
                   </div>
                 </li>

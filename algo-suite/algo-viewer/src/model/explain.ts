@@ -113,7 +113,7 @@ function explainPattern(filter: FilterRow): Explanation {
   const out = base(
     filter,
     "F3 · Candlestick pattern",
-    `${info.label} (${info.direction}) → ${filter.recommendation}.`,
+    `${info.title} (${info.direction}) → ${filter.recommendation}.`,
     [info.description],
   );
   out.pattern = info;

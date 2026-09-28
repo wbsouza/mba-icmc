@@ -51,8 +51,14 @@ browser). Navigation is by URL hash (`#/runs`, `#/compare/<id,id>`, `#/run/<id>`
   directory), parameters grouped by filter section with the config file that set each
   one, and the trades table.
 - **Trade drawer** — opened from the trades table: "Why we entered" (the chain at the
-  entry bar), the candlestick window, the plan (lots, stop and pips, targets, trail
-  steps, spread), the exit (kind, time, price, trail moves) and the realized P/L.
+  entry bar; a detected candlestick pattern gets its card with direction, description,
+  reference page and TA-Lib function), the candlestick window, the plan (lots, stop and
+  pips, targets, trail steps, spread), the exit (kind, time, price, trail moves) and the
+  realized P/L. **Copy link** puts the trade's address (`#/run/<id>/trade/<id>`) on the
+  clipboard so one trade can be opened directly as an example.
+- **Patterns** — the static reference page listing the six patterns F3 recognises
+  (`src/model/patterns.ts`: title, direction, description, reference URL, TA-Lib
+  function), citable from the thesis.
 
 Exit kinds are classified by the ingester (see `../algo-analyze/SPEC.md` §6.2): stop,
 target, trailing stop, reversal, liquidation, unknown.
