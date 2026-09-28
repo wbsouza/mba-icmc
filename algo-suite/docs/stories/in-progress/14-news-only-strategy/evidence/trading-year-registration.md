@@ -27,3 +27,29 @@ such (H1 −29.0 %, H4 −14.5 %). The intended control is `always-short-h1` / `
 bar, sign −1 → SELL), registered before running. Trial count 16. The H1 long-whenever-flat run also
 exposed an engine limitation: on 2016-09-21 a stop-market and a limit target filled in the same minute
 bar, leaving an unplanned position; recorded as technical debt (same-bar OCO double fill).
+
+## Timestamp audit (added 2026-09-28 11:30 UTC)
+
+The "registered HH:MM UTC" times in the paragraphs above are the times those paragraphs were
+written, not the times the cells were fixed. The file modification times of the job directory
+(now `experiment-test-archives/pre-rename-session-1/2026-09-28-trading-year/`) give the actual
+order, all UTC:
+
+| stage | cells fixed (`plan*.tsv` + strategy configs) | launched (first run log) | finished (`exit-status*.txt`) | paragraph written |
+|---|---|---|---|---|
+| ten main cells | 06:12:24 | 06:12:41 | 06:21:48 | "06:25" |
+| supplement (`q10-atr-stop`, `h1-vol-0.8`) | 06:21:02 | 06:21:03 | 06:24:49 | "06:50" |
+| long-whenever-flat control (`short-when-flat-*`) | 06:30:03 | 06:30:04 | 06:31:33 | "06:58" |
+| always-short control | 06:32:58 | 06:32:59 | 06:34:26 | "07:15" |
+| both-sides cells | 07:03:25 | 07:03:28 | 07:31:35 | "07:05" |
+| gated cells | 07:04:05 | 07:04:07 | 07:31:35 | "07:10" |
+
+`paired-inference.md` was produced at 06:23:17 and `results.md` at 06:35:01. What the record
+supports: every cell was fixed in its plan file and strategy configs seconds before its launch,
+so no cell was chosen after its own outcome; the primary comparison (hybrid vs price-only at H1
+on the untouched months, paired daily equity) was pre-specified in the one-year protocol
+(Chapter 4, `subsec:one-year-protocol`) before this job existed; the supplement cells were chosen
+from the earlier tuning sweeps' development windows, as stated. What the record does not
+support: that the registration paragraphs of the first four stages were written before those
+stages' outcomes existed. The two controls were, by design, a reaction to the reversed-sign
+rule's result, as Chapter 4 says. Chapter 4 and the experiment registry carry this note.

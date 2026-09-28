@@ -2,6 +2,14 @@
 
 ## New planned research stories — September 28, 2026
 
+[Story 19 — adaptive rolling and exponentially weighted retraining](planned/19-adaptive-recency-retraining/spec.md)
+plans the full consume/mature-label/train/validate/publish/load-on-demand cycle.
+Five controlled policies compare frozen, threshold-only, rolling, expanding and
+exponentially weighted training while preserving account and risk state.
+The [19-task plan](../../../.specs/features/recency-weighted-retraining/tasks.md)
+includes Gherkin gates and future Chapter 3/4 updates. Planning only; no models
+or experiments launched. Story 19 avoids the market-context Story 18 allocation.
+
 [Story 13 — planned candlestick extension](in-progress/13-pattern-volume-experiments/candlestick-extension.md)
 adds Bigalow's *High Profit Candlestick Patterns*, the supplied CMT presentation,
 timestamped webinar notes, and Laya as a proposed learned pattern/context
