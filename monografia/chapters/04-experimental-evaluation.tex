@@ -69,7 +69,7 @@ algo-suite/docs/stories/in-progress/\\
 \end{quote}
 The file \path{snapshot-20260928T003601Z.json} records source paths, SHA-256 hashes, code and model identities, job scripts, log excerpts, manifests, and configuration artifacts. The companion \path{per-run-parameters-20260928T003601Z.md} joins each reference R01--R20 to its full run identifier, result, F1--F7 parameter matrix, and per-field provenance. References in the tables and figure legends use these same keys. The clock was confirmed at 00:36:01 UTC; the read-only collection ended at 00:36:02 UTC. It is a bounded snapshot of active jobs, not a claim about their eventual outcomes.
 
-Sixteen run manifests record \path{success=true}; four further runs have live processes but no final manifest. No inspected final manifest records failure. A separate historical failed launch reports a missing \path{broker.adapter}; its result and effective parameters are unavailable. The execution-realism job has completed September and October for both strategies, is running the November baseline, and has not yet started the November hybrid. The A05 sweep has four completed variants and one running variant; the four template-derived variants have completed. Both annual-protocol simulations are still running. The parallel scripts use bare \path{wait}, so a parent exit code of zero does not establish success of every child; completion here requires each run's own manifest.
+Sixteen run manifests record \path{success=true}; four further runs have live processes but no final manifest. No inspected final manifest records failure. A separate historical failed launch reports a missing \path{broker.adapter}; its result and effective parameters are unavailable. The execution-realism job has completed September and October for both strategies, is running the November baseline, and has not yet started the November hybrid. The reference-plan sweep has four completed variants and one running variant; the four template-derived variants have completed. Both annual-protocol simulations are still running. The parallel scripts use bare \path{wait}, so a parent exit code of zero does not establish success of every child; completion here requires each run's own manifest.
 
 The execution-realism and sweep jobs record revision \path{7165308778fd}. Their frozen pilot model hashes begin \path{1a6fd37e96de} (baseline) and \path{a6dda4c2effc} (hybrid). Full revision identifiers, hashes, and training provenance are in the archive. The earlier ungated job records revision \path{709b9bd4bdcf} with uncommitted changes; the pilot hybrid training provenance also carries a dirty revision. Those commit identifiers alone cannot reconstruct the missing patches.
 
@@ -159,14 +159,14 @@ The remaining gates are coverage reconciliation for the BigQuery materialization
 
 \subsection{Execution model for the confirmation reruns} \label{subsec:execution-model}
 
-The execution caveats of Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results} are removed by the execution-realism story, which turns the F6 section of the strategy descriptor into an actual trade plan and adds a top-level \path{execution} section for fill costs. Every value below is a YAML key with recorded provenance; none is a code constant. The plan follows strategy A05 of the reference FX manager described in Section~\ref{sec:execution-engine}. Relative to the pilot of Table~\ref{tab:pilot-parameters}, the reruns change the following, and only the following.
+The execution caveats of Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results} are removed by the execution-realism story, which turns the F6 section of the strategy descriptor into an actual trade plan and adds a top-level \path{execution} section for fill costs. Every value below is a YAML key with recorded provenance; none is a code constant. The plan follows the reference strategy of the reference FX manager described in Section~\ref{sec:execution-engine}. Relative to the pilot of Table~\ref{tab:pilot-parameters}, the reruns change the following, and only the following.
 
 \begin{itemize}
     \item \textbf{Account.} The starting deposit stays at \$10,000 through the \path{cash} run parameter. The \path{size} parameter no longer exists for the chain strategies; every order is sized from the F6 plan.
     \item \textbf{Stop first.} The base stop distance comes from \path{stop_distance_source}, which may be \path{fixed} (\path{stop_loss_pips}), \path{atr} (\path{atr_multiplier} times the bar's ATR over \path{price_features.atr_period}) or \path{swing} (the distance to the rolling swing low or high over \path{price_features.swing_lookback_bars}); the bundled descriptors select \path{swing}. The base distance is shrunk toward entry by \path{stop_loss_shrink} of 0.20 and floored at the larger of \path{min_stop_pips} (5) and \path{min_stop_factor} of 1.2 times the declared \path{broker_stop_level_pips}.
     \item \textbf{Lot from risk.} The lot follows from \path{risk_per_trade} of 0.03 and the stop distance, through \path{pip_value_per_lot} (\$10) and \path{lot_notional_units} (100,000). The lot that the pilot computed and ignored is now the quantity actually ordered.
     \item \textbf{Targets and trailing stop.} \path{targets} holds one level at 2.0 times the stop distance closing 0.5 of the position; the remainder rides the trailing stop. \path{trail_stops} holds one step: once price has moved 0.5 of the stop distance in the trade's favor, the stop moves to $-0.66$ times the stop distance from entry. A signal whose first-target reward-to-risk ratio falls below \path{min_reward_risk} of 2.0 is vetoed by F6 before entry.
-    \item \textbf{Concurrency.} \path{max_concurrent_trades_per_account} in the F5 section is lowered from 5 to 2, the A05 limit.
+    \item \textbf{Concurrency.} \path{max_concurrent_trades_per_account} in the F5 section is lowered from 5 to 2, the reference plan's limit.
     \item \textbf{Fill costs.} \path{spread_pips} of 1.0 is charged as half-spread slippage on every fill, on top of the quote bars; \path{commission_per_lot} is 0.0 for the reference broker and stays a declared parameter. The pilot's effective cost was the 0.3-pip median spread of the quote bars alone.
     \item \textbf{Exits.} Entries are market orders; the stop is a stop-market order and each target a limit order, placed together with the entry and paired so that the fill of one cancels the other. \path{close_on_veto} is false: a later filter veto leaves an open position to its stop, targets, trailing stop and \path{min_hold_bars} (0), so the planned exits govern the trade. In the pilot, by contrast, positions were opened and closed solely by per-bar chain decisions.
 \end{itemize}
@@ -189,7 +189,7 @@ The main experiment was registered on September 27, 2026, before any 2016 bar wa
 Family fitting & March 2--December 31, 2015 & LightGBM parameters \\
 Combiner calibration & January 1--31, 2016 & Logistic stacking; threshold grid recorded \\
 Trainer held-out partition & February 1--29, 2016 & No fitting; not a replay result \\
-Simulation & March 1--October 31, 2016 & One continuous run per strategy, \$10,000, A05 plan \\
+Simulation & March 1--October 31, 2016 & One continuous run per strategy, \$10,000, reference plan \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -324,7 +324,7 @@ Both one-year runs lose about 88\% of the deposit, every month is negative for b
 
 \section{Ablations} \label{sec:ablations}
 
-The September sweeps are exploratory parameter comparisons using the frozen pilot baseline model. Table~\ref{tab:intermediate-sweeps} retains losing and zero-trade variants; R02 (a05-gated) has since completed with zero closed trades. The full F1--F7 configuration of every listed run, including parameters not varied, is joined to its R reference in the appendix.
+The September sweeps are exploratory parameter comparisons using the frozen pilot baseline model. Table~\ref{tab:intermediate-sweeps} retains losing and zero-trade variants; R02 (reference-gated) has since completed with zero closed trades. The full F1--F7 configuration of every listed run, including parameters not varied, is joined to its R reference in the appendix.
 
 \begin{table}[htbp]
 \centering
@@ -335,11 +335,11 @@ The September sweeps are exploratory parameter comparisons using the frozen pilo
 \toprule
 \textbf{Ref.} & \textbf{Variant} & \textbf{Closed trades} & \textbf{Return (\%)} & \textbf{Max DD (\%)} \\
 \midrule
-R01 & a05-conservative & 3 & $-0.81$ & 10.8 \\
-R02 & a05-gated & 0 & 0.00 & 0.0 \\
-R03 & a05-risk1 & 552 & $-55.28$ & 55.4 \\
-R04 & a05-selective & 6 & $-3.76$ & 5.6 \\
-R05 & a05-wide-stop & 14 & $-17.65$ & 21.5 \\
+R01 & reference-conservative & 3 & $-0.81$ & 10.8 \\
+R02 & reference-gated & 0 & 0.00 & 0.0 \\
+R03 & reference-risk1 & 552 & $-55.28$ & 55.4 \\
+R04 & reference-selective & 6 & $-3.76$ & 5.6 \\
+R05 & reference-wide-stop & 14 & $-17.65$ & 21.5 \\
 R15 & ha-h1-template & 144 & $-53.47$ & 55.8 \\
 R16 & ha-h1-template-atr & 437 & $-42.16$ & 50.1 \\
 R17 & ha-1r2r-template & 0 & 0.00 & 0.0 \\
@@ -348,7 +348,7 @@ R18 & ha-setup-template & 0 & 0.00 & 0.0 \\
 \end{tabular}
 \end{table}
 
-The template labels describe selected plan adaptations, not faithful replications of the reference strategies. The author's earlier Heikin-Ashi trading manager (unpublished) declares a 60-minute selector with a 20\% stop cut and 240-minute deployment templates with a 50\% cut. These H1/H4 settings, indicator-based entry/stop buffers, and strategy rules are not equivalent to the M1 EMA chain and frozen model used in these sweeps. For example, R16 actually archives ATR multiplier 4, stop shrink 0.5, minimum stop 10 pips, and risk fraction 0.01; the YAML comment's ``2 x ATR14'' is not the configured pre-shrink multiplier. Increasing an M1 ATR multiplier does not create H4 candles. Results therefore cannot establish the performance of that earlier trading manager or of the new Story 13 candle/quote-activity implementation.
+The template labels describe selected plan adaptations, not faithful replications of the reference strategies. The author's Spring version (unpublished) declares a 60-minute selector with a 20\% stop cut and 240-minute deployment templates with a 50\% cut. These H1/H4 settings, indicator-based entry/stop buffers, and strategy rules are not equivalent to the M1 EMA chain and frozen model used in these sweeps. For example, R16 actually archives ATR multiplier 4, stop shrink 0.5, minimum stop 10 pips, and risk fraction 0.01; the YAML comment's ``2 x ATR14'' is not the configured pre-shrink multiplier. Increasing an M1 ATR multiplier does not create H4 candles. Results therefore cannot establish the performance of that Spring version or of the new Story 13 candle/quote-activity implementation.
 
 The nine variants read together: every setting that trades often (risk1, ha-h1-template, ha-h1-template-atr) loses about half the account, and every setting that trades rarely (conservative, selective, gated, ha-1r2r-template, ha-setup-template) loses little or nothing because it hardly trades. No variant is profitable. The variation isolates where the loss comes from: the threshold and gate settings control how often the chain trades, the stop width and plan control how much each trade loses, and none of the plans turns the fifteen-minute signal into a positive expectancy. Selecting the least negative variant here would be a post-hoc choice on development data and is not made.
 

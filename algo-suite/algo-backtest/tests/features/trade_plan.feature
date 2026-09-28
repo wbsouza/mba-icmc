@@ -1,6 +1,6 @@
 Feature: Trade-plan math turns an F7 signal into the orders the executor places
   Story 12 (execution realism), item D. F6 enriches `state.features["trade_plan"]` with the
-  fx-manager A05 plan in pips (one block per direction); `engine/trade_plan.py` converts it,
+  reference plan in pips (one block per direction); `engine/trade_plan.py` converts it,
   at the entry fill, into a signed quantity, a stop price and per-target prices/quantities,
   then manages the open position (trailing steps that fire once, the minimum hold) and
   reconciles the working orders when one fills (OCO emulation). LEAN-free, so every rule is

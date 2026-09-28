@@ -3,7 +3,7 @@
 **Parent spec:** `04-algo-backtest-filter-chain-hybrid` — read its `spec.md` for full context; this
 lane covers a defect found in already-ported money-management code, not new filter-chain scope.
 **Depends on:** nothing — `rules/trail_stop.py` already exists and is already ported (Spec 04's
-`00-PLAN`/`specs.md` §14.5 fx-manager port map). **Blocks:** trusting `trail_stop.py`'s test suite;
+`00-PLAN`/`specs.md` §14.5 legacy port map). **Blocks:** trusting `trail_stop.py`'s test suite;
 soft-blocks Spec 04j (money-management gaps) and Spec 04k (Double-Smoothed Heikin-Ashi trend-filter ablation), since both
 build on the same `rules/` package and both would inherit an unverified test suite if run before
 this lane closes.
@@ -13,11 +13,11 @@ this lane closes.
 
 ## 1. The scenario — what happened
 
-While auditing `algo_backtest`'s money-management port against the real fx-manager source
-(`specs.md` §14, both the original JavaEE/EJB `StrategyMoneyManagementFacadeBean.java` and its
-later Spring reimplementation in the author's later Heikin-Ashi trading manager — see the
-`fx-manager-borrow-analysis` memory note), `rules/trail_stop.py::trail_stop_to_level`'s own
-docstring admitted it was written **without** the real fx-manager source available in this
+While auditing `algo_backtest`'s money-management port against the EJB version's real source
+(`specs.md` §14, both the original JavaEE/EJB strategy money-management façade and its
+later Spring reimplementation in the author's Spring version — see the
+`borrow-analysis` memory note), `rules/trail_stop.py::trail_stop_to_level`'s own
+docstring admitted it was written **without** the EJB version's real source available in this
 checkout, and documented its sign-handling as "a deliberate reading of an ambiguous ±."
 
 With the real source now read directly (both independent production implementations agree),
@@ -34,13 +34,12 @@ was failing. Root cause and fix are in §3.
 
 ## 2. The formula bug (root cause: confirmed, fixed)
 
-Real fx-manager formula, cited precisely (not prose-only — a future reader can check these):
+The EJB version's real formula, cited precisely (not prose-only — a future reader can check these):
 
-- `fxmanager-ejb/src/main/java/fxmanager/facade/StrategyMoneyManagementFacadeBean.java`,
-  method `resolveTrailStopToLevel` (~lines 147–159), fx-manager repo
-  (`ssh://git@forge.wiseprax.ai/algo-trading/fx-manager.git`), commit `902ec7e4d608ebc8c98fbdabe7d384b65f0fcba0`
-  (last touching that file, 2021-03-21).
-- the later Heikin-Ashi trading manager's money-management calculator, trail-stop level method
+- the EJB version's strategy money-management façade, its
+  trail-stop-to-level method (private repository, unpublished; revision of 2021-03-21,
+  the last touching that file).
+- the Spring version's money-management calculator, trail-stop level method
   (unpublished source, revision of 2025-02-24) — a later, independent Spring reimplementation by
   the same author; agrees with the EJB version on this formula.
 
@@ -117,7 +116,7 @@ algo-suite/.venv && uv sync` before chasing a pytest-bdd-specific hypothesis.
 ## 4. Follow-up (2026-09-26, commit `94bee52`): `trail_stop_at_level`'s own spread-term gap
 
 While validating this fix's citations against the real source directly (rather than trusting the
-prose summary), the same method (the later trading manager's trail-stop level computation)
+prose summary), the same method (the Spring version's trail-stop level computation)
 showed `trail_stop_at_level` — untouched by the original fix, pre-existing before this PR — is
 **also missing its `(factor + 1) * spread` term entirely**, unlike `target_level` and (now)
 `trail_stop_to_level`. Since only `tests/steps/test_trail_stop.py` calls this function (no

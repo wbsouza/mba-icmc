@@ -1,5 +1,5 @@
-"""F6 — capital-management filter: builds the fx-manager trade plan for the bar
-(specs.md §14.5–14.7, Strategy A05) and enriches the chain state with it for the executor.
+"""F6 — capital-management filter: builds the reference trade plan for the bar
+(specs.md §14.5–14.7, the reference strategy) and enriches the chain state with it for the executor.
 
 The plan, every number of which traces to a `capital_mgmt` / `execution` YAML key or a
 market feature (story 12, execution realism, item B):
@@ -7,9 +7,9 @@ market feature (story 12, execution realism, item B):
 1. **Stop distance per side, in pips.** `stop_distance_source` picks the base: `fixed` →
    `stop_loss_pips` for both sides; `atr` → feature `atr_pips` × `atr_multiplier`; `swing`
    → feature `swing_low_pips` for a long, `swing_high_pips` for a short (the structural
-   level is direction-specific). Then the fx-manager DECREASE_STOP_LOSS: distance ×
+   level is direction-specific). Then the legacy stop-loss decrease: distance ×
    (1 − `stop_loss_shrink`); then the floor `max(min_stop_pips, min_stop_factor ×
-   execution.broker_stop_level_pips)` (A05: `STOP_LEVEL_FACTOR` 1.2 × the broker's
+   execution.broker_stop_level_pips)` (reference: stop-level factor 1.2 × the broker's
    `STOP_LEVEL`). A missing source feature fails fast naming the key and the source.
 2. **Lot size** from `rules/risk_math.calculate_lot_size(balance, risk_per_trade,
    pip_value, stop_pips)`. One lot serves both sides: it is sized from the *wider* of the
@@ -17,13 +17,13 @@ market feature (story 12, execution realism, item B):
    `risk_per_trade` of the balance (the narrower side risks less). The margin veto
    (`lot × margin_per_lot > available_margin`) uses that lot.
 3. **Targets and trailing steps in pips**, spread included exactly as the confirmed
-   fx-manager / later-trading-manager formulas in `rules/trail_stop.py` (reused, not
+   the EJB and Spring versions' formulas in `rules/trail_stop.py` (reused, not
    re-derived, by evaluating them at entry 0 with the stop at −stop_pips):
    target = stop × at_level_ratio + (at_level_ratio + 1) × spread; trail arms at
    stop × at_level_ratio + (at_level_ratio + 1) × spread; trail moves the stop to
    stop × to_level_ratio + spread (negative = still a loss, 0 = breakeven plus spread,
    positive = locked-in profit).
-4. **Reward:risk** = first target's pips / stop pips (fx-manager `getRewardRiskRatio`);
+4. **Reward:risk** = first target's pips / stop pips (the legacy reward:risk ratio);
    `None` with no target. With `min_reward_risk` set, a side whose ratio falls below it
    VETOES the bar (F6 runs before the direction is known, so either side failing vetoes).
 
@@ -46,8 +46,8 @@ and `trade_plan`, a plain JSON-safe dict the executor (item D) places orders fro
                "trail_stops": [{"at_pips": float, "to_pips": float}], "reward_risk": float|None},
      "short": {...same...}}
 
-`risk_per_trade` (specs.md §14.7: 3% for A05, `bean-templates.xml`'s
-`standardSymbolDeployment.risk`), the sizing economics and the plan keys are the
+`risk_per_trade` (specs.md §14.7: 3% for the reference strategy, its
+symbol-deployment risk), the sizing economics and the plan keys are the
 `capital_mgmt` section of the strategy's `config.yaml` (`parse_capital_mgmt_config`), the
 spread and broker stop level its `execution` section (`chain/execution_config.py`) — never
 code constants. Every plan key is defaulted so an older five-key section keeps loading;
@@ -99,11 +99,11 @@ _ACCOUNT_FEATURE_KEYS = ("account_balance", "pip_value", "margin_per_lot", "avai
 
 @dataclass(frozen=True)
 class TargetLevel:
-    """One take-profit level of the trade plan (fx-manager `finalTargetFactor` /
-    `finalTargetLotPercentage`, `closePortionOrder`).
+    """One take-profit level of the trade plan (the legacy final target factor,
+    lot percentage and partial-close rule).
 
     - ``at_level_ratio``: the level's distance from entry as a multiple of the stop
-      distance (> 0; A05 final target 2.0).
+      distance (> 0; reference final target 2.0).
     - ``close_fraction``: the fraction of the position closed when the level is hit,
       in (0, 1]; the fractions of all targets sum to at most 1.
     """
@@ -114,12 +114,12 @@ class TargetLevel:
 
 @dataclass(frozen=True)
 class TrailStop:
-    """One trailing-stop step (fx-manager `trailStopAtLevelFactor` / `trailStopToLevelFactor`).
+    """One trailing-stop step (the legacy trail-stop at-level / to-level factors).
 
     - ``at_level_ratio``: the favourable excursion, as a multiple of the stop distance,
-      at which the step arms (> 0; A05 arms at 0.5).
+      at which the step arms (> 0; the reference plan arms at 0.5).
     - ``to_level_ratio``: where the stop moves, as a signed multiple of the stop distance
-      from entry (negative = still on the losing side; A05 moves it to -0.66).
+      from entry (negative = still on the losing side; the reference plan moves it to -0.66).
     """
 
     at_level_ratio: float
@@ -133,7 +133,7 @@ _DEFAULT_TARGETS: tuple[TargetLevel, ...] = (TargetLevel(at_level_ratio=2.0, clo
 @dataclass(frozen=True)
 class CapitalMgmtConfig:
     """F6's parameters: the risk fraction, the sizing economics the chain feeds it and,
-    since story 12, the fx-manager A05 trade plan (specs.md §14.5–14.7).
+    since story 12, the reference trade plan (specs.md §14.5–14.7).
 
     The five sizing keys are required (trading-impactful, §14.9.1); the plan keys default
     to the pre-story-12 behaviour (a full-size target at 2 × stop, nothing else), so an
@@ -146,10 +146,10 @@ class CapitalMgmtConfig:
     - ``lot_notional_units``: units of base currency in one 1.0 lot (100 000 standard).
     - ``assumed_leverage``: leverage used to derive margin per lot from notional.
     - ``stop_loss_shrink``: fraction the base stop distance is shrunk toward entry, in
-      [0, 1) (A05 `stopLossDecrease` 0.20).
+      [0, 1) (reference stop-loss decrease 0.20).
     - ``min_stop_pips``: floor on the shrunk stop distance, in pips (>= 0).
     - ``min_stop_factor``: multiplier on the broker's minimum stop distance
-      (``execution.broker_stop_level_pips``), >= 1 (A05 ``STOP_LEVEL_FACTOR`` 1.2); the
+      (``execution.broker_stop_level_pips``), >= 1 (reference stop-level factor 1.2); the
       effective floor is max(min_stop_pips, min_stop_factor × broker_stop_level_pips).
     - ``targets``: take-profit levels, ``at_level_ratio`` strictly increasing; empty =
       no target order.
@@ -160,7 +160,7 @@ class CapitalMgmtConfig:
     - ``stop_distance_source``: ``"fixed"`` (``stop_loss_pips``), ``"atr"``
       (``atr_multiplier`` × the bar's ``atr_pips`` feature) or ``"swing"`` (the
       ``swing_low_pips`` / ``swing_high_pips`` features — the distance to the rolling
-      swing low/high, one per side; A05's structural template stop).
+      swing low/high, one per side; the reference strategy's structural template stop).
     - ``atr_multiplier``: ATR multiple for the ``"atr"`` source (> 0).
     """
 
@@ -462,7 +462,7 @@ class _SidePlan:
 
     @property
     def reward_risk(self) -> float | None:
-        """First target's pips / stop pips (fx-manager `getRewardRiskRatio`)."""
+        """First target's pips / stop pips (the legacy reward:risk ratio)."""
         return self.targets[0][0] / self.stop_pips if self.targets else None
 
     def as_dict(self) -> dict[str, object]:

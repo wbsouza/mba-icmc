@@ -1,7 +1,7 @@
 Feature: Execution parameters come from the strategy config.yaml execution section
   Story 12 (execution realism): the fill costs, the holding rule and the veto-close rule the
   executor applies are strategy parameters, not code constants — the optional top-level `execution:`
-  section of `strategies/<name>/config.yaml` (specs.md §14.7, Strategy A05). It is not
+  section of `strategies/<name>/config.yaml` (specs.md §14.7, the reference strategy). It is not
   tied to any filter: the loader always resolves it, defaulting every key it omits, and
   writes the effective values back into the resolved config so the run's
   `strategy-config.{json,yaml}` records the cost assumptions the result was produced under.
@@ -21,7 +21,7 @@ Feature: Execution parameters come from the strategy config.yaml execution secti
 
       Examples:
         | case                    | key                | value | other              | other_default |
-        | one-pip spread (A05)    | spread_pips        | 1.0   | commission_per_lot | 0.0           |
+        | one-pip spread (reference)    | spread_pips        | 1.0   | commission_per_lot | 0.0           |
         | ECN commission per lot  | commission_per_lot | 7.0   | spread_pips        | 0.0           |
         | hold at least three bars| min_hold_bars      | 3     | commission_per_lot | 0.0           |
         | integer spread          | spread_pips        | 2     | min_hold_bars      | 0             |

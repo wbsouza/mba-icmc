@@ -1,7 +1,7 @@
 Feature: Target / trail-stop level math
-  Ports fx-manager's `StrategyMoneyManagementFacadeBean` formulas (specs.md §14.5),
+  Ports the EJB version's strategy money-management formulas (specs.md §14.5),
   confirmed against the real Java source (both the original JavaEE/EJB version and its
-  later Spring reimplementation in the author's later Heikin-Ashi trading manager agree on the formula):
+  later Spring reimplementation in the author's Spring version agree on the formula):
 
     target_level_N        = entry + sign * (|entry - SL| * target_factor_N + (target_factor_N + 1) * spread)
     trail_stop_at_level_N = entry + sign * (|entry - SL| * trail_stop_at_level_factor_N + (trail_stop_at_level_factor_N + 1) * spread)
@@ -26,7 +26,7 @@ Feature: Target / trail-stop level math
 
   Rule: BUY-direction levels move up for targets/arming; the trail destination's side depends on the factor's sign, not on direction
 
-    Scenario: Strategy A05's target/arm/destination factors on a BUY at entry 1.1000, SL 1.0950
+    Scenario: the reference strategy's target/arm/destination factors on a BUY at entry 1.1000, SL 1.0950
       Given a BUY trade with entry 1.1000 and stop-loss 1.0950
       And a spread of 0.0002
       When I compute the target level for factor 2.0
@@ -68,7 +68,7 @@ Feature: Target / trail-stop level math
 
   Rule: SELL-direction levels move down for targets/arming; the trail destination's side depends on the factor's sign, not on direction
 
-    Scenario: Strategy A05's target/arm/destination factors on a SELL at entry 1.1000, SL 1.1050
+    Scenario: the reference strategy's target/arm/destination factors on a SELL at entry 1.1000, SL 1.1050
       Given a SELL trade with entry 1.1000 and stop-loss 1.1050
       And a spread of 0.0002
       When I compute the target level for factor 2.0

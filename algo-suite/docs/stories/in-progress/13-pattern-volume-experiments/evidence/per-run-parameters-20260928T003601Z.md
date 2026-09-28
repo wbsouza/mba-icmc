@@ -22,11 +22,11 @@ archived configuration fields.
 
 | Ref | Run | Status | Window | Closed trades | Return (%) | Max DD (%) |
 | --- | --- | --- | --- | --- | --- | --- |
-| [R01](#r01) | `a05-conservative/20260927T235638-8b7718142b17` | successful | 2015-09-01 to 2015-09-30 | 3 | -0.81 | 10.80 |
-| [R02](#r02) | `a05-gated/20260927T235638-8b7715be556a` | running_no_final_manifest | missing final manifest; see process/script | missing | missing | missing |
-| [R03](#r03) | `a05-risk1/20260927T235638-8b7718193cae` | successful | 2015-09-01 to 2015-09-30 | 552 | -55.28 | 55.40 |
-| [R04](#r04) | `a05-selective/20260927T235638-8b7712414b28` | successful | 2015-09-01 to 2015-09-30 | 6 | -3.76 | 5.60 |
-| [R05](#r05) | `a05-wide-stop/20260927T235638-8b771e83f1e0` | successful | 2015-09-01 to 2015-09-30 | 14 | -17.65 | 21.50 |
+| [R01](#r01) | `reference-conservative/20260927T235638-8b7718142b17` | successful | 2015-09-01 to 2015-09-30 | 3 | -0.81 | 10.80 |
+| [R02](#r02) | `reference-gated/20260927T235638-8b7715be556a` | running_no_final_manifest | missing final manifest; see process/script | missing | missing | missing |
+| [R03](#r03) | `reference-risk1/20260927T235638-8b7718193cae` | successful | 2015-09-01 to 2015-09-30 | 552 | -55.28 | 55.40 |
+| [R04](#r04) | `reference-selective/20260927T235638-8b7712414b28` | successful | 2015-09-01 to 2015-09-30 | 6 | -3.76 | 5.60 |
+| [R05](#r05) | `reference-wide-stop/20260927T235638-8b771e83f1e0` | successful | 2015-09-01 to 2015-09-30 | 14 | -17.65 | 21.50 |
 | [R06](#r06) | `baseline/20260927T044836-4cd12c922200` | successful | 2015-09-01 to 2015-09-30 | 0 | 0.00 | 0.00 |
 | [R07](#r07) | `baseline/20260927T094856-5d34ecde9301` | successful | 2015-09-01 to 2015-09-30 | 1032 | -0.05 | 1.50 |
 | [R08](#r08) | `baseline/20260927T234946-8b17461d5460` | successful | 2015-09-01 to 2015-09-30 | 320 | -52.57 | 53.80 |
@@ -45,7 +45,7 @@ archived configuration fields.
 
 ## R01
 
-Run: `a05-conservative/20260927T235638-8b7718142b17`.
+Run: `reference-conservative/20260927T235638-8b7718142b17`.
 Job: `2026-09-27-variant-sweep-sept`. Status: **successful**.
 
 Result: 3 closed trades; return -0.81%; max drawdown 10.80%.
@@ -88,7 +88,7 @@ Runtime identity evidence:
 
 ## R02
 
-Run: `a05-gated/20260927T235638-8b7715be556a`.
+Run: `reference-gated/20260927T235638-8b7715be556a`.
 Job: `2026-09-27-variant-sweep-sept`. Status: **running_no_final_manifest**.
 
 Result: missing final run.json and metrics.json; no provisional performance reported.
@@ -129,7 +129,7 @@ Runtime identity evidence:
 
 ## R03
 
-Run: `a05-risk1/20260927T235638-8b7718193cae`.
+Run: `reference-risk1/20260927T235638-8b7718193cae`.
 Job: `2026-09-27-variant-sweep-sept`. Status: **successful**.
 
 Result: 552 closed trades; return -55.28%; max drawdown 55.40%.
@@ -172,7 +172,7 @@ Runtime identity evidence:
 
 ## R04
 
-Run: `a05-selective/20260927T235638-8b7712414b28`.
+Run: `reference-selective/20260927T235638-8b7712414b28`.
 Job: `2026-09-27-variant-sweep-sept`. Status: **successful**.
 
 Result: 6 closed trades; return -3.76%; max drawdown 5.60%.
@@ -215,7 +215,7 @@ Runtime identity evidence:
 
 ## R05
 
-Run: `a05-wide-stop/20260927T235638-8b771e83f1e0`.
+Run: `reference-wide-stop/20260927T235638-8b771e83f1e0`.
 Job: `2026-09-27-variant-sweep-sept`. Status: **successful**.
 
 Result: 14 closed trades; return -17.65%; max drawdown 21.50%.

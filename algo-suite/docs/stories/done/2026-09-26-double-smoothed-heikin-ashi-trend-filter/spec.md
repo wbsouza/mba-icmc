@@ -46,19 +46,19 @@ mode was introduced (TD-61 remains deferred). `trend_score` still combines DSHA
 direction with EMA-gap strength. The [tool contract](../../../../algo-backtest/SPEC.md)
 and [usage guide](../../../../algo-backtest/README.md) document the resulting API.
 
-> **Naming (2026-09-26):** this candidate was previously called "HAS" after fx-manager's
+> **Naming (2026-09-26):** this candidate was previously called "HAS" after the EJB version's
 > internal codename. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
 > name (Clean Code: a name should say what the thing does, not what someone once called it) that
 > describes the actual technique (pass-1 Wilder-smoothed OHLC → Heikin-Ashi transform → pass-2
-> LWMA-smoothed output), not a private codename meaningless to a reader with no fx-manager history.
-> `outerHAS.mq4`/`hasTrend.mq4` etc. below are
+> LWMA-smoothed output), not a private codename meaningless to a reader with no EJB-version history.
+> the higher-timeframe wrapper indicator/the trend-gate indicator etc. below are
 > **citations to the real historical source files and config beans** — those proper nouns are kept
 > verbatim because they identify exactly what was read as evidence, not because they're good names
 > to carry forward into new code. Suggested identifiers for implementation: class
 > `DoubleSmoothedHeikinAshiTrend`, config selector value `perception_source: double_smoothed_heikin_ashi`.
 
 **Parent spec:** `04-algo-backtest-filter-chain-hybrid` — read its `spec.md` for full context;
-governing contract `specs.md` §14 (fx-manager port map) and §11.3.2 (F1's feature contract).
+governing contract `specs.md` §14 (legacy port map) and §11.3.2 (F1's feature contract).
 **Depends on:** Spec 04c (F1 exists, done) for the feature-key contract this feeds; genuinely
 independent of Spec 04i/04j (disjoint files).
 **Blocks:** nothing — this is an *additional* candidate for F1's still-unbuilt perception layer
@@ -83,12 +83,12 @@ machinery (wiring only, not new ablation infrastructure).
 > shape to match. Completion resolved the location as `algo_backtest/perception/`
 > and added the `perception_source` selector described above.
 
-> **Update 2026-09-26 (formula fully confirmed against fx-manager's actual MetaTrader source,
-> `related-work/projects/fx-manager/metatrader/experts/indicators/`).** §2 and §5 below were
-> written against `outerHAS.mq4`/`hasTrend.mq4` alone, with the exact classification rule flagged
+> **Update 2026-09-26 (formula fully confirmed against the EJB version's actual MetaTrader
+> indicator sources).** §2 and §5 below were
+> written against the higher-timeframe wrapper indicator/the trend-gate indicator alone, with the exact classification rule flagged
 > as an unconfirmed reconstruction (open question 1) because the sibling indicator computing it
-> wasn't on hand. It is now: `Heiken_Ashi_Smoothed.mq4` (the shared engine both `outerHAS.mq4` and
-> the plain-chart `Heiken Ashi Smoothed.mq4` indicator call into) and `trendMtfHasB1.mq4` (the real
+> wasn't on hand. It is now: `Heiken_Ashi_Smoothed.mq4` (the shared engine both the higher-timeframe wrapper indicator and
+> the plain-chart `Heiken Ashi Smoothed.mq4` indicator call into) and the up/down classifier indicator (the real
 > "B1" classifier — a real file, not lost) are both in that checkout. §2 and §5 are rewritten below
 > against their actual source, not a reconstruction.
 
@@ -99,27 +99,27 @@ populates `ExecutionState.features` from real LEAN indicators yet." This spec pr
 concrete, evidence-backed candidate implementation for `trend_direction`/`higher_tf_trend_direction`
 (not `trend_strength`, which is ADX-style and unrelated to this technique).
 
-The candidate: fx-manager's `Heiken_Ashi_Smoothed.mq4` (header comment: "mod by Raff", sourced from
+The candidate: the EJB version's `Heiken_Ashi_Smoothed.mq4` (header comment: "mod by Raff", sourced from
 forex-tsd.com, 2006) computes a **double-smoothed Heikin-Ashi** signal, reused at a higher timeframe
-by `outerHAS.mq4`/`hasTrend.mq4` and classified up/down by `trendMtfHasB1.mq4`. The later Heikin-Ashi trading
-manager's indicator configuration (params `method=2, period=6, method2=3,
+by the higher-timeframe wrapper indicator/the trend-gate indicator and classified up/down by the up/down classifier indicator. The Spring
+version's indicator configuration (params `method=2, period=6, method2=3,
 period2=1`) confirms the same technique was carried forward into the later Spring/Java rewrite with
 matching pass-1 parameters (`period2` differs — resolved in §5, not left open). This was a real,
 production-traded signal on both systems, and the entry/against-trend toggle
-(`OpenByArrowOrder.DirectionType`, the later trading manager's against-trend entry-detector variant)
+(the legacy entry order's direction type, the Spring version's against-trend entry-detector variant)
 is the code-level fossil of the user's own recollection: "going against the trend was always a
 terrible decision" — the against-trend variant was built and configured but not what production
 ran.
 
 ## 2. The formula, precisely
 
-Confirmed directly against `related-work/projects/fx-manager/metatrader/experts/indicators/
-Heiken_Ashi_Smoothed.mq4` (the shared engine) and `trendMtfHasB1.mq4` (the classifier) — not
+Confirmed directly against the EJB version's MetaTrader indicator sources:
+`Heiken_Ashi_Smoothed.mq4` (the shared engine) and the up/down classifier indicator (the classifier) — not
 reconstructed.
 
 **Pass 1 + Heikin-Ashi transform** (`Heiken_Ashi_Smoothed.mq4::start()`), per bar `pos`, on whatever
 timeframe the indicator is attached to (the primary chart for `trend_direction`; a higher timeframe,
-via `outerHAS.mq4`'s array-copy resampling, for `higher_tf_trend_direction`):
+via the higher-timeframe wrapper indicator's array-copy resampling, for `higher_tf_trend_direction`):
 
 1. `maOpen/maClose/maLow/maHigh = SMMA(period=MaPeriod=6)` of that timeframe's raw
    Open/Close/Low/High (`iMA(..., MaMetod=2, ...)` — MQL method code `2` is SMMA/Wilder smoothing).
@@ -143,10 +143,10 @@ via `outerHAS.mq4`'s array-copy resampling, for `higher_tf_trend_direction`):
 All four are exposed as `Heiken_Ashi_Smoothed`'s indicator buffers 0–3 respectively
 (`SetIndexBuffer(0, smoothedNear)`, `1 → smoothedFar`, `2 → smoothedOpen`, `3 → smoothedClose`).
 
-**Classification** (`trendMtfHasB1.mq4`, confirmed byte-exact — not inferred): reads buffer **1**
+**Classification** (the up/down classifier indicator, confirmed byte-exact — not inferred): reads buffer **1**
 (`smoothedFar`) and buffer **0** (`smoothedNear`) — *not* buffers 2/3 (`smoothedOpen`/`smoothedClose`)
 — despite the caller locally naming its two variables `haOpen`/`haClose`; that naming in
-`trendMtfHasB1.mq4` is misleading and does not mean what it says. The exact rule:
+the up/down classifier indicator is misleading and does not mean what it says. The exact rule:
 
 ```
 down  when smoothedFar >= smoothedNear   (buffer 1 >= buffer 0)
@@ -157,7 +157,7 @@ Because the tie (`==`) case is folded into **down**, this is not a symmetric `>`
 reading classifies as down, never as a distinct "neutral".
 
 **Decision (2026-09-26): port `>=` byte-exact, do not add an ABSTAIN-on-tie branch.** Checked every
-sibling B-family file (`mtfHasB1.mq4`, `hasGridB1.mq4`, `trendHas.mq4`) — all use the identical
+sibling B-family file (the sibling classifier indicators) — all use the identical
 unremarked `>=` with no comment anywhere justifying it as a trading rule; it reads as the original
 author's unexamined default, not a considered decision. On continuously-moving real price the tie
 is effectively unreachable; it is reachable on an extended flat/no-movement stretch, but there is no
@@ -165,10 +165,10 @@ evidence an ABSTAIN state there is better *or* worse than the ported default —
 real ablation comparison, not another guess, and this thesis is scoped to defense first. Tracked as
 **TD-61**: implement and empirically compare an ABSTAIN-on-tie variant after the defense, not now.
 
-`hasTrend.mq4` (the trend-gate half) runs `trendMtfHasB1.mq4` at a **configurable higher timeframe**
+the trend-gate indicator (the trend-gate half) runs the up/down classifier indicator at a **configurable higher timeframe**
 (`level` index into `periods[] = {1,5,15,30,60,240,1440,10080,43200}` minutes) and exposes up/down —
 this is the `higher_tf_trend_direction` input. **Known MT4-side bug, do not replicate:**
-`hasTrend.mq4` classifies *any* non-exact match to its down-sentinel value as up — including
+the trend-gate indicator classifies *any* non-exact match to its down-sentinel value as up — including
 `EMPTY_VALUE`/`0.0` on a bar that hasn't warmed up yet. A bar with insufficient history is
 misclassified as "up" in the original, rather than reporting "not ready". This is exactly the
 warm-up hazard §4's Gherkin scenario (and this workspace's fail-fast policy) exists to catch in the
@@ -200,7 +200,7 @@ Checked directly against `QuantConnect/Lean` on GitHub (not assumed from the MQL
 - **Higher-timeframe consolidation**: LEAN's `TradeBarConsolidator` + `RegisterIndicator` (or the
   `consolidate()`/`Resolution` helpers) is the native mechanism for "run an indicator on a coarser
   bar than the subscription resolution" — the direct LEAN-idiomatic replacement for
-  `outerHAS.mq4`'s `ArrayCopySeries(..., outerPeriod)` resampling.
+  the higher-timeframe wrapper indicator's `ArrayCopySeries(..., outerPeriod)` resampling.
 
 **Why this might still legitimately diverge from the original MT4 numbers** (the user's own
 caution — "remember that the behaviour of MetaTrader and LEAN might be different" — given concrete
@@ -249,27 +249,27 @@ substance here, not left as a vague caveat):
    rule's tie-handling (`smoothedFar >= smoothedNear` → down, ported byte-exact per the §2 decision
    — TD-61 tracks the deferred ABSTAIN-on-tie alternative), and a warm-up-period scenario asserting
    the filter correctly reports "not ready"/abstains rather than emitting a wrong-but-plausible
-   value before enough bars have accumulated (fail-fast policy — and unlike `hasTrend.mq4`'s own
+   value before enough bars have accumulated (fail-fast policy — and unlike the trend-gate indicator's own
    bug, see §2).
 
 ## 5. Resolved implementation decisions
 
-- **~~The exact classification rule~~ — RESOLVED (2026-09-26).** `trendMtfHasB1.mq4` is in the
-  checkout (`related-work/projects/fx-manager/metatrader/experts/indicators/trendMtfHasB1.mq4`) and
+- **~~The exact classification rule~~ — RESOLVED (2026-09-26).** the up/down classifier indicator is in the
+  checkout (among the EJB version's MetaTrader indicator sources) and
   its rule is byte-exact, not inferred: down when `smoothedFar >= smoothedNear` (its own buffers 1
   and 0), up otherwise. See §2. **Tie-handling decided too:** port `>=` byte-exact (fold tie into
   down), do not add an ABSTAIN branch now — no sibling B-family file documents a trading rationale
   for the tie case, and there is no evidence ABSTAIN would be better or worse without an actual
   ablation run. Tracked as **TD-61** for a post-defense empirical comparison.
-- **~~The later trading manager's `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
+- **~~The Spring version's `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
   are now confirmed from primary sources, not guessed: `Heiken_Ashi_Smoothed.mq4`'s own `extern int
   MaPeriod2 = 2` default (the original, human-authored MQL source, not decompiled) is `2`;
-  the later Heikin-Ashi trading manager's indicator configuration (real hand-authored Spring
+  the Spring version's indicator configuration (real hand-authored Spring
   config, also not decompiled) explicitly overrides it to `period2=1` for whatever the Java engine
   actually ran in production. This is a genuine, deliberate parameter difference between the two
   systems — not a decompilation artifact (no decompiled source was involved in either value).
-  **Decision: use `2`, the original MQL default**, since this port's reference is `outerHAS.mq4`/
-  `hasTrend.mq4`/`trendMtfHasB1.mq4` (the MT4 side), and document that the later trading manager's Java
+  **Decision: use `2`, the original MQL default**, since this port's reference is the higher-timeframe wrapper indicator/
+  the trend-gate indicator/the up/down classifier indicator (the MT4 side), and document that the Spring version's Java
   rewrite deliberately ran `period2=1` instead, as a fact about that other system, not this port.
 - **Module location — RESOLVED.** `algo_backtest/perception/` separates pure formula/config
   from native LEAN adapters. `engine/chain_algorithm.py` integrates both sources. The

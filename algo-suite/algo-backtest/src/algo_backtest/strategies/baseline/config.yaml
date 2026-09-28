@@ -48,46 +48,46 @@ risk_guard:
   portfolio_at_risk_cap: 0.10
   daily_drawdown_limit: -0.05
   weekly_drawdown_limit: -0.15
-  max_concurrent_trades_per_account: 2   # A05 `openOrderByHasArrow.maxLimit` (specs.md §14.7)
+  max_concurrent_trades_per_account: 2   # reference open-trade limit (specs.md §14.7)
   max_leverage: 30
 
-# F6 — fixed-fractional sizing (specs.md §14.7, 3% for Strategy A05), the per-lot
-# economics the chain feeds it, and — since story 12 (execution realism) — the fx-manager
-# A05 trade plan (specs.md §14.5–14.7): stop first, lot from risk_per_trade and the stop
+# F6 — fixed-fractional sizing (specs.md §14.7, 3% for the reference strategy), the per-lot
+# economics the chain feeds it, and — since story 12 (execution realism) — the
+# reference trade plan (specs.md §14.5–14.7): stop first, lot from risk_per_trade and the stop
 # distance, targets and trailing steps as multiples of that distance. pip_value_per_lot
 # follows the standard EURUSD convention (~$10/pip per 100k-unit lot); assumed_leverage
 # derives margin per lot. The plan keys have defaults (a single full-size target at 2 ×
-# the stop, nothing else); they are spelled out here so the run records A05 explicitly.
+# the stop, nothing else); they are spelled out here so the run records the reference plan explicitly.
 capital_mgmt:
   risk_per_trade: 0.03
   stop_loss_pips: 20.0            # base stop distance when stop_distance_source is fixed
   pip_value_per_lot: 10.0
   lot_notional_units: 100000
   assumed_leverage: 30
-  # Fraction the base stop distance is shrunk toward entry, in [0, 1) — A05
-  # `openOrderByHasArrowOnTrend80SL.stopLossDecrease` = 20 %.
+  # Fraction the base stop distance is shrunk toward entry, in [0, 1) — reference
+  # stop-loss decrease = 20 %.
   stop_loss_shrink: 0.20
   # Floors on the shrunk stop distance: an absolute one in pips, and a multiplier on the
-  # broker's minimum stop distance (execution.broker_stop_level_pips) — A05
-  # `STOP_LEVEL_FACTOR` = 1.2. The effective floor is the larger of the two.
+  # broker's minimum stop distance (execution.broker_stop_level_pips) — reference
+  # stop-level factor = 1.2. The effective floor is the larger of the two.
   min_stop_pips: 5.0
   min_stop_factor: 1.2
   # Take-profit levels as multiples of the stop distance and the fraction of the position
   # closed at each; the fractions sum to at most 1 (the rest rides the trailing stop) —
-  # A05 `finalTargetFactor` 2.0, `finalTargetLotPercentage` 50 %.
+  # reference final target factor 2.0, lot percentage 50 %.
   targets:
     - {at_level_ratio: 2.0, close_fraction: 0.5}
   # Trailing-stop steps: armed when price has moved at_level_ratio × stop distance in the
   # trade's favour, stop moved to to_level_ratio × stop distance from entry (negative =
-  # still below entry) — A05 `trailStopAtLevelFactor` 0.5, `trailStopToLevelFactor` -0.66.
+  # still below entry) — reference trail-stop at-level 0.5, to-level -0.66.
   trail_stops:
     - {at_level_ratio: 0.5, to_level_ratio: -0.66}
   # Minimum final-target distance / stop distance before F6 lets a signal through; null
-  # disables the veto. 2.0 = the A05 final target itself.
+  # disables the veto. 2.0 = the reference final target itself.
   min_reward_risk: 2.0
   # Where the base stop distance comes from: fixed (stop_loss_pips), atr (atr_multiplier ×
   # the bar's ATR in pips, price_features.atr_period) or swing (the distance to the rolling
-  # swing low/high over price_features.swing_lookback_bars — A05's structural template
+  # swing low/high over price_features.swing_lookback_bars — the reference strategy's structural template
   # stop, which the shrink then tightens).
   stop_distance_source: swing
   atr_multiplier: 2.0
@@ -111,12 +111,12 @@ meta_learner:
 # to a filter: always resolved, every key optional (defaults are the frictionless case),
 # recorded in the run's strategy-config.{json,yaml}.
 execution:
-  spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (A05 broker ~1 pip)
-  commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (A05 broker: none)
+  spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (reference broker ~1 pip)
+  commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (reference broker: none)
   min_hold_bars: 0          # bars a position must stay open before an opposite signal closes it
   # The broker's minimum distance between price and a stop/target order, in pips (OANDA's
   # is not exposed by LEAN, so it is declared). F6 floors the stop at min_stop_factor × this.
   broker_stop_level_pips: 0.0
   close_on_veto: false     # a filter veto (NO_TRADE) leaves an open position to its stop, targets,
-                            # trail and min-hold exits (fx-manager A05 did not close on a signal change;
+                            # trail and min-hold exits (the reference strategy did not close on a signal change;
                             # only its USD/JPY variant did). true = close at once on any veto.

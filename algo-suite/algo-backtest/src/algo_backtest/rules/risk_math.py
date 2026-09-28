@@ -1,7 +1,7 @@
-"""Fixed-fractional lot sizing (specs.md §14.5, ported from fx-manager's
-`MoneyManagementFacadeBean.java:577`).
+"""Fixed-fractional lot sizing (specs.md §14.5, ported from the EJB version's
+money-management façade).
 
-`specs.md` §14.7 documents `risk = 0.03` as Strategy A05's *tuned parameter value*, not a
+`specs.md` §14.7 documents `risk = 0.03` as the reference strategy's *tuned parameter value*, not a
 language-level constant — so this module never hardcodes a risk fraction. Every call site
 (a filter, a strategy config) supplies its own `risk`, sourced from `config.yaml` per
 CLAUDE.md's fail-fast config policy.

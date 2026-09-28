@@ -1,7 +1,7 @@
 Feature: Fixed-fractional lot-size calculation
-  Ports the fx-manager lot-size formula (specs.md §14.5, `MoneyManagementFacadeBean.java:577`):
+  Ports the EJB version's lot-size formula (specs.md §14.5, the legacy money-management façade):
   `lotSize = (accountBalance * risk) / (pipValue * stopLossPips)`. `risk` is a caller-supplied
-  fraction (specs.md §14.7 quotes 3% as Strategy A05's tuned value, not a hardcoded constant) —
+  fraction (specs.md §14.7 quotes 3% as the reference strategy's tuned value, not a hardcoded constant) —
   the function itself carries no default and no magic numbers.
 
   Rule: The lot size is the fixed-fractional formula, computed exactly

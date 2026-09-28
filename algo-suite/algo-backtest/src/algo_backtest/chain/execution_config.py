@@ -4,7 +4,7 @@ Story 12 (execution realism, 2026-09-27): the spread every fill pays, the per-lo
 commission, the minimum bars a position is held, the broker's minimum stop distance and
 whether a chain veto closes an open position are strategy parameters — the
 optional top-level `execution:` section of `strategies/<name>/config.yaml` (specs.md
-§14.7, Strategy A05) — not code constants and not brokerage-model defaults. The section
+§14.7, the reference strategy) — not code constants and not brokerage-model defaults. The section
 belongs to no filter: the loader always resolves it (like `price_features`), defaulting
 every key it omits, and writes the effective values back into the resolved config so a
 run's `strategy-config.{json,yaml}` records the cost assumptions its result rests on. The
@@ -26,7 +26,7 @@ _SECTION = "execution"
 class ExecutionConfig:
     """Fill costs and the holding rule. Defaults are the frictionless, hold-free case.
 
-    - ``spread_pips``: bid/ask spread charged on every fill, in pips (A05 pilot: 1.0).
+    - ``spread_pips``: bid/ask spread charged on every fill, in pips (reference pilot: 1.0).
     - ``commission_per_lot``: account-currency fee per 1.0 lot traded, per side.
     - ``min_hold_bars``: bars a position must stay open before an opposite signal may
       close it (0 = a reversal closes immediately).
@@ -63,7 +63,7 @@ def _min_hold_bars(section: Section, *, strategy: str) -> int:
 
 
 def _close_on_veto(section: Section, *, strategy: str) -> bool:
-    """`close_on_veto` as a YAML boolean, defaulting to false (A05: a signal change does
+    """`close_on_veto` as a YAML boolean, defaulting to false (reference: a signal change does
     not close a planned trade; its stop, targets, trail and min-hold exits do);
     `1`/`"yes"` and the like fail.
 

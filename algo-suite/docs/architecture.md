@@ -330,7 +330,7 @@ flowchart LR
     F4["F4 news-context\n(hybrid only — GDELT event veto,\nsentiment ABSTAIN-safe, TD-48)"]
     subgraph gates["F5-F6: execution-viability gates"]
         F5["F5 risk-guard\n(five caps from config.yaml risk_guard)"]
-        F6["F6 capital-mgmt\n(A05 trade plan from capital_mgmt + execution:\nstop, lot, targets, trail, reward:risk)"]
+        F6["F6 capital-mgmt\n(reference trade plan from capital_mgmt + execution:\nstop, lot, targets, trail, reward:risk)"]
     end
     F7["F7 meta-learner\n(LightGBM sub-models + logistic combiner,\nterminal BUY/SELL/HOLD)"]
     AU["decisions.parquet\n(audit trail, joins trades.json by trade_id)"]

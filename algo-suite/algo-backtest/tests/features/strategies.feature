@@ -479,7 +479,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | news-only-h4 | risk_guard     | max_concurrent_trades_per_account | 2                                                                                  | news-only/config.yaml   |
         | news-only-h4 | execution      | spread_pips                       | 1.0                                                                                | baseline/config.yaml    |
 
-    Scenario Outline: every bundled strategy resolves the A05 trade plan and execution costs (<name>: <section>.<key>)
+    Scenario Outline: every bundled strategy resolves the reference trade plan and execution costs (<name>: <section>.<key>)
       When the real strategy "<name>" is loaded with the default root
       Then the loaded strategy's raw config records <section>.<key> <value>
       And the loaded strategy's parameter "<section>.<key>" comes from "baseline/config.yaml"

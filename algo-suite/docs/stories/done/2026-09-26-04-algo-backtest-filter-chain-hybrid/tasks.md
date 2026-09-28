@@ -81,7 +81,7 @@ exists:
 - **F1–F3 (price-derived filters)** — trend, indicator, pattern; `chain/filters/f1_trend.py`,
   `f2_indicator.py`, `f3_pattern.py`. No new external data dependency.
 - **F5/F6 (risk & capital-management)** — port `risk_math.py` / `trail_stop.py` / `close_portion.py`
-  / `risk_guard.py` from `fx-manager` (`specs.md` §14.5–§14.8, formulas given verbatim) into
+  / `risk_guard.py` from the EJB version (`specs.md` §14.5–§14.8, formulas given verbatim) into
   `rules/`, then `chain/filters/f5_risk_guard.py` / `f6_capital_mgmt.py`. Regression test: the
   Python port must reproduce the legacy decisions on identical synthetic input (`specs.md` §14.3).
 - **F4 (news-context filter)** — `chain/filters/f4_news_context.py`, vetoes on active high-risk

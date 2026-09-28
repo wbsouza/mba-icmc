@@ -78,7 +78,7 @@ Feature: Run the F1-F7 baseline chain via the run CLI (wiring smoke test)
     Each BUY/SELL while flat becomes a market entry sized from the plan's lot size, a
     stop-market order at the stop distance and one take-profit limit per target; trailing
     steps move the stop; a fill that flattens the position cancels the rest (OCO); every
-    entry is recorded in trade-plans.json. The variants below narrow baseline's A05 plan so
+    entry is recorded in trade-plans.json. The variants below narrow baseline's reference plan so
     the sine fixture exercises each mechanism within the two-day test span; every tolerance
     is a table value, never a literal in a step.
 
