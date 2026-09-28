@@ -283,6 +283,40 @@ Feature: Causal candlestick context evaluation
         | boundary: distance 1 == tolerance 1 (10/10) | 951   | 0.5   |
         | just past: distance 2 > tolerance 1         | 952   | None  |
 
+    Scenario Outline: Fibonacci tie-break resolves to the high when the swing extremes share a bar (<case>)
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low | close   |
+        | 950  | 1000 | 900 | 950     |
+        | 950  | 960  | 940 | 955     |
+        | 955  | 970  | 945 | 960     |
+        | 960  | 980  | 950 | 965     |
+        | 965  | 970  | 955 | <close> |
+      When the context is evaluated after all bars
+      Then the fibonacci swing high is 1000 and swing low is 900
+      And the fibonacci level is <level>
+
+      Examples:
+        | case                                            | close | level |
+        | tied extremes resolve to the high (rising leg)  | 962   | 0.382 |
+
+    Scenario Outline: Fibonacci nearest-level tie keeps the first-checked ratio (<case>)
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low | close   |
+        | 950  | 950  | 900 | 950     |
+        | 950  | 960  | 940 | 955     |
+        | 955  | 970  | 945 | 960     |
+        | 960  | 1000 | 950 | 965     |
+        | 965  | 995  | 920 | <close> |
+      When the context is evaluated after all bars
+      Then the fibonacci swing high is 1000 and swing low is 900
+      And the fibonacci level is <level>
+
+      Examples:
+        | case                                           | close | level |
+        | equidistant between 38.2% and 50%, 38.2% wins  | 955.9 | 0.382 |
+
     Scenario: A zero-range swing is an explicit degenerate status, never a division by zero
       Given fibonacci is enabled with a lookback of 3 bars
       And 3 flat bars (1000, 1000, 1000, 1000)

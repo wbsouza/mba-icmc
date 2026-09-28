@@ -223,6 +223,20 @@ Feature: Candle evidence and configuration contract
         | empty version           | "doji"              | 0        | ""      | "READY"  | rejects | rule_version |
         | unknown status          | "doji"              | 0        | "1"     | "ready"  | rejects | status       |
 
+  Rule: Fibonacci evidence carries a level only when READY and from the registered ratios
+
+    Scenario Outline: FibonacciEvidence validation (<case>)
+      Given a fibonacci evidence with status <status>, swing status <swing_status> and level <level>
+      When the fibonacci evidence is validated
+      Then fibonacci evidence validation <outcome> mentioning "<mention>"
+
+      Examples:
+        | case                          | status   | swing_status | level | outcome | mention |
+        | ready with an admitted level  | "READY"  | "READY"      | 0.5   | accepts | level   |
+        | ready with no level           | "READY"  | "READY"      | null  | accepts | level   |
+        | ready with an unlisted level  | "READY"  | "READY"      | 0.4   | rejects | level   |
+        | warmup with a stray level     | "WARMUP" | "WARMUP"     | 0.5   | rejects | level   |
+
   Rule: Evidence keeps hits in stable id order with UTC timing and bounded history
 
     Scenario Outline: Evidence hits must be sorted by id and unique (<case>)

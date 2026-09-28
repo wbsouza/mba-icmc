@@ -19,6 +19,8 @@ from algo_backtest.perception.candle_contract import (
     CandleHistory,
     ClosedBar,
     ContextConfig,
+    FibonacciEvidence,
+    IndicatorValue,
     PatternHit,
     SequenceEvidence,
 )
@@ -366,6 +368,36 @@ def validate_sequence_evidence(cctx: dict[str, Any]) -> None:
 @then(parsers.parse('sequence evidence validation {outcome} mentioning "{mention}"'))
 def assert_sequence_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) -> None:
     """Accepted, or rejected naming the state/confirmation contradiction."""
+    _assert_outcome(cctx, outcome, mention)
+
+
+# --- fibonacci evidence -----------------------------------------------------------------
+
+
+@given(
+    parsers.parse(
+        "a fibonacci evidence with status {status}, swing status {swing_status} and level {level}"
+    )
+)
+def fibonacci_evidence_builder(
+    cctx: dict[str, Any], status: str, swing_status: str, level: str
+) -> None:
+    """Stage a builder for a directly constructed FibonacciEvidence."""
+    status_value, swing_status_value, level_value = _json(status), _json(swing_status), _json(level)
+    swing_value = 1000.0 if swing_status_value == READY else None
+    swing = IndicatorValue(swing_value, swing_status_value)
+    cctx["build"] = lambda: FibonacciEvidence(swing, swing, level_value, status_value)
+
+
+@when("the fibonacci evidence is validated")
+def validate_fibonacci_evidence(cctx: dict[str, Any]) -> None:
+    """Construct the fibonacci evidence, capturing a rejection."""
+    _attempt(cctx, "fibonacci_evidence")
+
+
+@then(parsers.parse('fibonacci evidence validation {outcome} mentioning "{mention}"'))
+def assert_fibonacci_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) -> None:
+    """Accepted, or rejected naming the offending level."""
     _assert_outcome(cctx, outcome, mention)
 
 

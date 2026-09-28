@@ -422,6 +422,20 @@ Feature: Expanded multilabel candlestick catalog
       When the catalog evaluates the final bar
       Then the READY hits are "piercing_line"
 
+    Scenario Outline: A close exactly at the piercing/dark-cloud midpoint fires neither pattern (<case>)
+      Given the catalog restricted to "<rules>"
+      And the closed bars:
+        | open | high | low | close |
+        | <po> | <ph> | <pl> | <pc> |
+        | <o>  | <h>  | <l>  | <c>  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
+
+      Examples:
+        | case                                          | rules                                        | po   | ph   | pl  | pc   | o    | h    | l   | c   |
+        | bullish counterattack at the piercing mid     | piercing_line,bullish_counterattack_line     | 1000 | 1005 | 980 | 990  | 970  | 1005 | 945 | 995 |
+        | bearish counterattack at the dark-cloud mid   | dark_cloud_cover,bearish_counterattack_line  | 990  | 1005 | 985 | 1000 | 1015 | 1025 | 965 | 995 |
+
     Scenario Outline: Counterattack lines are WARMUP before two bars and READY at two (<bars> bars)
       Given the catalog restricted to "bearish_counterattack_line,bullish_counterattack_line"
       And <bars> context candles
@@ -477,6 +491,18 @@ Feature: Expanded multilabel candlestick catalog
         | 1010 | 1030 | 1005 | 1025  |
       When the catalog evaluates the final bar
       Then the hit for "methods_rising" has status "WARMUP"
+
+    Scenario: Methods Rising never considers fewer than three pullback bars even with ample history
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 920  | 925  | 895  | 900   |
+        | 1020 | 1025 | 995  | 1000  |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1010 | 1012 | 1000 | 1005  |
+        | 1010 | 1035 | 1005 | 1030  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
 
     Scenario: Methods Rising fires with the maximum six pullback bars
       Given the catalog restricted to "methods_rising"

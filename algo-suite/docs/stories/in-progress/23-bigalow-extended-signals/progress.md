@@ -121,3 +121,20 @@ Post-refactor: all three step files green (312 passed, unchanged assertions),
 `uv run ruff check algo-backtest` all checks passed, `uv run mypy --strict
 algo-backtest` success on 67 source files (`.mypy_cache` removed after), `make
 check-perception-architecture` PASS.
+
+## Hardener, 2026-09-28
+
+Manual mutation testing (no `mutmut` in the workspace) over `candle_catalog.py`
+(9 mutations), `candle_context.py` (8), `candle_contract.py` (7): 22 killed on
+first try, one negative control confirmed KILLED, 5 survivors (C5 counterattack
+midpoint boundary, C6 methods_rising minimum-pullback enforcement, X1 fibonacci
+swing tie-break, X3 fibonacci nearest-level tie-break, K2 FibonacciEvidence
+level-validation raise), one equivalent mutant (K1, `DEFAULT_ENABLED_RULES` as
+a derived vs. frozen tuple — extensionally identical for the current `CATALOG`,
+matches the cleaner's own 2026-09-28 note on that design choice). Added 9 new
+Gherkin scenarios (2 `candle_catalog.feature`, 2 `candle_context.feature`, a
+new Rule with 4 outline cases in `candle_contract.feature`) that kill all 5
+survivors; re-verified each mutation individually against the updated
+scenarios. Full table in `mutation-report.md`. No production code touched.
+Gates: full suite 1994 passed/53 deselected, ruff clean, mypy --strict clean
+(67 files), `make check-perception-architecture` PASS.
