@@ -64,7 +64,7 @@ no new branch, commit, push or PR is claimed. Preserve the existing directory mo
 - [x] T3 Implement the expanded geometry catalog
 - [x] T4 Implement causal context evaluation
 - [x] T5 Implement next-bar confirmation state machine
-- [ ] T6 Implement explicit F3 policy modes
+- [x] T6 Implement explicit F3 policy modes
 - [ ] T7 Integrate shared closed-bar evidence into native signals
 - [ ] T8 Fingerprint the complete signal contract
 - [ ] T9 Version the F7 pattern feature encoder
@@ -352,4 +352,105 @@ T17–T21 are DEFERRED and never implemented.
   step.
 - Status: tasks.md T5 boxes ticked; spec.md CND-05 → `Implemented (T3, T4, T5)`,
   CND-07/08 → `Implemented (T5)`.
-- Commit: `feat(candles): implement next-bar confirmation state machine` (SHA in the next entry).
+- Commit: `feat(candles): implement next-bar confirmation state machine` (`354c9cb`); pushed.
+
+### 2026-09-28 — T6 explicit F3 policy modes (CND-09, CND-11, CND-12)
+
+- Files: `chain/filters/f3_pattern.py` (`PatternConfig` gains `mode: str = "legacy"`;
+  `parse_pattern_config`/`_mode` validate it against T2's `POLICY_MODES`;
+  `pattern_mapping` gains a `mode` entry after `detector`; `F3PatternFilter.apply`
+  dispatches to the unchanged legacy path (renamed `_apply_legacy`, byte-identical)
+  or the new `_apply_evidence`, which reads `state.features["candle_evidence"]`,
+  computes candidate directions via `_candidates`/`_candidate_ids` (READY non-neutral
+  hits plus a CONFIRMED sequence's direction as a `doji_engulfing_bullish`/`_bearish`
+  pseudo-id), checks eligibility via `_satisfied` (T-line position and stochastic
+  zone), and returns BUY/SELL/ABSTAIN with the `warmup`/`neutral_only`/`conflicting`/
+  `context` reason codes and `candle_hits`/`candle_mode`/`candle_veto_reason`
+  enrichment via `_evaluate`), `tests/features/f3_policy_modes.feature` (specifier,
+  unchanged), `tests/steps/test_f3_policy_modes.py` (new).
+- Assumptions: none beyond the ledger's pinned choices (gaps 18-22 in
+  `qa-procedure-phase1.md`). Reused `state.features["candle_evidence"]` directly
+  rather than adding a helper, since T7 (out of this lane's scope) is the only
+  future writer of that key. `f3_policy_modes.feature`'s own step file duplicates
+  the `pattern section`/`parsed bullish patterns`/`raises an error naming` steps
+  already in `test_f3_pattern.py` (own module, own fixture `f3m_ctx`) because
+  `--import-mode=importlib` step modules are not cross-importable (same reason T3
+  recorded for its legacy fixtures); `test_f3_pattern.py`'s 15 pre-existing
+  scenarios were re-run unmodified to prove the addition is non-invasive.
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_f3_policy_modes.py -q -p no:cacheprovider`
+  → 53 passed;
+  `uv run pytest algo-backtest/tests/steps/test_f3_pattern.py algo-backtest/tests/steps/test_f3_policy_modes.py -q -p no:cacheprovider`
+  → 73 passed (the 15 legacy scenarios unchanged); `uv run ruff check algo-backtest tools`
+  → clean; `uv run mypy --strict algo-backtest tools/perception_quality.py` → 68 files
+  clean (F3PatternFilter is outside `tools/perception_quality.py`'s registry — it lives
+  in `chain/filters`, not `perception`, so no registration was needed or made).
+  Phase-end Build gate: `uv run pytest algo-backtest/tests -q -p no:cacheprovider` →
+  1941 passed, 53 deselected (baseline at T0 was 1598/1651 collected, 53 deselected;
+  1994 collected now = +343 new scenarios across T2-T6). `make lint` and `make type`
+  (full workspace, not `algo-backtest`/`tools` alone): both FAIL, but every failure is
+  in `scripts/bigquery_*.py`, `tools/mutation_harness.py` and
+  `docs/stories/done/20-session-2-clean-rerun/scripts/*.py` — pre-existing debt with
+  no Story 22 file in the diff (confirmed via `git diff --stat` on those paths across
+  this branch's commits: empty), unrelated to `algo-backtest`/`tools` scope and outside
+  this lane's private files; recorded as pre-existing, not a Story 22 regression.
+- Phase-end Docker attempt (`make check-perception`, this lane's first successful
+  full run — Docker/LEAN image was already cached locally): the three native/LEAN
+  lines all PASS — `test_double_smoothed_heikin_ashi.py`+`test_perception_hardening.py`
+  host coverage line 283 passed; the same two `-m integration` → 9 passed;
+  `test_feature_parity.py -m integration` → 8 passed;
+  `test_closed_signal_parity.py`+`test_minute_pnl_anchors.py -m integration` → 7
+  passed — proving Story 22 introduced no regression in the existing native/parity
+  suite. The final `perception_quality.py --coverage ... --merged-coverage` CRAP step
+  FAILs: every `candle_*.py` function reports 0% coverage there, because the
+  Makefile's own hardcoded host-coverage command (`check-perception:` target, line 1)
+  lists only the six pre-Story-22 step files and was never extended to the four new
+  `test_candle_*.py`/`test_f3_policy_modes.py` files — a Makefile edit, which is
+  explicitly outside T1-T6's private files (COMMON-RULES/LANE-C brief). This is a
+  structural gap for the integration lane (T7+) to close, not a code defect: the same
+  files reach 96.7-100% coverage under the host-side line this lane actually runs (see
+  each task's own entry above). Full log: `/home/wellington/.cache/claude-tmp/check-perception.log`
+  (this lane's scratch directory, not part of the repo).
+- Adequacy review (file `tests/steps/test_f3_policy_modes.py`): CND-09 legacy
+  byte-identical and evidence-blind → the "Legacy decisions are frozen" Outline and
+  `assert_matches_default` :318 (`parsed == default` `FilterResult` equality across
+  all six legacy names and no-pattern); CND-11 advisory never vetoes → `assert_no_veto`
+  :280 across every advisory row including every ABSTAIN; CND-12 required-entry vetoes
+  ineligible bars with a distinct reason → `assert_veto` :287 (`result.veto ==
+  (veto=="true")`) over 15 required_entry rows, `assert_four_codes` :330
+  (`reason.startswith(code)` for warmup/neutral_only/conflicting/context, four
+  independently built fixtures) and `assert_enrichment` :343 (`enrichment ==
+  {"candle_hits": ..., "candle_mode": ..., "candle_veto_reason": ...}` exactly on the
+  conflicting-hits fixture); mode parsing and rejection → `assert_mode` :236,
+  `assert_failure` :250 over 5 invalid-mode cases (wrong case, integer, null, list,
+  unknown value) plus the 4-row valid-mode Outline; `pattern_mapping`'s `mode` entry
+  → `assert_mapping` :257 (exact dict equality against the feature's JSON literal);
+  missing/malformed evidence → `assert_raises_naming`/`assert_error_also_names` :301,
+  :308 (both "candle_evidence" and the mode name checked) over the three malformed-
+  evidence scenarios (absent in advisory, absent in required_entry, wrong type).
+  Check B: every assertion compares a recommendation/veto/reason-prefix/enrichment
+  dict/error-message fragment; none is call-count or no-throw-only. Check C: every
+  scenario maps to a ledger eligibility rule (candidate directions, T-line/zone
+  satisfaction, the four reason codes) or a tasks.md T6 listed case (advisory abstain
+  without veto, required warmup/neutral/conflict rejection, eligible long/short, frozen
+  legacy decisions); none removed; the pre-existing `f3_pattern.feature`'s 15 scenarios
+  are untouched. Check D: Gherkin-first with
+  `scenarios("../features/f3_policy_modes.feature")`, one-line docstring on every step.
+- Status: tasks.md T6 boxes ticked; spec.md CND-09 → `Implemented (T3, T6)`,
+  CND-11/12 → `Implemented (T6)`.
+- Commit: `feat(candles): implement explicit f3 policy modes` (SHA in the next entry).
+
+## Phase 1 gate (T1-T6 complete)
+
+All six Phase 1 tasks are committed and pushed on `feat/22-candlestick-rules`. Baseline
+at branch start (`ef0111d`): 1598/1651 collected, 53 deselected. End of Phase 1:
+1941 passed, 53 deselected (1994 collected; +343 scenarios). `uv run ruff check
+algo-backtest tools` and `uv run mypy --strict algo-backtest tools/perception_quality.py`
+are clean at every task and at phase end. `make check-perception-architecture` PASS
+throughout. Full-workspace `make lint`/`make type` fail only on pre-existing,
+Story-22-unrelated files (see the T6 entry above); not attempted to fix, out of scope.
+`make check-perception`'s Docker/native lines all PASS (no regression); its merged CRAP
+step fails solely because the Makefile's hardcoded coverage command doesn't yet include
+the new `test_candle_*.py`/`test_f3_policy_modes.py` files, a structural item for the
+integration lane. `git -C /tmp/mba-impl-22 status --short`: clean (all six commits
+pushed to `origin/feat/22-candlestick-rules`).
