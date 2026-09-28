@@ -55,7 +55,7 @@ convention; update both in the same tested task commit.
 - [x] T7: Publish immutable epoch bundles.
 - [x] T8: Implement separate-span threshold calibration.
 - [x] T9: Orchestrate one epoch's weighted training.
-- [ ] T10: Implement the full adaptive-cycle coordinator.
+- [x] T10: Implement the full adaptive-cycle coordinator.
 - [ ] T11: Implement the on-demand epoch provider.
 - [ ] T12: Integrate adaptive cycles into continuous LEAN replay.
 - [ ] T13: Record current and entry model identities.
@@ -684,3 +684,147 @@ repeated-fit-into-fresh-registry scenario (same bundle_id/model_sha256/threshold
 independently varying wall-clock fields) and the future-tail mutation scenario (the
 watermark/data-sha256 fix above). No shared file outside the `retraining/` package was
 touched; `ingestion.py`'s two additions are backward-compatible pure reads.
+
+### 2026-09-28 T10: Implement the full adaptive-cycle coordinator (Claude coder, Lane A, Phase 2 close)
+
+What changed and why: new `retraining/cycle.py`'s `Coordinator` runs the registered
+consume -> mature -> fit -> validate -> publish state machine exactly once per
+(policy, activation_boundary) (RWT-25), on disk under `cycles/<cycle_id>/record.json`
+(status, attempts, completed stages, bundle_id) plus `checkpoints/<stage>/` per
+completed stage. `cycle_id` is the sha256 of the canonical JSON of the request's
+identity fields only (policy, protocol_hash, cutoff, activation_boundary,
+source_watermark, prior_bundle_id) — never the batches/settings/features, which are
+operational, not identity. Handling order: an already-`ok` cycle_id short-circuits
+with no stage touched; a different cycle_id already `ok` for the same
+(policy, boundary) is a conflict (RWT-25); the activation boundary must be a
+registered, future-only UTC month start (RWT-26), checked before any stage; then
+stages run in order, each skipped and reloaded from its checkpoint when already
+completed. The registered timeout is checked both entering and completing every
+stage (pinned reading: both stage-entry and stage-exit), so a mid-stage overrun is
+attributed to the stage that was running, never the next one. A failed stage is
+recorded with its name and reason before the exception reaches the caller (RWT-27);
+nothing a failed stage did not validate is ever published (RWT-23).
+
+Two production refactors this task needed, both behavior-preserving (T7/T9's own
+gates re-run unchanged below prove it): `bundle.publish` split into `bundle.stage`
+(compute identity, reuse-or-conflict, write+validate the staged files) and
+`bundle.finalize` (the atomic rename) so the coordinator can checkpoint "validate" and
+"publish" as separate, independently resumable stages; `trainer.train_epoch` split
+into `trainer.prepare_epoch` (fit only, no registry write) and the publish call, so
+the coordinator's "fit" stage can checkpoint the trained model (`f7_model_io.
+dump_model` + a serialized `BundleDescription`) without touching the registry, and a
+later "validate" retry reloads it instead of refitting.
+
+**Found and fixed while implementing (not a test-authoring bug — a real gap in the
+consume-stage's watermark check):** the naive check ("the ledger's current watermark
+must equal `source_watermark`, else fail") breaks the "different policies at the same
+boundary are independent cycles" requirement: two policies built against the same
+original (e.g. empty-ledger) snapshot and the same batches, run one after the other,
+share one ledger — by the time the second policy's cycle runs, the first has already
+advanced the ledger's watermark by consuming those exact batches, so a literal
+equality check rejects the second as a false "conflict" even though nothing
+unexpected happened (ingestion's own `consume` is idempotent for identical content).
+Fixed with `cycle._watermark_after`: the check now accepts either the raw
+`source_watermark` (the fresh case) or the watermark that consuming exactly
+`request.batches` on top of it would produce (the already-consumed-by-a-sibling-
+policy case); a genuinely stale watermark (the "stale-U" scenario) still matches
+neither and is still rejected. Verified this doesn't weaken the stale-watermark
+scenario by re-deriving both cases' arithmetic by hand before changing the code.
+
+Also found: the `_RecordingClassifier`/timeout-advancing test doubles used
+composition (`self._inner = LGBMClassifier(...)`) the way earlier scenarios in this
+lane never needed to survive a real `f7_model_io.dump_model` call — T6/T7's own
+"LightGBM fits are observed" scenarios never reached a successful publish, so the
+missing `.booster_` attribute never surfaced. T10's "publish-stage crash, retried"
+scenario does reach a real publish while fits are observed, which surfaced it.
+Fixed by making the test doubles real `LGBMClassifier` subclasses (T6's proven
+pattern) instead of wrappers.
+
+Steps in `tests/steps/test_retraining_cycle.py`; the trainer fixture batches are
+duplicated verbatim from T9's `retraining_trainer.feature` Background (same repo
+convention every prior task in this lane already follows: each step module is
+self-contained).
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_cycle.py -q
+  -p no:cacheprovider`: 19 passed (task asked for >=10; the feature's 16 scenarios
+  plus outline Examples rows total 19).
+- `uv run pytest algo-backtest/tests/steps/test_retraining_ingestion.py
+  test_retraining_schedule.py test_retraining_weights.py test_retraining_bundle.py
+  test_retraining_thresholds.py test_retraining_trainer.py test_f7_meta_learner.py
+  test_f7_combiner_weights.py test_f7_family_weights.py test_f7_model_io.py -q
+  -p no:cacheprovider`: 276 passed, 0 failed (regression; confirms the `bundle.py`/
+  `trainer.py` refactors are behavior-preserving).
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on every
+  file this task touched: clean (the repo-wide check reports pre-existing
+  unformatted files elsewhere, outside this lane, unchanged by this task).
+  `uv run mypy --strict algo-backtest`: clean, 72 source files.
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider`: `1827/1880 tests
+  collected (53 deselected)`, exactly the running total (1808) + T10's 19, none
+  removed. `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1827 passed,
+  53 deselected, 0 failed (85.4 s).
+
+Adequacy: RWT-25 by the once-per-boundary scenarios (identical request is a no-op —
+0 LightGBM fits, unchanged registry bytes; a fresh `Coordinator` instance on the same
+directories agrees; a different request for an already-`ok` boundary is a named
+conflict); RWT-23 by the watermark-conflict scenario (rejected at stage "consume",
+naming the stale value, ledger left empty) and the "checked only after the
+once-per-boundary lookup" scenario (a completed cycle stays repeatable); RWT-26 by
+the four-case boundary-validity outline (equal-to-cutoff, before-cutoff, not-a-
+month-start, outside-the-registered-schedule) and the second-boundary scenario
+(activation strictly future, prior bundle unaffected); RWT-27 by the three
+failure-attribution scenarios (fit / timeout / validate, each naming its own stage
+and reason) and the two retry-resumption scenarios (publish-crash retried from the
+fit+validate checkpoints with zero re-fits; fit-crash retried from the mature
+checkpoint with the ledger's bytes byte-for-byte unchanged, proving consume was not
+re-run). No shared file outside `retraining/` was touched.
+
+## Phase 2 closure (T6–T10, Build gate)
+
+Commands from `/tmp/mba-impl-19/algo-suite`, run after T10's own commit:
+
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider`: `1827/1880 tests
+  collected (53 deselected)`; Phase 1 baseline was `1727/1780`, so Phase 2 added
+  exactly 100 scenarios: 19 (T6) + 21 (T7) + 20 (T8) + 19 (T9) + 19 (T10) plus 2 new
+  `retraining_ingestion.feature` scenarios for T9's `Ledger.row`/`.rows`/
+  `.visible_partitions` additions, none removed.
+- `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1827 passed, 53
+  deselected, 0 failed, exit 0 (85.4 s).
+- `uv run ruff check algo-backtest`, `uv run mypy --strict algo-backtest`: clean,
+  exit 0 (72 source files). `uv run ruff format --check` on every Phase 2 file
+  (T6–T10's production modules and step files): clean.
+
+Phase 2 delivers a complete, host-side, in-process consume -> mature -> fit ->
+validate -> publish cycle for one epoch: independent combiner-stage weights (T6),
+immutable content-addressed bundles (T7), separate-span threshold calibration (T8),
+one-epoch orchestration (T9) and the checkpointed, once-per-boundary coordinator
+(T10). What remains for Phase 3 (T11 on): the on-demand provider, native LEAN
+integration, decision-record epoch identity, run staging, CLI orchestration, the
+actual five-policy study, and the monograph writeup — none of which this phase
+touches (`engine/`, `wiring.py`, `strategies.py`, `decision_recorder.py`, `run.py`,
+`cli.py`, `training.py`, `market_signals.py`, `tools/` and every Makefile are
+untouched by T6–T10, per the Lane A brief).
+
+Integration handoff notes for Phase 3:
+
+- T11 (on-demand provider) can call `bundle.load(registry, bundle_id,
+  strategy_families=...)` directly; `cycle.Coordinator.eligible_bundle(policy,
+  activation_boundary)` already resolves "the bundle eligible at this boundary" from
+  the on-disk cycle records, so T11's cache/eviction layer can sit directly on top of
+  it without re-deriving eligibility itself.
+- T12 (native LEAN integration) is the only task that needs a *host-process*
+  transport around `Coordinator.handle`; this task's docstring says so explicitly.
+  `CycleRequest` is a plain dataclass (policy/protocol_hash/cutoff/
+  activation_boundary/source_watermark/prior_bundle_id/batches/settings/features) —
+  T12 needs to decide how the LEAN-side caller supplies `batches` (parquet partition
+  reads, presumably via `ingestion.read_partition`) and `features` (the per-key
+  feature-lookup source T9/T10 both treat as a caller-supplied dependency, never
+  reading it from a file itself).
+- T13 (decision-record epoch identity) needs a bundle's `activation_boundary` and
+  `bundle_id`, both already on every published manifest and every cycle record;
+  no new field is needed from this phase.
+- Every stage's checkpoint files are plain JSON under `cycles/<cycle_id>/
+  checkpoints/<stage>/`, documented in `cycle.py`'s module docstring; treat that
+  layout as part of this module's contract, not an implementation detail, since T10's
+  own tests read it directly (matching how T7's tests read bundle manifests).

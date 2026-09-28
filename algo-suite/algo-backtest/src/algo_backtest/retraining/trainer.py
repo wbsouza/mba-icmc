@@ -29,6 +29,7 @@ from typing import Any
 
 from algo_backtest.chain.filters.f7_meta_learner import (
     FeatureFamily,
+    TrainedMetaLearner,
     TrainingRow,
     WalkForwardSplit,
     train_meta_learner,
@@ -195,22 +196,38 @@ def _data_sha256(ledger: Ledger, cutoff: datetime) -> str:
     ).hexdigest()
 
 
-def train_epoch(
+@dataclass(frozen=True)
+class PreparedEpoch:
+    """One epoch's fit and its full provenance, ready to stage/validate/publish (T10 splits
+    that into its own "fit" versus "validate"/"publish" stages; `train_epoch` below does
+    all three in one call)."""
+
+    model: TrainedMetaLearner
+    description: BundleDescription
+    family: StageProvenance
+    combiner: StageProvenance
+    threshold_row_keys: tuple[str, ...]
+    theta_low: float
+    theta_high: float
+    ledger_watermark: datetime
+    deployment: Span
+    activation_boundary: datetime
+
+
+def prepare_epoch(
     policy: str,
     epoch: Epoch,
     ledger: Ledger,
     features: Mapping[str, Mapping[str, object]],
-    registry: Path,
     settings: TrainingSettings,
-    *,
-    clock: Callable[[], datetime] = _default_clock,
-) -> EpochResult:
-    """Build and publish one policy epoch from `ledger`'s watermark-visible mature rows.
+) -> PreparedEpoch:
+    """Fit one policy epoch from `ledger`'s watermark-visible mature rows, without
+    publishing it.
 
     Raises:
-        ValueError: the ledger has no data yet; a stage's support falls below its
-            registered minimum (RWT-06, before any fit); the combiner span has fewer
-            than two classes with positive weight; or publication fails (RWT-11, RWT-15).
+        ValueError: no row is visible at the epoch's cutoff; a stage's support falls
+            below its registered minimum (RWT-06, before any fit); or the combiner span
+            has fewer than two classes with positive weight.
     """
     spans = stage_spans(epoch, policy)
     cutoff = spans.threshold.end
@@ -308,20 +325,51 @@ def train_epoch(
         protocol_sha256=settings.protocol_sha256,
         training_duration_seconds=training_duration_seconds,
     )
-    published: PublishResult = bundle_module.publish(trained, description, registry, clock=clock)
+    return PreparedEpoch(
+        model=trained,
+        description=description,
+        family=family,
+        combiner=combiner,
+        threshold_row_keys=calibrated.row_keys,
+        theta_low=calibrated.theta_low,
+        theta_high=calibrated.theta_high,
+        ledger_watermark=watermark,
+        deployment=spans.deployment,
+        activation_boundary=epoch.start,
+    )
 
+
+def train_epoch(
+    policy: str,
+    epoch: Epoch,
+    ledger: Ledger,
+    features: Mapping[str, Mapping[str, object]],
+    registry: Path,
+    settings: TrainingSettings,
+    *,
+    clock: Callable[[], datetime] = _default_clock,
+) -> EpochResult:
+    """Fit, validate and publish one policy epoch in one call (RWT-11, RWT-15).
+
+    Raises:
+        ValueError: see `prepare_epoch`; or publication fails.
+    """
+    prepared = prepare_epoch(policy, epoch, ledger, features, settings)
+    published: PublishResult = bundle_module.publish(
+        prepared.model, prepared.description, registry, clock=clock
+    )
     return EpochResult(
         policy=policy,
         seed=settings.seed,
         bundle_id=published.bundle_id,
         reused=published.reused,
         manifest=published.manifest,
-        theta_low=calibrated.theta_low,
-        theta_high=calibrated.theta_high,
-        family=family,
-        combiner=combiner,
-        threshold_row_keys=calibrated.row_keys,
-        ledger_watermark=watermark,
-        deployment=spans.deployment,
-        activation_boundary=epoch.start,
+        theta_low=prepared.theta_low,
+        theta_high=prepared.theta_high,
+        family=prepared.family,
+        combiner=prepared.combiner,
+        threshold_row_keys=prepared.threshold_row_keys,
+        ledger_watermark=prepared.ledger_watermark,
+        deployment=prepared.deployment,
+        activation_boundary=prepared.activation_boundary,
     )

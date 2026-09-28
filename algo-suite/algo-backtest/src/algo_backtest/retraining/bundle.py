@@ -258,44 +258,40 @@ def _validate_staged(staging_dir: Path, model: TrainedMetaLearner, bundle_id: st
         ) from exc
 
 
-def _reuse_or_conflict(final_dir: Path, bundle_id: str, model_bytes: bytes) -> PublishResult:
-    """The existing bundle at `bundle_id`, if its model bytes match; a conflict otherwise."""
-    manifest: dict[str, Any] = json.loads((final_dir / _MANIFEST_FILE).read_text())
-    on_disk_model_bytes = (final_dir / _MODEL_FILE).read_bytes()
-    if on_disk_model_bytes != model_bytes:
-        raise ValueError(
-            f"{_MODULE}: bundle {bundle_id} is a conflict: the registry already holds "
-            "different model bytes under this identity; a colliding bundle_id is left "
-            "untouched, never repaired"
-        )
-    return PublishResult(
-        bundle_id=bundle_id,
-        reused=True,
-        manifest=manifest,
-        model_path=final_dir / _MODEL_FILE,
-        manifest_path=final_dir / _MANIFEST_FILE,
-    )
-
-
 def _default_clock() -> datetime:
     """The real wall-clock UTC instant."""
     return datetime.now(UTC)
 
 
-def publish(
+@dataclass(frozen=True)
+class StagedBundle:
+    """A validated, not-yet-finalized bundle (T10's "fit"+"validate" checkpoint): either
+    freshly staged content under `staging_dir`, or an already-published identity
+    confirmed byte-identical and ready to be finalized as a reuse (`existing_dir`)."""
+
+    bundle_id: str
+    manifest: Mapping[str, Any]
+    reused: bool
+    staging_dir: Path | None
+    existing_dir: Path | None
+
+
+def stage(
     model: TrainedMetaLearner,
     description: BundleDescription,
     registry: Path,
     *,
     clock: Callable[[], datetime] = _default_clock,
     host: str | None = None,
-) -> PublishResult:
-    """Publish `model` plus `description` as one immutable, content-addressed bundle.
+) -> StagedBundle:
+    """Compute this bundle's identity and either confirm an already-published identical
+    bundle (reuse) or stage and validate new content under `.staging-<bundle_id>-<nonce>`,
+    without renaming it into the registry yet (`finalize` does that).
 
     Raises:
         ValueError: `description.theta_low` is not strictly below `theta_high`; the
             registry already holds this identity with different model bytes (conflict);
-            the staged content fails validation; or the atomic rename fails.
+            or the staged content fails validation.
     """
     if description.theta_low >= description.theta_high:
         raise ValueError(
@@ -309,7 +305,21 @@ def publish(
     bundle_id = hashlib.sha256(_canonical_json(identity)).hexdigest()
     final_dir = registry / bundle_id
     if final_dir.exists():
-        return _reuse_or_conflict(final_dir, bundle_id, model_bytes)
+        manifest: dict[str, Any] = json.loads((final_dir / _MANIFEST_FILE).read_text())
+        on_disk_model_bytes = (final_dir / _MODEL_FILE).read_bytes()
+        if on_disk_model_bytes != model_bytes:
+            raise ValueError(
+                f"{_MODULE}: bundle {bundle_id} is a conflict: the registry already holds "
+                "different model bytes under this identity; a colliding bundle_id is left "
+                "untouched, never repaired"
+            )
+        return StagedBundle(
+            bundle_id=bundle_id,
+            manifest=manifest,
+            reused=True,
+            staging_dir=None,
+            existing_dir=final_dir,
+        )
 
     staging_dir = registry / f".staging-{bundle_id}-{uuid.uuid4().hex}"
     staging_dir.mkdir()
@@ -320,22 +330,60 @@ def publish(
     manifest["training_duration_seconds"] = description.training_duration_seconds
     manifest["host"] = host if host is not None else socket.gethostname()
     _write_manifest_file(staging_dir / _MANIFEST_FILE, _pretty_json(manifest))
-
     _validate_staged(staging_dir, model, bundle_id)
+    return StagedBundle(
+        bundle_id=bundle_id,
+        manifest=manifest,
+        reused=False,
+        staging_dir=staging_dir,
+        existing_dir=None,
+    )
+
+
+def finalize(staged: StagedBundle, registry: Path) -> PublishResult:
+    """Rename a freshly `stage`d bundle into `registry`, or return its reuse untouched.
+
+    Raises:
+        ValueError: the atomic rename fails.
+    """
+    if staged.reused:
+        assert staged.existing_dir is not None  # reused always carries the existing dir
+        return PublishResult(
+            bundle_id=staged.bundle_id,
+            reused=True,
+            manifest=staged.manifest,
+            model_path=staged.existing_dir / _MODEL_FILE,
+            manifest_path=staged.existing_dir / _MANIFEST_FILE,
+        )
+    assert staged.staging_dir is not None  # fresh staging always carries a staging dir
+    final_dir = registry / staged.bundle_id
     try:
-        _rename(staging_dir, final_dir)
+        _rename(staged.staging_dir, final_dir)
     except OSError as exc:
         raise ValueError(
-            f"{_MODULE}: atomic rename of staged bundle {bundle_id} into the registry "
-            f"failed ({exc}); nothing is published, retry when the failure clears"
+            f"{_MODULE}: atomic rename of staged bundle {staged.bundle_id} into the "
+            f"registry failed ({exc}); nothing is published, retry when the failure clears"
         ) from exc
     return PublishResult(
-        bundle_id=bundle_id,
+        bundle_id=staged.bundle_id,
         reused=False,
-        manifest=manifest,
+        manifest=staged.manifest,
         model_path=final_dir / _MODEL_FILE,
         manifest_path=final_dir / _MANIFEST_FILE,
     )
+
+
+def publish(
+    model: TrainedMetaLearner,
+    description: BundleDescription,
+    registry: Path,
+    *,
+    clock: Callable[[], datetime] = _default_clock,
+    host: str | None = None,
+) -> PublishResult:
+    """Stage, validate and publish `model` plus `description` as one immutable,
+    content-addressed bundle in a single call (RWT-11, RWT-15)."""
+    return finalize(stage(model, description, registry, clock=clock, host=host), registry)
 
 
 def _get_dotted(payload: Mapping[str, Any], dotted: str) -> Any:
