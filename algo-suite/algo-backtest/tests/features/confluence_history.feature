@@ -99,6 +99,10 @@ Feature: Intensity history — frozen, causal monthly quantile snapshots (story 
       And the snapshot q_high is 1.355
       And the snapshot max_closed_at is "2016-03-31T00:00:00+00:00"
 
+    Scenario: the quantile of an empty sample is refused rather than guessed
+      When the linear quantile at 0.1 of an empty sample is computed and fails
+      Then the history failure names "linear_quantile: the sample is empty"
+
   Rule: Only observations available strictly before the cutoff enter the sample (D2)
 
     Scenario: an observation available exactly at the cutoff is excluded and the quantiles move
@@ -239,6 +243,35 @@ Feature: Intensity history — frozen, causal monthly quantile snapshots (story 
       When the intensity snapshot for decision time "2016-04-01T00:00:00Z" is computed on both
       Then the two snapshots have different source_hash values
 
+    Scenario: a WARMUP snapshot's null quantiles and null provenance times round-trip too
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-03-20T00:00:00Z
+      And no observations
+      When the intensity snapshot for decision time "2016-04-05T10:00:00Z" is computed
+      Then the snapshot status is "WARMUP"
+      And the snapshot sample_count is 0
+      And the snapshot max_closed_at is null
+      And the snapshot max_available_at is null
+      And the snapshot mapping survives a JSON round trip
+      And the snapshot mapping loads back as an equal snapshot
+
+    Scenario Outline: a snapshot mapping whose <field> is <case> does not load back
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z
+      And daily observations closing at 00:00 UTC from 2016-03-02 available at close, with intensities in time order:
+        """
+        1.50 0.25 1.10 0.05 0.90 1.45 0.60 0.15 1.30 0.40
+        0.75 1.00 0.20 1.25 0.35 0.10 1.40 0.55 0.95 0.30
+        1.20 0.70 0.45 1.35 0.85 0.65 1.15 0.50 1.05 0.80
+        """
+      When the intensity snapshot for decision time "2016-04-01T00:00:00Z" is computed
+      And the snapshot mapping with "<field>" replaced by <value> is loaded back and fails
+      Then the history failure names "<fragment>"
+
+      Examples:
+        | case                  | field         | value                 | fragment                                                                   |
+        | a number              | cutoff        | 20160401              | IntensitySnapshot.from_mapping: cutoff must be an ISO string or null       |
+        | a number              | max_closed_at | 1459382400            | IntensitySnapshot.from_mapping: max_closed_at must be an ISO string or null |
+        | a naive ISO string    | window_start  | "2016-03-02T00:00:00" | IntensitySnapshot.window_start must be timezone-aware UTC                  |
+
   Rule: A valid but incomplete initial collection is WARMUP, not a failure (CC-14, D8)
 
     Scenario: a collection that started inside the window reports WARMUP with null quantiles
@@ -308,6 +341,36 @@ Feature: Intensity history — frozen, causal monthly quantile snapshots (story 
       And no observations
       When the intensity snapshot for decision time "2016-04-01T00:00:00Z" is computed and fails
       Then the history failure names "no observations in window [2016-03-02T00:00:00+00:00, 2016-04-01T00:00:00+00:00)"
+
+    Scenario: a fully covered window whose values all became available at the cutoff has no sample and fails
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z
+      And daily observations closing at 00:00 UTC from 2016-03-02 available at close, with intensities in time order:
+        """
+        1.50 0.25 1.10 0.05 0.90 1.45 0.60 0.15 1.30 0.40
+        0.75 1.00 0.20 1.25 0.35 0.10 1.40 0.55 0.95 0.30
+        1.20 0.70 0.45 1.35 0.85 0.65 1.15 0.50 1.05 0.80
+        """
+      And every observation became available at "2016-04-01T00:00:00Z"
+      When the intensity snapshot for decision time "2016-04-01T00:00:00Z" is computed and fails
+      Then the history failure names "no observation in window [2016-03-02T00:00:00+00:00, 2016-04-01T00:00:00+00:00) was available before the cutoff 2016-04-01T00:00:00+00:00"
+      And the history failure names "available_at provenance"
+
+    Scenario Outline: an intensity history on a <clock> clock is refused (<case>)
+      When an intensity history on a <clock>-minute clock is built and fails
+      Then the history failure names "IntensityHistory: clock_minutes must be a positive integer, got <shown>"
+
+      Examples:
+        | case          | clock | shown |
+        | zero          | 0     | 0     |
+        | negative      | -60   | -60   |
+        | a whole float | 60.0  | 60.0  |
+        | a boolean     | true  | True  |
+        | a string      | "60"  | '60'  |
+
+    Scenario: a documented market closure whose end is not after its start is refused
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z
+      When a market closure from "2016-03-18T00:00:00Z" to "2016-03-17T00:00:00Z" is declared and fails
+      Then the history failure names "closure end 2016-03-17T00:00:00+00:00 must be after its start 2016-03-18T00:00:00+00:00"
 
     Scenario Outline: recording <case> is rejected naming the offending bar
       Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z

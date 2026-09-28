@@ -179,6 +179,23 @@ Feature: F1 momentum context — the allowed side from the sign of a lagged clos
       When parsing the momentum-context config for strategy "confluence-a" fails
       Then the momentum-context config failure names "momentum_context has unknown keys ['window_days']"
 
+    Scenario Outline: a MomentumHistory sized with lookback_bars <lookback> is refused (<case>)
+      When a momentum history with lookback_bars <lookback> is built and fails
+      Then the momentum failure names "MomentumHistory: lookback_bars must be a positive integer, got <shown>"
+
+      Examples:
+        | case          | lookback | shown |
+        | zero          | 0        | 0     |
+        | negative      | -1       | -1    |
+        | a whole float | 480.0    | 480.0 |
+        | a boolean     | true     | True  |
+
+    Scenario: a filter whose history was sized for another lookback fails at construction
+      Given a momentum context with lookback_bars 3
+      When the momentum context filter is built on a history with lookback_bars 2 and fails
+      Then the momentum failure names "history.lookback_bars 2 != momentum_context.lookback_bars 3"
+      And the momentum failure names "build the history from the same config"
+
   Rule: The original F1 trend filter is untouched when the momentum variant is not selected (CC-20)
 
     Scenario Outline: the original three-feature F1 keeps its <case>

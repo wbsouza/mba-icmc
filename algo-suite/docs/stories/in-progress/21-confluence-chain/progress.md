@@ -222,6 +222,47 @@
   reason prefix; Step 13 scopes the lint/type expectation to `algo-backtest` and names
   the pre-existing workspace failures.
 
+### 2026-09-28 — Cleaner phase 1 (T1..T5 modules: coverage, complexity, CRAP review)
+
+Agent role: cleaner. Branch `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`,
+reviewed HEAD `7c9f96a` (phase commits `c760b76..7c9f96a`, base `ef0111d`). Tools:
+`ruff check --select C901,PLR0912,PLR0915`, `mypy --strict`, `pytest --cov=algo_backtest.chain
+--cov-branch` over the five `test_confluence_*.py` step files plus the legacy regressions
+(`test_f1_trend.py`, `test_f4_news_context.py`, `test_f6_capital_mgmt.py`,
+`test_filter_chain_mechanics.py`), radon 6.0.1 (`python -m radon cc -s`) for per-function
+cyclomatic complexity; CRAP = cc² × (1 − coverage)³ + cc per function (coverage of the
+function's own lines).
+
+| File | cc max (radon) | Lines / branches (after) | CRAP max | Actions |
+| --- | --- | --- | --- | --- |
+| `chain/terminal.py` | 6 (`_required_vote`) — was 9 (`decide`) | 98 % / 96 % (only line 84, the legacy F7 terminal, uncovered — outside the phase diff); new code 100 % | 6 | `AgreementTerminalDecision.decide` split into `_agreed_direction` (the one BUY/SELL every required voter cast) and `_optional_blocks` (any non-required result that blocks it); behaviour identical |
+| `chain/filters/f1_trend.py` | 7 (`MomentumHistory.push`) | 100 % / 100 % | 7 | Two uncovered raises (invalid `lookback_bars` at `MomentumHistory`, history/config lookback mismatch at `F1MomentumContextFilter`) covered by new scenarios |
+| `chain/intensity_history.py` | 7 (`_compute`) | 100 % / 100 % (was 93 %: 7 lines, 7 branches) | 7 | `clock_minutes` check collapsed from two raises with the same message into one; six new scenarios cover the empty-sample quantile, the WARMUP mapping round trip (null times), non-ISO / naive mapping fields, a fully covered window with nothing available before the cutoff, invalid clocks, and a closure whose end is not after its start |
+| `chain/filters/f4_news_context.py` | 8 (`load_news_context_index`, legacy) | 85 % / 100 % (uncovered 259–333 are the legacy Parquet index loader, outside every phase hunk); new code 100 % | 8 (legacy) | Two uncovered new raises (construction without an availability source; a decision minute without an availability record) covered by new scenarios; no source change |
+| `chain/filters/f6_capital_mgmt.py` | 7 (`_level_entries`, legacy) | 100 % / 100 % | 7 | No change |
+
+Review notes: every new function has a docstring; no dead code; no silent defaults
+(every rejection names the value and the fix). Duplication judged and left in place, with
+the reason: the positive-integer predicate (`_positive_int` in F1, inline in F6's
+`_exit_after_bars` and in `IntensityHistory.__post_init__`) and the UTC check
+(`_require_utc` in `intensity_history.py`, inline in `MomentumHistory.push`) would only
+consolidate through a shared module (`chain/params.py` or `chain/model.py`); Phase 1
+deliberately changed no shared file (see the close-out above), and the repo already keeps
+one private UTC helper per module (`algo_core.bars`, `algo_transform.decoders.bi5`,
+`algo_score.scorers.models`, `chain/model.py`), so a cross-module helper is the integration
+lane's call, not a phase-1 cleanup. `linear_quantile` deliberately re-implements numpy's
+`linear` method without numpy (the module docstring and `confluence_history.feature`
+state the semantics); nothing else in `algo_backtest.chain` computes quantiles, so there
+is no numpy helper to reuse. Names match `design.md` (`AgreementTerminalDecision`,
+`voter_name_map`, `exit_after_bars`, snapshot fields).
+
+Gate results (cwd `algo-suite`, all exit 0): the nine step files above → 397 passed
+(378 before, 19 new scenario rows); `uv run ruff check algo-backtest` → clean;
+`uv run ruff format --check` clean on the five files edited (f4/f6 untouched);
+`uv run mypy --strict algo-backtest` → 64 files, no issues; `make
+check-perception-architecture check-inference-architecture` → PASS / PASS. No test
+assertion was changed; every addition is a new scenario or Examples row.
+
 ## Integration handoff (for T11..T15, integration lane)
 
 - `chain/wiring.py` (T12): build `AgreementTerminalDecision(required_filters=<canonical

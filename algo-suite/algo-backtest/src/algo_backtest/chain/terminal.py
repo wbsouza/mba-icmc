@@ -176,15 +176,29 @@ class AgreementTerminalDecision:
             ValueError: a required voter has no result or more than one result in
                 `state.filter_results` — a chain misconfiguration, never a HOLD.
         """
-        votes = [self._required_vote(name, state.filter_results) for name in self.required_filters]
-        if len(set(votes)) != 1 or votes[0] not in _DIRECTIONAL:
-            return Decision.HOLD
-        direction = votes[0]
-        required_runtime = {self.voter_name_map[name] for name in self.required_filters}
-        others = [r for r in state.filter_results if r.filter_name not in required_runtime]
-        if any(_blocks(result, direction) for result in others):
+        direction = self._agreed_direction(state.filter_results)
+        if direction is None or self._optional_blocks(state.filter_results, direction):
             return Decision.HOLD
         return _RECOMMENDATION_TO_DECISION[direction]
+
+    def _agreed_direction(self, results: list[FilterResult]) -> Recommendation | None:
+        """The one BUY or SELL every required voter cast; `None` when they disagree or any
+        of them did not vote a direction (see `_required_vote` for the raises)."""
+        votes = {self._required_vote(name, results) for name in self.required_filters}
+        if len(votes) != 1:
+            return None
+        (vote,) = votes
+        return vote if vote in _DIRECTIONAL else None
+
+    def _optional_blocks(self, results: list[FilterResult], direction: Recommendation) -> bool:
+        """Whether any non-required result blocks `direction` (an explicit HOLD or an
+        opposing directional vote, `_blocks`)."""
+        required_runtime = {self.voter_name_map[name] for name in self.required_filters}
+        return any(
+            _blocks(result, direction)
+            for result in results
+            if result.filter_name not in required_runtime
+        )
 
     def _required_vote(self, name: str, results: list[FilterResult]) -> Recommendation:
         """The single result of the required voter `name`, by its runtime name."""

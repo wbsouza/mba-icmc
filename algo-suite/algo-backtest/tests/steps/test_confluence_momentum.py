@@ -161,6 +161,29 @@ def _push_naive_fails(momentum_ctx: _MomentumCtx, close_time: str, close: float)
     momentum_ctx.error = exc_info.value
 
 
+@when(parsers.parse("a momentum history with lookback_bars {lookback:S} is built and fails"))
+def _build_history_fails(momentum_ctx: _MomentumCtx, lookback: str) -> None:
+    """The cell is flow-style YAML, so `480.0` and `true` keep their types."""
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        MomentumHistory(lookback_bars=yaml.safe_load(lookback))
+    momentum_ctx.error = exc_info.value
+
+
+@when(
+    parsers.parse(
+        "the momentum context filter is built on a history with lookback_bars {lookback:d} "
+        "and fails"
+    )
+)
+def _build_filter_fails(momentum_ctx: _MomentumCtx, lookback: int) -> None:
+    assert momentum_ctx.config is not None
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        F1MomentumContextFilter(
+            config=momentum_ctx.config, history=MomentumHistory(lookback_bars=lookback)
+        )
+    momentum_ctx.error = exc_info.value
+
+
 @then(parsers.parse('the momentum vote is "{vote}" with no veto'))
 def _vote(momentum_ctx: _MomentumCtx, vote: str) -> None:
     result = _result(momentum_ctx)

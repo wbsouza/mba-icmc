@@ -250,14 +250,9 @@ class IntensityHistory:
 
     def __post_init__(self) -> None:
         """Validate the clock and the declared collection start."""
-        if isinstance(self.clock_minutes, bool) or not isinstance(self.clock_minutes, int):
-            raise ValueError(
-                f"{_HISTORY}: clock_minutes must be a positive integer, got {self.clock_minutes!r}"
-            )
-        if self.clock_minutes <= 0:
-            raise ValueError(
-                f"{_HISTORY}: clock_minutes must be a positive integer, got {self.clock_minutes!r}"
-            )
+        clock = self.clock_minutes
+        if isinstance(clock, bool) or not isinstance(clock, int) or clock <= 0:
+            raise ValueError(f"{_HISTORY}: clock_minutes must be a positive integer, got {clock!r}")
         _require_utc(self.collection_started_at, what=f"{_HISTORY}.collection_started_at")
 
     @property

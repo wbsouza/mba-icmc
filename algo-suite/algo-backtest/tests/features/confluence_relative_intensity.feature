@@ -173,10 +173,26 @@ Feature: F4 relative intensity — direction from the frozen monthly quantiles (
       When relative F4 applies to timestamp "2016-04-05T10:00:00Z" for pair "EURUSD" and fails
       Then the relative F4 failure names "available at 2016-04-05T10:01:00+00:00, after the decision time 2016-04-05T10:00:00+00:00"
 
+    Scenario: a decision minute without an availability record fails fast naming the minute
+      Given a news_context section with direction_source intensity_relative, veto -0.5 and intensity_sign -1
+      And a READY intensity snapshot for cutoff "2016-04-01T00:00:00Z" with q10 0.2, q90 0.8, sample_count 30 and source_hash "ab12"
+      And the event intensity at "2016-04-05T10:00:00Z" is 0.95, available at "2016-04-05T10:00:00Z"
+      And the event intensity at "2016-04-05T11:00:00Z" is 0.95
+      When relative F4 applies to timestamp "2016-04-05T11:00:00Z" for pair "EURUSD" and fails
+      Then the relative F4 failure names "no availability record for the event_intensity at 2016-04-05T11:00:00+00:00"
+      And the relative F4 failure names "point-in-time provenance for every decision minute"
+
     Scenario: relative mode built without a snapshot source fails fast at construction
       Given a news_context section with direction_source intensity_relative, veto -0.5 and intensity_sign -1
       When relative F4 is built without a snapshot source and fails
       Then the relative F4 failure names "direction_source intensity_relative needs an intensity snapshot source"
+
+    Scenario: relative mode built without an availability source fails fast at construction
+      Given a news_context section with direction_source intensity_relative, veto -0.5 and intensity_sign -1
+      And a READY intensity snapshot for cutoff "2016-04-01T00:00:00Z" with q10 0.2, q90 0.8, sample_count 30 and source_hash "ab12"
+      When relative F4 is built without an availability source and fails
+      Then the relative F4 failure names "direction_source intensity_relative needs the current intensity's availability"
+      And the relative F4 failure names "availability is never inferred"
 
   Rule: The news_context section accepts intensity_relative and refuses the static thresholds under it
 

@@ -21,6 +21,7 @@ from algo_backtest.chain.intensity_history import (
     IntensityObservation,
     IntensitySnapshot,
     calibration_window,
+    linear_quantile,
 )
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -227,6 +228,13 @@ def _revise_availability(history_ctx: _HistoryCtx, closed_at: str, available: st
     _first(history_ctx).replace(_utc(closed_at), available_at=_utc(available))
 
 
+@given(parsers.parse('every observation became available at "{available}"'))
+def _revise_all_availability(history_ctx: _HistoryCtx, available: str) -> None:
+    archive = _first(history_ctx)
+    for observation in list(archive.observations):
+        archive.replace(observation.bar_closed_at, available_at=_utc(available))
+
+
 @given(
     parsers.parse(
         'in the second the observation closing at "{closed_at}" has intensity {value:g} instead'
@@ -246,6 +254,34 @@ def _extra_second(history_ctx: _HistoryCtx, closed_at: str, value: float, availa
     history_ctx.archives[1].observations.append(
         _observation(_utc(closed_at), value, _utc(available))
     )
+
+
+# --- Construction and closure failures ---
+
+
+@when(parsers.parse("an intensity history on a {clock:S}-minute clock is built and fails"))
+def _build_fails(history_ctx: _HistoryCtx, clock: str) -> None:
+    """The cell is flow-style YAML, so `60.0`, `true` and `"60"` keep their types."""
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        IntensityHistory(
+            clock_minutes=yaml.safe_load(clock), collection_started_at=_utc("2016-01-01T00:00:00Z")
+        )
+    history_ctx.error = exc_info.value
+
+
+@when(parsers.parse('a market closure from "{start}" to "{end}" is declared and fails'))
+def _declare_closure_fails(history_ctx: _HistoryCtx, start: str, end: str) -> None:
+    history = _first(history_ctx).materialized()
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        history.declare_closure(_utc(start), _utc(end))
+    history_ctx.error = exc_info.value
+
+
+@when(parsers.parse("the linear quantile at {q:g} of an empty sample is computed and fails"))
+def _empty_quantile_fails(history_ctx: _HistoryCtx, q: float) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        linear_quantile([], q)
+    history_ctx.error = exc_info.value
 
 
 # --- Computing snapshots ---
@@ -434,6 +470,19 @@ def _mapping_json(history_ctx: _HistoryCtx) -> None:
 def _mapping_loads_back(history_ctx: _HistoryCtx) -> None:
     snapshot = _latest(history_ctx)
     assert IntensitySnapshot.from_mapping(json.loads(json.dumps(snapshot.as_mapping()))) == snapshot
+
+
+@when(
+    parsers.parse(
+        'the snapshot mapping with "{name}" replaced by {value:S} is loaded back and fails'
+    )
+)
+def _mapping_field_fails(history_ctx: _HistoryCtx, name: str, value: str) -> None:
+    """`value` is flow-style YAML: a number stays a number, a quoted string a string."""
+    mapping = {**_latest(history_ctx).as_mapping(), name: yaml.safe_load(value)}
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        IntensitySnapshot.from_mapping(mapping)
+    history_ctx.error = exc_info.value
 
 
 @then(parsers.parse('the snapshot mapping records cutoff "{cutoff}" as an ISO-8601 string'))

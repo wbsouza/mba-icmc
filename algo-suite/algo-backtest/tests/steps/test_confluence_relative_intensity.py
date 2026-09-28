@@ -324,6 +324,14 @@ def _build_without_snapshots_fails(relative_ctx: _RelativeCtx) -> None:
     relative_ctx.error = exc_info.value
 
 
+@when("relative F4 is built without an availability source and fails")
+def _build_without_availability_fails(relative_ctx: _RelativeCtx) -> None:
+    relative_ctx.availability = {}
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        _build(relative_ctx)
+    relative_ctx.error = exc_info.value
+
+
 # --- Result assertions ---
 
 
