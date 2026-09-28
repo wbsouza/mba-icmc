@@ -87,18 +87,24 @@ def _parse(text: str) -> datetime:
     return datetime.fromisoformat(text)
 
 
-def _validate_row(row: SourceRow) -> None:
-    """One row's timestamp contract: UTC, known maturity, label after availability."""
-    require_utc(row.available_at, what=f"row {row.key!r} available_at")
+def require_label_time(row: SourceRow) -> datetime:
+    """The row's label_time, or a failure: unknown maturity is not maturity (RWT-24)."""
     if row.label_time is None:
         raise ValueError(
             f"{_MODULE}: row {row.key!r} has label_time None; unknown maturity is not "
             "maturity in the adaptive path (RWT-24), supply the horizon bar's close"
         )
-    require_utc(row.label_time, what=f"row {row.key!r} label_time")
-    if row.label_time <= row.available_at:
+    return row.label_time
+
+
+def _validate_row(row: SourceRow) -> None:
+    """One row's timestamp contract: UTC, known maturity, label after availability."""
+    require_utc(row.available_at, what=f"row {row.key!r} available_at")
+    label_time = require_label_time(row)
+    require_utc(label_time, what=f"row {row.key!r} label_time")
+    if label_time <= row.available_at:
         raise ValueError(
-            f"{_MODULE}: row {row.key!r} label_time {iso_utc(row.label_time)} must be after "
+            f"{_MODULE}: row {row.key!r} label_time {iso_utc(label_time)} must be after "
             f"its availability {iso_utc(row.available_at)}; a label cannot be knowable before "
             "the features it labels"
         )
@@ -147,10 +153,9 @@ def validate_batch(batch: Batch) -> None:
 
 def _record(row: SourceRow, partition: str) -> dict[str, Any]:
     """The JSON-ready persisted form of one validated row."""
-    assert row.label_time is not None  # validated by `_validate_row`
     return {
         "available_at": iso_utc(row.available_at),
-        "label_time": iso_utc(row.label_time),
+        "label_time": iso_utc(require_label_time(row)),
         "label": row.label,
         "partition": partition,
     }
@@ -214,11 +219,12 @@ class Ledger:
         self._require_watermark_order(new_rows)
         for row in new_rows:
             self._records[row.key] = _record(row, batch.partition)
+        known = self._partitions.get(batch.partition)
+        persisted_before = 0 if known is None else int(known["row_count"])
         self._partitions[batch.partition] = {
             "path": batch.path,
             "sha256": batch.sha256,
-            "row_count": self._partitions.get(batch.partition, {}).get("row_count", 0)
-            + len(new_rows),
+            "row_count": persisted_before + len(new_rows),
         }
         self._watermark = iso_utc(max(row.available_at for row in new_rows))
         self._write()
@@ -229,12 +235,13 @@ class Ledger:
         new_rows: list[SourceRow] = []
         for row in batch.rows:
             stored = self._records.get(row.key)
+            delivered = _record(row, batch.partition)
             if stored is None:
                 new_rows.append(row)
-            elif stored != _record(row, batch.partition):
+            elif stored != delivered:
                 raise ValueError(
                     f"{_MODULE}: row {row.key!r} is a conflict: persisted {stored!r} but the "
-                    f"batch re-delivers {_record(row, batch.partition)!r}; the source was "
+                    f"batch re-delivers {delivered!r}; the source was "
                     "rewritten, register it as a new partition instead of overwriting history"
                 )
         return new_rows

@@ -297,6 +297,43 @@ Integration handoff: none needed in Phase 1. No file under `engine/`,
 `training.py`, `market_signals.py`, `tools/`, the Makefiles or the shared
 conftests was touched.
 
+### 2026-09-28 Cleaner phase 1 (Claude cleaner, Lane A)
+
+Baseline `cc0e10a..c5fa0cf` on `feat/19-adaptive-retraining`, cwd
+`/tmp/mba-impl-19/algo-suite`. Complexity from `uv run python -m radon cc -s`
+(radon is importable); coverage from the five step files
+(`test_retraining_{ingestion,schedule,weights}.py`, `test_f7_family_weights.py`,
+`test_f7_meta_learner.py`) with `--cov-branch`; CRAP = cc^2 * (1 - cov)^3 + cc
+per function. Before cleaning `schedule.py` was 98 % lines (two uncovered,
+undocumented `__str__` methods, CRAP 2); everything else was already 100 %.
+
+| File | Complexity max | Lines / branches after | CRAP max | Actions |
+| --- | --- | --- | --- | --- |
+| `retraining/__init__.py` | n/a | 100 % / 100 % | n/a | none |
+| `retraining/ingestion.py` | 6 (`Ledger._keys_where`) | 100 % / 100 % | 6 | new `require_label_time` (shared RWT-24 check) replaces the inline None check and both `assert`s; `_new_rows` builds the delivered record once; partition row-count update made explicit |
+| `retraining/schedule.py` | 4 | 100 % / 100 % | 4 | removed dead `Span.__str__`/`Epoch.__str__`; `select_rows` reuses `require_label_time` (duplicate check removed); `_is_month_start` simplified to one comparison |
+| `retraining/weights.py` | 5 (`_validated_total`) | 100 % / 100 % | 5 | none |
+| `retraining/utc.py` | 3 | 100 % / 100 % | 3 | none |
+| `chain/filters/f7_meta_learner.py` (Phase 1 diff) | 6 (`_validated_family_weights`) | 100 % / 100 % | 6 | none; its finite/non-negative loop intentionally mirrors `weights._validated_total` so `chain.filters` stays independent of `retraining` (F7 only validates and forwards, RWT-17) |
+
+No function exceeds complexity 8 or CRAP 8. Every function has a docstring;
+no silent default was found (the empty-ledger open and the first-partition
+count of 0 are initial states, not error hiding). Names match the design
+component table (`ingestion`, `schedule`, `weights`); `utc.py` is a shared
+helper the table does not list. No test assertion changed; the two rejected
+`label_time None` scenarios still see "label_time" and the row key.
+
+Observation left for the hardener (behaviour change, not cleaning):
+`weights._class_counts` tallies any integer label, so a non-binary label only
+surfaces when a per-class minimum is registered.
+
+Gates after the refactor: the five step files 186 passed, exit 0, 100 % lines
+and branches on all six modules; `uv run ruff check algo-backtest` exit 0;
+`uv run ruff format --check` on the ten Phase 1 files exit 0 (the tree-wide
+check still lists 65 files outside this lane, pre-existing at `ef0111d`);
+`uv run mypy --strict algo-backtest` exit 0 (68 files);
+`make check-perception-architecture check-inference-architecture` PASS.
+
 ## Earlier planning verification (before this amendment)
 
 - Strict skill spec validator: exit 0, zero errors/warnings.

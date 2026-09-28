@@ -28,7 +28,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from algo_backtest.retraining.ingestion import SourceRow
+from algo_backtest.retraining.ingestion import SourceRow, require_label_time
 from algo_backtest.retraining.utc import iso_utc, require_utc
 
 POLICIES = ("F", "Q", "R", "U", "E")
@@ -58,9 +58,6 @@ class Span:
                 f"{iso_utc(self.start)}; an empty or inverted span selects nothing meaningful"
             )
 
-    def __str__(self) -> str:
-        return f"[{iso_utc(self.start)}, {iso_utc(self.end)})"
-
 
 @dataclass(frozen=True)
 class Epoch:
@@ -69,9 +66,6 @@ class Epoch:
     start: datetime
     end: datetime
     schedule_start: datetime
-
-    def __str__(self) -> str:
-        return f"[{iso_utc(self.start)}, {iso_utc(self.end)})"
 
 
 @dataclass(frozen=True)
@@ -87,12 +81,7 @@ class StageSpans:
 
 def _is_month_start(value: datetime) -> bool:
     """Whether `value` is exactly 00:00:00 on the first day of a month."""
-    return value.day == 1 and (value.hour, value.minute, value.second, value.microsecond) == (
-        0,
-        0,
-        0,
-        0,
-    )
+    return value == value.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
 def _next_month(value: datetime) -> datetime:
@@ -186,11 +175,7 @@ def select_rows(rows: Sequence[SourceRow], span: Span) -> tuple[SourceRow, ...]:
     """
     selected: list[SourceRow] = []
     for row in rows:
-        if row.label_time is None:
-            raise ValueError(
-                f"{_MODULE}: row {row.key!r} has label_time None (unknown maturity); the "
-                "adaptive selector needs the horizon bar's close for every row (RWT-24)"
-            )
-        if span.start <= row.available_at < span.end and row.label_time < span.end:
+        label_time = require_label_time(row)
+        if span.start <= row.available_at < span.end and label_time < span.end:
             selected.append(row)
     return tuple(selected)
