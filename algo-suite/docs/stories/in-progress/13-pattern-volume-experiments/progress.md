@@ -1,8 +1,26 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 01:20 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 01:23 UTC (September 27, America/Vancouver).
 Owner: Codex. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
+
+## Claude handoff — implementation and eight-run experiment complete
+
+Start with [claude-handoff-prompt.md](claude-handoff-prompt.md), then the
+[test/takeover procedure](qa-procedure.md). Refresh Git/process state before acting.
+All implementation, eight accepted backtests, diagnostics, parameter tables and
+96-page monograph are committed and pushed on `feat/13-pattern-volume-experiments`
+in `/tmp/mba-pattern-volume`. Implementation snapshot: `28cc7d9`; final evidence:
+`b0fc82c`. At the handoff check, local and live remote HEAD both matched `b0fc82c`
+and the worktree was clean; this handoff documentation is the subsequent commit.
+No Codex experiment remains running. No pending implementation task is delegated
+to an agent. Do not rerun the completed matrix merely to reconstruct this session.
+
+Next action: inspect branch ancestry and preserved dirty Claude worktrees, then
+prepare an integration branch without resetting or blindly cherry-picking them.
+Review/consolidation and a newly registered broader-window experiment are the next
+phase, not claims of already completed work. This story remains in `in-progress`
+pending that review/consolidation. Local verification is not remote CI certification.
 
 ## Current objective and boundaries
 
@@ -28,7 +46,7 @@ integrates, commits and pushes their combined work on the Story 13 branch.
 
 | Agent | Agent ID | Git worktree / branch | Ownership and status |
 | --- | --- | --- | --- |
-| Parent Codex | main session | `/tmp/mba-pattern-volume` / `feat/13-pattern-volume-experiments` | Implementation, experiments and verification complete; publishing final evidence |
+| Parent Codex | main session | `/tmp/mba-pattern-volume` / `feat/13-pattern-volume-experiments` | Implementation, experiments, verification and evidence publication complete; handing over to Claude |
 | Mendel | `01a0e56c-9c4e-7fa2-b824-94e042fc7b83` | Same Story 13 worktree/branch | TA-Lib detector complete; independent review and four native risk-calendar regressions complete |
 | Poincare | `01a0e56c-9c8c-7960-b046-eec4b1aa7a5e` | Same Story 13 worktree/branch | Quote-activity/filter/provenance complete; trainer family validation and 16 targeted BDD scenarios pass |
 | Herschel | `01a0e56c-c91f-70e2-bd1d-b84207343b70` | Same Story 13 worktree/branch | Complete-bar clock, fixed experiment matrix/runner and BDD complete; no job launched by agent |
@@ -146,6 +164,8 @@ both independent-review fixes; pushed. `de34647` — detailed test/handoff proce
 pushed. `4636ce7` — baseline outcome and inode-safe retry record; pushed.
 `1f6b16f` — eight completed experiments and threshold diagnostics; pushed.
 `fccd186` — expanded perception coverage/native gate and repaired wiring probe; pushed.
+`b0fc82c` — final eight-run snapshot, complete parameter appendix, raw artifact archive,
+figures and verified 96-page monograph; pushed.
 Full execution-chain tests and the disk-backed broad retry are now green.
 
 ### Experiment execution and infrastructure incident
@@ -154,7 +174,7 @@ Baseline matrix `build/experiments/20260928-baseline-h4-v1` finished: all four c
 successful, parent exit 0, final immutable-input check `ok: true`. At the fixed
 settings, activity off gives +1.36% return / six closed trades; activity on gives
 +2.87% / three closed trades. Reported maximum drawdown is 5.1% for all four.
-Candlestick on/off outcomes are identical; diagnostic counts are being checked.
+Candlestick on/off outcomes are identical; diagnostics below explain the unchanged decisions.
 These are tiny reused-window samples, not evidence of significance or profitability.
 
 Hybrid v1 had two successful cells then failed to create the last two results
@@ -178,7 +198,7 @@ The broad test retry completed (504 passed) using the fresh **disk-backed** base
 1. Risk-calendar/trainer regressions and implementation freeze are complete and pushed.
 2. Both fresh matrices completed; failed hybrid v1 is preserved separately.
 3. Every outcome and per-filter setting is archived in the new H01–H08 appendix.
-4. New result snapshot, figures and 96-page monograph verified; final publishing batch.
+4. New result snapshot, figures and 96-page monograph verified and published in `b0fc82c`.
 5. Consolidate only after checking branch ancestry and dirty files. Story 13 already
    includes Story 12 through `7165308`; do not blindly reapply those commits or the
    shared agents' files. Review Claude's later hardener/QA/docs branches separately.
@@ -208,7 +228,31 @@ and [test/takeover procedure](qa-procedure.md). Seven evidence BDD scenarios and
 scoped Ruff/mypy pass; monograph verification passes at 96 pages. Final archive
 comparison against all three original matrix roots passes. No current Codex agent
 has remaining implementation/experiment work. Review/merge/consolidation of earlier
-Claude branches and completion/audit of their older long-window jobs are separate.
+Claude branches and broader-window experimental validation are separate next steps.
+
+### Predecessor jobs: final read-only audit at 01:20 UTC
+
+Ampere checked the five previously pending/planned runs against final `run.json`,
+metrics and `trades.json`, not merely shell completion messages. All five record
+`success=true`; each has configuration, provenance and `equity.csv`. No new job
+was launched and no historical artifact changed. The frozen 00:36 snapshot and
+its monograph discussion remain historical; Claude should publish a separate
+later snapshot when integrating these final predecessor outcomes.
+
+| Prior reference | Run/window | Closed trades | Return | Engine max drawdown |
+| --- | --- | ---: | ---: | ---: |
+| R02 | a05-gated, September 2015 | 0 | 0.00% | 0.0% |
+| R10 | Baseline, November 2015 | 107 | −50.47% | 51.6% |
+| P01 | Hybrid, November 2015 | 132 | −52.82% | 53.3% |
+| R19 | Baseline, March–October 2016 | 1,029 | −88.41% | 88.8% |
+| R20 | Hybrid, March–October 2016 | 1,029 | −87.50% | 88.2% |
+
+P01 is `hybrid/20260928T004327-8e053507dfb3` under the predecessor
+`2026-09-26-six-month-pilot/data/runs/` root. Other reference paths are in the
+frozen predecessor snapshot. The three parent scripts report complete/exit 0,
+and the process check found no active backtest/LEAN launcher. These are execution
+successes, not strategy successes. They used predecessor settings; do not compare
+them causally against the new H4 matrix or infer that zero trades proves efficacy.
 
 ### Why the pattern-on/off results match
 
