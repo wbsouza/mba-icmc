@@ -156,8 +156,8 @@ only; they are never presented as market-performance evidence.
 | Requirement ID | Story | Tasks | Status |
 | --- | --- | --- | --- |
 | CND-01 | P1 evidence | T1, T3 | Implemented (T1) |
-| CND-02 | P1 evidence | T2, T3 | In Tasks |
-| CND-03 | P1 evidence | T2, T4, T7 | In Tasks |
+| CND-02 | P1 evidence | T2, T3 | Implemented (T2) |
+| CND-03 | P1 evidence | T2, T4, T7 | Implemented (T2) |
 | CND-04 | P1 evidence | T3, T4 | In Tasks |
 | CND-05 | P1 evidence | T3, T4, T5, T7 | In Tasks |
 | CND-06 | P1 evidence | T4 | In Tasks |

@@ -60,7 +60,7 @@ no new branch, commit, push or PR is claimed. Preserve the existing directory mo
 ## Phase checklist (mirrors tasks.md; ticked in the delivering commit)
 
 - [x] T1 Review and freeze the source-rule ledger
-- [ ] T2 Define immutable pattern evidence and configuration
+- [x] T2 Define immutable pattern evidence and configuration
 - [ ] T3 Implement the expanded geometry catalog
 - [ ] T4 Implement causal context evaluation
 - [ ] T5 Implement next-bar confirmation state machine
@@ -100,5 +100,52 @@ T17–T21 are DEFERRED and never implemented.
   exit 0 (0 errors, 0 warnings);
   `... validate_tasks.py .specs/features/candlestick-context/tasks.md --strict` exit 0.
 - Status: tasks.md T1 boxes ticked; spec.md CND-01 → `Implemented (T1)`.
-- Commit: `docs(candles): review and freeze the source-rule ledger` (SHA recorded below
-  after commit).
+- Commit: `05bbdad` `docs(candles): review and freeze the source-rule ledger`; pushed to
+  `origin/feat/22-candlestick-rules` (new branch).
+
+### 2026-09-28 — T2 immutable pattern evidence and configuration (CND-02, CND-03)
+
+- Files: `algo-backtest/src/algo_backtest/perception/candle_contract.py` (new:
+  `CATALOG`/`ADMITTED_RULES`, `ContextConfig`, `SequenceConfig`, `CandleConfig`,
+  `PatternHit`, `IndicatorValue`, `StochasticEvidence`, `LevelEvidence`,
+  `ContextEvidence`, `SequenceEvidence`, `CandleEvidence`, `ClosedBar`, `validate_bar`,
+  `CandleHistory`), `algo-backtest/tests/features/candle_contract.feature` (specifier),
+  `algo-backtest/tests/steps/test_candle_contract.py` (new), `tools/perception_quality.py`
+  (one registration line: `"candle_contract": set()`).
+- Assumptions: default `timeframe_minutes` is 60 (the feature only fixes the divisor rule);
+  `CandleEvidence` carries its own `max_history` bound so `history_count` is validated
+  without a configuration; the evidence sub-types for context and sequence live in the
+  contract so T4/T5 evaluators import types from it (no reverse import); a READY hit must
+  carry exactly the catalog polarity (stricter than "not contradicting"); `last_gap`
+  counts missing bars on the continuous grid (calendar policy is a T5 input).
+- Gate (cwd `algo-suite`):
+  `uv run pytest algo-backtest/tests/steps/test_candle_contract.py -q -p no:cacheprovider`
+  → exit 0, 112 passed (18 templates);
+  `uv run pytest algo-backtest/tests/steps/test_candlestick_detector.py algo-backtest/tests/steps/test_f3_pattern.py -q -p no:cacheprovider`
+  → exit 0, 110 passed (unchanged);
+  `uv run ruff check algo-backtest tools` → exit 0;
+  `uv run ruff format --check` on the three touched files → the two new files formatted;
+  `tools/perception_quality.py` was already non-formatted before this change (its diff is one
+  added line) and 66 pre-existing files under `algo-backtest` fail the workspace-wide format
+  check, none touched here (pre-existing, fixed on the integration branch);
+  `uv run mypy --strict algo-backtest tools/perception_quality.py` → exit 0 (65 files);
+  `make check-perception-architecture` → PASS.
+- QA REPL checks 2.2–2.4 reproduced: `1 256 legacy 19`; `max_history=257` → ValueError
+  naming `max_history` and 256; `max_history=199` → ValueError naming the 200-bar SMA lookback.
+- Adequacy review (Check A, evidence-or-zero; file `tests/steps/test_candle_contract.py`):
+  CND-02 stable ordered hits → `assert_evidence_outcome` :305 via `_assert_outcome` :88
+  (`mention in str(error)` for "order"/"doji"/"doji_star"); CND-03 rejection before state
+  advances → `assert_rejected` :385 (`fragment in message`, `"repair" in message`) +
+  `assert_untouched_then_accepts` :403 (`history.bars == before`, count unchanged, next bar
+  accepted) + `assert_unchanged` :460 / `assert_evicts_oldest` :466; bounds/unknown ids/
+  policy/timeframe/version → `assert_config_outcome` :229; hit polarity/version/status →
+  `assert_hit_outcome` :255; immutability → `assert_frozen` :173; defaults →
+  `assert_defaults` :112, `assert_enabled_rules` :123, `assert_context_defaults` :139;
+  gap flag → `assert_gap` :427; eviction → `assert_retained` :454. Check B: every outcome
+  asserts a value or a message fragment, no call-count or no-throw-only assertions.
+  Check C: every scenario maps to a contract line of the feature description
+  (CND-02/03) or a tasks.md T2 listed case; none removed. Check D: Gherkin-first,
+  `scenarios("../features/candle_contract.feature")`, docstrings on every step.
+- Status: tasks.md T2 boxes ticked; spec.md CND-02, CND-03 → `Implemented (T2)`.
+- Commit: `feat(candles): define immutable pattern evidence and configuration` (SHA in the
+  next entry).
