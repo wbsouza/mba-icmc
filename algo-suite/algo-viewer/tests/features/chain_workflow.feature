@@ -14,9 +14,9 @@ Feature: Chain workflow
       | f1_trend        | F1 Trend            | 0      |
       | f2_indicator    | F2 RSI / MACD       | 0      |
       | f3_pattern      | F3 Candlestick      | 0      |
-      | f4_news_context | F4 News context     | 0      |
+      | f4_news_context | F4 News context     | 1      |
       | volume_strength | Activity ratio      | 1      |
-      | f5_risk_guard   | F5 Risk guard       | 0      |
+      | f5_risk_guard   | F5 Risk guard       | 3      |
       | f6_capital_mgmt | F6 Capital mgmt     | 0      |
       | f7_meta_learner | F7 Meta-learner     | 0      |
     And no filter details are shown
