@@ -87,6 +87,11 @@ Two fresh matrices were prepared and launched from the frozen implementation:
 | Baseline, four cells | `build/experiments/20260928-baseline-h4-v1` | parent execution session `71760` |
 | GDELT hybrid, four cells | `build/experiments/20260928-hybrid-h4-v1` | parent execution session `44780` |
 
+Hybrid v1 subsequently failed with `ENOSPC` before its last two result directories
+could be created and before final checkpoint persistence. Its first two completed
+cells are not a completed matrix; stale `backtest_running` statuses are not liveness.
+A fresh `20260928-hybrid-h4-v2` uses the same code/settings after infrastructure repair.
+
 Session IDs are assistant-session handles, not operating-system PIDs. On takeover,
 read each `execution-started.json` for its PID and check that process's exact command
 before deciding it is alive. The existence of the file alone does not prove liveness.
@@ -126,6 +131,25 @@ checks reject drift. Story documentation and monograph changes are outside the r
 code fingerprint. Changing a source file requires a new prepared execution snapshot.
 
 ## Documentation, commit and consolidation procedure
+
+### Infrastructure failure and recovery
+
+The broad non-backtest workspace command ended with **462 passed, 42 failed, four
+deselected** after exhausting `/tmp` inodes. `/tmp` had 44 GiB free but only nine
+available inodes out of 1,048,576. This is a failed run, not a global test pass.
+The completed run's `/tmp/pytest-of-wellington/pytest-5972` contained 277,963 entries.
+It was moved without deletion to
+`/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-pytest-5972-inode-failure`.
+This preserves failed-test fixtures and freed approximately 278,000 `/tmp` inodes.
+No user dataset, old experiment or worktree was removed. Future whole-workspace
+tests must use a **fresh disk-backed `--basetemp`**, not `/tmp`, and check `df -i`
+as well as `df -h`. Do not reuse the archived failure directory as basetemp.
+
+Hybrid v1 failed for this infrastructure reason, not a parameter-selection result.
+Keep it unchanged and report the retry separately. Baseline v1 already had successful
+parent/cell manifests and a passing final immutable-input check before exhaustion.
+
+### Publishing
 
 Append new result snapshots; do not replace the predecessor evidence. Include full
 parameter joins, model/code/input hashes and failures. Report reused-window results

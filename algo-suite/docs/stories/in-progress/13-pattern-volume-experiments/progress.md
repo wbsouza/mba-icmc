@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 01:02 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 01:08 UTC (September 27, America/Vancouver).
 Owner: Codex. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -86,7 +86,7 @@ infer that an old worktree represents unmerged work.
 
 ## Verification and evidence
 
-- Offline backtest suite: **1,351 passed, 49 integration scenarios deselected**.
+- Final offline backtest suite: **1,364 passed, 53 integration scenarios deselected**.
 - New native signal parity: M1/H1/H4 **3 passed**.
 - Legacy native feature/news/DSHA parity after probe repair: **8 passed**.
 - Calendar-risk native regressions: **4 passed in 13.24 seconds**.
@@ -136,13 +136,37 @@ settings are unchanged. No model weights or Torch/Transformers were installed.
 consolidation plan. Pushed to `origin/feat/13-pattern-volume-experiments`.
 `2be2af2` — moved this file into the Story 13 directory as requested; pushed.
 `6873b91` — verified predecessor results, parameter appendix, figures and monograph;
-pushed. This implementation commit contains the closed-bar signals, provenance,
-runner and both independently identified review fixes. Scoped verification passes;
-full execution-chain tests are still running, and experimental results are pending.
+pushed.
+`28cc7d9` — closed-bar signals, canonical activity provenance, immutable runner and
+both independent-review fixes; pushed. `de34647` — detailed test/handoff procedure;
+pushed. Full execution-chain tests are still running.
 
-1. Finish risk-calendar and trainer-family regressions; freeze code and commit/push.
-2. Prepare fresh disjoint output directories with the immutable matrix/settings.
-3. Run baseline/hybrid cells, archive every outcome, show settings alongside results.
+### Experiment execution and infrastructure incident
+
+Baseline matrix `build/experiments/20260928-baseline-h4-v1` finished: all four cells
+successful, parent exit 0, final immutable-input check `ok: true`. At the fixed
+settings, activity off gives +1.36% return / six closed trades; activity on gives
++2.87% / three closed trades. Reported maximum drawdown is 5.1% for all four.
+Candlestick on/off outcomes are identical; diagnostic counts are being checked.
+These are tiny reused-window samples, not evidence of significance or profitability.
+
+Hybrid v1 had two successful cells then failed to create the last two results
+directories when `/tmp` exhausted inodes (not bytes). The broad non-backtest test
+run failed too: 462 passed / 42 failed / four deselected. Its 277,963-entry temporary
+directory was **moved, not deleted**, to
+`/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-pytest-5972-inode-failure`.
+Approximately 278,000 inodes were freed without removing user data/worktrees.
+
+The unchanged hybrid matrix is rerunning in fresh
+`build/experiments/20260928-hybrid-h4-v2` (session 29828). The failed v1 archive is
+preserved; its stale running statuses do not mean processes are still executing.
+The broad test retry uses the fresh **disk-backed** basetemp
+`/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-recheck-20260928`
+(session 94754). See [qa-procedure.md](qa-procedure.md) for exact tests and takeover.
+
+1. Risk-calendar/trainer regressions and implementation freeze are complete and pushed.
+2. Fresh disjoint matrices prepared; baseline complete, hybrid infrastructure retry running.
+3. Finish hybrid, archive every outcome and show settings alongside results.
 4. Append a new evidence snapshot and monograph update; commit/push documentation.
 5. Consolidate only after checking branch ancestry and dirty files. Story 13 already
    includes Story 12 through `7165308`; do not blindly reapply those commits or the
@@ -156,12 +180,12 @@ performed by this takeover. Existing jobs are not promised indefinite monitoring
 
 Check an implementation item only after its changes are committed and tests pass.
 
-- [ ] Inventory predecessor jobs and preserve their results and source revisions.
-- [ ] Add causal TA-Lib detection, deterministic conflict handling and BDD tests.
-- [ ] Add relative quote-activity calculation and configurable veto with BDD tests.
-- [ ] Wire identical closed-bar signals into offline training and LEAN execution.
-- [ ] Reject models trained with an incompatible signal/family contract.
-- [ ] Map SpockFX parameters and register controlled exploratory comparisons.
+- [x] Inventory predecessor jobs and preserve their results and source revisions.
+- [x] Add causal TA-Lib detection, deterministic conflict handling and BDD tests.
+- [x] Add relative quote-activity calculation and configurable veto with BDD tests.
+- [x] Wire identical closed-bar signals into offline training and LEAN execution.
+- [x] Reject models trained with an incompatible signal/family contract.
+- [x] Map SpockFX parameters and register controlled exploratory comparisons.
 - [ ] Verify native/offline parity, offline gates and dependency audit.
 - [ ] Train separate models, execute experiments and archive all outcomes.
 - [ ] Update monograph and parameter/result evidence for the new comparisons.
