@@ -104,12 +104,24 @@ addendum and the implementing commits, so the reference skill and the
 engine stay in sync.
 
 **Where**: `~/.claude/skills/bigalow-candlestick-patterns/references/book-only-material.md`
+(edited directly, no commit there — see Deviation below); the algo-suite side
+of this task is a docs commit in this repo noting the change in progress.md.
 **Depends on**: T3
 **Requirement**: (documentation only, no new BEXT ID)
 **Tests**: Documentation checks.
 **Gate**: Docs (commands above).
 **Done when**:
-- [ ] The skill file reflects the implemented state for all four items.
+- [x] The skill file reflects the implemented state for all four items.
+
+**Deviation**: `~/.claude/skills/bigalow-candlestick-patterns` is not a git
+repository (`git -C ~/.claude/skills/bigalow-candlestick-patterns status`
+returns "fatal: not a git repository"), so `book-only-material.md` was
+edited directly with no commit there. Three of the four admitted items
+(Meeting Line/Counterattack Line, Methods Rising, Fibonacci confluence) were
+marked `**ADMITTED (Story 23)**` with a pointer to the ledger addendum and
+the T1/T2/T3 commit SHAs; Tweezer and everything in "Too vague to compute"
+were left untouched (still deferred, per spec.md's Out of Scope). This
+algo-suite commit is the docs record of that edit, per progress.md.
 
 **Commit**: `docs(candles): mark the bigalow extended signals as admitted in the skill`
 

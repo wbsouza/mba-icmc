@@ -33,7 +33,18 @@
       UNDEFINED on zero range, WARMUP before the lookback, `None` field when
       disabled. 11 new scenarios in `candle_context.feature`, all 53
       existing scenarios pass unmodified.
-- [ ] T4: Publish the extension summary.
+- [x] 2026-09-28 — T4: marked the three geometry/context items
+      (`bearish_counterattack_line`/`bullish_counterattack_line`,
+      `methods_rising`, Fibonacci confluence) `**ADMITTED (Story 23)**` in
+      `~/.claude/skills/bigalow-candlestick-patterns/references/book-only-material.md`,
+      each pointing to the ledger addendum and its implementing commit SHA
+      (T1 `833c820`, T2 `4424c25`, T3 `c359df9`). Deviation: that skill
+      directory is not a git repository (`git -C
+      ~/.claude/skills/bigalow-candlestick-patterns status` -> "fatal: not a
+      git repository"), so the file was edited directly with no commit
+      there; this algo-suite commit is the docs record of that edit, per
+      tasks.md T4's amended "Where"/"Deviation" fields. Tweezer and "Too
+      vague to compute" were left untouched (still deferred).
 
 ## Working tree and ownership
 
