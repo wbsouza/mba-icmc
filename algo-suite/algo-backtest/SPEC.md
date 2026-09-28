@@ -300,7 +300,7 @@ algo_backtest/
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
 │   │                       #   level math (Spec 04d). Sign convention + `spread`-term formula
 │   │                       #   for all three functions confirmed against the real fx-manager/
-│   │                       #   spockfx-engine source in Spec 04i (docs/stories/done/2026-09-26-
+│   │                       #   later-trading-manager source in Spec 04i (docs/stories/done/2026-09-26-
 │   │                       #   trail-stop-formula-fix/spec.md §2/§4) — treat that story, not the
 │   │                       #   older ambiguous "±" wording in the archived root specs.md §14.5/
 │   │                       #   §14.7, as current for this module's formulas.

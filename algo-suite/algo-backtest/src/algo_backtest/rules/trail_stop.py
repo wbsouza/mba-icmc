@@ -9,13 +9,13 @@
 
 The legacy "±" is resolved by trade direction **the same way for all three formulas** —
 confirmed against the real fx-manager source (`StrategyMoneyManagementFacadeBean.java`,
-both the original JavaEE/EJB version and its later Spring reimplementation in the
-`spockfx-engine` project agree): each formula computes a `diff` and returns
+both the original JavaEE/EJB version and its later Spring reimplementation in
+the author's later Heikin-Ashi trading manager agree): each formula computes a `diff` and returns
 `entry + sign * diff`, where `sign` is `+1` for BUY and `-1` for SELL. There is no
 separate "loss-side" case — `trail_stop_to_level_factor` is a **signed** config value
 (specs.md §14.9.4's canonical sample carries it as `-0.66`), and it is that sign, not a
 direction-branch, that puts the trail destination on the loss side. A positive factor
-(e.g. `0.1`, seen in the legacy `japaDragonStrategy04` config) legitimately places the
+(e.g. `0.1`, seen in a legacy Heikin-Ashi template config) legitimately places the
 destination on the *profit* side — that is a real, deployed "lock in partial profit
 after arming" trail configuration, not a misconfiguration.
 
@@ -25,10 +25,9 @@ checkout; that flipped the sign of the `spread` term relative to the legacy form
 Fixed here to match the confirmed source exactly.
 
 `trail_stop_at_level` was also missing its `(factor + 1) * spread` term entirely — the
-real source (`related-work/projects/spockfx-metatrader/spockfx-engine/src/main/java/
-spockfx/engine/MoneyManagementCalculator.java::setTrailStopLevels`, the `atLevelDiff`
-computation) carries the same `(ratio + 1) * spread` shape as `target_level`. Added here
-to match.
+real source (the later Heikin-Ashi trading manager's money-management calculator, its
+trail-stop arming-level computation) carries the same `(ratio + 1) * spread` shape as
+`target_level`. Added here to match.
 """
 
 from __future__ import annotations
@@ -78,7 +77,7 @@ def trail_stop_at_level(
     """Price that must be reached to arm the trailing stop.
 
     Same `entry + sign*(SL_distance*factor + (factor+1)*spread)` shape as `target_level`
-    (specs.md §14.9.4's `MoneyManagementCalculator.setTrailStopLevels`'s `atLevelDiff`).
+    (specs.md §14.9.4; the later trading manager's trail-stop arming level agrees).
     """
     distance = _sl_distance(entry, stop_loss)
     offset = distance * trail_stop_at_level_factor + (trail_stop_at_level_factor + 1) * spread
@@ -99,7 +98,7 @@ def trail_stop_to_level(
     a negative factor (specs.md §14.9.4's canonical `-0.66`) places the destination on the
     loss side of entry (a tightened stop, still short of the original SL); a positive
     factor places it on the profit side (locking in partial profit once armed — a real,
-    deployed configuration, e.g. the legacy `japaDragonStrategy04`'s `0.1`). Do not `abs()`
+    deployed configuration, e.g. a legacy Heikin-Ashi template's `0.1`). Do not `abs()`
     the factor — the sign is the caller's explicit direction choice, not a magnitude.
     """
     distance = _sl_distance(entry, stop_loss)

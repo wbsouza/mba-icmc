@@ -29,6 +29,6 @@ Feature: Training entry points reject incompatible strategy feature families bef
       | hybrid   | hybrid            |
       | hybrid   | hybrid-reversed   |
 
-  Scenario: All current Dragon08 candidates remain compatible with their matching trainer
-    When each current Dragon08 candidate is passed to its matching training CLI
+  Scenario: All current Heikin-Ashi H4 candidates remain compatible with their matching trainer
+    When each current Heikin-Ashi H4 candidate is passed to its matching training CLI
     Then all eight candidates reach the price data boundary

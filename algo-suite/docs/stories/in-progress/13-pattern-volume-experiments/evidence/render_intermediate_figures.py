@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,20 +27,39 @@ GROUPS = {
     "execution-september": ("Execution model / September 2015", ("R08", "R13")),
     "execution-october": ("Execution model / October 2015", ("R09", "R14")),
     "a05-sweep-september": ("A05 exploratory sweep / September 2015", ("R01", "R03", "R04", "R05")),
-    "spockfx-sweep-september": (
-        "SpockFX-derived M1 sweep / September 2015", ("R15", "R16", "R17", "R18")
+    "plan-sweep-september": (
+        "Template-derived M1 sweep / September 2015", ("R15", "R16", "R17", "R18")
     ),
 }
 COLORS = ("#4488ff", "#ffaa00", "#cc77ff", "#00cccc")
 PRINT_COLORS = ("#1763a6", "#ad5c00", "#7d399f", "#007c7c")
 LINE_STYLES = ("-", "--", "-.", ":")
+LOCAL_PATHS = Path(os.environ.get(
+    "STORY13_LOCAL_PATHS",
+    Path.home() / "workspace/mba-agents/experiment-test-archives/story13-local-paths.json",
+))
+
+
+def local_path(recorded: str) -> Path:
+    """Resolve a recorded evidence path to the launch-time directory when the names differ.
+
+    Variant names in the snapshots were sanitized on 2026-09-28; the job directories on
+    disk keep their launch-time names. The optional JSON map (outside the repository)
+    lists sanitized-to-local substrings, applied longest first.
+    """
+    if Path(recorded).exists() or not LOCAL_PATHS.is_file():
+        return Path(recorded)
+    replacements: dict[str, str] = json.loads(LOCAL_PATHS.read_text())
+    for sanitized in sorted(replacements, key=len, reverse=True):
+        recorded = recorded.replace(sanitized, replacements[sanitized])
+    return Path(recorded)
 
 
 def verify_artifact(artifact: dict[str, Any]) -> Path:
     """Reject missing or changed inputs before reading their financial content."""
     if artifact["status"] != "present":
         raise ValueError(f"Missing archived artifact: {artifact['path']}; exclude this run")
-    path = Path(artifact["path"])
+    path = local_path(artifact["path"])
     if hashlib.sha256(path.read_bytes()).hexdigest() != artifact["sha256"]:
         raise ValueError(f"Source hash mismatch: {path}; collect a new evidence snapshot")
     return path
@@ -52,7 +72,7 @@ def load_completed(run: dict[str, Any]) -> tuple[tuple[Any, float], ...]:
         raise ValueError(f"Incomplete run {run['reference']}; no completed result may be plotted")
     for name in ("run.json", "metrics.json", "strategy-config.json", "equity.csv"):
         verify_artifact(run["files"][name])
-    samples = read_equity_csv(Path(manifest["path"]).parent)
+    samples = read_equity_csv(local_path(manifest["path"]).parent)
     if any(not math.isfinite(value) or value <= 0 for _, value in samples):
         raise ValueError(f"Invalid equity in {run['reference']}; inspect the original artifact")
     if any(a[0] >= b[0] for a, b in zip(samples, samples[1:], strict=False)):
@@ -65,7 +85,7 @@ def parameter_label(run: dict[str, Any]) -> str:
     config = run["files"]["strategy-config.json"]["value"]
     capital, meta = config["capital_mgmt"], config["meta_learner"]
     manifest, metrics = run["files"]["run.json"]["value"], run["files"]["metrics.json"]["value"]
-    name = manifest["strategy"].removeprefix("spockfx-")
+    name = manifest["strategy"]
     return (
         f"{run['reference']} {name} / {metrics['total_return']:+.2%} / "
         f"{manifest['closed_trades']} trades\n"

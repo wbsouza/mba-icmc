@@ -113,10 +113,10 @@ def reaches_market(family_cli: dict[str, Any]) -> None:
     family_cli["events"].assert_not_called()
 
 
-@when("each current Dragon08 candidate is passed to its matching training CLI")
+@when("each current Heikin-Ashi H4 candidate is passed to its matching training CLI")
 def current_candidates(family_cli: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
     """Exercise every shipped experiment strategy through its actual trainer entry point."""
-    root = Path(__file__).parents[3] / "experiments/spockfx-signals/strategies"
+    root = Path(__file__).parents[3] / "experiments/heikin-ashi-signals/strategies"
     paths = sorted(root.glob("*/config.yaml"))
     assert len(paths) == 8
     accepted = []
