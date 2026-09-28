@@ -51,10 +51,15 @@ Then("their bar colours are {}", function (colours: string) {
 let ledger: TradeRow[] = [];
 let cash = 0;
 
-Then("the trades table shows the balance after each trade:", function (table: DataTable) {
+Then("the trades table has an {string} column explained as {string}", function (label: string, tooltip: string) {
+  const header = within(screen.getByTestId("trades-table")).getByText(label, { selector: "th" });
+  assert.ok((header.getAttribute("title") ?? "").includes(tooltip));
+});
+
+Then("the trades table shows the equity after each trade:", function (table: DataTable) {
   const rows = [...screen.getByTestId("trades-table").querySelectorAll("tbody tr")].map((tr) => {
     const cells = [...tr.querySelectorAll("td")];
-    return { trade_id: tr.getAttribute("data-trade-id") ?? "", profit: cells[9]?.textContent ?? "", balance: cells[10]?.textContent ?? "" };
+    return { trade_id: tr.getAttribute("data-trade-id") ?? "", profit: cells[9]?.textContent ?? "", equity: cells[10]?.textContent ?? "" };
   });
   assert.deepEqual(rows, table.hashes());
 });
@@ -72,7 +77,7 @@ Given("trades closed as {} starting from cash {int}", function (closes: string, 
   });
 });
 
-Then("the balances after each trade, in row order, are {}", function (expected: string) {
+Then("the equity after each trade, in row order, is {}", function (expected: string) {
   const balances = balancesAfter(ledger, cash);
   assert.deepEqual(ledger.map((t) => balances.get(t.trade_id)), expected.split(",").map((s) => Number(s.trim())));
 });

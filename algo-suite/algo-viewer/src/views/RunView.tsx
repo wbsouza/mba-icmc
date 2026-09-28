@@ -133,10 +133,10 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
         ))}
       </section>
       <section className="panel" aria-label="Trades">
-        <h2>Trades <span className="muted">(click one to see why the chain entered it; balance = starting cash plus net P/L in closing order)</span></h2>
+        <h2>Trades <span className="muted">(click one to see why the chain entered it; Equity = account equity after this trade closed)</span></h2>
         <table className="grid" data-testid="trades-table">
           <thead>
-            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num">Balance after</th></tr>
+            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num" title="account equity after this trade closed: starting cash plus the net P/L accumulated in closing order">Equity</th></tr>
           </thead>
           <tbody>
             {tradeRows.map((t: TradeRow) => (

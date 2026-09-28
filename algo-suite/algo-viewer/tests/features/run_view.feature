@@ -23,18 +23,19 @@ Feature: Run page
       | 2.0, -1.5, 0.0   | up, down, up   |
       | -0.1             | down           |
 
-  Rule: Every trade row shows the account balance after it closed
+  Rule: Every trade row shows the account equity after it closed
 
-    Scenario: the balance runs from the starting cash through the trades in closing order
+    Scenario: the equity column runs from the starting cash through the trades in closing order
       When I open the run page of "20260928T010000-fixture"
-      Then the trades table shows the balance after each trade:
-        | trade_id | profit  | balance   |
+      Then the trades table has an "Equity" column explained as "account equity after this trade closed"
+      And the trades table shows the equity after each trade:
+        | trade_id | profit  | equity    |
         | 1        | 500.00  | 10,500.00 |
         | 5        | -100.00 | 10,400.00 |
 
-    Scenario Outline: the balance accumulates net P/L (profit minus fees) in exit order, not row order
+    Scenario Outline: the equity accumulates net P/L (profit minus fees) in exit order, not row order
       Given trades closed as <closes> starting from cash <cash>
-      Then the balances after each trade, in row order, are <balances>
+      Then the equity after each trade, in row order, is <balances>
 
       Examples:
         | cash  | closes                                              | balances                |
