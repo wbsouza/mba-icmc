@@ -478,3 +478,70 @@ Next: T9 (`experiments/confluence-chain/preflight.py`, the population and
 availability preflight). Blockers: none. Agent: coder (Claude Sonnet 5).
 Branch `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit
 `b2f8442`.
+
+## 2026-09-28 — Coder phase 2, T9
+
+Implemented `experiments/confluence-chain/preflight.py` (CC-08, CC-09, CC-13,
+CC-24, CC-32; D2, D8): two independent, pure functions.
+
+`compute_population_ledger` reconciles, for one (pair, clock, window): the
+calendar-expanded slot count, `market_closure_count` (the weekly FX closure,
+Friday 22:00 UTC through Sunday 22:00 UTC; an H4 bucket counts as closure if
+*any* of its four constituent H1 hours is closed — the specifier's pinned gap
+#3), `expected_valid_count`, `warmup_count` and `missing_count` (always 0 on
+success; a genuinely missing expected bar hard-fails per D8/CC-24, grouped
+into contiguous-run messages), plus `ready_count = expected_valid_count -
+warmup_count - missing_count`. Verified the closure math against the
+specifier's three worked reconciliations by hand before implementing (January
+2016 H1: 744/240/504; the Jan 1-3 weekend H1: 72/48/24 and H4: 18/13/5; the
+Jan 4-7 no-weekend window: 0 closures on both clocks) — all three matched on
+first run, no iteration needed.
+
+`compute_arm_ledger` implements the specifier's pinned gap #4 (a queryable
+`news_availability_required` boolean, true for A/B/T-only, false for
+M-only/always-short/always-long) and CC-13/CC-32: an absent
+`AvailabilitySidecar` for a news-dependent arm is `status="unavailable"` with
+an explicit reason, the arm still returned (never dropped); a present sidecar
+with any `available_at >= decision_time` observation hard-fails instead of
+silently passing.
+
+Deviation from tasks.md's "Reuses" hint (not a scenario correction — recorded
+per COMMON-RULES): the module does not call the existing
+`news_coverage_problems` (`chain/filters/f4_news_context.py`) or
+`ClosedBarClock` (`perception/bar_clock.py`). Both read real Parquet under a
+`data_root`; the specifier's `confluence_preflight.feature` exercises pure
+counting/status logic over directly staged missing-bar sets, warmup counts and
+sidecar objects (COMMON-RULES: "every Phase 2 module is pure/component";
+nothing here touches NAS data). A real T17 launch harness can call
+`news_coverage_problems` as its own source of the missing-bar/sidecar inputs
+this module's public functions accept — that integration point is unaffected
+by this deviation. No test asserts filesystem/Parquet behavior, so nothing here
+is faked to pass a check; the module simply does not (yet) have a real-data
+front end, matching what was actually tested.
+
+The `ready_count` field name and the `expected_valid_count == warmup_count +
+missing_count + ready_count` equation both match the specifier's pinned gap #5
+exactly.
+
+Gate (cwd `algo-suite`): `uv run pytest
+algo-backtest/tests/steps/test_confluence_preflight.py -q` → 21 passed (21
+collected, matches the QA procedure's Phase 2 count); `uv run ruff check` →
+clean; `uv run ruff format --check` → clean; `uv run mypy --strict
+experiments/confluence-chain/preflight.py` → clean (`.mypy_cache` removed
+after). Regression (the eleven Phase-1/legacy step files plus
+`test_confluence_time_exit.py`, `test_confluence_controls.py` and
+`test_confluence_horizon_units.py`) → 535 passed, 0 failed. No existing test
+was modified, skipped or deleted.
+
+Files touched: `experiments/confluence-chain/preflight.py` (new),
+`algo-backtest/tests/steps/test_confluence_preflight.py` (new),
+`.specs/features/confluence-chain/tasks.md` (T9 checkboxes),
+`.specs/features/confluence-chain/spec.md` (CC-08, CC-09, CC-13, CC-24, CC-32
+status). Not touched: `confluence_preflight.feature` (specifier's file, no
+deviation needed), any integration-owned file, or any other Story-21-private
+module.
+
+Next: T10 (`experiments/confluence-chain/make_cells.py`, the fourteen-cell
+manifest generator). Blockers: none. Agent: coder (Claude Sonnet 5). Branch
+`feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit
+`e4959a6`.

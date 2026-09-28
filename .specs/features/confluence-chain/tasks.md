@@ -268,8 +268,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Ledger separates calendar-expanded rows (January 744 is not assumed tradable), expected valid closed bars, closures, warmup and missing days/minutes; reconciles H1/H4 and monthly cutoffs; file sizes/.done alone cannot pass completeness or availability; absent sources fail with remediation; M-only and drift controls do not demand news.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Ledger separates calendar-expanded rows (January 744 is not assumed tradable), expected valid closed bars, closures, warmup and missing days/minutes; reconciles H1/H4 and monthly cutoffs; file sizes/.done alone cannot pass completeness or availability; absent sources fail with remediation; M-only and drift controls do not demand news.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_preflight.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_preflight.py` in this task; at least 10 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_preflight.py`; Build and applicable Regression before handoff.
