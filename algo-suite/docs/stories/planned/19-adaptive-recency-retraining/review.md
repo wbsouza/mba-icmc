@@ -102,3 +102,28 @@ day by day on the next day; table to be appended here when the run ends.
 
 The `.specs/features/recency-weighted-retraining/` documents are Codex's and are being edited in the
 `mba-main` checkout at the time of writing; they must absorb items 1–4 before T1.
+
+### D60 trial (done, 2026-09-28): the user's proposal as a backtest
+
+Job `data/training/2026-09-28-d60-trial` (registration in `evidence/d60-trial-registration.md`, table in
+`evidence/d60-trial-results.md`): for each month of the trading year, the H1 and H4 price-only models
+were refitted on the 60 days before the month (about 800 H1 rows, 190 H4 rows), thresholds taken from
+that window's validation p̂, and the month simulated alone from $10,000; months chained; frozen
+session-2 cells as comparators. 23 of 24 months completed (H1 January 2017 stopped at the statement
+step on TD-71 after trading).
+
+| clock | D60 chained year | frozen chained year | D60 − frozen, untouched Nov–Feb (block 4) | full year (block 5) |
+|---|---:|---:|---|---|
+| H1 | −45.4 % (11 months) | −51.3 % | −0.123 %/day, 95 % CI [−0.742, +0.496], p = 0.725 | +0.035 %/day, p = 0.835 |
+| H4 | −12.3 % | −4.3 % | −0.095 %/day, 95 % CI [−0.283, +0.092], p = 0.327 | −0.017 %/day, p = 0.784 |
+
+Prediction quality of the 60-day models on their own months: log-loss above the coin-flip value in
+most months (H1 0.690–0.735, H4 0.679–0.763), hit rate on the cut bars swinging 0.14–0.64 on 4–118
+bars. Reading: with 60 days of H1 or H4 bars the family models fit noise; the small edge the monthly
+pre-check found for a 3-month window does not survive at 60 days with real trades and costs. The
+trial's bias (each month starts flat, month-end positions closed) works in neither direction that
+would change the reading.
+
+Consequence for the protocol: the D60 arm stays in the study as the short-window control, not as the
+candidate; the candidate windows are 90–180 days (R3/R6 of the pre-check) with the daily on-demand
+loader, and the prediction-quality endpoint must be reported before any equity comparison is read.

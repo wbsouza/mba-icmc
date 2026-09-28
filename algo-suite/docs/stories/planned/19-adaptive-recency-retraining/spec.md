@@ -47,7 +47,7 @@ half-life is 60 calendar days; it is not an empirically selected optimum.
 | R: rolling | Monthly refit with uniform trailing 180-day family history. |
 | U: expanding | Monthly refit with uniform expanding history. |
 | E: exponential | Same history as U, with exponential sample weights. |
-| D60: daily, 60-day window | Fit daily on the trailing 60 days (combiner on its last 5 days), thresholds from the same window; bundle loaded on demand at the first decision after a trade closes (amendment 2026-09-28, user proposal; pre-check pending). |
+| D60: daily, 60-day window | Fit daily on the trailing 60 days (combiner on its last 5 days), thresholds from the same window; bundle loaded on demand at the first decision after a trade closes (amendment 2026-09-28, user proposal). Trial done the same day: no improvement over F at either clock, models at coin-flip log-loss; kept as the short-window control, see `review.md`. |
 
 Primary comparison E-U isolates weighting; D60-F (daily short window vs frozen) is the second registered contrast, motivated by the monthly pre-check in `review.md` (rolling 3-month refit 0.529 vs frozen 0.502 on the cut bars). Keep existing H1 q10 price-only
 features, filters, costs, sizing and exits fixed. The candlestick/Laya extension

@@ -102,5 +102,6 @@ fit; this is not evidence of meeting a live wall-clock deployment deadline.
 ## T0 pre-checks — 2026-09-28
 
 - [x] Monthly refit pre-check (frozen / rolling 3 / rolling 6 / expanding): rolling 3-month refit 0.529 vs frozen 0.502 on the q10 cut bars, log-loss 0.6932 vs 0.6948; table and reading in `review.md`.
+- [x] D60 trial as a backtest (60-day window refitted monthly, 23/24 months): H1 −45.4 % vs frozen −51.3 % (p = 0.73 untouched), H4 −12.3 % vs −4.3 % (p = 0.33); 60-day models at or above coin-flip log-loss; `evidence/d60-trial-results.md`.
 - [ ] Daily refit pre-check (15/30/45/60-day windows, thresholds-only and full refit): running; append the table to `review.md`.
 - [ ] Fold the policy changes of the amendment (D60 arm, daily bundles loaded on demand, prediction-quality endpoint, calibration-month gate) into `.specs/features/recency-weighted-retraining/` before T1.
