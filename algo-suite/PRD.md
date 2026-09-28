@@ -257,7 +257,8 @@ account starts from `--param cash`. Each run ends with a broker-style `statement
 runs into one curve per strategy. The 2015-09 replay now trades (~1,000 minute-scale
 trades per strategy, near zero net) and is the pilot check of the machinery; the
 registered one-year protocol (family models 2015-03 → 2015-12, calibration 2016-01,
-simulation 2016-03 → 2016-09 from $10,000) is the experiment and has not been run.
+simulation 2016-03-01 → 2016-10-31 from $10,000, both strategies in parallel) is the
+experiment; it is running and no result is claimed yet.
 
 ```mermaid
 %%{init: {'themeVariables': {'doneTaskBkgColor':'#2563eb','doneTaskBorderColor':'#93c5fd','activeTaskBkgColor':'#f59e0b','activeTaskBorderColor':'#fcd34d'}}}%%

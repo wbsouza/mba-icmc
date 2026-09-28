@@ -788,7 +788,15 @@ identical execution assumptions. The chain strategies take one run parameter,
 `--param cash=<starting deposit>` — no `size`: the executor sizes every order from F6's
 trade plan (`capital_mgmt.risk_per_trade` and the stop distance) and places the plan's
 stop-market, take-profit and trailing orders (`engine/trade_plan.py`, story 12 item D),
-recording each entry in the run's `trade-plans.json`; `cash` is also a
+recording each entry in the run's `trade-plans.json`. The stop and the targets are
+**one-cancels-the-others**, emulated in `ChainAlgorithm.on_order_event` →
+`_reconcile_working_orders` (LEAN has no native OCO group): a stop or target fill that
+leaves the position flat cancels every remaining working order of the plan
+(`<TAG>_OCO_CANCEL|reason=flat`), while a partial target fill leaves the stop working and
+resizes it to exactly the quantity still open (`stop_quantity_for`,
+`<TAG>_STOP_RESIZE`); a reversal after `min_hold_bars` or a `close_on_veto` close first
+cancels the working orders (`<TAG>_OCO_CANCEL|reason=reversal|veto`) and then liquidates.
+Trailing steps move the stop order's price, never its quantity (`<TAG>_TRAIL`); `cash` is also a
 required parameter of every code-registered strategy (`baseline-ma`, `baseline-meanrev`,
 `buyhold`, `random`, `perfect_foresight` — story 12, TD-65 closed), and `random`'s
 per-bar `entry_probability`/`exit_probability` (in (0, 1]) and `long_probability` (in

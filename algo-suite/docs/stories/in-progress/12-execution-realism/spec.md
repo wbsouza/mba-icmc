@@ -53,7 +53,13 @@ collected month is March 2015. The main experiment uses one complete collected y
 | 2015-03-02 → 2015-12-31 | family models (LightGBM) |
 | 2016-01-01 → 2016-01-31 | combiner calibration; threshold grid recorded |
 | 2016-02-01 → 2016-02-29 | trainer's held-out partition, no replay |
-| 2016-03-01 → 2016-09-30 | one continuous simulation per strategy, $10,000, A05 plan |
+| 2016-03-01 → 2016-10-31 | one continuous simulation per strategy, $10,000, A05 plan; both strategies run in parallel |
+
+Amendment (2026-09-27, evening): October 2016 finished ingesting before the job's first
+stage completed, so the simulation window was extended from 2016-09-30 to 2016-10-31 —
+still before any 2016 bar was simulated. GDELT event features are built through
+2016-11-01 so the last October bar's decision minute is covered. The training,
+calibration and held-out spans are unchanged.
 
 Pre-registered threshold rule: keep θ = 0.55/0.45 with the regime gate off unless the
 January-2016 validation hit rate at 0.55/0.45 is below 0.5; the full grid is recorded
