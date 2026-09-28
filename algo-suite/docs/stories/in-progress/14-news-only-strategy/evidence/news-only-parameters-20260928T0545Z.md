@@ -282,3 +282,191 @@ schema_version = 2  # news-only-h4-q10/config.yaml
 
 a243f75e3f37c03e7e87843bf01cf6b199df57bfe00bd2639b1b7d692832afa3  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-news-only/models/news-only-h1.json
 92bd5cb16d83854f16119516c92d7950b8fe4a080fecd2a763b5276d8a959d41  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-news-only/models/news-only-h4.json
+## news-rule-h1-plus
+```
+capital_mgmt.assumed_leverage = 30.0  # news-only/config.yaml
+capital_mgmt.atr_multiplier = 2.0  # news-only/config.yaml
+capital_mgmt.lot_notional_units = 100000.0  # news-only/config.yaml
+capital_mgmt.min_reward_risk = 2.0  # news-only/config.yaml
+capital_mgmt.min_stop_factor = 1.2  # news-only/config.yaml
+capital_mgmt.min_stop_pips = 5.0  # news-only/config.yaml
+capital_mgmt.pip_value_per_lot = 10.0  # news-only/config.yaml
+capital_mgmt.risk_per_trade = 0.03  # news-only/config.yaml
+capital_mgmt.stop_distance_source = "swing"  # news-only/config.yaml
+capital_mgmt.stop_loss_pips = 20.0  # news-only/config.yaml
+capital_mgmt.stop_loss_shrink = 0.5  # news-only/config.yaml
+capital_mgmt.targets = [{"at_level_ratio": 4.0, "close_fraction": 0.5}, {"at_level_ratio": 6.0, "close_fraction": 0.5}]  # news-only/config.yaml
+capital_mgmt.trail_stops = [{"at_level_ratio": 2.0, "to_level_ratio": 0.1}]  # news-only/config.yaml
+execution.broker_stop_level_pips = 0.0  # baseline/config.yaml
+execution.close_on_veto = false  # baseline/config.yaml
+execution.commission_per_lot = 0.0  # baseline/config.yaml
+execution.min_hold_bars = 0  # baseline/config.yaml
+execution.spread_pips = 1.0  # baseline/config.yaml
+filters = ["f4_news_context", "f5_risk_guard", "f6_capital_mgmt"]  # news-rule/config.yaml
+news_context.direction_source = "intensity"  # news-rule-h1-plus/config.yaml
+news_context.event_intensity_veto_threshold = -0.5  # news-rule/config.yaml
+news_context.intensity_buy_threshold = 0.6294  # news-rule-h1-plus/config.yaml
+news_context.intensity_sell_threshold = -0.0046  # news-rule-h1-plus/config.yaml
+news_context.intensity_sign = 1  # news-rule-h1-plus/config.yaml
+news_context.sentiment_direction_threshold = 0.15  # news-rule/config.yaml
+perception_source = "ema"  # news-only/config.yaml
+price_features.atr_period = 14  # baseline/config.yaml
+price_features.bar_minutes = 60  # news-only/config.yaml
+price_features.ema_fast = 3  # baseline/config.yaml
+price_features.ema_higher_tf = 60  # baseline/config.yaml
+price_features.ema_slow = 8  # baseline/config.yaml
+price_features.macd_fast = 12  # baseline/config.yaml
+price_features.macd_signal = 9  # baseline/config.yaml
+price_features.macd_slow = 26  # baseline/config.yaml
+price_features.rsi_period = 14  # baseline/config.yaml
+price_features.swing_lookback_bars = 60  # baseline/config.yaml
+risk_guard.daily_drawdown_limit = -0.05  # news-only/config.yaml
+risk_guard.max_concurrent_trades_per_account = 2  # news-only/config.yaml
+risk_guard.max_leverage = 30  # news-only/config.yaml
+risk_guard.portfolio_at_risk_cap = 0.18  # news-only/config.yaml
+risk_guard.weekly_drawdown_limit = -0.15  # news-only/config.yaml
+schema_version = 2  # news-rule-h1-plus/config.yaml
+terminal_filter = "f4_news_context"  # news-rule/config.yaml
+```
+
+## news-rule-h1-minus
+```
+capital_mgmt.assumed_leverage = 30.0  # news-only/config.yaml
+capital_mgmt.atr_multiplier = 2.0  # news-only/config.yaml
+capital_mgmt.lot_notional_units = 100000.0  # news-only/config.yaml
+capital_mgmt.min_reward_risk = 2.0  # news-only/config.yaml
+capital_mgmt.min_stop_factor = 1.2  # news-only/config.yaml
+capital_mgmt.min_stop_pips = 5.0  # news-only/config.yaml
+capital_mgmt.pip_value_per_lot = 10.0  # news-only/config.yaml
+capital_mgmt.risk_per_trade = 0.03  # news-only/config.yaml
+capital_mgmt.stop_distance_source = "swing"  # news-only/config.yaml
+capital_mgmt.stop_loss_pips = 20.0  # news-only/config.yaml
+capital_mgmt.stop_loss_shrink = 0.5  # news-only/config.yaml
+capital_mgmt.targets = [{"at_level_ratio": 4.0, "close_fraction": 0.5}, {"at_level_ratio": 6.0, "close_fraction": 0.5}]  # news-only/config.yaml
+capital_mgmt.trail_stops = [{"at_level_ratio": 2.0, "to_level_ratio": 0.1}]  # news-only/config.yaml
+execution.broker_stop_level_pips = 0.0  # baseline/config.yaml
+execution.close_on_veto = false  # baseline/config.yaml
+execution.commission_per_lot = 0.0  # baseline/config.yaml
+execution.min_hold_bars = 0  # baseline/config.yaml
+execution.spread_pips = 1.0  # baseline/config.yaml
+filters = ["f4_news_context", "f5_risk_guard", "f6_capital_mgmt"]  # news-rule/config.yaml
+news_context.direction_source = "intensity"  # news-rule-h1-minus/config.yaml
+news_context.event_intensity_veto_threshold = -0.5  # news-rule/config.yaml
+news_context.intensity_buy_threshold = 0.6294  # news-rule-h1-minus/config.yaml
+news_context.intensity_sell_threshold = -0.0046  # news-rule-h1-minus/config.yaml
+news_context.intensity_sign = -1  # news-rule-h1-minus/config.yaml
+news_context.sentiment_direction_threshold = 0.15  # news-rule/config.yaml
+perception_source = "ema"  # news-only/config.yaml
+price_features.atr_period = 14  # baseline/config.yaml
+price_features.bar_minutes = 60  # news-only/config.yaml
+price_features.ema_fast = 3  # baseline/config.yaml
+price_features.ema_higher_tf = 60  # baseline/config.yaml
+price_features.ema_slow = 8  # baseline/config.yaml
+price_features.macd_fast = 12  # baseline/config.yaml
+price_features.macd_signal = 9  # baseline/config.yaml
+price_features.macd_slow = 26  # baseline/config.yaml
+price_features.rsi_period = 14  # baseline/config.yaml
+price_features.swing_lookback_bars = 60  # baseline/config.yaml
+risk_guard.daily_drawdown_limit = -0.05  # news-only/config.yaml
+risk_guard.max_concurrent_trades_per_account = 2  # news-only/config.yaml
+risk_guard.max_leverage = 30  # news-only/config.yaml
+risk_guard.portfolio_at_risk_cap = 0.18  # news-only/config.yaml
+risk_guard.weekly_drawdown_limit = -0.15  # news-only/config.yaml
+schema_version = 2  # news-rule-h1-minus/config.yaml
+terminal_filter = "f4_news_context"  # news-rule/config.yaml
+```
+
+## news-rule-h4-plus
+```
+capital_mgmt.assumed_leverage = 30.0  # news-only/config.yaml
+capital_mgmt.atr_multiplier = 2.0  # news-only/config.yaml
+capital_mgmt.lot_notional_units = 100000.0  # news-only/config.yaml
+capital_mgmt.min_reward_risk = 2.0  # news-only/config.yaml
+capital_mgmt.min_stop_factor = 1.2  # news-only/config.yaml
+capital_mgmt.min_stop_pips = 5.0  # news-only/config.yaml
+capital_mgmt.pip_value_per_lot = 10.0  # news-only/config.yaml
+capital_mgmt.risk_per_trade = 0.03  # news-only/config.yaml
+capital_mgmt.stop_distance_source = "swing"  # news-only/config.yaml
+capital_mgmt.stop_loss_pips = 20.0  # news-only/config.yaml
+capital_mgmt.stop_loss_shrink = 0.5  # news-only/config.yaml
+capital_mgmt.targets = [{"at_level_ratio": 4.0, "close_fraction": 0.5}, {"at_level_ratio": 6.0, "close_fraction": 0.5}]  # news-only/config.yaml
+capital_mgmt.trail_stops = [{"at_level_ratio": 2.0, "to_level_ratio": 0.1}]  # news-only/config.yaml
+execution.broker_stop_level_pips = 0.0  # baseline/config.yaml
+execution.close_on_veto = false  # baseline/config.yaml
+execution.commission_per_lot = 0.0  # baseline/config.yaml
+execution.min_hold_bars = 0  # baseline/config.yaml
+execution.spread_pips = 1.0  # baseline/config.yaml
+filters = ["f4_news_context", "f5_risk_guard", "f6_capital_mgmt"]  # news-rule/config.yaml
+news_context.direction_source = "intensity"  # news-rule-h4-plus/config.yaml
+news_context.event_intensity_veto_threshold = -0.5  # news-rule/config.yaml
+news_context.intensity_buy_threshold = 0.6294  # news-rule-h4-plus/config.yaml
+news_context.intensity_sell_threshold = -0.0046  # news-rule-h4-plus/config.yaml
+news_context.intensity_sign = 1  # news-rule-h4-plus/config.yaml
+news_context.sentiment_direction_threshold = 0.15  # news-rule/config.yaml
+perception_source = "ema"  # news-only/config.yaml
+price_features.atr_period = 14  # baseline/config.yaml
+price_features.bar_minutes = 240  # news-rule-h4/config.yaml
+price_features.ema_fast = 3  # baseline/config.yaml
+price_features.ema_higher_tf = 60  # baseline/config.yaml
+price_features.ema_slow = 8  # baseline/config.yaml
+price_features.macd_fast = 12  # baseline/config.yaml
+price_features.macd_signal = 9  # baseline/config.yaml
+price_features.macd_slow = 26  # baseline/config.yaml
+price_features.rsi_period = 14  # baseline/config.yaml
+price_features.swing_lookback_bars = 60  # baseline/config.yaml
+risk_guard.daily_drawdown_limit = -0.05  # news-only/config.yaml
+risk_guard.max_concurrent_trades_per_account = 2  # news-only/config.yaml
+risk_guard.max_leverage = 30  # news-only/config.yaml
+risk_guard.portfolio_at_risk_cap = 0.18  # news-only/config.yaml
+risk_guard.weekly_drawdown_limit = -0.15  # news-only/config.yaml
+schema_version = 2  # news-rule-h4-plus/config.yaml
+terminal_filter = "f4_news_context"  # news-rule/config.yaml
+```
+
+## news-rule-h4-minus
+```
+capital_mgmt.assumed_leverage = 30.0  # news-only/config.yaml
+capital_mgmt.atr_multiplier = 2.0  # news-only/config.yaml
+capital_mgmt.lot_notional_units = 100000.0  # news-only/config.yaml
+capital_mgmt.min_reward_risk = 2.0  # news-only/config.yaml
+capital_mgmt.min_stop_factor = 1.2  # news-only/config.yaml
+capital_mgmt.min_stop_pips = 5.0  # news-only/config.yaml
+capital_mgmt.pip_value_per_lot = 10.0  # news-only/config.yaml
+capital_mgmt.risk_per_trade = 0.03  # news-only/config.yaml
+capital_mgmt.stop_distance_source = "swing"  # news-only/config.yaml
+capital_mgmt.stop_loss_pips = 20.0  # news-only/config.yaml
+capital_mgmt.stop_loss_shrink = 0.5  # news-only/config.yaml
+capital_mgmt.targets = [{"at_level_ratio": 4.0, "close_fraction": 0.5}, {"at_level_ratio": 6.0, "close_fraction": 0.5}]  # news-only/config.yaml
+capital_mgmt.trail_stops = [{"at_level_ratio": 2.0, "to_level_ratio": 0.1}]  # news-only/config.yaml
+execution.broker_stop_level_pips = 0.0  # baseline/config.yaml
+execution.close_on_veto = false  # baseline/config.yaml
+execution.commission_per_lot = 0.0  # baseline/config.yaml
+execution.min_hold_bars = 0  # baseline/config.yaml
+execution.spread_pips = 1.0  # baseline/config.yaml
+filters = ["f4_news_context", "f5_risk_guard", "f6_capital_mgmt"]  # news-rule/config.yaml
+news_context.direction_source = "intensity"  # news-rule-h4-minus/config.yaml
+news_context.event_intensity_veto_threshold = -0.5  # news-rule/config.yaml
+news_context.intensity_buy_threshold = 0.6294  # news-rule-h4-minus/config.yaml
+news_context.intensity_sell_threshold = -0.0046  # news-rule-h4-minus/config.yaml
+news_context.intensity_sign = -1  # news-rule-h4-minus/config.yaml
+news_context.sentiment_direction_threshold = 0.15  # news-rule/config.yaml
+perception_source = "ema"  # news-only/config.yaml
+price_features.atr_period = 14  # baseline/config.yaml
+price_features.bar_minutes = 240  # news-rule-h4/config.yaml
+price_features.ema_fast = 3  # baseline/config.yaml
+price_features.ema_higher_tf = 60  # baseline/config.yaml
+price_features.ema_slow = 8  # baseline/config.yaml
+price_features.macd_fast = 12  # baseline/config.yaml
+price_features.macd_signal = 9  # baseline/config.yaml
+price_features.macd_slow = 26  # baseline/config.yaml
+price_features.rsi_period = 14  # baseline/config.yaml
+price_features.swing_lookback_bars = 60  # baseline/config.yaml
+risk_guard.daily_drawdown_limit = -0.05  # news-only/config.yaml
+risk_guard.max_concurrent_trades_per_account = 2  # news-only/config.yaml
+risk_guard.max_leverage = 30  # news-only/config.yaml
+risk_guard.portfolio_at_risk_cap = 0.18  # news-only/config.yaml
+risk_guard.weekly_drawdown_limit = -0.15  # news-only/config.yaml
+schema_version = 2  # news-rule-h4-minus/config.yaml
+terminal_filter = "f4_news_context"  # news-rule/config.yaml
+```
+
