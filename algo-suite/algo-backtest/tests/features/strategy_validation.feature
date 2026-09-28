@@ -263,6 +263,25 @@ Feature: Strategy parameter validation
         | tight   | baseline | {meta_learner: {theta_high: 0.6, theta_low: 0.4}} | baseline | false |
         | newsy   | hybrid   | {news_context: {event_intensity_veto_threshold: -2.0}} | hybrid | true |
 
+    Scenario Outline: a chain strategy needs an F7 model exactly when it lists f7_meta_learner (<name>)
+      Given strategy "<name>" with params cash=10000
+      When I validate the run inputs with outcome "<outcome>"
+      Then <expectation>
+      And the resolved strategy "<name>" <model_file>
+
+      Examples:
+        | name       | outcome           | expectation                                                                              | model_file                              |
+        | news-rule  | passes            | validation passes                                                                        | loads no F7 model                       |
+        | news-rule-h4 | passes          | validation passes                                                                        | loads no F7 model                       |
+        | hybrid     | passes            | validation passes                                                                        | loads the F7 model "f7_meta_learner.json" |
+        | news-only  | expecting failure | validation fails naming "was trained on families ['indicator', 'news', 'pattern', 'trend'], but the strategy's config.yaml declares meta_learner.families ['news']" | loads the F7 model "f7_meta_learner.json" |
+
+    Scenario: --model is rejected for a chain strategy that lists no f7_meta_learner
+      Given a baseline-family model file whose provenance price_features is {ema_fast: 3}
+      And strategy "news-rule" with params cash=10000
+      When I validate the run inputs for strategy "news-rule" with that model expecting failure
+      Then validation fails naming "--model does not apply to strategy 'news-rule': its filters list no f7_meta_learner, so no F7 model is loaded"
+
     Scenario: the bundled strategies still resolve without any directory
       When strategy "hybrid" is resolved from the bundled directory
       Then the resolved strategy runs on algorithm "hybrid" with news data true

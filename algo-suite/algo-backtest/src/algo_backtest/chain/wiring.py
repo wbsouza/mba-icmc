@@ -40,7 +40,8 @@ from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
 from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
 from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
 from algo_backtest.chain.filters.volume_strength import VolumeStrengthFilter
-from algo_backtest.chain.model import Filter
+from algo_backtest.chain.model import Filter, TerminalDecision
+from algo_backtest.chain.terminal import F7TerminalDecision, LastFilterTerminalDecision
 from algo_backtest.strategies import KNOWN_FILTERS, StrategyChainConfig
 
 # F1 hard-requires trend_strength in [0, 100] (an ADX-style reading); the EMA-gap proxy
@@ -204,17 +205,37 @@ class PnlWindows:
 def build_filters(
     config: StrategyChainConfig,
     *,
-    meta_learner: TrainedMetaLearner,
+    meta_learner: TrainedMetaLearner | None,
     news_index: NewsContextIndex | None = None,
 ) -> list[Filter]:
     """Instantiate a strategy's filter list in declared order, each with its own section.
 
+    `meta_learner` is the strategy's F7 model; a strategy without `f7_meta_learner` passes
+    `None` (the engine loads no model for it) and F7 fails fast if it is missing.
+
     Raises:
         ValueError: on an unknown filter name, a configurable filter whose section the
-            config does not carry, or `f4_news_context` requested without a `news_index`
-            (the strategy is missing `StrategySpec.needs_news_data`).
+            config does not carry, `f7_meta_learner` requested without a `meta_learner`,
+            or `f4_news_context` requested without a `news_index` (the strategy is
+            missing `StrategySpec.needs_news_data`).
     """
     return [_build_filter(name, config, meta_learner, news_index) for name in config.filters]
+
+
+def terminal_decision(config: StrategyChainConfig) -> TerminalDecision:
+    """The chain's closing rule: F7's own when it is listed, else the `terminal_filter`'s.
+
+    Raises:
+        ValueError: neither F7 nor a `terminal_filter` (a config built outside the loader).
+    """
+    if "f7_meta_learner" in config.filters:
+        return F7TerminalDecision()
+    if config.terminal_filter is None:
+        raise ValueError(
+            f"strategy {config.name!r} lists no f7_meta_learner and names no terminal_filter — "
+            "load it through load_strategy_chain_config, which requires one of the two"
+        )
+    return LastFilterTerminalDecision(config.terminal_filter)
 
 
 _T = TypeVar("_T")
@@ -244,7 +265,21 @@ def _build_f4(
     )
 
 
-_Builder = Callable[[StrategyChainConfig, TrainedMetaLearner, NewsContextIndex | None], Filter]
+def _build_f7(config: StrategyChainConfig, meta_learner: TrainedMetaLearner | None) -> Filter:
+    """F7 needs the trained model on top of its own section."""
+    if meta_learner is None:
+        raise ValueError(
+            f"strategy {config.name!r} lists f7_meta_learner but no meta-learner model was given "
+            "— load the strategy's F7 model (run --model, or the bundled f7_meta_learner.json)"
+        )
+    return F7MetaLearnerFilter(
+        meta_learner=meta_learner, config=_section(config.f7, "meta_learner", config)
+    )
+
+
+_Builder = Callable[
+    [StrategyChainConfig, TrainedMetaLearner | None, NewsContextIndex | None], Filter
+]
 _BUILDERS: dict[str, _Builder] = {
     "volume_strength": lambda c, m, n: VolumeStrengthFilter(
         config=_section(c.volume_strength, "volume_strength", c)
@@ -263,16 +298,14 @@ _BUILDERS: dict[str, _Builder] = {
         spread_pips=c.execution.spread_pips,
         broker_stop_level_pips=c.execution.broker_stop_level_pips,
     ),
-    "f7_meta_learner": lambda c, m, n: F7MetaLearnerFilter(
-        meta_learner=m, config=_section(c.f7, "meta_learner", c)
-    ),
+    "f7_meta_learner": lambda c, m, n: _build_f7(c, m),
 }
 
 
 def _build_filter(
     name: str,
     config: StrategyChainConfig,
-    meta_learner: TrainedMetaLearner,
+    meta_learner: TrainedMetaLearner | None,
     news_index: NewsContextIndex | None,
 ) -> Filter:
     """One filter by its `config.yaml` name, parameterised from its own section."""

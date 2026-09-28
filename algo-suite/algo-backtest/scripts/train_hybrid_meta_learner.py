@@ -1,7 +1,12 @@
-"""Offline F7 meta-learner training for the "hybrid" strategy chain -- SMOKE TEST ONLY.
+"""Offline F7 meta-learner training for the news-aware strategy chains -- SMOKE TEST ONLY.
 
 Trains and persists a `TrainedMetaLearner` for `algos/hybrid/main.py` as a portable JSON
 document (`chain/filters/f7_model_io.py`) embedding exactly what it was trained on.
+The families trained are exactly the strategy's `meta_learner.families`: any non-empty
+subset of the known families that includes `news` (`hybrid` declares all four; the
+`news-only` strategy declares `[news]` alone), recorded in the model so a run under a
+strategy declaring different families is refused (`f7_model_io.require_families`).
+A strategy without the news family belongs to `train_baseline_meta_learner.py`.
 Rows are built over the bar stream LEAN delivers, with LEAN's indicator seeding and the
 live algorithm's feature function (`algo_backtest.training` over `chain.wiring`), and
 news is keyed at decision time — train/serve parity of the price features and of
@@ -28,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
@@ -51,13 +57,28 @@ from algo_core.instrument import build_instrument
 _DEFAULT_OUT = (
     Path(__file__).resolve().parents[1] / "src/algo_backtest/algos/hybrid/f7_meta_learner.json"
 )
-# Must match strategies/hybrid/config.yaml's meta_learner.families exactly.
-_FAMILIES = (
-    FeatureFamily.TREND,
-    FeatureFamily.INDICATOR,
-    FeatureFamily.PATTERN,
-    FeatureFamily.NEWS,
-)
+
+
+def _families(strategy: str, declared: Sequence[str]) -> tuple[FeatureFamily, ...]:
+    """The families to train, in the strategy's declared order; `news` must be among them.
+
+    The loader has already refused an unknown family name, so every entry coerces.
+
+    Raises:
+        ValueError: the strategy declares no families, or none of them is `news`.
+    """
+    if not declared:
+        raise ValueError(
+            f"hybrid trainer requires at least one feature family, but strategy {strategy!r} "
+            "declares no meta_learner.families; add the families to train (news included)"
+        )
+    if FeatureFamily.NEWS.value not in declared:
+        raise ValueError(
+            f"hybrid trainer requires the news family, but strategy {strategy!r} declares "
+            f"meta_learner.families {list(declared)}; add 'news' to meta_learner.families or "
+            "use the baseline trainer for price-only families"
+        )
+    return tuple(FeatureFamily(name) for name in declared)
 
 
 def _git_revision() -> str:
@@ -119,13 +140,7 @@ def main() -> None:
         raise ValueError(
             f"strategy {args.strategy!r} does not list f7_meta_learner; enable it before training"
         )
-    expected = sorted(family.value for family in _FAMILIES)
-    if sorted(config.meta_learner_families) != expected:
-        raise ValueError(
-            f"hybrid trainer requires families {expected}, but strategy {args.strategy!r} "
-            f"declares {list(config.meta_learner_families)}; use the matching training script "
-            "or align meta_learner.families"
-        )
+    families = _families(args.strategy, config.meta_learner_families)
     if "f4_news_context" not in config.filters:
         raise ValueError(
             f"hybrid trainer requires f4_news_context for strategy {args.strategy!r}; "
@@ -144,7 +159,7 @@ def main() -> None:
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end
     )
-    model = train_meta_learner(families=_FAMILIES, split=split)
+    model = train_meta_learner(families=families, split=split)
     save_model(
         model,
         args.out,
@@ -164,7 +179,7 @@ def main() -> None:
                 "validation": len(split.validation),
                 "test": len(split.test),
             },
-            "families": [family.value for family in _FAMILIES],
+            "families": [family.value for family in families],
             "git_revision": _git_revision(),
         },
         data_root=data_root,

@@ -156,6 +156,93 @@ Feature: Filter-chain mechanics with stub filters
       When the real chain runs expecting failure
       Then the real chain fails naming "state.filter_results is empty"
 
+  Rule: A chain without F7 decides through its terminal_filter (LastFilterTerminalDecision, story 14)
+    The rule-only news chain: F4 decides from the event intensity, F5 and F6 gate after it,
+    no meta-learner and no model. The terminal rule is the one the loader and wiring select
+    for the strategy, not a test double.
+
+    Scenario Outline: <case>
+      Given a strategy "rule" whose config.yaml is:
+        """
+        schema_version: 2
+        filters:
+          - f4_news_context
+          - f5_risk_guard
+          - f6_capital_mgmt
+        terminal_filter: f4_news_context
+        news_context:
+          event_intensity_veto_threshold: -0.5
+          sentiment_direction_threshold: null
+          direction_source: intensity
+          intensity_buy_threshold: 0.9
+          intensity_sell_threshold: 0.3
+          intensity_sign: <sign>
+        risk_guard:
+          portfolio_at_risk_cap: 0.10
+          daily_drawdown_limit: -0.05
+          weekly_drawdown_limit: -0.15
+          max_concurrent_trades_per_account: 5
+          max_leverage: 30
+        capital_mgmt:
+          risk_per_trade: 0.03
+          stop_loss_pips: 20.0
+          pip_value_per_lot: 10.0
+          lot_notional_units: 100000
+          assumed_leverage: 30
+        """
+      And the real chain built from the "rule" strategy config, terminated by the rule its config selects
+      And a bar whose features are:
+        | feature                     | value |
+        | account_daily_pnl_fraction  | -0.01 |
+        | account_weekly_pnl_fraction | -0.02 |
+        | account_open_trade_count    | 1     |
+        | account_leverage            | 5.0   |
+        | account_balance             | 10000 |
+        | pip_value                   | 1.0   |
+        | margin_per_lot              | 50.0  |
+        | available_margin            | 10000 |
+      And the account portfolio-at-risk is <portfolio_at_risk>
+      And the day's GDELT event_intensity is <event_intensity>
+      When the real chain runs
+      Then the real chain outcome decision is "<decision>"
+      And the real chain was vetoed by "<vetoed_by>"
+      And every real filter ran in order "<filters_ran>"
+
+      Examples: F4's intensity vote is the decision once the gates pass
+        | case                                  | sign | portfolio_at_risk | event_intensity | decision | vetoed_by | filters_ran                                     |
+        | intensity at the buy threshold buys   | 1    | 0.05              | 0.9             | BUY      | none      | f4_news_context, f5_risk_guard, f6_capital_mgmt |
+        | intensity below the sell threshold sells | 1 | 0.05              | 0.1             | SELL     | none      | f4_news_context, f5_risk_guard, f6_capital_mgmt |
+        | intensity between the thresholds holds | 1   | 0.05              | 0.6             | HOLD     | none      | f4_news_context, f5_risk_guard, f6_capital_mgmt |
+        | sign -1 turns the buy into a sell     | -1   | 0.05              | 1.2             | SELL     | none      | f4_news_context, f5_risk_guard, f6_capital_mgmt |
+
+      Examples: the gates after the terminal filter still veto
+        | case                                  | sign | portfolio_at_risk | event_intensity | decision | vetoed_by       | filters_ran                    |
+        | risk-guard breach after a buy vote    | 1    | 0.5               | 1.2             | NO_TRADE | f5_risk_guard   | f4_news_context, f5_risk_guard |
+        | high-risk news vetoes before anything | 1    | 0.05              | -5.0            | NO_TRADE | f4_news_context | f4_news_context                |
+
+    Scenario: LastFilterTerminalDecision fails fast if its terminal filter never ran
+      Given a chain of a PASS filter "trend" only, terminated by LastFilterTerminalDecision for "f4_news_context"
+      When the real chain runs expecting failure
+      Then the real chain fails naming "the terminal filter 'f4_news_context' did not run"
+
+    Scenario: LastFilterTerminalDecision fails fast on an empty chain
+      Given an empty chain terminated by LastFilterTerminalDecision for "f4_news_context"
+      When the real chain runs expecting failure
+      Then the real chain fails naming "did not run (filters that ran: [])"
+
+    Scenario Outline: LastFilterTerminalDecision maps every recommendation of its filter (<recommendation> -> <decision>)
+      Given a chain of a "<recommendation>" filter "f4_news_context" then a PASS gate "f5_risk_guard", terminated by LastFilterTerminalDecision for "f4_news_context"
+      When the real chain runs
+      Then the real chain outcome decision is "<decision>"
+
+      Examples:
+        | recommendation | decision |
+        | BUY            | BUY      |
+        | SELL           | SELL     |
+        | HOLD           | HOLD     |
+        | NEUTRAL        | HOLD     |
+        | ABSTAIN        | HOLD     |
+
   Rule: decision_to_order_action classifies every chain Decision (Spec 04h)
 
     Scenario Outline: a Decision maps to the right order action

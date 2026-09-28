@@ -126,6 +126,16 @@ def _base_config(strategies_ctx: _StrategiesCtx, name: str, filters: str, famili
     _write_config(strategies_ctx.root, name, _body(_split(filters), _split(families)))
 
 
+@given(
+    parsers.parse(
+        'a strategy config directory with "{name}" filters "{filters}" and no feature families'
+    )
+)
+def _base_config_no_families(strategies_ctx: _StrategiesCtx, name: str, filters: str) -> None:
+    """A chain without F7 declares no families (its `meta_learner` mapping stays empty)."""
+    _write_config(strategies_ctx.root, name, _body(_split(filters), ()))
+
+
 @given(parsers.parse('"{name}" also declares meta_learner.theta_high {value:g}'))
 def _amend_theta_high(strategies_ctx: _StrategiesCtx, name: str, value: float) -> None:
     """Amend an already-written strategy config's nested `meta_learner` key, so a merge
@@ -186,6 +196,30 @@ def _set_extends(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
 @given(parsers.parse('"{name}" is changed to extend "{base}"'))
 def _make_extend(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__("extends", base))
+
+
+@given(parsers.parse('"{name}" sets its "{section}" section to null'))
+def _null_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> None:
+    """A child's explicit top-level `null`: the loader drops the inherited section."""
+    _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__(section, None))
+
+
+@given(parsers.parse('"{name}" declares terminal_filter {value}'))
+def _terminal_filter(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
+    """`absent` leaves the key out; anything else is flow-style YAML (a quoted name, or a
+    deliberately wrong type)."""
+    def amend(body: dict[str, Any]) -> None:
+        body.pop("terminal_filter", None)
+        if value != "absent":
+            body["terminal_filter"] = yaml.safe_load(value)
+
+    _amend_config(strategies_ctx.root, name, amend)
+
+
+@then(parsers.parse('the loaded strategy\'s terminal filter is "{name}"'))
+def _terminal_is(strategies_ctx: _StrategiesCtx, name: str) -> None:
+    assert strategies_ctx.loaded is not None
+    assert strategies_ctx.loaded.terminal_filter == name
 
 
 @given(parsers.parse('"{name}" drops its "{section}" section'))
@@ -467,6 +501,22 @@ def _raw_records(strategies_ctx: _StrategiesCtx, section: str, key: str, value: 
     """Effective (possibly defaulted) values must appear in `raw`, hence in strategy-config.json."""
     assert strategies_ctx.loaded is not None
     assert strategies_ctx.loaded.raw[section][key] == yaml.safe_load(value)
+
+
+@then(parsers.parse('the loaded strategy\'s raw config has no "{section}" section'))
+def _raw_lacks_section(strategies_ctx: _StrategiesCtx, section: str) -> None:
+    """A dropped section is absent from `raw`, hence from strategy-config.{json,yaml}."""
+    assert strategies_ctx.loaded is not None
+    assert section not in strategies_ctx.loaded.raw, sorted(strategies_ctx.loaded.raw)
+
+
+@then(parsers.parse('the loaded strategy records no provenance under "{prefix}"'))
+def _no_provenance_under(strategies_ctx: _StrategiesCtx, prefix: str) -> None:
+    """Neither the dropped section nor any key inside it keeps a provenance entry."""
+    assert strategies_ctx.loaded is not None
+    provenance = strategies_ctx.loaded.provenance
+    stale = [k for k in provenance if k == prefix or k.startswith(f"{prefix}.")]
+    assert stale == [], stale
 
 
 @then(parsers.parse('the loaded strategy has a typed "{section}" config'))
