@@ -21,3 +21,14 @@ Wave 3 (lead):
 - [ ] Gauntlet: CRAP, mutation pass, QA script and procedure
 - [ ] Docs: SPEC, READMEs, thesis §3, story 09 follow-up (TD-46 and TD-65 rows deleted as resolved; the debt ledger had no TD-51 row)
 - [ ] PR
+
+## QA
+
+- `evidence/qa-procedure.md` — the operator-point-of-view system test (explain-strategy,
+  a `--param cash=10000` run with the bootstrap provenance print, run-directory inspection,
+  report.html, `statement --run` regeneration, `algo-analyze equity-curves` over two runs,
+  each step with its command, what to look at and its pass criterion) and
+  `evidence/qa_check.py` — the deterministic gate (`uv run python
+  docs/stories/in-progress/12-execution-realism/evidence/qa_check.py <run_dir> [<run_dir>...]`,
+  exit 0/1, one PASS/FAIL line per check; proven by
+  `algo-backtest/tests/features/qa_check_story12.feature`, 39 scenarios, 2026-09-27).
