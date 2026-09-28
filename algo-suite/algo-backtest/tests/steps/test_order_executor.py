@@ -73,11 +73,13 @@ class _Transactions:
 
     def __init__(self) -> None:
         self.tickets: dict[int, _Ticket] = {}
+        self.symbols: list[Any] = []  # every symbol a query was made for
 
     def get_order_ticket(self, order_id: int) -> _Ticket | None:
         return self.tickets.get(order_id)
 
     def get_open_orders(self, symbol: Any) -> list[_Order]:
+        self.symbols.append(symbol)
         return [
             _Order(id=t.order_id, quantity=t.quantity)
             for t in self.tickets.values()
@@ -110,13 +112,16 @@ class _FakeAlgorithm:
         self.order_event_sink: Callable[[Any], None] | None = None
         self.orders: list[tuple[Any, float]] = []
         self.liquidated: list[Any] = []
+        self.symbols: list[Any] = []  # every symbol an order primitive was called with
         self.utc_time = datetime(2020, 1, 2, 14, 30, tzinfo=UTC)
         self.transactions = _Transactions()
 
     def calculate_order_quantity(self, symbol: Any, target: float) -> float:
+        self.symbols.append(symbol)
         return target  # identity: unit tests pass sizes straight through
 
     def market_order(self, symbol: Any, quantity: float) -> _Ticket:
+        self.symbols.append(symbol)
         self.orders.append((symbol, quantity))
         order_id = next(self._ids)
         self._fire(order_id)
@@ -124,17 +129,20 @@ class _FakeAlgorithm:
 
     def stop_market_order(self, symbol: Any, quantity: float, stop_price: float) -> _Ticket:
         """Mirror of LEAN's three-argument binding (a positional tag does not bind)."""
+        self.symbols.append(symbol)
         ticket = _Ticket(order_id=next(self._ids), quantity=quantity, stop_price=stop_price)
         self.transactions.tickets[ticket.order_id] = ticket
         return ticket
 
     def limit_order(self, symbol: Any, quantity: float, limit_price: float) -> _Ticket:
         """Mirror of LEAN's three-argument binding (a positional tag does not bind)."""
+        self.symbols.append(symbol)
         ticket = _Ticket(order_id=next(self._ids), quantity=quantity, limit_price=limit_price)
         self.transactions.tickets[ticket.order_id] = ticket
         return ticket
 
     def liquidate(self, symbol: Any) -> list[_Ticket]:
+        self.symbols.append(symbol)
         if self._multi_ticket:
             # A multi-lot position split across two tickets — OrderExecutor.close
             # must reject this before consuming any OnOrderEvent, so no _fire here.
@@ -187,6 +195,11 @@ def _silent(context: dict[str, Any]) -> None:
 @given("a fake algorithm with an open position that fills every order")
 def _open_position(context: dict[str, Any]) -> None:
     _wire(context, _FakeAlgorithm(fills=True, invested=True))
+
+
+@given("a fake algorithm with an open position that never reports an order event")
+def _open_position_silent(context: dict[str, Any]) -> None:
+    _wire(context, _FakeAlgorithm(fills=True, invested=True, silent=True))
 
 
 @given("a fake algorithm with no open position")
@@ -296,6 +309,28 @@ def _stop_take(context: dict[str, Any]) -> None:
     assert fill.take_profit == sizing.take_profit
 
 
+@then("the fill record is")
+def _fill_record_is(context: dict[str, Any], datatable: list[list[str]]) -> None:
+    """Each `field | value` row against the record, compared as text (`None` included)."""
+    _header, *rows = datatable
+    fill = context["fill"]
+    for field_name, value in rows:
+        assert f"{getattr(fill, field_name)}" == value, (field_name, fill)
+
+
+@then("every LEAN order primitive was called for the executed symbol")
+def _symbols_consistent(context: dict[str, Any]) -> None:
+    """No primitive silently dropped or swapped the symbol it was asked to trade."""
+    algorithm: _FakeAlgorithm = context["algorithm"]
+    called = [*algorithm.symbols, *algorithm.transactions.symbols]
+    assert called and all(symbol == _SYMBOL for symbol in called), called
+
+
+@then(parsers.parse('the executor failure is exactly "{message}"'))
+def _executor_failure_exactly(context: dict[str, Any], message: str) -> None:
+    assert str(context["error"]) == message
+
+
 # --- Story 12: quantity entries and the plan's working orders ---------------------------
 
 
@@ -379,6 +414,15 @@ def _holds_limit(context: dict[str, Any], quantity: float, price: float) -> None
 def _open_count(context: dict[str, Any], count: int) -> None:
     executor: OrderExecutor = context["executor"]
     assert len(executor.open_orders(_SYMBOL)) == count
+
+
+@then("the executor's open orders are")
+def _open_orders_are(context: dict[str, Any], datatable: list[list[str]]) -> None:
+    """Id and signed quantity of every working order, in LEAN's order."""
+    _header, *rows = datatable
+    executor: OrderExecutor = context["executor"]
+    got = [(f"{o.order_id}", f"{o.quantity}") for o in executor.open_orders(_SYMBOL)]
+    assert got == [tuple(row) for row in rows], got
 
 
 @when(parsers.parse("OrderExecutor moves that stop to {price:g}"))

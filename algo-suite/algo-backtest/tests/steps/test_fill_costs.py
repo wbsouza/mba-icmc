@@ -222,11 +222,12 @@ def _pip_is(ctx: _Ctx, expected: float) -> None:
     assert ctx.result == pytest.approx(expected, rel=1e-9)
 
 
-@then(parsers.parse('the fill-cost computation fails naming "{field}"'))
-def _fails_naming(ctx: _Ctx, field: str) -> None:
+@then(parsers.parse('the fill-cost computation fails with exactly "{message}"'))
+def _fails_exactly(ctx: _Ctx, message: str) -> None:
+    """The whole remediation text, so a renamed field or lost hint cannot slip through."""
     assert ctx.result is None
     assert isinstance(ctx.error, ValueError), ctx.error
-    assert field in str(ctx.error), str(ctx.error)
+    assert str(ctx.error) == message
 
 
 # --- LEAN adapters ---------------------------------------------------------------------

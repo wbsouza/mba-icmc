@@ -25,13 +25,13 @@ Feature: Fill costs — pip-spread slippage and per-lot commission
       Given a configured spread of <spread_pips> pips
       And a pip size of <pip_size>
       When I compute the per-side slippage price
-      Then the fill-cost computation fails naming "<field>"
+      Then the fill-cost computation fails with exactly "<message>"
 
       Examples:
-        | spread_pips | pip_size | field       |
-        | -1.0        | 0.0001   | spread_pips |
-        | 1.0         | 0.0      | pip_size    |
-        | 1.0         | -0.0001  | pip_size    |
+        | spread_pips | pip_size | message                                                                                                          |
+        | -1.0        | 0.0001   | fill costs: spread_pips must be >= 0, got -1.0; fix the strategy YAML's execution.spread_pips (0 means no cost of this kind) |
+        | 1.0         | 0.0      | fill costs: pip_size must be > 0, got 0.0                                                                        |
+        | 1.0         | -0.0001  | fill costs: pip_size must be > 0, got -0.0001                                                                    |
 
   Rule: Commission is the per-lot rate pro rata on the absolute filled quantity, per side
 
@@ -56,13 +56,13 @@ Feature: Fill costs — pip-spread slippage and per-lot commission
       And a standard lot of <lot_notional_units> units
       And a commission of <commission_per_lot> per lot
       When I compute the commission amount
-      Then the fill-cost computation fails naming "<field>"
+      Then the fill-cost computation fails with exactly "<message>"
 
       Examples:
-        | lot_notional_units | commission_per_lot | field              |
-        | 100000.0           | -7.0               | commission_per_lot |
-        | 0.0                | 7.0                | lot_notional_units |
-        | -100000.0          | 7.0                | lot_notional_units |
+        | lot_notional_units | commission_per_lot | message                                                                                                                        |
+        | 100000.0           | -7.0               | fill costs: commission_per_lot must be >= 0, got -7.0; fix the strategy YAML's execution.commission_per_lot (0 means no cost of this kind) |
+        | 0.0                | 7.0                | fill costs: lot_notional_units must be > 0, got 0.0                                                                            |
+        | -100000.0          | 7.0                | fill costs: lot_notional_units must be > 0, got -100000.0                                                                      |
 
   Rule: A pip is ten times the minimum price variation of a fractional-pip FX quote
 
@@ -79,12 +79,12 @@ Feature: Fill costs — pip-spread slippage and per-lot commission
     Scenario Outline: a non-positive minimum price variation fails fast
       Given a minimum price variation of <min_price_variation>
       When I derive the pip size
-      Then the fill-cost computation fails naming "min_price_variation"
+      Then the fill-cost computation fails with exactly "<message>"
 
       Examples:
-        | min_price_variation |
-        | 0.0                 |
-        | -0.00001            |
+        | min_price_variation | message                                                |
+        | 0.0                 | fill costs: min_price_variation must be > 0, got 0.0   |
+        | -0.00001            | fill costs: min_price_variation must be > 0, got -1e-05 |
 
   Rule: The LEAN adapters return the pure-math results in LEAN's own types
 
