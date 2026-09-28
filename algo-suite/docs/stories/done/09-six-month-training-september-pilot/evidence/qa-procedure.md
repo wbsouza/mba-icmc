@@ -35,7 +35,7 @@ pinned LEAN image, `ALGO_BROKER__ADAPTER=oanda`.
 
 3. Run the deterministic check over both run folders (exit code 0 = PASS):
 
-       .venv/bin/python docs/stories/in-progress/09-six-month-training-september-pilot/evidence/qa_check.py \
+       .venv/bin/python docs/stories/done/09-six-month-training-september-pilot/evidence/qa_check.py \
          --cash 10000 data/runs/baseline/<stamp> data/runs/hybrid/<stamp>
 
 4. Record both run IDs, the printed check table and the two model SHA-256 hashes in the

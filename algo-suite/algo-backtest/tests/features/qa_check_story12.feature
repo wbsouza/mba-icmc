@@ -1,5 +1,5 @@
 Feature: Story-12 QA check script over a finished run directory
-  docs/stories/in-progress/12-execution-realism/evidence/qa_check.py is the deterministic
+  docs/stories/done/12-execution-realism/evidence/qa_check.py is the deterministic
   gate of the story-12 QA procedure: one PASS/FAIL line per check, exit 0 only when every
   check passes. It reads a run directory's artifacts alone (no LEAN import) and proves the
   execution-realism machinery — every trade plan traces to the resolved capital_mgmt and

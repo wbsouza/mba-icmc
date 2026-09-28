@@ -261,7 +261,7 @@ be populated by the TA-Lib detector (`pattern.detector: talib`, disabled for fro
 models, which need a freshly trained F7 model) and a relative quote-activity veto is
 available. These runs are still **not a methodology result**: F4's sentiment half is
 best-effort (TD-48), and the registered one-year protocol
-(`docs/stories/in-progress/12-execution-realism/spec.md`) lost about 88% for both
+(`docs/stories/done/12-execution-realism/spec.md`) lost about 88% for both
 strategies (story 13 evidence); see `docs/ch04-deliverables.md`. Still planned: CPCV
 (`--cv`), the `trades.parquet` schema and `parameters.txt`; read-through caching.
 

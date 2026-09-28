@@ -1,6 +1,6 @@
 """Deterministic QA check for a finished story-12 (execution realism) run directory.
 
-    uv run python docs/stories/in-progress/12-execution-realism/evidence/qa_check.py \\
+    uv run python docs/stories/done/12-execution-realism/evidence/qa_check.py \\
         <run_dir> [<run_dir> ...] [--risk-tolerance 0.05] [--lot-step 1] [--pip-size 0.0001]
 
 One ``[PASS]``/``[FAIL]`` line per check per run directory, a final ``QA: PASS|FAIL`` line,

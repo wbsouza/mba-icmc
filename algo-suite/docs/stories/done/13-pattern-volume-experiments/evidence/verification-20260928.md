@@ -54,7 +54,7 @@ Strict mypy on the generator with explicit workspace source resolution:
 MYPYPATH=algo-analyze/src:algo-backtest/src:algo-core/src \
   .venv/bin/mypy --strict --follow-imports=silent \
   --cache-dir=/tmp/mba-pattern-volume/monografia/build/story13-mypy-cache \
-  docs/stories/in-progress/13-pattern-volume-experiments/evidence/render_intermediate_figures.py
+  docs/stories/done/13-pattern-volume-experiments/evidence/render_intermediate_figures.py
 ```
 
 The command runs from `/tmp/mba-pattern-volume/algo-suite`. The first isolated

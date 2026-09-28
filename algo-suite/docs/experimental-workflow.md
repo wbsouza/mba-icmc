@@ -70,7 +70,7 @@ For the pilot, price-only baseline uses trend/indicator/pattern families and
 hybrid adds the news family, currently supplied by GDELT event intensity with
 sentiment missing. F3 has no real pattern detector. DSHA retraining is separate.
 
-[Task 09](stories/in-progress/09-six-month-training-september-pilot/progress.md)
+[Task 09](stories/done/09-six-month-training-september-pilot/progress.md)
 records the exact running job, commands, artifacts, failure history, and current
 status. The job uses the local checkout's data root; historical NAS snapshots
 must not be mistaken for its current state.

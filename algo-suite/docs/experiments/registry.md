@@ -110,7 +110,7 @@ and 10–14 by their Chapter 4 sections; no other entry is cited in Chapter 5.
   p̂ > 0.49 on every one of 11,827 bear bars, so all 23,367 bars reaching F7 were HOLD;
   8,145 bars were vetoed by F1.
 - **Evidence.** Story record
-  `algo-suite/docs/stories/in-progress/09-six-month-training-september-pilot/progress.md`
+  `algo-suite/docs/stories/done/09-six-month-training-september-pilot/progress.md`
   ("Decision", "Execution", "Zero-trade diagnosis") and `evidence.json` (model hashes and
   provenance); archived job directory (`run.sh`, `status.txt`, `exit-status.txt`,
   `baseline-september.log`, `hybrid-september.log`, `baseline-f7.json`, `hybrid-f7.json`);

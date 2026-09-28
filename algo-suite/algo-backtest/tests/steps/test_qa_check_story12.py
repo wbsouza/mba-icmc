@@ -1,7 +1,7 @@
 """Steps for qa_check_story12.feature — the story-12 QA gate script.
 
 The script under test lives with the story's evidence
-(docs/stories/in-progress/12-execution-realism/evidence/qa_check.py) and is loaded by path.
+(docs/stories/done/12-execution-realism/evidence/qa_check.py) and is loaded by path.
 Every Given accumulates the artifacts of a synthetic run directory in `qa_ctx` from the
 feature's tables; the When step writes them to tmp_path in the real artifact shapes
 (run.json, strategy-config.{json,yaml}, strategy-provenance.json, trade-plans.json,
@@ -31,7 +31,7 @@ scenarios("../features/qa_check_story12.feature")
 
 _SCRIPT = (
     Path(__file__).resolve().parents[3]
-    / "docs/stories/in-progress/12-execution-realism/evidence/qa_check.py"
+    / "docs/stories/done/12-execution-realism/evidence/qa_check.py"
 )
 _CHECK_LINE = re.compile(r"^\s+\[(PASS|FAIL)\] (.+?): (.*)$")
 _FILTERS = [

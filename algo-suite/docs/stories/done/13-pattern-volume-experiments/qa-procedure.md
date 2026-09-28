@@ -199,8 +199,8 @@ Evidence scripts use workspace source resolution for their isolated strict typin
 ```sh
 MYPYPATH=algo-analyze/src:algo-backtest/src:algo-core/src \
   .venv/bin/mypy --strict --follow-imports=silent \
-  docs/stories/in-progress/13-pattern-volume-experiments/evidence/snapshot_h4_results.py \
-  docs/stories/in-progress/13-pattern-volume-experiments/evidence/render_h4_figures.py
+  docs/stories/done/13-pattern-volume-experiments/evidence/snapshot_h4_results.py \
+  docs/stories/done/13-pattern-volume-experiments/evidence/render_h4_figures.py
 ```
 
 This passes for both files. Without these paths, mypy reports editable-package stub

@@ -96,7 +96,7 @@ capital_mgmt:
 # span and held fixed. regime_gate=true is the dissertation's rule (BUY needs F1's bull
 # regime, SELL its bear regime); false trades on p_hat alone. The 2015-09 pilot found the
 # fitted model anti-aligned with F1's regime on every bar, so the gated rule never fired
-# (docs/stories/in-progress/09-six-month-training-september-pilot/progress.md).
+# (docs/stories/done/09-six-month-training-september-pilot/progress.md).
 meta_learner:
   families:
     - trend

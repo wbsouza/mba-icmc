@@ -167,7 +167,7 @@ naming the `algo-backtest statement --run` command that creates it.
 
 ## 8. Run the deterministic gate
 
-    uv run python docs/stories/in-progress/12-execution-realism/evidence/qa_check.py \
+    uv run python docs/stories/done/12-execution-realism/evidence/qa_check.py \
       data/runs/baseline/<sep-stamp> data/runs/baseline/<oct-stamp>
 
 Look at: one `[PASS]`/`[FAIL]` line per check under each run directory, a

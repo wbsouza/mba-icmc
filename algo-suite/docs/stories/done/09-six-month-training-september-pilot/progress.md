@@ -1,5 +1,16 @@
 # Six-month training and September pilot
 
+## Closure — 2026-09-28
+
+- [x] Six-month models trained and frozen; September 2015 replays run (zero trades) and diagnosed (rule/model sign disagreement) — Chapter 4 `subsec:zero-trade`.
+- [x] Thresholds calibrated on the July-2015 validation span; every filter parameter moved to `config.yaml`; regime gate switchable; `--param cash` — Chapter 4 `subsec:threshold-calibration`, `subsec:strategy-config`.
+- [x] Amended-chain September replay and QA procedure (`evidence/qa-procedure.md`); machinery verified — Chapter 4 `subsec:machinery-verification`.
+- [x] September and October 2015 confirmation reruns under the execution model (story 12) — Chapter 4 `sec:confirmation-results`.
+- [x] Extension over newly completed months with frozen models superseded by the one-year protocol (story 12) and the trading year (stories 14, 20).
+- [x] Paired inference: unavailable on the flat-equity runs (story 11 record), computed for the later windows (stories 14, 20).
+
+The dated sections below are the working record and stay as written.
+
 ## Amendment — 2026-09-27: filter parameters in config.yaml, regime gate off, $10,000 account
 
 Decisions taken with the user after the zero-trade diagnosis below:
