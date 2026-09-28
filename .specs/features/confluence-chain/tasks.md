@@ -440,8 +440,8 @@ No gate is blocked; no completion is claimed beyond what these checks cover.
 
 **Done when**:
 
-- [ ] Gherkin fake-runner fixtures prove exactly 14 allowed IDs, distinct output roots, bounded attempts, no model fitting, preflight failure launches zero cells, nonzero child exits persist failure and resume never overwrites an existing attempt. Record per-cell statuses and actual code/config/source hashes. Harness development launches no research cells.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Gherkin fake-runner fixtures prove exactly 14 allowed IDs, distinct output roots, bounded attempts, no model fitting, preflight failure launches zero cells, nonzero child exits persist failure and resume never overwrites an existing attempt. Record per-cell statuses and actual code/config/source hashes. Harness development launches no research cells.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_run_contract.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_run_contract.py` in this task; at least 7 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_run_contract.py`; Build and applicable Regression before handoff.

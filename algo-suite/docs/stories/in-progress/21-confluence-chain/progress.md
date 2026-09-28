@@ -825,3 +825,88 @@ protocol owner (Claude Sonnet 5). Branch `feat/21-confluence-chain`, worktree
 
 Next: T17 (`experiments/confluence-chain/run_cells.py`, the bounded 14-cell
 launch harness), depends on T16.
+
+## T17 — Build the bounded fourteen-cell launch harness (2026-09-28)
+
+Wrote `algo-suite/experiments/confluence-chain/run_cells.py`, the explicit-run-ID
+harness (`launch_job(job_dir, ...)` + a thin `main()` CLI). Every invocation
+regenerates the full 14-cell registration under the caller-supplied `--job-dir`
+via T10's `make_cells.generate_manifest` (deterministic — a no-op on unchanged
+inputs) and copies `README.md` into it, then launches only the requested subset
+(default: all 14) that both pass the news-availability gate and have no existing
+`status.json` (resume never overwrites an attempt; the only sanctioned way to
+attempt a cell again is naming it in `--rerun`, never an automatic retry).
+
+Reused T9's `preflight.py` directly (loaded by file path, same pattern as its own
+Gherkin steps) for the integration gate: `compute_arm_ledger` with no sidecar
+marks every news-dependent arm `"unavailable"` and skips launching it, no
+subprocess call made. Handled the disclosed `preflight.py` registry gap
+(README, "Known constraints", finding 3 — `compute_arm_ledger("A-plan", ...)`
+raises `ValueError: unknown arm`) by aliasing A-plan to A's arm ledger result
+before calling it — A-plan shares A's required voters and news dependency, so
+this resolves to the same `"unavailable"` outcome without ever touching
+`preflight.py` itself (out of this task's scope; T9 is already done) and
+without raising. Verified interactively: `a-h1`, `b-h4`, `t-only-h1`, `a-plan-h1`
+(and their H4/H1 counterparts) all resolve to `unavailable`; `m-only-*`,
+`always-short-*` and `always-long-*` (6 cells) are launch-ready today, matching
+the README's launch-ready/blocked table exactly.
+
+Added a real (not fake) price-population gate, `population_gate`: for every
+month the registered window touches, checks the source Parquet partition file
+exists (`preflight.partition_path`) and calls `compute_population_ledger` with
+that real `partition_exists` flag — a missing partition is a hard failure that
+aborts the whole invocation before any cell launches (CC-24, "a failed preflight
+launches zero cells"). This covers partition presence only; the fuller row-level
+reconciliation (`warmup_bars`/`missing_bars`, needing actual per-bar timestamps)
+needs real data access this harness does not perform on its own and is left as a
+caller responsibility before any separately authorized T19 run — disclosed here,
+not silently assumed.
+
+The child backtest is invoked through the current CLI contract (`cli.py`'s `run`
+command: `algo-backtest run --strategy <cell_id> --symbol <pair> --from <start>
+--to <end> --strategies-dir <job_dir> --timeout <seconds>`), never an old
+latest-directory glob, and never with `--model` (no cell in this study needs an
+F7 model). The runner is injectable (`Runner` callable); this task's own tests
+substitute a fake one and launch no research cells. Each cell's own directory
+(`<job_dir>/<cell_id>/`, already holding T10's `config.yaml`) also holds
+`command.json` (exact argv + config hash + source revision + code hashes,
+written before launch), `run.log` (captured stdout+stderr) and the terminal
+`status.json` (`succeeded`/`failed`/`unavailable`, exit code, reason, results
+dir parsed from the child's own `results=` output line).
+
+Wrote `tests/features/confluence_run_contract.feature` first (15 scenario/example
+cases across 8 Rules: exactly 14 registered ids, distinct output roots, no
+`--model`, preflight failure launches zero cells, news-blocked cells never
+launch (including the A-plan alias, proven not to raise), a nonzero child exit
+persists as a failure record without raising, resume never overwrites an
+attempt, an explicit rerun is the only way to attempt again, and every status
+carries its config hash and source revision) and
+`tests/steps/test_confluence_run_contract.py` (15 passed). Verified by hand
+(scratch script, not committed) against real `make_cells`/`preflight` output
+before writing the Gherkin: `ALLOWED_CELL_IDS` matches the README's 14 ids
+exactly; the arm-ledger alias resolves A-plan without a `ValueError`; the real
+`population_gate` raises with the exact missing-partition message when no
+partition file exists and passes once the (fake) partition files are present.
+
+Gate: `uv run pytest algo-backtest/tests/steps/test_confluence_run_contract.py
+-q -p no:cacheprovider` → 15 passed. Regression (`test_filter_chain_mechanics`,
+`test_f1_trend`, `test_f4_news_context`, `test_f6_capital_mgmt`,
+`test_chain_wiring`, `test_strategy_explain`, `test_decision_recorder`,
+`test_audit`, `test_bar_clock`, `test_order_executor`, `test_trade_plan`,
+`algo-analyze`'s `test_portfolio_inference`) → 477 passed. Full suite
+`uv run pytest algo-backtest/tests -q -p no:cacheprovider` → 1952 passed, 53
+deselected (was 1937 before this task — the 15 new scenarios). `uv run ruff
+check algo-backtest experiments` clean; `uv run ruff format --check
+algo-backtest/tests/steps/test_confluence_run_contract.py
+experiments/confluence-chain/run_cells.py` clean (pre-existing files elsewhere
+in the tree were already unformatted under this environment's ruff version —
+untouched, out of this task's scope); `uv run mypy --strict
+experiments/confluence-chain` clean (4 source files). `validate_tasks.py
+--strict` on `tasks.md` → `0 error(s), 0 warning(s)`; `validate_spec.py --strict`
+on `spec.md` → `0 error(s), 0 warning(s)`; `git diff --check` clean.
+
+Marked both T17 "Done when" boxes; set spec.md's CC-23/24/32 traceability status
+to `Implemented (..., T17)`.
+
+Next: T18 (`experiments/confluence-chain/compare.py`, the registered comparison
+report), depends on T17.
