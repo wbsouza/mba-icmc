@@ -10,6 +10,8 @@
   --down: #c0392b;
   --warn: #b7791f;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --veto-bg: #ffe0d6;
+  --veto-text: #8a2f1f;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
 }
@@ -25,6 +27,8 @@
   --down: #ff6b5e;
   --warn: #f0b64a;
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --veto-bg: #4a2620;
+  --veto-text: #ffb3a3;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -149,3 +153,13 @@ ol.workflow .terminal .label { padding: 8px 12px; border: 1px dashed var(--borde
 .vguide span { position: absolute; left: 4px; font-size: 11px; font-weight: 700; padding: 1px 4px; border-radius: 4px; color: #fff; }
 .vguide.entry span { top: 4px; background: #0b4fbf; }
 .vguide.exit span { bottom: 4px; background: #6a1b9a; }
+
+/* vetoes: the row (log, events) or the chain step that vetoed is salmon and says why */
+table.grid tr.vetoed td { background: var(--veto-bg); }
+table.grid tbody tr.vetoed:hover td { background: var(--veto-bg); filter: brightness(0.96); }
+table.grid td.why { white-space: normal; color: var(--veto-text); }
+table.grid tr.expanded td { background: var(--bg); white-space: normal; }
+ol.chain li.vetoed { background: var(--veto-bg); border-radius: 6px; padding-left: 6px; padding-right: 6px; }
+ol.chain .why { color: var(--veto-text); font-family: var(--mono); font-size: 12px; font-weight: 600; margin-top: 3px; }
+.log-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.log-controls button.active { border-color: var(--accent); color: var(--accent); }

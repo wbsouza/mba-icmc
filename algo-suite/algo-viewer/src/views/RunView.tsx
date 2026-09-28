@@ -6,6 +6,7 @@ import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDeci
 import { LineChart } from "../charts/LineChart";
 import { MonthlyBarsChart } from "../charts/MonthlyBars";
 import { ChainWorkflow } from "./ChainWorkflow";
+import { DecisionLog } from "./DecisionLog";
 import { balancesAfter } from "../model/balance";
 
 interface Props {
@@ -113,6 +114,10 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
           </dl>
         </section>
       </div>
+      <section className="panel" aria-label="Decision log">
+        <h2>Decision log <span className="muted">(one row per bar; consecutive identical vetoes collapsed; click a row for that bar's chain)</span></h2>
+        <DecisionLog api={api} runId={run.run_id} parameters={state.data.params} />
+      </section>
       <section className="panel" aria-label="Strategy chain">
         <h2>Strategy chain <span className="muted">(click a filter for what it does and its parameters)</span></h2>
         <ChainWorkflow parameters={state.data.params} funnel={funnel} />
