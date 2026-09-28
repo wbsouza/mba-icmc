@@ -7,7 +7,9 @@ finished run: `run.json`, `metrics.json`, `trades.json`, `equity.csv` (written b
 `decisions.parquet`. `log.txt` (the engine log with the `<TAG>_PLAN|`, `_TRAIL|`,
 `_OCO_CANCEL|`, `_STOP_RESIZE|` and `_MODEL_SHA256=` lines) is required as soon as the
 ledger has a trade — exit kinds and trail moves are classified from it. Optional:
-`trade-plans.json`, `strategy-config.yaml`, `strategy-provenance.json`.
+`trade-plans.json`, `strategy-config.yaml`, `strategy-provenance.json`, and `statement.md`,
+read for the positions still open at the end of the run and the account summary (balance,
+floating P/L, equity) that reconciles the realized ledger with the mark-to-market curve.
 """
 
 from __future__ import annotations
