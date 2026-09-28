@@ -17,7 +17,7 @@ market feature (story 12, execution realism, item B):
    `risk_per_trade` of the balance (the narrower side risks less). The margin veto
    (`lot × margin_per_lot > available_margin`) uses that lot.
 3. **Targets and trailing steps in pips**, spread included exactly as the confirmed
-   fx-manager / spockfx-engine formulas in `rules/trail_stop.py` (reused, not
+   fx-manager / later-trading-manager formulas in `rules/trail_stop.py` (reused, not
    re-derived, by evaluating them at entry 0 with the stop at −stop_pips):
    target = stop × at_level_ratio + (at_level_ratio + 1) × spread; trail arms at
    stop × at_level_ratio + (at_level_ratio + 1) × spread; trail moves the stop to

@@ -13,6 +13,21 @@ It covers two demo milestones within one tool:
 - **Baseline** (phase 3): price-only strategy → Sharpe + equity curve.
 - **Hybrid** (phase 4): full filter chain incl. the news-context filter →
   hybrid vs baseline.
+- **News-only** (the third experiment, 2026-09-27): F4 → F5 → F6 → F7 with no price
+  filter; the meta-learner is trained on the `news` family alone
+  (`scripts/train_hybrid_meta_learner.py --strategy news-only`, which trains exactly
+  the strategy's declared families — any non-empty subset including `news`), F4 vetoes on
+  high-risk events, F5/F6 govern the trade with the Heikin-Ashi H4 template's risk/exit
+  values on H1 bars (`news-only-h4`: H4). Its `config.yaml` `extends: baseline` and drops
+  the inherited `indicator:`/`pattern:` sections with a top-level `null`; a run needs its
+  own `--model`, since the bundled hybrid model's families are refused. It isolates the
+  news family's own contribution between baseline (no news) and hybrid (fused).
+- **News-rule** (story 14, rule-only): F4 → F5 → F6 with no meta-learner and no model —
+  `news_context.direction_source: intensity` turns the event intensity into BUY / SELL /
+  NEUTRAL against two per-cell thresholds (`intensity_sign` registers the sign
+  convention), and `terminal_filter: f4_news_context` makes F4's recommendation the
+  chain's decision (`LastFilterTerminalDecision`); F5/F6 gate after it. `run` takes no
+  `--model` for it. `news-rule-h4` is the H4 clock.
 
 Out of scope: feature *production* (price features computed natively inside the
 engine; text features come pre-computed from `algo-score`); results *analysis*
@@ -79,8 +94,13 @@ equity noted beneath for reconciliation; margin is 0.00 when flat, LEAN's `Portf
 Margin` sample when current, else "n/a"); then Performance (LEAN's `statistics` quoted
 verbatim plus trade count and median holding minutes) and Parameters (every resolved
 `strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
-`YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
-for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
+`YYYY.MM.DD HH:MM` UTC, prices at the instrument's quote precision — one decimal finer than
+its pip (the pipette, LEAN's minimum price variation: 5 for EURUSD, 3 for USDJPY), the pip
+read from `algo_core.instrument`'s registry, never a per-pair constant in the statement;
+a symbol the registry does not know falls back to the most decimals its recorded prices
+carry. The plan's stop and target levels are derived floats (`entry − pips × pip`), so this
+is what keeps `1.1207350000000003` from reaching the page — both `statement.md` and the
+report tables print `1.12074`. Lots and money print to two decimals. The
 chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`, and
 `equity.csv` is that same series as data — columns `time` (ISO-8601 UTC), `equity`,
 `drawdown_pct` (percent below the running peak), one row per LEAN equity sample — so
@@ -94,9 +114,29 @@ starting deposit as a dashed reference, six performance cards (total return %, m
 drawdown %, Sharpe, win rate, trades, profit factor = gross profit / gross loss or "n/a"
 without a loss), and CSS-only tabs — Equity, Drawdown (SVG of the drawdown series),
 Monthly Returns (each month chained from the previous month's last equity sample), Trade
-History (the Closed Transactions columns) and Parameters (the provenance table). All four
-are pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
---run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema
+History (the Closed Transactions columns) and Parameters (the provenance table). In Trade
+History every closed trade is followed by a native `<details>` disclosure (still no
+script) holding its **decision trail** (`decision_trail.py`, `build_decision_trails(run_dir)
+-> list[DecisionTrail]`, one per closed trade): "Decision at entry" — the chain row of the
+entry bar (the first `decisions.parquet` row whose `trade_id` is the trade's entry order id,
+else the row timestamped at `entryTime`; neither → fail fast naming the trade) as each
+filter's recommendation, veto flag and reason in chain order, the final decision, the
+vetoed-by filter and F7's `p_hat` against `meta_learner.theta_high` / `theta_low` /
+`regime_gate` from `strategy-config.json`; "Plan" — the `trade-plans.json` record joined by
+`orderIds[0] == entry_order_id` (lots, quantity, entry price, stop and its distance in pips
+from the instrument's pip, each target's price and close fraction, each trailing step's
+at/to prices and ratios, spread pips); "Exit" — exit time and price, the order that closed
+the trade classified from LEAN's `orders` map by its last `orderIds` entry (`type` 2 →
+"stop-market", 1 → "limit target", 0 → "market", "market liquidation" when tagged
+`Liquidated`, with the executor's `_OCO_CANCEL|reason=` — `reversal` or `veto` — appended
+from `log.txt` when it was not the plain `flat` reconciliation), the `_TRAIL|entry=|from=|to=`
+stop moves logged inside the trade's window at its entry price, realized P/L and holding
+time. A missing plan, chain row or order fails the statement naming the trade; a run
+without `decisions.parquet` / `trade-plans.json` renders the tab with an explicit "No
+decision trail" note; a run without `log.txt` says its stop moves were not recorded. A
+legend line above the table explains the three sections. All four files are pure
+derivations of the artifacts above (no LEAN import) and `algo-backtest statement --run
+<dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema
 (§6.1) and `parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
@@ -198,7 +238,12 @@ algo_backtest/
 ├── report.py               # IMPLEMENTED — story 12 item H2: report.html, the self-contained (inline
 │                           #   CSS + SVG, no script) "Account Performance" dashboard derived from the
 │                           #   same Statement: KPI cards, equity/drawdown SVG, monthly returns, trade
-│                           #   history and parameters tabs
+│                           #   history (each trade expandable into its decision trail via a native
+│                           #   <details>) and parameters tabs
+├── decision_trail.py       # IMPLEMENTED — build_decision_trails(run_dir): one DecisionTrail per closed
+│                           #   trade (chain verdict at the entry bar from decisions.parquet, the plan
+│                           #   from trade-plans.json, the exit classified from LEAN's orders map and
+│                           #   log.txt's trail/cancel lines); LEAN-free, fails fast on a missing join
 ├── experiment.py           # IMPLEMENTED — Run/Experiment value objects, load_experiment() (closed
 │                           #   schema, fail-fast), run_experiment() (injected runner): deterministic
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json
@@ -246,7 +291,9 @@ algo_backtest/
 │   │                       #   f7_model_io.py — portable pickle-free F7 model JSON (LightGBM text
 │   │                       #   boosters + logistic coefficients + provenance), family check.
 │   ├── terminal.py         # IMPLEMENTED — F7TerminalDecision (Spec 04h): FilterChain's
-│   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision.
+│   │                       #   TerminalDecision, F7's FilterResult -> chain.model.Decision;
+│   │                       #   LastFilterTerminalDecision (story 14): a chain without F7 decides
+│   │                       #   by its `terminal_filter`'s recommendation (news-rule: F4).
 │   ├── decision_recorder.py # IMPLEMENTED — DecisionRecorder (Spec 04h): per-run trade_id
 │   │                       #   bookkeeping from filled orders' position transitions (on_fill),
 │   │                       #   matching the flat-to-flat (FIFO) ledger ChainAlgorithm configures
@@ -270,7 +317,7 @@ algo_backtest/
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
 │   │                       #   level math (Spec 04d). Sign convention + `spread`-term formula
 │   │                       #   for all three functions confirmed against the real fx-manager/
-│   │                       #   spockfx-engine source in Spec 04i (docs/stories/done/2026-09-26-
+│   │                       #   later-trading-manager source in Spec 04i (docs/stories/done/2026-09-26-
 │   │                       #   trail-stop-formula-fix/spec.md §2/§4) — treat that story, not the
 │   │                       #   older ambiguous "±" wording in the archived root specs.md §14.5/
 │   │                       #   §14.7, as current for this module's formulas.
@@ -288,7 +335,10 @@ algo_backtest/
 │                           #   back, per-parameter provenance (explain_lines, resolved_yaml)
 └── strategies/
     └── <name>/config.yaml  # hand-written, version-controlled: baseline; hybrid extends baseline (+F4);
-                            #   baseline-dsha extends baseline (perception_source only)
+                            #   baseline-dsha extends baseline (perception_source only); news-only extends
+                            #   baseline (F4-F7 only, news family alone); news-only-h4 extends news-only;
+                            #   news-rule extends news-only (F4-F6, terminal_filter f4, no model);
+                            #   news-rule-h4 extends news-rule
 ```
 
 ### 3.1 LEAN-native materializer (`leandata.py`) — not a black box
@@ -534,7 +584,8 @@ value back into the resolved document, so `strategy-config.{json,yaml}` and
 |---|---|---|---|
 | `schema_version` | integer, must be `2` | required | The loader refuses any other value (v2 moved every filter's parameters into its own section). |
 | `extends` | strategy name | none | Base strategy. Chains of any depth (`base → variant → sub-variant`) are walked base-first with cycle detection (a name revisited is an error). The base is looked up in the same directory first, then in the bundled `strategies/`, so an external variant can extend `baseline`. Merge policy: the child's **top-level** keys replace the base's wholesale (including `filters:`); nested mappings (`meta_learner:`, `capital_mgmt:`, …) merge key by key, child wins. |
-| `filters` | non-empty list of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context`, `f5_risk_guard`, `f6_capital_mgmt`, `f7_meta_learner` | required | The chain, in order. Always written out in full (never a diff against the base). Listing `f4_news_context` selects the news-aware hosting algorithm (`algos/hybrid`) and mounts the GDELT feature Parquet; otherwise `algos/baseline` hosts the run. A filter listed without its section, or a section without its filter, is a hard stop. |
+| `filters` | non-empty list of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context`, `f5_risk_guard`, `f6_capital_mgmt`, `f7_meta_learner` | required | The chain, in order. Always written out in full (never a diff against the base). Listing `f4_news_context` selects the news-aware hosting algorithm (`algos/hybrid`) and mounts the GDELT feature Parquet; otherwise `algos/baseline` hosts the run. Listing `f7_meta_learner` makes F7 the terminal rule and requires its model; without it `terminal_filter` is required. A filter listed without its section, or a section without its filter, is a hard stop; a child drops an inherited section by setting it to `null` at the top level. |
+| `terminal_filter` | one of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context` | required iff `f7_meta_learner` is absent (refused with it) | The last direction-emitting filter of `filters`, whose recommendation is the chain's decision (`chain/terminal.py` `LastFilterTerminalDecision`: BUY/SELL as they are, HOLD/ABSTAIN/NEUTRAL → HOLD); the gates listed after it (F5, F6, volume) may still veto. A direction filter after it is refused. `news-rule`: `f4_news_context`. |
 | `perception_source` | `ema` \| `double_smoothed_heikin_ashi` | `ema` | F1's direction source (Spec 04k). |
 | `double_smoothed_heikin_ashi.period1` / `.period2` / `.higher_tf_minutes` | integers ≥ 1 / ≥ 1 / ≥ 2 | 6 / 2 / 60 | The DSHA smoothing lengths (bars of each timeframe) and the higher timeframe in minutes; read only when the selector above is `double_smoothed_heikin_ashi`. |
 
@@ -579,6 +630,9 @@ required, `null` disables that half.
 |---|---|---|---|
 | `event_intensity_veto_threshold` | GDELT Goldstein scale, the day's mean, roughly [−10, 10] (more negative = more conflictual) | −0.5 | An `event_intensity` at or below it is an active high-risk event: F4 **vetoes** (NO_TRADE). `null`: F4 never vetoes. |
 | `sentiment_direction_threshold` | polarity magnitude | 0.15 | Minimum net-sentiment magnitude before F4 recommends a direction; below it, or with no sentiment source (TD-48), F4 ABSTAINs. `null`: F4 never recommends a direction. |
+| `direction_source` | `sentiment` \| `intensity` | `sentiment` (default) | Where F4's direction comes from once the veto has not fired. `intensity` (story 14, `news-rule`): BUY when `event_intensity` ≥ `intensity_buy_threshold`, SELL when ≤ `intensity_sell_threshold`, NEUTRAL between; the sentiment threshold is then unused. |
+| `intensity_buy_threshold`, `intensity_sell_threshold` | Goldstein scale | `news-rule` placeholders 0.9 / 0.3 | Required under `direction_source: intensity` (buy strictly above sell), refused under `sentiment`. Overridden per experiment cell by a variant `extends: news-rule`. |
+| `intensity_sign` | `1` \| `-1` | `1` (default) | `-1` swaps BUY and SELL under `intensity`, so the sign convention is a registered cell rather than a guess. |
 
 **`risk_guard`** — F5; section **required** when listed, all five keys required, `null`
 disables one cap. Any breached cap vetoes the bar (NO_TRADE, `vetoed_by = f5_risk_guard`).
@@ -620,7 +674,7 @@ listed are a hard stop. None of these is learned by the model.
 
 | Key | Range | Default | `baseline` value | Meaning and effect |
 |---|---|---|---|---|
-| `families` | list of `trend`, `indicator`, `pattern`, `news` | `[]` | `[trend, indicator, pattern]` (`hybrid` adds `news`) | Which per-family sub-models the meta-learner combines; a `--model` whose families differ is refused. |
+| `families` | list of `trend`, `indicator`, `pattern`, `news` | `[]` | `[trend, indicator, pattern]` (`hybrid` adds `news`; `news-only` is `[news]`) | Which per-family sub-models the meta-learner combines; an unknown name fails at load, and a `--model` whose families differ is refused. |
 | `theta_high` | probability strictly inside (0, 1) | required with F7 | 0.55 | BUY when `p̂ > theta_high` (and F1's regime is bull, if gated). |
 | `theta_low` | probability, strictly below `theta_high` | required with F7 | 0.45 | SELL when `p̂ < theta_low` (and the regime is bear, if gated); between the two thresholds the bar is HOLD. |
 | `regime_gate` | boolean | required with F7 | `false` | `true` is the dissertation's rule (direction must agree with F1's `trend_score` regime); `false` trades on `p̂` alone. Off in both bundled strategies since the 2015-09 pilot found the fitted model anti-aligned with the regime (story 09). |

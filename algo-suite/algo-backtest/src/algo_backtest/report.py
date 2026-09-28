@@ -13,6 +13,14 @@ derivation of the run directory's artifacts); the only constants here are presen
 last equity sample (the first month starts at the first sample) so the months compound
 to the run's return. Profit factor is gross profit / gross loss over the closed trades
 and is "n/a" when no trade lost.
+
+Trade History drill-down: with the run's `DecisionTrail`s (`decision_trail.py`), every
+closed trade's row is followed by a native `<details>` disclosure — still no script —
+whose panel shows three compact tables: "Decision at entry" (each filter's
+recommendation, veto flag and reason in chain order, then F7's probability against the
+strategy's thresholds), "Plan" (lots, quantity, entry, stop and its pip distance, targets,
+trail steps, spread) and "Exit" (time, price, the order kind that closed the trade, the
+logged stop moves, realized P/L, holding time). Without trails the tab says so.
 """
 
 from __future__ import annotations
@@ -23,7 +31,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from algo_backtest.decision_trail import DecisionTrail, EntryVerdict, format_duration
 from algo_backtest.statement import (
+    ABSENT,
     CLOSED_COLUMNS,
     ClosedTransaction,
     Statement,
@@ -35,6 +45,17 @@ from algo_backtest.statement import (
 
 REPORT_FILE = "report.html"
 TAB_LABELS = ("Equity", "Drawdown", "Monthly Returns", "Trade History", "Parameters")
+TRAIL_LEGEND = (
+    "Expand a trade for its decision trail — Decision at entry: the chain's filters in "
+    "order and the F7 probability against the strategy's thresholds; Plan: the orders the "
+    "executor placed around the entry; Exit: the order that closed the trade, the stop moves "
+    "logged while it was open, the realized P/L and the holding time."
+)
+NO_TRAILS_NOTE = (
+    "No decision trail: the run recorded no decisions.parquet / trade-plans.json (a "
+    "code-registered strategy, or a run predating them)."
+)
+FILTER_COLUMNS = ("Filter", "Recommendation", "Veto", "Reason")
 # Presentation only.
 CHART_WIDTH = 1000
 CHART_HEIGHT = 320
@@ -313,10 +334,139 @@ def _monthly_table(statement: Statement) -> str:
     return _html_table(headers, rows) if rows else "<p class='empty'>No equity samples</p>"
 
 
-def _trades_table(statement: Statement) -> str:
-    """The Trade History tab: the statement's Closed Transactions columns."""
-    rows = [transaction_cells(t, statement.price_decimals) for t in statement.transactions]
-    return _html_table(CLOSED_COLUMNS, rows) if rows else "<p class='empty'>No transactions</p>"
+def _price(value: float, decimals: int) -> str:
+    """A price at the statement's quote precision."""
+    return f"{value:.{decimals}f}"
+
+
+def _optional_number(value: float | None, spec: str) -> str:
+    """A number formatted by `spec`, or the absence marker."""
+    return ABSENT if value is None else format(value, spec)
+
+
+def _kv_table(rows: Sequence[tuple[str, str]]) -> str:
+    """A two-column key/value table (no header)."""
+    body = "".join(
+        f"<tr><th>{html.escape(k)}</th><td>{html.escape(v)}</td></tr>" for k, v in rows
+    )
+    return f'<table class="kv"><tbody>{body}</tbody></table>'
+
+
+def _f7_line(verdict: EntryVerdict) -> str:
+    """F7's probability against the thresholds, e.g. `p̂ 0.5525 ≥ θ_high 0.55 · θ_low 0.45`."""
+    if verdict.p_hat is None:
+        return f"p̂ {ABSENT} (no filter recorded a probability)"
+    high, low = verdict.theta_high, verdict.theta_low
+    relation = ""
+    if high is not None and verdict.p_hat >= high:
+        relation = " ≥ θ_high"
+    elif low is not None and verdict.p_hat <= low:
+        relation = " ≤ θ_low"
+    elif high is not None and low is not None:
+        relation = " between θ_low and θ_high"
+    gate = ABSENT if verdict.regime_gate is None else ("on" if verdict.regime_gate else "off")
+    return (
+        f"p̂ {verdict.p_hat:.4f}{relation} · θ_high {_optional_number(high, '.2f')} · "
+        f"θ_low {_optional_number(low, '.2f')} · regime gate {gate}"
+    )
+
+
+def _decision_section(trail: DecisionTrail) -> str:
+    """"Decision at entry": the filters in chain order, then the F7 line."""
+    v = trail.verdict
+    rows = [
+        [f.filter_name, f.recommendation, "yes" if f.veto else "no", f.reason] for f in v.filters
+    ]
+    headline = (
+        f"{v.final_decision} at {format_time(v.timestamp)} UTC · vetoed by "
+        f"{v.vetoed_by or ABSENT}"
+    )
+    return (
+        f"<h4>Decision at entry</h4><p>{html.escape(headline)}</p>"
+        f"{_html_table(FILTER_COLUMNS, rows)}<p>{html.escape(_f7_line(v))}</p>"
+    )
+
+
+def _plan_section(trail: DecisionTrail, decimals: int) -> str:
+    """"Plan": the orders placed at the entry."""
+    p = trail.plan
+    targets = " / ".join(
+        f"{_price(t.price, decimals)} × {t.close_fraction:.2f}" for t in p.targets
+    ) or ABSENT
+    steps = " / ".join(
+        f"at {_price(s.at_price, decimals)} ({s.at_level_ratio:.2f}R) → "
+        f"{_price(s.to_price, decimals)} ({s.to_level_ratio:.2f}R)"
+        for s in p.trail_steps
+    ) or ABSENT
+    rows = [
+        ("Direction", trail.direction), ("Lots", f"{p.lots:.2f}"),
+        ("Quantity", f"{p.quantity:,.0f}"), ("Entry price", _price(p.entry_price, decimals)),
+        ("Stop", f"{_price(p.stop_loss, decimals)} ({p.stop_pips:.1f} pips)"),
+        ("Targets (price × fraction)", targets), ("Trail steps", steps),
+        ("Spread (pips)", f"{p.spread_pips:.1f}"),
+    ]
+    return f"<h4>Plan</h4>{_kv_table(rows)}"
+
+
+def _exit_section(trail: DecisionTrail, decimals: int) -> str:
+    """"Exit": the closing order, the logged stop moves, P/L and holding time."""
+    e = trail.exit
+    if not e.log_recorded:
+        moves = "log.txt absent — stop moves not recorded"
+    else:
+        moves = " / ".join(
+            f"{format_time(m.time)} {_price(m.from_price, decimals)} → "
+            f"{_price(m.to_price, decimals)}"
+            for m in e.trail_moves
+        ) or "none logged"
+    rows = [
+        ("Exit time", f"{format_time(e.time)} UTC"), ("Exit price", _price(e.price, decimals)),
+        ("Closed by", f"{e.label} (order {e.order_id})"), ("Trail moves", moves),
+        ("Realized P/L", money(trail.profit)), ("Holding time", format_duration(trail.holding)),
+    ]
+    return f"<h4>Exit</h4>{_kv_table(rows)}"
+
+
+def _trail_row(trail: DecisionTrail, decimals: int, width: int) -> str:
+    """The disclosure row under a trade: a native `<details>` holding the three sections."""
+    summary = f"Decision trail · ticket {trail.ticket} · closed by {trail.exit.label}"
+    return (
+        f'<tr class="trail"><td colspan="{width}"><details><summary>{html.escape(summary)}'
+        f"</summary>{_decision_section(trail)}{_plan_section(trail, decimals)}"
+        f"{_exit_section(trail, decimals)}</details></td></tr>"
+    )
+
+
+def _trail_for(trails: Sequence[DecisionTrail], ticket: int) -> DecisionTrail:
+    """The trail of `ticket`; the builder covers every closed trade or fails, so a miss is
+    a programming error, not an artifact gap."""
+    for trail in trails:
+        if trail.ticket == ticket:
+            return trail
+    raise ValueError(
+        f"no decision trail for ticket {ticket}: the trails and the statement disagree"
+    )
+
+
+def _trades_table(statement: Statement, trails: Sequence[DecisionTrail] | None) -> str:
+    """The Trade History tab: the Closed Transactions columns, each row followed by its
+    decision-trail disclosure when trails are given; a legend line explains the sections."""
+    note = TRAIL_LEGEND if trails is not None else NO_TRAILS_NOTE
+    legend = f'<p class="legend">{html.escape(note)}</p>'
+    if not statement.transactions:
+        return f"{legend}<p class='empty'>No transactions</p>"
+    head = "".join(f"<th>{html.escape(h)}</th>" for h in CLOSED_COLUMNS)
+    body = []
+    for t in statement.transactions:
+        cells = transaction_cells(t, statement.price_decimals)
+        body.append("<tr>" + "".join(f"<td>{html.escape(c)}</td>" for c in cells) + "</tr>")
+        if trails is not None:
+            body.append(
+                _trail_row(_trail_for(trails, t.ticket), statement.price_decimals, len(cells))
+            )
+    return (
+        f"{legend}<table><thead><tr>{head}</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    )
 
 
 def _parameters_table(statement: Statement) -> str:
@@ -325,11 +475,14 @@ def _parameters_table(statement: Statement) -> str:
     return _html_table(["Parameter", "Value", "Source"], rows)
 
 
-def _tabs(statement: Statement, equity_svg: str) -> str:
+def _tabs(
+    statement: Statement, equity_svg: str, trails: Sequence[DecisionTrail] | None
+) -> str:
     """CSS-only tabs (radio inputs + labels; no script)."""
     panels = {
         "Equity": equity_svg, "Drawdown": drawdown_chart_svg(statement),
-        "Monthly Returns": _monthly_table(statement), "Trade History": _trades_table(statement),
+        "Monthly Returns": _monthly_table(statement),
+        "Trade History": _trades_table(statement, trails),
         "Parameters": _parameters_table(statement),
     }
     ids = {label: label.lower().replace(" ", "-") for label in TAB_LABELS}
@@ -381,12 +534,28 @@ def _css() -> str:
         f"th,td{{padding:6px 10px;border-bottom:1px solid {c['border']};text-align:right;"
         "white-space:nowrap}th:first-child,td:first-child{text-align:left}"
         f"th{{color:{c['muted']};font-weight:500}}.empty{{color:{c['muted']}}}"
+        f".legend{{color:{c['muted']};font-size:12px;margin:0 0 8px}}"
+        # The drill-down: native <details> inside a full-width row; nested tables left-aligned.
+        f"tr.trail>td{{text-align:left;white-space:normal;padding:0 10px 8px;background:{c['bg']}}}"
+        f"tr.trail summary{{cursor:pointer;color:{c['accent']};font-size:12px;padding:6px 0}}"
+        f"tr.trail h4{{margin:10px 0 4px;font-size:12px;color:{c['muted']};"
+        "text-transform:uppercase;letter-spacing:.04em}"
+        "tr.trail p{margin:4px 0;font-size:12px}"
+        f"tr.trail table{{width:auto;min-width:50%;font-size:12px;margin:0 0 4px;"
+        f"background:{c['card']}}}"
+        "tr.trail th,tr.trail td{text-align:left;white-space:normal;padding:4px 8px;"
+        "vertical-align:top}"
+        f"tr.trail .kv th{{color:{c['muted']};font-weight:500;width:12em}}"
         + tab_rules
     )
 
 
-def render_report(statement: Statement, generated: datetime | None = None) -> str:
-    """The complete `report.html` document."""
+def render_report(
+    statement: Statement, generated: datetime | None = None, *,
+    trails: Sequence[DecisionTrail] | None = None,
+) -> str:
+    """The complete `report.html` document; `trails` (one per closed trade, or `None` when
+    the run recorded none) drive the Trade History drill-down."""
     stamp = (generated or datetime.now(UTC)).astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = f"Account Performance — {statement.strategy} / {statement.symbol}"
     subtitle = (
@@ -397,12 +566,13 @@ def render_report(statement: Statement, generated: datetime | None = None) -> st
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="color-scheme" content="dark">'
         f"<title>{html.escape(title)}</title><style>{_css()}</style></head><body>"
         f'<header><h1>Account Performance</h1><p class="sub">{html.escape(subtitle)}</p>'
         f'<p class="gen">Generated {stamp}</p></header>'
         f'<section class="cards">{"".join(_card(k) for k in account_kpis(statement))}</section>'
         f"{equity_svg}"
         f'<section class="cards">{"".join(_card(k) for k in performance_kpis(statement))}</section>'
-        f"{_tabs(statement, equity_svg)}"
+        f"{_tabs(statement, equity_svg, trails)}"
         "</body></html>\n"
     )

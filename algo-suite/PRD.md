@@ -83,6 +83,8 @@ named in the specs is the **filter-chain (execution-layer) configuration** — t
 deterministic rules wrapping `p̂ₜ` — **not** an alternative to the meta-learner.
 So: perception/fusion = LightGBM sub-models → logistic meta-learner; execution =
 deterministic filter chain; baseline vs hybrid = news family excluded vs included.
+A third configuration, **news-only** (the news family alone drives the meta-learner; no
+price filter in the chain), isolates the news family's own contribution between the two.
 
 **Scope of generality.** The *architecture* is asset-class agnostic — the
 `Instrument` value object, the data/filesystem contracts and the filter chain

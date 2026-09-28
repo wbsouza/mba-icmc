@@ -46,12 +46,12 @@ mode was introduced (TD-61 remains deferred). `trend_score` still combines DSHA
 direction with EMA-gap strength. The [tool contract](../../../../algo-backtest/SPEC.md)
 and [usage guide](../../../../algo-backtest/README.md) document the resulting API.
 
-> **Naming (2026-09-26):** this candidate was previously called "HAS/JapaDragon" after fx-manager's
-> internal codenames. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
+> **Naming (2026-09-26):** this candidate was previously called "HAS" after fx-manager's
+> internal codename. Renamed to **Double-Smoothed Heikin-Ashi Trend Filter** — an intention-revealing
 > name (Clean Code: a name should say what the thing does, not what someone once called it) that
 > describes the actual technique (pass-1 Wilder-smoothed OHLC → Heikin-Ashi transform → pass-2
 > LWMA-smoothed output), not a private codename meaningless to a reader with no fx-manager history.
-> `outerHAS.mq4`/`hasTrend.mq4`/`japaDragonBasedIndicator`/`japaDragonStrategy04` etc. below are
+> `outerHAS.mq4`/`hasTrend.mq4` etc. below are
 > **citations to the real historical source files and config beans** — those proper nouns are kept
 > verbatim because they identify exactly what was read as evidence, not because they're good names
 > to carry forward into new code. Suggested identifiers for implementation: class
@@ -101,12 +101,12 @@ concrete, evidence-backed candidate implementation for `trend_direction`/`higher
 
 The candidate: fx-manager's `Heiken_Ashi_Smoothed.mq4` (header comment: "mod by Raff", sourced from
 forex-tsd.com, 2006) computes a **double-smoothed Heikin-Ashi** signal, reused at a higher timeframe
-by `outerHAS.mq4`/`hasTrend.mq4` and classified up/down by `trendMtfHasB1.mq4`. `spockfx-engine`'s
-config (`dragon.xml`'s `japaDragonBasedIndicator`, params `method=2, period=6, method2=3,
+by `outerHAS.mq4`/`hasTrend.mq4` and classified up/down by `trendMtfHasB1.mq4`. The later Heikin-Ashi trading
+manager's indicator configuration (params `method=2, period=6, method2=3,
 period2=1`) confirms the same technique was carried forward into the later Spring/Java rewrite with
 matching pass-1 parameters (`period2` differs — resolved in §5, not left open). This was a real,
 production-traded signal on both systems, and the entry/against-trend toggle
-(`OpenByArrowOrder.DirectionType`, `dragon.xml`'s `japaDragonEntryDetectorAgainstTrend` variant)
+(`OpenByArrowOrder.DirectionType`, the later trading manager's against-trend entry-detector variant)
 is the code-level fossil of the user's own recollection: "going against the trend was always a
 terrible decision" — the against-trend variant was built and configured but not what production
 ran.
@@ -261,15 +261,15 @@ substance here, not left as a vague caveat):
   down), do not add an ABSTAIN branch now — no sibling B-family file documents a trading rationale
   for the tie case, and there is no evidence ABSTAIN would be better or worse without an actual
   ablation run. Tracked as **TD-61** for a post-defense empirical comparison.
-- **~~`spockfx-engine`'s `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
+- **~~The later trading manager's `period2=1` vs MQL's `MaPeriod2=2`~~ — RESOLVED (2026-09-26).** Both values
   are now confirmed from primary sources, not guessed: `Heiken_Ashi_Smoothed.mq4`'s own `extern int
   MaPeriod2 = 2` default (the original, human-authored MQL source, not decompiled) is `2`;
-  `spockfx-engine`'s `indicator.xml` (`japaDragonBasedIndicator` bean, real hand-authored Spring
+  the later Heikin-Ashi trading manager's indicator configuration (real hand-authored Spring
   config, also not decompiled) explicitly overrides it to `period2=1` for whatever the Java engine
   actually ran in production. This is a genuine, deliberate parameter difference between the two
   systems — not a decompilation artifact (no decompiled source was involved in either value).
   **Decision: use `2`, the original MQL default**, since this port's reference is `outerHAS.mq4`/
-  `hasTrend.mq4`/`trendMtfHasB1.mq4` (the MT4 side), and document that spockfx-engine's Java
+  `hasTrend.mq4`/`trendMtfHasB1.mq4` (the MT4 side), and document that the later trading manager's Java
   rewrite deliberately ran `period2=1` instead, as a fact about that other system, not this port.
 - **Module location — RESOLVED.** `algo_backtest/perception/` separates pure formula/config
   from native LEAN adapters. `engine/chain_algorithm.py` integrates both sources. The

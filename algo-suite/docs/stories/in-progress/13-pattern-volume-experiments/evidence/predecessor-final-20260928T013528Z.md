@@ -57,18 +57,18 @@ per trade was about 0.8 % of the deposit, not the configured 3 %.
 | R03 | a05-risk1 | 552 | -55.28% | 55.4% |
 | R04 | a05-selective | 6 | -3.76% | 5.6% |
 | R05 | a05-wide-stop | 14 | -17.65% | 21.5% |
-| R15 | spockfx-dragon03 | 144 | -53.47% | 55.8% |
-| R16 | spockfx-dragon03-atr | 437 | -42.16% | 50.1% |
-| R17 | spockfx-dragon05 | 0 | 0.00% | 0.0% |
-| R18 | spockfx-setupnow | 0 | 0.00% | 0.0% |
+| R15 | ha-h1-template | 144 | -53.47% | 55.8% |
+| R16 | ha-h1-template-atr | 437 | -42.16% | 50.1% |
+| R17 | ha-1r2r-template | 0 | 0.00% | 0.0% |
+| R18 | ha-setup-template | 0 | 0.00% | 0.0% |
 
 Variant overrides (all extend baseline; provenance in each run's `strategy-provenance.json`):
 risk1 `risk_per_trade 0.01`; wide-stop `stop_distance_source atr, atr_multiplier 2.0,
 min_stop_pips 10, stop_loss_shrink 0.0`; selective `theta 0.60/0.40`; gated `regime_gate true`;
-conservative = risk1 + wide-stop + selective + `min_hold_bars 15`; dragon03 `shrink 0.5,
-targets [3R/100 %], trail [1R→−0.66R, 1.5R→0R], min R:R 3`; dragon05 `shrink 0.5, targets
-[1R/50 %, 2R/50 %], trail [1R→0R]`; setupnow `shrink 0.5, targets [1R/50 %, 1.5R/50 %], trail
-[0.5R→0R], min R:R 1.5`; dragon03-atr = dragon03 + `risk 0.01, atr stop, atr_multiplier 4.0,
+conservative = risk1 + wide-stop + selective + `min_hold_bars 15`; ha-h1-template `shrink 0.5,
+targets [3R/100 %], trail [1R→−0.66R, 1.5R→0R], min R:R 3`; ha-1r2r-template `shrink 0.5, targets
+[1R/50 %, 2R/50 %], trail [1R→0R]`; ha-setup-template `shrink 0.5, targets [1R/50 %, 1.5R/50 %], trail
+[0.5R→0R], min R:R 1.5`; ha-h1-template-atr = ha-h1-template + `risk 0.01, atr stop, atr_multiplier 4.0,
 min_stop_pips 10`.
 
 ## Reading

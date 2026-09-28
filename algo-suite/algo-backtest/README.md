@@ -28,24 +28,48 @@ score → **backtest** → analyze.
   **`statement.md`**, laid out like a
   MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
   Working Orders, the two-column A/C Summary, then Performance and Parameters with
-  provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
-  prices carry), an **`equity.png`** equity/drawdown chart, **`equity.csv`** (the chart's
-  series, one row per LEAN equity sample: `time` ISO-8601 UTC, `equity`, `drawdown_pct` —
-  the input of `algo-analyze equity-curves`), and a self-contained **`report.html`**
-  "Account Performance" dashboard (dark theme, inline CSS + SVG, no script or external
-  resource: KPI cards, equity curve, and Equity / Drawdown / Monthly Returns / Trade
-  History / Parameters tabs — `report.py`), all built purely from those artifacts
-  (`statement.py`) and regenerable with `algo-backtest statement --run`. The target
+  provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the instrument's quote precision —
+  one decimal finer than its pip, 5 for EURUSD and 3 for USDJPY, so a derived stop such as
+  `1.1207350000000003` prints as `1.12074`), an **`equity.png`** equity/drawdown chart,
+  **`equity.csv`** (the chart's series, one row per LEAN equity sample: `time` ISO-8601
+  UTC, `equity`, `drawdown_pct` — the input of `algo-analyze equity-curves`), and a
+  self-contained **`report.html`** "Account Performance" dashboard (dark theme, inline CSS
+  + SVG, no script or external resource: KPI cards, equity curve, and Equity / Drawdown /
+  Monthly Returns / Trade History / Parameters tabs — `report.py`). In Trade History every
+  closed trade expands (a native `<details>`, no script) into its **decision trail**
+  (`decision_trail.py`): *Decision at entry* — the chain's filters in order with
+  recommendation, veto and reason, and F7's probability against `theta_high` /
+  `theta_low` / `regime_gate`, from the `decisions.parquet` row of the entry bar; *Plan* —
+  lots, quantity, entry, stop with its pip distance, targets, trailing steps and spread
+  from `trade-plans.json`; *Exit* — time, price, which order closed the trade
+  (stop-market / limit target / market liquidation on a reversal or veto, from LEAN's
+  orders map and the executor's `log.txt`), the logged stop moves, realized P/L and
+  holding time. A trade whose plan or chain row is missing fails fast naming it; a run
+  without those artifacts says so on the tab. All four files are built purely from the
+  run's artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`.
+  The target
   `trades.parquet` schema and `parameters.txt` are not built yet
   (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
   family); both are ML strategies with the same meta-learner.
+- **News-only** (the third experiment, `strategies/news-only/config.yaml`, `extends:
+  baseline`) keeps no price filter at all: the chain is F4 → F5 → F6 → F7, the
+  meta-learner is trained on the `news` family alone (`train_hybrid_meta_learner.py
+  --strategy news-only --out <model>`, run with `--model`), F4 vetoes on high-risk GDELT
+  events, and F5/F6 govern the trade with the Heikin-Ashi H4 template's risk and exit
+  settings on H1 bars (`news-only-h4`: H4 bars). It isolates what the news family alone
+  is worth against baseline (no news) and hybrid (news fused with the price families).
+- **News-rule** (`strategies/news-rule/config.yaml`, `extends: news-only`) removes the
+  meta-learner too: F4 turns the event intensity into BUY / SELL / NEUTRAL against two
+  per-cell thresholds (`news_context.direction_source: intensity`, `intensity_sign` for
+  the sign convention), F5/F6 gate, and `terminal_filter: f4_news_context` makes F4's
+  recommendation the decision. No model, so `run` takes no `--model` for it.
 
 ## Inputs and outputs
 
 | Direction | Item |
 |---|---|
-| In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` also reads `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
+| In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` and `news-only` also read `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
 | Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, `inference-inputs.json`, LEAN's result JSON, `statement.md` + `equity.png` + `equity.csv` + `report.html` (end-of-run statement, chart, its `time,equity,drawdown_pct` series and the HTML dashboard) and, for chain strategies, `strategy-config.{json,yaml}`, `strategy-provenance.json`, `decisions.parquet` and `trade-plans.json` |
 
 ## CLI
@@ -74,7 +98,9 @@ uv run algo-backtest metrics --run <results-dir>
 # file when run.json / trades.json / main.json / main-order-events.json is missing or
 # malformed. For a run without trade-plans.json (one that predates story 12, or a
 # code-registered strategy) the S/L and T/P columns show "—" and the statement says
-# "no trade plan recorded for this run":
+# "no trade plan recorded for this run"; report.html's Trade History expands each closed
+# trade into its decision trail when the run recorded decisions.parquet + trade-plans.json
+# (and reads log.txt for the stop moves), and states "No decision trail" otherwise:
 uv run algo-backtest statement --run <results-dir> [--out DIR]
 # Run a reproducible experiment (the Chapter-4 experiment contract): every run in the
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
@@ -128,9 +154,14 @@ The schema is closed — unknown keys are rejected.
 
 Chain-strategy definitions live in `src/algo_backtest/strategies/<name>/config.yaml`
 (`baseline`; `hybrid` `extends: baseline` adding F4; `baseline-dsha` `extends: baseline`
-switching F1's perception source) or in any folder passed as `--strategies-dir`. `extends:`
+switching F1's perception source; `news-only` `extends: baseline` keeping F4–F7 only, and
+`news-only-h4` over it; `news-rule` `extends: news-only` dropping F7 for a rule-only F4
+decision via `terminal_filter`, and `news-rule-h4` over it) or in any folder passed as
+`--strategies-dir`. `extends:`
 chains of any depth compose base-first with cycle detection; a variant's top-level keys
-(including `filters:`) replace the base's, nested sections merge key by key. Per-run
+(including `filters:`) replace the base's, nested sections merge key by key, and a
+top-level `null` drops an inherited section (`pattern: null` when F3 leaves the chain).
+Per-run
 strategy parameters are `--param key=value` (`cash` alone for a chain strategy — F6's
 trade plan sizes each order; `cash`, the starting deposit, is common to every strategy).
 Backtest settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) resolve from `../conf/backtest.yaml`,
@@ -148,10 +179,11 @@ listed; every other key defaults and the effective value is written back into th
 | `price_features` (always resolved) | `ema_fast 3`, `ema_slow 8`, `ema_higher_tf 60`, `rsi_period 14`, `macd_fast 12`, `macd_slow 26`, `macd_signal 9`, `atr_period 14` (the `atr` stop source), `swing_lookback_bars 60` (the `swing` stop source) — minute bars |
 | `indicator` (F2) | `rsi_midline 50`, `macd_hist_threshold 0` |
 | `pattern` (F3) | `bullish_patterns`, `bearish_patterns` (no detector is wired, F3 ABSTAINs — TD-45) |
-| `news_context` (F4, req.) | `event_intensity_veto_threshold` (Goldstein mean, ≤ it vetoes; `hybrid` −0.5), `sentiment_direction_threshold` (polarity magnitude; 0.15); `null` disables a half |
+| `news_context` (F4, req.) | `event_intensity_veto_threshold` (Goldstein mean, ≤ it vetoes; `hybrid` −0.5), `sentiment_direction_threshold` (polarity magnitude; 0.15); `null` disables a half. `direction_source` `sentiment` (default) \| `intensity`; under `intensity`: `intensity_buy_threshold` / `intensity_sell_threshold` (req., buy > sell; `news-rule` placeholders 0.9 / 0.3), `intensity_sign` 1 \| −1 |
+| `terminal_filter` (top level) | required iff `f7_meta_learner` is absent: the last direction-emitting filter, whose recommendation is the decision (`news-rule`: `f4_news_context`); gates after it may veto |
 | `risk_guard` (F5, req.) | `portfolio_at_risk_cap 0.10`, `daily_drawdown_limit −0.05`, `weekly_drawdown_limit −0.15` (PnL floors, ≤ 0), `max_concurrent_trades_per_account 2`, `max_leverage 30`; `null` disables a cap; a breach vetoes |
 | `capital_mgmt` (F6, req.) | sizing (req.): `risk_per_trade 0.03`, `stop_loss_pips 20`, `pip_value_per_lot 10`, `lot_notional_units 100000`, `assumed_leverage 30`; A05 trade plan (defaulted): `stop_loss_shrink 0.20` (default 0), `min_stop_pips 5` (0), `min_stop_factor 1.2` (1, × `execution.broker_stop_level_pips`), `targets [{at_level_ratio 2.0, close_fraction 0.5}]` (default one full close at 2.0), `trail_stops [{at_level_ratio 0.5, to_level_ratio −0.66}]` ([]), `min_reward_risk 2.0` (null = no veto), `stop_distance_source swing` (`fixed`), `atr_multiplier 2.0` |
-| `meta_learner` (F7) | `families [trend, indicator, pattern]` (+ `news` in `hybrid`); req. with F7: `theta_high 0.55`, `theta_low 0.45`, `regime_gate false`; `label_horizon_minutes 15` |
+| `meta_learner` (F7) | `families [trend, indicator, pattern]` (+ `news` in `hybrid`; `[news]` alone in `news-only` — any non-empty subset of the four, with `news` for the hybrid trainer); req. with F7: `theta_high 0.55`, `theta_low 0.45`, `regime_gate false`; `label_horizon_minutes 15` |
 | `execution` (always resolved) | `spread_pips 1.0` (default 0; half per fill, also inside F6's target/trail levels), `commission_per_lot 0` (per side, pro rata on lot units), `min_hold_bars 0` (bars before an opposite signal may reverse), `broker_stop_level_pips 0`, `close_on_veto false` (a veto only blocks entries; `true` closes the open position at once) |
 
 ## Testing
@@ -237,7 +269,7 @@ Spec: [`SPEC.md`](SPEC.md).
 
 ### Closed-bar candlestick and quote-activity experiments
 
-The [SpockFX comparison plan](../experiments/spockfx-signals/README.md) fixes an
+The [Heikin-Ashi comparison plan](../experiments/heikin-ashi-signals/README.md) fixes an
 exploratory 2×2 comparison: TA-Lib disabled/enabled × quote-activity veto off/on.
 `price_features.bar_minutes` sets complete UTC-anchored decision bars (1 by default,
 60 for H1, 240 for H4); indicator periods count these bars. Multi-minute decisions

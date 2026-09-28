@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 02:00 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 02:45 UTC (September 27, America/Vancouver).
 Owner: Claude (integration and next protocol); Codex implementation and eight-run experiment complete. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -25,7 +25,7 @@ pending that review/consolidation. Local verification is not remote CI certifica
 ## Current objective and boundaries
 
 Implement causal candlestick and relative quote-activity filters, apply explicitly
-mapped SpockFX settings, run controlled exploratory comparisons, and show every
+mapped Heikin-Ashi template settings, run controlled exploratory comparisons, and show every
 filter's effective parameters beside each result. Preserve prior jobs, data, and
 worktrees. Never label a running job or a successful shell `wait` as a completed run.
 
@@ -94,9 +94,9 @@ infer that an old worktree represents unmerged work.
   understate overnight losses. Minute-level updates and four native regression
   scenarios now pass. Trainer family compatibility is checked before input loading.
 - Fixed exploratory 2×2 pattern on/off × activity on/off matrix, separately for
-  baseline and hybrid. SpockFX Dragon08 H4 risk/exit settings are mapped explicitly;
-  EMA/swing entry logic remains a proxy, not an exact JapaDragon reproduction.
-- Each runner cell archives effective filter settings, XML/config/code/input/model
+  baseline and hybrid. The Heikin-Ashi H4 template's risk/exit settings are mapped explicitly;
+  EMA/swing entry logic remains a proxy, not an exact reproduction of the earlier system.
+- Each runner cell archives effective filter settings, config/code/input/model
   hashes, exact commands, resource budget, status, logs and results. Immutable input
   checks bracket batches; failed cells stop subsequent batches.
 - Chapters 04/05 now contain verified intermediate predecessor results, including
@@ -262,7 +262,7 @@ R17/R18 0 trades. Monograph rebuilt: 106 pages, no undefined references.
 
 ### Proposed broader-window protocol (to register before any outcome is viewed)
 
-Same 2×2 pattern (disabled / TA-Lib) × activity (off / on) for baseline and hybrid, Dragon08 H4
+Same 2×2 pattern (disabled / TA-Lib) × activity (off / on) for baseline and hybrid, Heikin-Ashi H4
 clock, common capital/costs/risk, six canonical patterns, activity lookback 20 / threshold 1.0,
 thresholds 0.55/0.45 gate off. Splits: fit 2015-03-02 → 2015-12-31, calibrate 2016-01,
 hold out 2016-02, evaluate 2016-03-01 → 2016-11-30 as one continuous run per cell.
@@ -275,6 +275,44 @@ eight cells declared as the trial count). Warm-up: prime indicators from prior c
 in every cell. Budget: six LEAN slots, 4 CPU / 8 GiB per container, two workers, fresh
 disk-backed output root and basetemp, `df -i` checked first. Not launched in this session.
 
+### Tuning sweeps and registered broad-window run (2026-09-28, 01:45–02:40 UTC)
+
+- Registered broad-window matrices (PR #56 runner, `plan-broad-window.yaml`) executed through
+  the immutable runner: baseline and hybrid, 4 cells each, all `succeeded`, final input checks
+  `ok`; 0–1 closed trades per cell (−0.03 % where traded) because the H4 models' p_hat spans
+  0.517–0.539 on the January validation bars and cannot cross 0.55/0.45. Output roots
+  `/tmp/mba-broad/algo-suite/build/experiments/broad-window-{baseline,hybrid}-20260928T0152`.
+- Thresholds re-registered as validation quantiles (5/10/15 % per side) before any 2016-03+
+  outcome was viewed; calibration JSONs in the job dirs.
+- Five exploratory sweeps, 51 variants, one-year splits, 2016-03-01..2016-11-30 one account
+  each, rank on Mar..Oct and read November last: H4 fixed (14), H4 calibrated (11), timeframes
+  M15/H1/H2 (9), H1 fixed variants (9), H1 calibrated (8). Evidence
+  `evidence/tuning-sweeps-20260928T0240Z.{md,json}` + parameter appendix. Result: no variant
+  profitable in November; positive Mar..Oct returns only at 17–65 trades and reversed in
+  November; loss grows monotonically with trade count; detector on/off within 0.1 %.
+- Job directories (local, gitignored): `data/training/2026-09-28-{broad-window-h4,h4-tuning-sweep,h4-tuning-sweep-q,tf-sweep,h1-tuning-sweep,h1-tuning-sweep-q}`.
+
+### Registered follow-ups (2026-09-28, 03:30–04:10 UTC, before outcomes)
+
+- December 2016 GDELT complete (31 days, `.done`); features built through 2017-01-01 in the
+  broad-window root. `2026-09-28-dec-extension`: all 51 sweep variants rerun 2016-03-01..12-31.
+- `2026-09-28-h1-open`: permissive H1 family (activity gate off, `ema_higher_tf` 9 vs slow 8 retrain,
+  thresholds fixed/q05/q10, relaxed risk guard), 8 cells, 2016-03..12.
+- `2026-09-28-h1-grid`: 216-cell H1 grid (thresholds x activity x HTF rule x plan x risk x family),
+  6 LEAN slots x 3 CPUs, queued behind the two jobs above; `cpu-monitor.log` records load. January 2017 GDELT completed 04:15 UTC; features built through 2017-02-01 and the grid retargeted to 2016-03-01..2017-01-31 before it started.
+- Monograph Chapter 4 §registered-followups states the three designs and the trial count (275)
+  before any result; results land in a later evidence file.
+- Observed while rendering: `statement.py` prints prices with float noise (1.1225400000000001);
+  fix queued for the next code PR.
+
+### Follow-up outcomes, part 1 (2026-09-28 04:45 UTC)
+
+- December extension finished 04:35 UTC (51/51): Nov positive 0/51, Dec positive 10/51, both 0/51;
+  full Mar..Dec above deposit 9/51 (best +9.05 % on 37 trades). `evidence/december-extension-20260928T0445Z.md`.
+- Permissive H1 family finished 04:37 UTC (8/8): fixed thresholds 0 trades (p_hat 0.517–0.540),
+  calibrated cells 293–586 trades, −32..−55 %. `evidence/tuning-followups-part1-20260928T0445Z.md`.
+- 216-cell grid stopped by the user at 05:12 UTC after 20 cells (curiosity experiment; the permissive family had answered the question). The permissive family and the grid are exploratory only and are not reported in the monograph; their tables stay in this evidence directory and the job dirs.
+
 ## Story completion checklist
 
 Check an implementation item only after its changes are committed and tests pass.
@@ -284,14 +322,14 @@ Check an implementation item only after its changes are committed and tests pass
 - [x] Add relative quote-activity calculation and configurable veto with BDD tests.
 - [x] Wire identical closed-bar signals into offline training and LEAN execution.
 - [x] Reject models trained with an incompatible signal/family contract.
-- [x] Map SpockFX parameters and register controlled exploratory comparisons.
+- [x] Map the Heikin-Ashi template parameters and register controlled exploratory comparisons.
 - [x] Verify native/offline parity, offline gates and dependency audit.
 - [x] Train separate models, execute experiments and archive all outcomes.
 - [x] Update monograph and parameter/result evidence for the new comparisons.
 
 Final deliverables: [eight-run results](evidence/h4-results-20260928T011114Z.md),
 [all per-run/filter parameters](evidence/h4-parameters-20260928T011114Z.md),
-[raw models/results/failure archive](evidence/h4-run-artifacts-20260928T011114Z.tar.gz),
+raw models/results/failure archive (retained locally; see the [removal note](evidence/h4-run-artifacts-20260928T011114Z.REMOVED.md)),
 and [test/takeover procedure](qa-procedure.md). Seven evidence BDD scenarios and
 scoped Ruff/mypy pass; monograph verification passes at 96 pages. Final archive
 comparison against all three original matrix roots passes. No current Codex agent
@@ -337,3 +375,7 @@ final decisions and equity matched. Activity vetoed 17 of 40 eligible bars, leav
 23 SELL decisions instead of 40. This is threshold insensitivity in a small sample,
 not failed detection or general evidence that patterns/news do not matter.
 No threshold or period was adjusted after observing these results.
+
+Note: variant names sanitized 2026-09-28; job directories keep the launch-time names. The
+evidence tests resolve recorded paths through the optional map named by `STORY13_LOCAL_PATHS`
+(default `~/workspace/mba-agents/experiment-test-archives/story13-local-paths.json`).

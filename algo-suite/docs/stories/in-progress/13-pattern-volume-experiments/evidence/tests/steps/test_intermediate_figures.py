@@ -46,7 +46,7 @@ def panel_geometry(figure):
 def source_samples_match(figure, runs):
     """Compare plotted coordinates with independently parsed existing CSV columns."""
     for index, reference in enumerate(("R08", "R13")):
-        path = Path(runs[reference]["files"]["equity.csv"]["path"])
+        path = FIGURES.local_path(runs[reference]["files"]["equity.csv"]["path"])
         with path.open() as handle:
             rows = list(csv.DictReader(handle))
         equity = np.array([float(row["equity"]) for row in rows])

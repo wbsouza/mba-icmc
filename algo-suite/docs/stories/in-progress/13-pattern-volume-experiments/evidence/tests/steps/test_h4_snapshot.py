@@ -85,7 +85,7 @@ def real_samples(figures, snapshot):
     for index, run in enumerate(snapshot["runs"]):
         figure = figures[index // 4]
         assert figure.axes[0].get_gridspec().get_height_ratios() == [2, 1]
-        with Path(run["files"]["equity.csv"]["path"]).open() as handle:
+        with FIGURES.previous.local_path(run["files"]["equity.csv"]["path"]).open() as handle:
             rows = list(csv.DictReader(handle))
         np.testing.assert_array_equal(figure.axes[0].lines[index % 4].get_ydata(),
                                       [float(row["equity"]) for row in rows])

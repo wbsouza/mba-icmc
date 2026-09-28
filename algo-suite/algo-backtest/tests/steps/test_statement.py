@@ -9,6 +9,7 @@ state in `st_ctx`; the files are written when a When step runs.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ from algo_backtest.statement import (
     header_line,
     load_run_artifacts,
     price_precision,
+    quote_decimals,
     render_equity_csv,
     render_markdown,
     summary_lines,
@@ -486,6 +488,19 @@ def _derive_precision(st_ctx: dict[str, Any], prices: str) -> None:
     st_ctx["precision"] = price_precision(float(p) for p in prices.split(","))
 
 
+@when(parsers.parse("I derive the quote precision of the pip size {pip:g}"))
+def _derive_quote_decimals(st_ctx: dict[str, Any], pip: float) -> None:
+    st_ctx["precision"] = quote_decimals(pip)
+
+
+@when("I build the statement and the report")
+def _build_both(st_ctx: dict[str, Any]) -> None:
+    statement = build_statement(load_run_artifacts(_materialize(st_ctx)))
+    st_ctx["statement"] = statement
+    st_ctx["markdown"] = render_markdown(statement)
+    st_ctx["report"] = render_report(statement)
+
+
 @when("I run the statement command on that run directory")
 def _run_cli(st_ctx: dict[str, Any]) -> None:
     run_dir = _materialize(st_ctx)
@@ -567,6 +582,32 @@ def _row_identity(
 def _row_times(st_ctx: dict[str, Any], index: int, opened: str, closed: str) -> None:
     row = _closed_rows(st_ctx)[index - 1]
     assert row[1] == opened and row[8] == closed, row
+
+
+@then(
+    parsers.parse(
+        'closed transaction {index:d} prints open price "{opened}", S / L "{stop}", '
+        'T / P "{targets}" and close price "{closed}"'
+    )
+)
+def _row_prices(
+    st_ctx: dict[str, Any], index: int, opened: str, stop: str, targets: str, closed: str
+) -> None:
+    row = _closed_rows(st_ctx)[index - 1]
+    assert [row[5], row[6], row[7], row[9]] == [opened, stop, targets, closed], row
+
+
+@then(
+    parsers.parse(
+        'the report trade history prints "{opened}", "{stop}", "{targets}" and "{closed}"'
+    )
+)
+def _report_prices(
+    st_ctx: dict[str, Any], opened: str, stop: str, targets: str, closed: str
+) -> None:
+    cells = re.findall(r"<td>([^<]*)</td>", st_ctx["report"])
+    for text in (opened, stop, targets, closed):
+        assert text in cells, (text, cells)
 
 
 @then(parsers.parse("the closed transaction tickets are {tickets}"))

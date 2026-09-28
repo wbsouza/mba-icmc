@@ -67,7 +67,7 @@ A successful execution can lose money or trade zero times.
 
 Both sweep scripts and the annual script use bare `wait`, which does not
 propagate each background child's failure as a checked per-child result.
-The SpockFX status string also says five variants, although the loop launches
+The template-sweep status string also says five variants, although the loop launches
 four. Neither that string nor `exit_code=0` is treated as a result manifest.
 Every completed row here was individually checked for `run.json.success=true`.
 An incomplete directory or an engine `main.json` is insufficient.
@@ -140,22 +140,21 @@ asserted to be an effective independent-trial count for DSR.
 No paired test, DSR, confidence interval, rolling retraining, or CPCV result
 is calculated here. Historical pilots are not promoted to OOS confirmation.
 
-## Actual SpockFX versus the M1 adaptations
+## The reference templates versus the M1 adaptations
 
-The reference source is `related-work/projects/spockfx-metatrader`,
-revision `a1ed6b43b3a7652e9d7564998a97d50e81f0bf8f`.
-The snapshot archives `deploy.xml`, `strategies/dragon.xml`, and
-`strategies/setupnow.xml` with hashes.
+The reference is the author's earlier Heikin-Ashi trading manager
+(unpublished). Its template settings are recorded as YAML values in the
+experiment plan; the snapshot embeds no copies of its configuration files.
 
-| Aspect | Reference XML | Inspected sweep evidence |
+| Aspect | Reference template | Inspected sweep evidence |
 | --- | --- | --- |
 | Timeframe | selector period 60 (H1); deployment templates period 240 (H4) | M1 inputs and EMA perception; 60-period minute EMA is not an H1/H4 bar series |
-| Stop cut | selector `stoplossCut=20.0`; templates `stopLossCut=50` | SpockFX-derived variants use `stop_loss_shrink=0.5` |
-| Entry and stop signal | Dragon/SetupNow indicator buffers and trend/bias rules | predecessor EMA/F7 chain; no actual candle detector or quote-activity gate |
+| Stop cut | selector stop cut 20 %; deployment templates 50 % | template-derived variants use `stop_loss_shrink=0.5` |
+| Entry and stop signal | the templates' indicator buffers and trend/bias rules | predecessor EMA/F7 chain; no actual candle detector or quote-activity gate |
 | ATR variant R16 | no proof of an equivalent H4 setting | archived multiplier 4.0, shrink 0.5, minimum 10 pips, risk 0.01; comment says 2 x ATR14 |
 
 The comparison is a partial plan adaptation, not a reproduction of the full
-reference system. No inference about original SpockFX profitability follows.
+reference system. No inference about the earlier trading manager's profitability follows.
 The legacy F3 names in the configurations coexist with
 `candlestick_pattern=None` in the inspected predecessor wiring.
 
@@ -184,7 +183,7 @@ engine maximum drawdown can differ due to sampling/rounding.
 | September execution model | R08/R13 | [screen](figures/execution-september-dark.png) | [print](figures/execution-september-print.pdf) |
 | October execution model | R09/R14 | [screen](figures/execution-october-dark.png) | [print](figures/execution-october-print.pdf) |
 | Completed A05 sweep | R01/R03/R04/R05 | [screen](figures/a05-sweep-september-dark.png) | [print](figures/a05-sweep-september-print.pdf) |
-| Completed SpockFX-derived sweep | R15/R16/R17/R18 | [screen](figures/spockfx-sweep-september-dark.png) | [print](figures/spockfx-sweep-september-print.pdf) |
+| Completed template-derived sweep | R15/R16/R17/R18 | [screen](figures/plan-sweep-september-dark.png) | [print](figures/plan-sweep-september-print.pdf) |
 
 Legend R references link to their parameter appendix entries in standalone
 PDFs; the PNG carries the same human-readable references. The appendix

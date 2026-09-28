@@ -138,7 +138,17 @@ Feature: End-of-run broker statement, equity chart and equity CSV
       Then the header line is "A/C No: 20260927T000000-deadbeef   Name: baseline / EURUSD   2015.09.01 00:00"
       And the closed transactions table has the columns "Ticket | Open Time | Type | Lots | Item | Price | S / L | T / P | Close Time | Price | Commission | R/O Swap | Trade P/L"
 
-    Scenario Outline: prices are printed at the quote precision the recorded prices carry
+    Scenario Outline: the quote precision is one decimal finer than the instrument's pip
+      When I derive the quote precision of the pip size <pip>
+      Then the price precision is <decimals>
+
+      Examples:
+        | pip    | decimals |
+        | 0.0001 | 5        |
+        | 0.01   | 3        |
+        | 0.001  | 4        |
+
+    Scenario Outline: for a symbol outside the instrument registry the recorded prices set the precision
       When I derive the price precision of <prices>
       Then the price precision is <decimals>
 
@@ -147,6 +157,22 @@ Feature: End-of-run broker statement, equity chart and equity CSV
         | 1.08668,1.1            | 5        |
         | 120.123,119.5          | 3        |
         | 100,101                | 0        |
+
+    Scenario Outline: derived plan prices print at the quote precision, never the float's binary noise (<symbol>)
+      Given a run directory for strategy "baseline" on "<symbol>" from "2015-09-01" to "2015-09-30"
+      And a closed trade with orders 1,2 direction 0 quantity 10000 entry <entry> exit <exit> profit 10 fees 0
+      And order 1 filled as "buy" for 10000 units
+      And the trade plans
+        | entry_order_id | direction | stop_loss | take_profits |
+        | 1              | buy       | <stop>    | <targets>    |
+      When I build the statement and the report
+      Then closed transaction 1 prints open price "<open>", S / L "<sl>", T / P "<tp>" and close price "<close>"
+      And the report trade history prints "<open>", "<sl>", "<tp>" and "<close>"
+
+      Examples:
+        | symbol | entry              | exit               | stop               | targets                               | open    | sl      | tp                | close   |
+        | EURUSD | 1.1225400000000001 | 1.1205300000000000 | 1.1207350000000003 | 1.1302599999999998,1.1340699999999997 | 1.12254 | 1.12074 | 1.13026 / 1.13407 | 1.12053 |
+        | USDJPY | 120.12300000000001 | 119.50000000000001 | 119.90000000000001 | 120.70000000000002,121.2000000000003  | 120.123 | 119.900 | 120.700 / 121.200 | 119.500 |
 
   Rule: The A/C summary is arithmetic over the artifacts
 

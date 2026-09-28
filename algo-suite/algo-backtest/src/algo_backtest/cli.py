@@ -34,8 +34,8 @@ _STATEMENT_OUT_OPTION = typer.Option(
 _MODEL_OPTION = typer.Option(
     None,
     "--model",
-    help="F7 model JSON to use instead of the strategy's bundled one (baseline/hybrid "
-    "only); the algorithm logs its SHA-256.",
+    help="F7 model JSON to use instead of the strategy's bundled one (config.yaml chain "
+    "strategies listing f7_meta_learner only); the algorithm logs its SHA-256.",
 )
 
 
@@ -155,7 +155,7 @@ def _print_strategy_parameters(strategy: str, strategies_dir: Path | None) -> No
     from algo_backtest.run import resolve_strategy
     from algo_backtest.strategies import explain_lines, load_strategy_chain_config
 
-    if resolve_strategy(strategy, strategies_root=strategies_dir).model_file is None:
+    if not resolve_strategy(strategy, strategies_root=strategies_dir).chain_config:
         return
     for line in explain_lines(load_strategy_chain_config(strategy, root=strategies_dir)):
         typer.echo(f"strategy[{strategy}] {line}")
@@ -277,17 +277,20 @@ def run(
 
 
 def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
-    """Write statement.md, equity.png, equity.csv and report.html for `run_dir`; print the
-    A/C summary lines and the four paths."""
+    """Write statement.md, equity.png, equity.csv and report.html (with the per-trade
+    decision drill-down when the run recorded decisions.parquet and trade-plans.json) for
+    `run_dir`; print the A/C summary lines and the four paths."""
     from algo_backtest.statement import (
         build_statement,
+        load_decision_trails,
         load_run_artifacts,
         summary_lines,
         write_statement_files,
     )
 
     statement = build_statement(load_run_artifacts(run_dir))
-    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    trails = load_decision_trails(run_dir)
+    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir, trails)
     for line in summary_lines(statement):
         typer.echo(f"statement: {line}")
     typer.echo(f"statement: {paths.statement}")
@@ -312,7 +315,7 @@ def explain_strategy(
 
     try:
         spec = resolve_strategy(name, strategies_root=strategies_dir)
-        if spec.model_file is None:
+        if not spec.chain_config:
             raise ValueError(f"{name!r} is a code-registered strategy without a config.yaml")
         config = load_strategy_chain_config(name, root=strategies_dir)
     except ValueError as exc:
@@ -359,8 +362,10 @@ def statement(
     Reads run.json, trades.json, LEAN's result JSON and its order-events sibling (plus
     strategy-config.json, strategy-provenance.json and trade-plans.json when present) and
     writes statement.md + equity.png + equity.csv (the chart's series: time, equity,
-    drawdown_pct — the input of `algo-analyze equity-curves`); prints the A/C summary.
-    Exits 2 when a required artifact is missing or malformed, naming the file.
+    drawdown_pct — the input of `algo-analyze equity-curves`) + report.html, whose Trade
+    History expands each closed trade into its decision trail when the run recorded
+    decisions.parquet and trade-plans.json; prints the A/C summary. Exits 2 when a
+    required artifact is missing or malformed, naming the file.
     """
     try:
         _emit_statement(Path(run_dir), out)
