@@ -1,5 +1,92 @@
 # Experiment takeover and consolidation progress
 
+## Planned candlestick extension — September 28, 2026
+
+Story 13 already owns the implemented candlestick/quote-activity experiments.
+The user requested adding Bigalow's book, his supplied CMT presentation, video
+transcript, and the Laya idea here, not duplicating that work in a new story. See
+[candlestick catalog and learned-context extension](candlestick-extension.md).
+This extension is **planned**, not trained, implemented, or experimentally
+validated. The completed checklist and dated evidence below describe earlier
+work only; they do not certify this new scope.
+
+Planning owner: Codex; implementation owner: unassigned. Current checkout is
+`/home/wellington/workspace/mba-agents/mba-main`, branch `main`, revision
+`f438156`. This turn extends documentation in the existing checkout; no new
+worktree or subagent was created and no simulation was started or changed.
+Older worktree/agent tables below are historical, not a live process inventory.
+
+The docs-writer skill guided the source-backed extension and this handoff.
+Verified the supplied 411-page book and 60-page presentation metadata/checksums,
+extracted the first ten presentation slides, and inspected the current six-label
+detector. The book's OCR supports initial review; rule-changing
+ambiguities require checking the scan. Laya references were read in the preceding
+discussion; candlestick capability remains an experiment, not an upstream claim.
+
+Added [timestamped video notes](bigalow-video-notes.md) from the transcript supplied
+by the user. They record candidate parameters, context/sequence rules, and
+unresolved transcript contradictions. Audio and chart frames were not independently
+verified. EMA(8) is now source-attributed; exact implementation semantics remain
+pending. This is a preliminary ledger, not completed source review or training data.
+
+Follow-up source inventory: the Downloads presentation matches the NAS copy by
+SHA-256. Recorded the user's durable local webinar transcript and checksum in
+the extension/video notes. No duplicate source or additional experiment was
+created. Source tracking follows the docs-writer review process.
+
+### Consolidated implementation plan — planning only
+
+The user explicitly confirmed: plan now, do not implement yet. Used the
+`tlc-spec-driven` skill to create one canonical
+[specification](../../../../../.specs/features/candlestick-context/spec.md),
+[design](../../../../../.specs/features/candlestick-context/design.md),
+[decision context](../../../../../.specs/features/candlestick-context/context.md)
+and [task checklist](../../../../../.specs/features/candlestick-context/tasks.md).
+The skill requires plan review before Execute; work stops at the draft plan.
+The checklist replaces the earlier high-level list here to avoid status drift.
+
+The plan maps 26 requirements to 24 pending tasks in four phases:
+
+1. T1–T6: source-rule ledger, multilabel contracts/catalog, context, confirmation,
+   and explicit F3 entry policy.
+2. T7–T14: native/offline signals, model compatibility, F7/training features,
+   recorded evidence, results database, and viewer.
+3. T15–T21: optional reviewed labels, preregistered evaluation, pinned Laya,
+   specialization/calibration, immutable cache and replay provider.
+4. T22–T24: registered experiments, complete parameter/result reports, and
+   evidence-backed monograph update.
+
+Each code task owns its Gherkin tests and gate in the same future atomic commit.
+Rules-first and cache-backed advisory Laya are proposed defaults, not approved
+architecture. Ambiguous source definitions block admission to the catalog.
+No code, model, dependency, experiment, or monograph results were changed here.
+
+No separate Bigalow/Laya draft was found in the registered worktree story docs;
+the visible sources are consolidated here. If another agent has a draft elsewhere,
+obtain its path before claiming its content has been merged.
+
+Planning verification: strict `validate_spec.py` and `validate_tasks.py` from the
+installed tlc-spec-driven skill each exited 0, with zero errors and warnings.
+These are document-structure checks, not evidence that runtime requirements pass.
+The task plan records future commands, scenario minima, dependencies and handoff
+requirements; all implementation checkboxes remain unchecked.
+
+The session's `.git` is read-only; no commit or push is claimed. Preserve the
+uncommitted Story 15/16/17 planning files. Next step is review of the proposed
+defaults and task plan, not execution. In a write-enabled session, preserve and
+commit the reviewed documentation; confirm publication authority before pushing.
+Implementation needs a separate go-ahead, fresh Git reconciliation and tool/
+worker preferences. Runtime tests have not been rerun for this docs-only edit.
+
+Verification: `git diff --check` and local Markdown target checks pass. Dependency
+audit attempted with `UV_CACHE_DIR=/tmp/miner-story-uv-cache UV_OFFLINE=1 make
+audit` from `algo-suite/`; it exited 2 because the TA-Lib 0.8.1 wheel is uncached
+and network access is disabled. This is not a clean audit result. No dependencies
+were added. Reviewed the debt ledger; this planning-only addition does not enable
+a new runtime path or close an existing debt item.
+
+## Historical execution and integration record
+
 Updated: 2026-09-28 02:45 UTC (September 27, America/Vancouver).
 Owner: Claude (integration and next protocol); Codex implementation and eight-run experiment complete. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
