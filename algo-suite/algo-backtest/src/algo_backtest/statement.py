@@ -45,6 +45,11 @@ print binary noise such as `1.1207350000000003` — the quote precision is what 
 confirmation shows. Lots and money to two decimals, money with thousands separators.
 Nothing is fabricated: every figure comes from the artifacts; the only constants are
 presentation (file names, chart size/dpi, labels).
+
+`report.html` additionally expands every closed trade into its decision trail
+(`decision_trail.py`: the chain's verdict at entry, the plan, the exit) when the run
+recorded `decisions.parquet` and `trade-plans.json`; `write_statement` passes the trails
+through, and the report states their absence otherwise.
 """
 
 from __future__ import annotations
@@ -58,7 +63,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 
@@ -68,6 +73,9 @@ from algo_core.instrument import UnknownSymbolError, build_instrument  # noqa: E
 from matplotlib import pyplot as plt  # noqa: E402
 
 from algo_backtest.results import find_result_json  # noqa: E402
+
+if TYPE_CHECKING:  # report.py and decision_trail.py build on this module; no import cycle.
+    from algo_backtest.decision_trail import DecisionTrail
 
 STATEMENT_FILE = "statement.md"
 CHART_FILE = "equity.png"
@@ -1068,9 +1076,26 @@ def render_equity_chart(statement: Statement, out: Path) -> Path:
     return out
 
 
-def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
+def load_decision_trails(run_dir: Path) -> tuple[DecisionTrail, ...] | None:
+    """The report's per-trade decision trails, or `None` when the run recorded no
+    `decisions.parquet` / `trade-plans.json` (a code-registered strategy, or a run predating
+    them) — the report then states the absence instead of inventing a trail.
+
+    Raises what `decision_trail.build_decision_trails` raises when both artifacts exist but
+    a closed trade has no plan or no chain row.
+    """
+    # Local import: decision_trail.py builds on this module (no import cycle).
+    from algo_backtest.decision_trail import build_decision_trails, has_trail_artifacts
+
+    return tuple(build_decision_trails(run_dir)) if has_trail_artifacts(run_dir) else None
+
+
+def write_statement_files(
+    statement: Statement, target: Path, trails: Sequence[DecisionTrail] | None = None
+) -> StatementPaths:
     """Write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a built
-    statement into `target`.
+    statement into `target`; `trails` (see `load_decision_trails`) feed the report's
+    per-trade drill-down, `None` renders it as absent.
 
     The Markdown, the CSV and the HTML are written atomically; the chart is rendered to a
     temp file and renamed into place, so no artifact is ever half-written.
@@ -1085,18 +1110,20 @@ def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
     equity_csv = target / EQUITY_CSV_FILE
     write_text_atomic(equity_csv, render_equity_csv(equity_rows(statement.equity)))
     report_path = target / REPORT_FILE
-    write_text_atomic(report_path, render_report(statement))
+    write_text_atomic(report_path, render_report(statement, trails=trails))
     return StatementPaths(
         statement=statement_path, chart=chart, equity_csv=equity_csv, report=report_path
     )
 
 
 def write_statement(run_dir: Path, out_dir: Path | None = None) -> StatementPaths:
-    """Build and write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a
-    finished run.
+    """Build and write `statement.md`, `equity.png`, `equity.csv` and `report.html` (with
+    the decision drill-down when the run recorded its inputs) for a finished run.
 
     All four land in `out_dir` (default: the run directory itself). Raises what
-    `load_run_artifacts`/`build_statement` raise on a missing or inconsistent artifact.
+    `load_run_artifacts`/`build_statement`/`load_decision_trails` raise on a missing or
+    inconsistent artifact.
     """
     statement = build_statement(load_run_artifacts(run_dir))
-    return write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    trails = load_decision_trails(run_dir)
+    return write_statement_files(statement, out_dir if out_dir is not None else run_dir, trails)
