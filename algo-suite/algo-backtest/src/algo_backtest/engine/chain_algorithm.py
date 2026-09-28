@@ -85,6 +85,7 @@ from algo_backtest.engine.trade_plan import (
 from algo_backtest.perception.bar_clock import ClosedBarClock
 from algo_backtest.perception.config import PerceptionConfig
 from algo_backtest.perception.tick_activity import TickActivityIndex
+from algo_backtest.retraining import provider
 from algo_backtest.rules.trail_stop import Direction
 from algo_backtest.strategies import load_resolved_strategy
 
@@ -114,10 +115,31 @@ class ChainAlgorithm(ExecutionAlgorithm):
     - ``model_path``: the F7 model JSON next to the strategy's ``main.py`` (portable,
       pickle-free, provenance embedded — ``chain/filters/f7_model_io.py``), written by
       ``scripts/train_*_meta_learner.py`` or replaced for one run via ``run --model``.
+
+    Story 19 (T11/T12, minimum viable slice): a strategy may instead set
+    ``bundle_registry``/``bundle_id`` to load its F7 model through the on-demand
+    provider's pinned single-bundle path (``retraining.provider.load_active``) rather
+    than ``model_path``. This proves the retraining bundle format loads and predicts
+    through the real engine; it does not yet retrigger mid-replay (that is T12's
+    remaining "bounded host coordination" work, deliberately deferred today).
     """
 
     log_tag: str = ""
-    model_path: Path
+    model_path: Path | None = None
+    bundle_registry: Path | None = None
+    bundle_id: str | None = None
+    strategy_dir: Path | None = None
+
+    def _resolved_strategy_dir(self) -> Path:
+        """Where ``strategy.yaml`` lives: ``strategy_dir`` if set, else ``model_path``'s."""
+        if self.strategy_dir is not None:
+            return self.strategy_dir
+        if self.model_path is not None:
+            return self.model_path.parent
+        raise ValueError(
+            f"{self.strategy_name}: set either model_path or strategy_dir so the container "
+            "can find strategy.yaml next to main.py"
+        )
 
     def _news_index(self, symbol: str, start: date, end: date) -> NewsContextIndex | None:
         """The F4 news index for the run window; ``None`` for a strategy without F4."""
@@ -148,7 +170,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         # (run.py `_RESOLVED_STRATEGY_FILE`), so the container never depends on the
         # package's bundled strategies/ or on an external --strategies-dir.
         config = load_resolved_strategy(
-            self.model_path.parent / "strategy.yaml",
+            self._resolved_strategy_dir() / "strategy.yaml",
             name=self.get_parameter("chain_config") or self.strategy_name,
         )
         self._subscribe_indicators(config.perception, config.price_features)
@@ -158,11 +180,24 @@ class ChainAlgorithm(ExecutionAlgorithm):
 
         meta_learner = None
         if config.f7 is not None:  # a chain without F7 (terminal_filter) loads no model
-            meta_learner = load_model(self.model_path)
-            self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
-            require_families(
-                meta_learner.families, config.meta_learner_families, where=str(self.model_path)
-            )
+            if self.bundle_registry is not None and self.bundle_id is not None:
+                loaded = provider.load_active(
+                    self.bundle_registry, self.bundle_id,
+                    strategy_families=config.meta_learner_families,
+                )
+                meta_learner = loaded.model
+                self.debug(f"{self.log_tag}_BUNDLE_ID={self.bundle_id}")
+                self.debug(f"{self.log_tag}_MODEL_SHA256={loaded.manifest['hashes']['model_sha256']}")
+                require_families(
+                    meta_learner.families, config.meta_learner_families, where=self.bundle_id
+                )
+            else:
+                assert self.model_path is not None  # `_resolved_strategy_dir` requires one
+                meta_learner = load_model(self.model_path)
+                self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
+                require_families(
+                    meta_learner.families, config.meta_learner_families, where=str(self.model_path)
+                )
         else:
             self.debug(f"{self.log_tag}_TERMINAL_FILTER={config.terminal_filter}")
         self._economics = config.capital_mgmt

@@ -926,3 +926,90 @@ Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
   was left modified.
 
 Commit: `test(retraining): harden phase 2 modules against surviving mutants`.
+
+### 2026-09-28 Phase 3 integration, minimum-viable slice (compressed delivery for an
+advisor deadline)
+
+Worktree `/tmp/mba-integ19` (`feat/integrate-19-phase3`, merged onto Story 21's
+Phase 3 integration HEAD `3a525ef`). Merge of `feat/19-adaptive-retraining`
+(Phase 1+2) was clean, no conflicts.
+
+**Explicit scope reduction, not a silent shortcut**: T11 (on-demand provider)
+and T12 (native LEAN integration) are only partially implemented today. What
+is proven: `ChainAlgorithm` can load its F7 model from a single, published
+retraining bundle (`retraining.bundle.load`) instead of a `model_path` JSON
+file, through the real engine, in one real LEAN backtest. What is **not**
+implemented (remains real, separately gated future work): T11's cache/
+eviction layer, boundary-based bundle selection via
+`cycle.Coordinator.eligible_bundle`, and T12's mid-replay adaptive-cycle
+retraining triggers ("bounded host coordination" — the design doc's own
+harder feasibility gate). Neither T11 nor T12's task checkbox is marked done
+in tasks.md; both remain open for that remaining work.
+
+Changes:
+- `algo_backtest/retraining/provider.py` (new): `load_active(registry,
+  bundle_id, strategy_families=...)`, a thin wrapper over `bundle.load`
+  documented as the minimum slice (module docstring names exactly what's
+  deferred).
+- `engine/chain_algorithm.py`: `ChainAlgorithm` gained three optional class
+  attributes, `bundle_registry`/`bundle_id`/`strategy_dir`, alongside the
+  existing `model_path` (now optional). `initialize()` branches: if
+  `bundle_registry`+`bundle_id` are set, the F7 model loads via
+  `provider.load_active` (logs `<TAG>_BUNDLE_ID=`/`<TAG>_MODEL_SHA256=` from
+  the bundle's own manifest hash); otherwise the existing `load_model(
+  self.model_path)` path is unchanged, so every existing strategy (baseline,
+  hybrid, all `tests/algos/*`) is untouched. Bundle-sourced runs still take
+  `theta_high`/`theta_low` from `config.yaml`, not the bundle's own
+  calibrated thresholds — wiring the bundle's thresholds into the terminal
+  rule is left for T13 (decision-identity) or a follow-up, not done here.
+
+New native gate scenario (`tests/features/retraining_provider_engine.feature`,
+`tests/steps/test_retraining_provider_engine.py`, algo fixture
+`tests/algos/bundle_provider_baseline/`): fits one real T9 epoch bundle (policy
+U, `schedule.stage_spans`' real spans: family `[2015-03-02, 2015-11-01)`,
+combiner `[2015-11-01, 2015-12-01)`, threshold `[2015-12-01, 2015-12-31)`)
+from the project's real EUR/USD M1 Parquet (`ALGO_DATA_ROOT`, same
+requirement as `scripts/train_baseline_meta_learner.py`; skips cleanly if
+unset), publishes it, then runs the baseline chain natively in the pinned
+LEAN image over the bundle's real 2016-01 deployment window with real EUR/USD
+LEAN minute data, asserting exit 0, the bundle-id/model-sha256 log lines, at
+least one `BUNDLEPROVIDER_DECISION|` line and a real LEAN `STATISTICS::`
+summary.
+
+Gate evidence (cwd `/tmp/mba-integ19/algo-suite` unless noted; `uv sync
+--group dev` was needed first, the venv `uv run python <script>` had built
+earlier had no dev group):
+- `uv run pytest algo-backtest/tests -q -p no:cacheprovider -m "not
+  integration"`: 2210 passed, 64 deselected, 0 failed (87 s).
+- `uv run pytest algo-backtest/tests/steps/test_retraining_provider_engine.py
+  -m integration`: 1 passed (325 s) — the new native scenario, real fit + real
+  LEAN run.
+- `uv run pytest algo-backtest/tests/steps/test_closed_signal_parity.py
+  algo-backtest/tests/steps/test_minute_pnl_anchors.py -m integration`: 3
+  passed, 4 failed. The 4 failures
+  (`test_overnight_losses_survive_incomplete_candles_at_calendar_boundaries`
+  ×3, `test_a_slice_without_the_subscribed_quote_cannot_reset_risk_anchors`)
+  are pre-existing: confirmed by `git stash`-ing every change in this pass
+  and re-running the identical command against the merged-but-unmodified
+  tree, same 4 failures, same `'Receiver' object has no attribute
+  '_advance_time_exit'` error, on code neither Story 19 nor this integration
+  touches. Not fixed here (out of today's scope); flagged for a separate fix.
+- `uv run ruff check .` (workspace-wide): clean. `uv run ruff format --check`
+  on the new/touched files: clean (one file reformatted before commit).
+- `uv run mypy --strict algo-backtest`: clean, 76 source files
+  (`chain_algorithm.py` is container-only and excluded from strict mypy, per
+  its own module docstring, same as before this change).
+- `make check-perception-architecture check-inference-architecture`: both
+  PASS.
+
+**The real backtest** (baseline chain, EURUSD, 2016-01-04 to 2016-01-08, cash
+10000, the bundle above as its only F7 model, real LEAN, real market data):
+221 orders, 71 closed trades, net profit -15.311%, win rate 27%, Sharpe
+-1.652 (full LEAN `STATISTICS::` block in the test's captured log on
+failure/rerun). This is a four-trading-day smoke window chosen for turnaround
+time, not a methodology result — same caveat as `run_baseline_chain.feature`'s
+existing TD-51 note; it demonstrates the wiring works and produces a real,
+un-fabricated number, not a validated trading result.
+
+Commit: `feat(retraining): wire the on-demand provider into the live engine
+(minimum viable slice for today's delivery)`.
