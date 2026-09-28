@@ -118,3 +118,11 @@ details.params summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .pattern-card p { margin: 6px 0 0; }
 .pattern-card .links { font-size: 12px; }
 .pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.pattern-card .row { display: flex; gap: 12px; align-items: flex-start; }
+.schematic { margin: 0; flex: 0 0 auto; text-align: center; }
+.schematic svg { display: block; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; }
+.schematic figcaption { font-size: 11px; color: var(--muted); max-width: 120px; margin-top: 4px; }
+.candle line { stroke-width: 1.5; }
+.candle.up line, .candle.up rect { stroke: var(--up); fill: var(--up); }
+.candle.down line, .candle.down rect { stroke: var(--down); fill: var(--down); }
+.pattern-card .examples { font-size: 12px; }

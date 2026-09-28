@@ -67,7 +67,7 @@ export function App({ api: given, initialHash }: Props) {
     return (
       <>
         {nav}
-        <main><PatternsPage /></main>
+        <main><PatternsPage api={api} /></main>
       </>
     );
   }
@@ -130,5 +130,5 @@ function TradeDrawerLoader({ api, runId, tradeId, dark, onClose }: { api: ApiCli
       </>
     );
   }
-  return <TradeDrawer detail={state.data} dark={dark} onClose={onClose} />;
+  return <TradeDrawer detail={state.data} dark={dark} onClose={onClose} api={api} />;
 }

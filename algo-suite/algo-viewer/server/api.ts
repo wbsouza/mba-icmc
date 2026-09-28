@@ -11,6 +11,7 @@
  *   GET /api/runs/:id/trades                     TradeRow[]
  *   GET /api/runs/:id/decision-summary           DecisionSummaryRow[]
  *   GET /api/runs/:id/trades/:tradeId            TradeDetail
+ *   GET /api/patterns/:name/examples?limit=3     PatternExample[] (most recent first, limit 1..50)
  *
  * Unknown runs and trades answer 404 with `{error}`; unknown routes 404; other methods 405.
  */
@@ -24,9 +25,12 @@ import {
   listRuns,
   monthlyReturns,
   parameters,
+  patternExamples,
   tradeDetail,
   trades,
 } from "./queries.js";
+
+const MAX_EXAMPLES = 50;
 
 export interface ApiResponse {
   status: number;
@@ -65,8 +69,17 @@ function runResponse(db: Queryable, runId: string, rest: string[]): ApiResponse 
   return ok(query(db, runId));
 }
 
-/** Answer one API request; `path` is the URL path without query string. */
-export function handleApi(db: Queryable, method: string, path: string): ApiResponse {
+function examplesResponse(db: Queryable, name: string, query: URLSearchParams): ApiResponse {
+  const raw = query.get("limit") ?? "3";
+  const limit = Number(raw);
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_EXAMPLES) {
+    return { status: 400, body: { error: `limit must be an integer between 1 and ${MAX_EXAMPLES}, got ${raw}` } };
+  }
+  return ok(patternExamples(db, name, limit));
+}
+
+/** Answer one API request; `path` is the URL path, `query` its query string. */
+export function handleApi(db: Queryable, method: string, path: string, query: URLSearchParams = new URLSearchParams()): ApiResponse {
   if (method !== "GET") return { status: 405, body: { error: `${method} is not supported; the API is read-only` } };
   const parts = path.split("/").filter((p) => p !== "").map(decodeURIComponent);
   if (parts[0] !== "api") return notFound(`route ${path}`);
@@ -77,6 +90,9 @@ export function handleApi(db: Queryable, method: string, path: string): ApiRespo
     if (parts.length === 2) return ok(listRuns(db));
     const runId = parts[2];
     if (runId !== undefined) return runResponse(db, runId, parts.slice(3));
+  }
+  if (parts[1] === "patterns" && parts[2] !== undefined && parts[3] === "examples" && parts.length === 4) {
+    return examplesResponse(db, parts[2], query);
   }
   return notFound(`route ${path}`);
 }

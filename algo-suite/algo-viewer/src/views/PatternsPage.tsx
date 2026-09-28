@@ -1,8 +1,9 @@
+import type { ApiClient } from "../api/client";
 import { PATTERNS } from "../model/patterns";
 import { PatternCard } from "./PatternCard";
 
-/** The static reference page: every pattern F3 can name, with its card. */
-export function PatternsPage() {
+/** The reference page: every pattern F3 can name, with its card and real examples. */
+export function PatternsPage({ api }: { api?: ApiClient | undefined }) {
   return (
     <section className="panel" aria-label="Patterns">
       <h2>Candlestick patterns F3 recognises</h2>
@@ -11,7 +12,7 @@ export function PatternsPage() {
         perception/candlestick.py); the trade drawer shows the same card when a pattern was part of an entry.
       </p>
       <div className="pattern-grid">
-        {PATTERNS.map((p) => <PatternCard key={p.name} pattern={p} />)}
+        {PATTERNS.map((p) => <PatternCard key={p.name} pattern={p} api={api} />)}
       </div>
     </section>
   );

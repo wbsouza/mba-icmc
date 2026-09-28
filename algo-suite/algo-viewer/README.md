@@ -58,6 +58,7 @@ All endpoints are `GET` and answer JSON (`server/api.ts`); unknown runs/trades a
 | `/api/runs/:id` | one run |
 | `/api/runs/:id/equity` · `/monthly` · `/parameters` · `/trades` · `/decision-summary` | the run's rows of that table |
 | `/api/runs/:id/trades/:tradeId` | the trade drawer's detail: trade, plan, entry decision with its filter rows, trail moves, entry bars, parameters |
+| `/api/patterns/:name/examples?limit=3` | the most recent closed trades whose entry decision carried that candlestick pattern (`run_id, trade_id, entry_time, direction, profit`; limit 1..50) |
 
 ## Views
 
@@ -76,9 +77,12 @@ All endpoints are `GET` and answer JSON (`server/api.ts`); unknown runs/trades a
   reference page and TA-Lib function), the candlestick window, the plan (lots, stop and
   pips, targets, trail steps, spread), the exit (kind, time, price, trail moves) and the
   realized P/L, and **Copy link**.
-- **Patterns** — the static reference page listing the six patterns F3 recognises
+- **Patterns** — the reference page listing the six patterns F3 recognises
   (`src/model/patterns.ts`: title, direction, description, reference URL, TA-Lib
-  function), citable from the thesis.
+  function, and the schematic the app draws as an inline SVG — one rect per candle with
+  the geometry the name implies), each card linking up to three real trades of the
+  database whose entry carried the pattern ("Example from our runs"); citable from the
+  thesis. The same card appears in the trade drawer.
 
 Exit kinds are classified by the ingester (see `../algo-analyze/SPEC.md` §6.2): stop,
 target, trailing stop, reversal, liquidation, unknown.

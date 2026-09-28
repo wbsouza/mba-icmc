@@ -57,7 +57,7 @@ function handle(options: ServerOptions, request: IncomingMessage, response: Serv
   const url = new URL(request.url ?? "/", "http://localhost");
   if (url.pathname.startsWith("/api")) {
     try {
-      const { status, body } = handleApi(options.db, request.method ?? "GET", url.pathname);
+      const { status, body } = handleApi(options.db, request.method ?? "GET", url.pathname, url.searchParams);
       sendJson(response, status, body);
     } catch (error) {
       sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });

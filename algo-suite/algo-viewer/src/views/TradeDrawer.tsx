@@ -5,11 +5,14 @@ import { EXIT_KIND_LABELS, lots, minutes, money, price, priceDecimals, when } fr
 import { CandleChart } from "../charts/CandleChart";
 import { PatternCard } from "./PatternCard";
 import { routeHash } from "../router";
+import type { ApiClient } from "../api/client";
 
 interface Props {
   detail: TradeDetail;
   dark: boolean;
   onClose: () => void;
+  /** With a client the pattern card links other trades that carried the same pattern. */
+  api?: ApiClient | undefined;
 }
 
 /** The shareable address of a trade: the page plus its `#/run/<id>/trade/<id>` hash. */
@@ -28,7 +31,7 @@ async function copyText(text: string): Promise<boolean> {
 }
 
 /** Why the chain entered, the plan, the exit and the realized P/L of one trade. */
-export function TradeDrawer({ detail, dark, onClose }: Props) {
+export function TradeDrawer({ detail, dark, onClose, api }: Props) {
   const { trade, plan, filters, trailMoves, bars, parameters, run } = detail;
   const decimals = priceDecimals(trade.entry_price);
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
@@ -74,7 +77,7 @@ export function TradeDrawer({ detail, dark, onClose }: Props) {
                       {x.pattern ? <span className="badge" data-testid="pattern-name">{x.pattern.title}</span> : null}
                     </div>
                     <div className="summary">{x.summary}</div>
-                    {x.pattern ? <PatternCard pattern={x.pattern} /> : x.details.map((d, j) => <div key={j} className="details">{d}</div>)}
+                    {x.pattern ? <PatternCard pattern={x.pattern} api={api} /> : x.details.map((d, j) => <div key={j} className="details">{d}</div>)}
                     <div className="reason">{x.reason}</div>
                   </div>
                 </li>

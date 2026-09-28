@@ -156,3 +156,19 @@ Then("the parsed options are {}", function (outcome: string) {
   assert.equal(parsed.port, Number(m[2]));
   assert.equal(parsed.static ?? "none", m[3]);
 });
+
+Then("the JSON lists the example run {string} trade {string} {word} {int}", function (runId: string, tradeId: string, direction: string, profit: number) {
+  assert.ok(Array.isArray(body));
+  assert.equal(body.length, 1);
+  const example = body[0] as Record<string, unknown>;
+  assert.equal(example["run_id"], runId);
+  assert.equal(example["trade_id"], tradeId);
+  assert.equal(example["direction"], direction);
+  assert.equal(example["profit"], profit);
+  assert.equal(typeof example["entry_time"], "string");
+});
+
+Then("the JSON says {string}", function (text: string) {
+  const error = String(obj()["error"]);
+  assert.ok(error.includes(text), `${error} lacks ${text}`);
+});

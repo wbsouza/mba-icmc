@@ -116,3 +116,21 @@ export function tradeDetail(db: Queryable, runId: string, tradeId: string): Trad
     parameters: parameters(db, runId),
   };
 }
+
+export interface PatternExample {
+  run_id: string;
+  trade_id: string;
+  entry_time: string;
+  direction: "buy" | "sell";
+  profit: number;
+}
+
+/** The most recent closed trades whose entry decision carried `pattern` (F3's pattern_name). */
+export function patternExamples(db: Queryable, pattern: string, limit: number): PatternExample[] {
+  return db.rows<PatternExample>(
+    "SELECT d.run_id, d.trade_id, t.entry_time, t.direction, t.profit FROM decision_filters f " +
+      "JOIN decisions d ON d.id = f.decision_id JOIN trades t ON t.run_id = d.run_id AND t.trade_id = d.trade_id " +
+      "WHERE d.is_entry = 1 AND f.pattern_name = ? ORDER BY t.entry_time DESC LIMIT ?",
+    [pattern, limit],
+  );
+}

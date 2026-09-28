@@ -10,6 +10,14 @@ import type {
   TradeRow,
 } from "../model/types";
 
+export interface PatternExample {
+  run_id: string;
+  trade_id: string;
+  entry_time: string;
+  direction: "buy" | "sell";
+  profit: number;
+}
+
 export interface Health {
   schema_version: number;
   runs: number;
@@ -54,6 +62,9 @@ export class ApiClient {
   parameters(runId: string): Promise<ParameterRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/parameters`); }
   trades(runId: string): Promise<TradeRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/trades`); }
   decisionSummary(runId: string): Promise<DecisionSummaryRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/decision-summary`); }
+  patternExamples(name: string, limit = 3): Promise<PatternExample[]> {
+    return this.get(`/api/patterns/${encodeURIComponent(name)}/examples?limit=${limit}`);
+  }
   tradeDetail(runId: string, tradeId: string): Promise<TradeDetail> {
     return this.get(`/api/runs/${encodeURIComponent(runId)}/trades/${encodeURIComponent(tradeId)}`);
   }

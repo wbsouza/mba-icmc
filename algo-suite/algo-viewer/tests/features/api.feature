@@ -30,6 +30,19 @@ Feature: Backend API over the results database
     When the client asks for trade "1" of run "20260928T010000-fixture"
     Then the trade's exit kind is "target" and its F3 pattern is "hammer"
 
+  Scenario Outline: pattern examples are the most recent entries that carried the pattern
+    When I GET "<path>"
+    Then the status is <status>
+    And the JSON <shape>
+
+    Examples:
+      | path                                          | status | shape                                                          |
+      | /api/patterns/hammer/examples?limit=3         | 200    | lists the example run "20260928T010000-fixture" trade "1" buy 500 |
+      | /api/patterns/hammer/examples                 | 200    | is a list of 1 item                                            |
+      | /api/patterns/evening_star/examples?limit=3   | 200    | is a list of 0 items                                           |
+      | /api/patterns/hammer/examples?limit=0         | 400    | says "limit must be an integer between 1 and 50"               |
+      | /api/patterns/hammer/examples?limit=x         | 400    | says "limit must be an integer between 1 and 50"               |
+
   Scenario Outline: unknown resources are refused with a message
     When I GET "<path>"
     Then the status is <status>
