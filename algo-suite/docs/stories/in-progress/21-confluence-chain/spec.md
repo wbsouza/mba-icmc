@@ -1,6 +1,6 @@
 # Story 21 — confluence chain: filter sequence, thresholds by rule, exits matched to the signal horizon (planned)
 
-Status: planned, 2026-09-28. Owner: unassigned. No code or run yet. Baseline: `main` after PRs
+Status: in progress since 2026-09-28 (moved from planned by the user). Owner: unassigned. No code or run yet. Baseline: `main` after PRs
 #74–#81 (session-2 evidence, story 20; decision log in the viewer, PR #75/#80).
 
 ## Question
@@ -27,6 +27,13 @@ carry a short-horizon tilt of about 4 pips over 4 hours that the reported trades
 because the money-management template holds each short for days with 4R/6R targets, so the trade
 becomes the drift; and 20-day momentum in the same direction doubles the tilt while adding nothing on
 its own. Candlestick confirmation adds nothing and leans the wrong way at H1.
+
+Third reading, established after the story was drafted (`evidence/signal-horizon-check.md`, last
+section): January 2016, the calibration month of every session, is the only month in twenty-four with
+negative intensity values (GDELT coverage uniform), so every absolute news threshold was taken from an
+outlier month; the low cut was never reached again and the rule cells were one-sided by construction.
+Absolute cuts on the intensity are regime bets (share of bars above the high cut swings 0–87 % by
+month).
 
 Question: does a chain whose sequence is a contract (context → trigger → confirmation → risk →
 horizon-matched exit) and whose thresholds are set by a rule on trailing data, not by outcome search,

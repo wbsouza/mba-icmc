@@ -20,7 +20,7 @@ On the session-2 H1 decision log the six TA-Lib patterns read as continuation si
 way (bearish engulfing: next bar up 61 % of the time, n = 291); read in context (bullish after a fall,
 bullish in an F1 downtrend, bullish near a 60-bar low) the bullish side shows 54–59 % at 4 hours on
 small samples; the shooting star works as intended (63 % at 4 h, n = 41). Tables:
-`planned/21-confluence-chain/evidence/signal-horizon-check.md`. This is why the extension's first
+`in-progress/21-confluence-chain/evidence/signal-horizon-check.md`. This is why the extension's first
 deliverable is the context-rule ledger, not more patterns.
 
 ## Boundaries
