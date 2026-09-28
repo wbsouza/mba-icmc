@@ -53,7 +53,7 @@ convention; update both in the same tested task commit.
 - [x] T5: Pass weights through family-model fitting.
 - [x] T6: Pass independent weights through combiner fitting.
 - [x] T7: Publish immutable epoch bundles.
-- [ ] T8: Implement separate-span threshold calibration.
+- [x] T8: Implement separate-span threshold calibration.
 - [ ] T9: Orchestrate one epoch's weighted training.
 - [ ] T10: Implement the full adaptive-cycle coordinator.
 - [ ] T11: Implement the on-demand epoch provider.
@@ -520,3 +520,64 @@ publish-time failure scenarios (interrupted rename, failed staged validation) pr
 no partial artifact is ever listed or loadable. Identical-reuse and conflict are each
 their own scenario with byte-level "file bytes (un)changed" assertions. No existing
 scenario was changed; no shared file outside the new module was touched.
+
+### 2026-09-28 T8: Implement separate-span threshold calibration (Claude coder, Lane A, Phase 2)
+
+What changed and why: new `retraining/thresholds.py`, a pure module reusing
+`schedule.Span`'s half-open bounds and `weights.REGISTERED_MINIMA["threshold"]` for
+its default minimum. `select_scored_rows` applies the same admission rule as every
+other stage (`start <= available_at < end` and `label_time < end`, RWT-01) to a
+`ScoredRow` (key, available_at, label_time, score — no label). `calibrate_thresholds`
+rejects insufficient rows (naming measured/required counts), a non-finite admitted
+score (naming the row's own key), non-increasing thresholds (a tie) and a threshold
+outside strict (0, 1), then returns unweighted `numpy.quantile` linear (type 7) 0.10
+and 0.90 scores (RWT-10) plus the admitted row keys and span. Thresholds are never
+time-weighted, matching the frozen protocol's "Weighting" section.
+
+Steps in `tests/steps/test_retraining_thresholds.py`, including F7's actual terminal
+rule (`F7Config`/`F7MetaLearnerFilter` with a stub predictor) to prove the calibrated
+thresholds really produce HOLD exactly at the boundary and BUY/SELL just past it.
+
+Scenario correction (recorded per COMMON-RULES, not a silent change): the "Rows
+outside the span..." scenario's fixture admits 12 rows once its "first" boundary row
+(score 0.50) is correctly included alongside the base 11 scores — its own stated
+method (`numpy`'s linear/type-7 quantile, per the feature's own preamble) gives
+`theta_low = 0.11` and `theta_high = 0.89` for that exact 12-value set (sorted:
+0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95; q=0.10 sits at
+fractional position 1.1, interpolating strictly between 0.10 and 0.20), not the
+`0.1`/`0.9` the specifier wrote (which is only correct for the 11-row set without
+"first"). Verified independently with `numpy.quantile` before touching the feature
+file. Changed the two expected values only; the row-count, inclusion/exclusion and
+span assertions were untouched and already correct. Also switched the `theta_low`/
+`theta_high` Then-steps from bit-exact `==` to `math.isclose` (rel_tol 1e-9): the
+11-row and outline scenarios happen to land on exact quantile-index positions (no
+interpolation) so `==` passed by coincidence, but a genuinely interpolated quantile
+(this scenario's 12-row case) is not bit-exact in binary floating point regardless of
+correct arithmetic — standard float-comparison practice, not a weakened assertion
+(the tolerance is far tighter than any value the tests distinguish).
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_thresholds.py -q
+  -p no:cacheprovider`: 20 passed (task asked for >=6; the feature's 15 scenarios plus
+  outline Examples rows total 20).
+- `uv run pytest algo-backtest/tests/steps/test_f7_meta_learner.py
+  test_retraining_schedule.py test_retraining_weights.py -q -p no:cacheprovider`:
+  151 passed, 0 failed (regression, unaffected by this task).
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on the new
+  module and step file: clean. `uv run mypy --strict algo-backtest`: clean, 70 source
+  files.
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider`: `1787/1840 tests
+  collected (53 deselected)`, exactly the running total (1767) + T8's 20, none removed.
+  `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1787 passed, 53
+  deselected, 0 failed (74.0 s).
+
+Adequacy: RWT-10 by the hand-computed 11-row scenario (exact quantile-index positions,
+no interpolation, `==`), the two-row interpolation outline (hand-derived fractional
+positions) and the order-independence scenario (shuffled input, same result); RWT-01
+by the span-admission scenario (before/at-end/after/immature excluded, boundary-start
+row included, corrected row count and thresholds); F7's strict-inequality HOLD-at-
+threshold behavior by the five-case outline exercising the real `F7MetaLearnerFilter`.
+Insufficient-support, non-finite-score and non-increasing/out-of-band rejections each
+have their own scenario asserting the specific named fragment. No shared file outside
+the new module was touched.
