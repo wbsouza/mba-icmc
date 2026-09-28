@@ -210,6 +210,12 @@ def _reason_mentions(f6_ctx: _F6Ctx, fragment: str) -> None:
     assert fragment in _result(f6_ctx).reason, _result(f6_ctx).reason
 
 
+@then(parsers.parse('F6\'s reason is exactly "{reason}"'))
+def _reason_exactly(f6_ctx: _F6Ctx, reason: str) -> None:
+    """The whole reason: the veto/pass verdict and the plan digest that follows it."""
+    assert _result(f6_ctx).reason == reason
+
+
 @then(parsers.parse('F6\'s filter name is "{name}"'))
 def _filter_name(f6_ctx: _F6Ctx, name: str) -> None:
     assert _result(f6_ctx).filter_name == name
@@ -224,6 +230,13 @@ def _recommendation(f6_ctx: _F6Ctx, reco: str) -> None:
 def _apply_fails(f6_ctx: _F6Ctx, fragment: str) -> None:
     assert f6_ctx.error is not None, "F6 did not fail"
     assert fragment in str(f6_ctx.error), str(f6_ctx.error)
+
+
+@then(parsers.parse('applying F6 fails with exactly "{message}"'))
+def _apply_fails_exactly(f6_ctx: _F6Ctx, message: str) -> None:
+    """The whole message (`args[0]`, since `str(KeyError)` re-quotes it)."""
+    assert f6_ctx.error is not None, "F6 did not fail"
+    assert f6_ctx.error.args[0] == message
 
 
 _SECTION_KEYS = (
@@ -286,6 +299,13 @@ def _parsed_config(
 def _parse_failure_names(f6_ctx: _F6Ctx, fragment: str) -> None:
     assert f6_ctx.parse_error is not None
     assert fragment in str(f6_ctx.parse_error)
+
+
+@then(parsers.parse('the capital-mgmt config failure is exactly "{message}"'))
+def _parse_failure_exactly(f6_ctx: _F6Ctx, message: str) -> None:
+    """The whole remediation text, not just its leading fragment."""
+    assert f6_ctx.parse_error is not None
+    assert str(f6_ctx.parse_error) == message
 
 
 @given("a complete five-key capital_mgmt section")

@@ -42,6 +42,15 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
         | 0.4       | 1        | 0       |
         | 150000    | 1        | 150000  |
 
+    Scenario: a short quantity below one step rounds to a plain zero, never a negative zero
+      When -0.4 units are rounded to a lot step of 1
+      Then the rounded quantity is 0
+      And the rounded quantity is written as "0.0"
+
+    Scenario: a lot step that is not positive cannot snap anything
+      When rounding 150000 units to a lot step of 0 fails
+      Then the trade-plan failure is exactly "trade_plan: lot_step must be > 0, got 0.0"
+
   Rule: The stop sits stop_pips against the trade and the targets stop_pips in its favour
 
     Scenario Outline: stop price for a <direction> at <entry> with <stop_pips> pips of <pip_size>
@@ -75,6 +84,15 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
         | BUY       | 1.10000 | [{pips: 43, close_fraction: 1.0}]                   | [[1.10430, 1.0]]                |
         | BUY       | 1.10000 | []                                                 | []                              |
 
+    Scenario Outline: a target price needs a positive pip size and a positive distance (<case>)
+      When computing the target prices for a BUY at 1.1 with targets <targets> and pip size <pip_size> fails
+      Then the trade-plan failure is exactly "<message>"
+
+      Examples:
+        | case                 | targets                           | pip_size | message                                       |
+        | zero pip size        | [{pips: 10, close_fraction: 1.0}] | 0        | trade_plan: pip_size must be > 0, got 0.0      |
+        | target at the entry  | [{pips: 0, close_fraction: 1.0}]  | 0.0001   | trade_plan: targets[0].pips must be > 0, got 0 |
+
   Rule: Each target closes its fraction of the entry quantity; the last full-close target takes the remainder
 
     Scenario Outline: exits for a position of <quantity> with fractions <fractions> at lot step <lot_step>
@@ -101,6 +119,16 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
         | off the lot step       | 12345    | [0.5, 0.5] | 1000     | not a multiple of lot_step       |
         | fractions past 1       | 100000   | [0.6, 0.6] | 1        | over-close                       |
 
+    Scenario Outline: the exit-ladder failure text names the offending quantity and the fix (<case>)
+      When computing the target quantities for a position of <quantity> with fractions [0.5, 0.5] and lot step <lot_step> fails
+      Then the trade-plan failure is exactly "<message>"
+
+      Examples:
+        | case             | quantity | lot_step | message                                                                                                     |
+        | flat position    | 0        | 1        | trade_plan: target_quantities needs a non-zero position quantity                                            |
+        | off the lot step | 12345    | 1000     | trade_plan: quantity 12345.0 is not a multiple of lot_step 1000.0; snap the entry quantity with round_to_lot_step first |
+        | zero lot step    | 100000   | 0        | trade_plan: lot_step must be > 0, got 0.0                                                                   |
+
   Rule: A trailing step arms once its favourable move is reached and only ever tightens the stop
 
     Scenario Outline: trail check for a <direction> from <entry> now at <current>, stop <current_stop> (<case>)
@@ -120,6 +148,13 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
         | two steps arm, tightest wins| BUY       | 1.10000 | 1.10300 | 1.09800      | [{at_pips: 10, to_pips: -5}, {at_pips: 30, to_pips: 5}] | [] | move | 1.10050 | [0, 1] |
         | second step after the first | BUY       | 1.10000 | 1.10300 | 1.09950      | [{at_pips: 10, to_pips: -5}, {at_pips: 30, to_pips: 5}] | [0] | move | 1.10050 | [1] |
         | adverse move never arms     | SELL      | 1.10000 | 1.10100 | 1.10200      | [{at_pips: 10, to_pips: -5}]       | []    | none    | null     | []          |
+        | armed at the current stop   | BUY       | 1.10000 | 1.10100 | 1.09950      | [{at_pips: 10, to_pips: -5}]       | []    | consume | null     | [0]         |
+
+    Scenario: a trail check needs a positive pip size
+      Given the trailing steps [{at_pips: 10, to_pips: -5}] with pip size 0
+      And the steps already fired are []
+      When checking the trail for a BUY entered at 1.1 now at 1.101 with stop 1.098 fails
+      Then the trade-plan failure is exactly "trade_plan: pip_size must be > 0, got 0.0"
 
   Rule: An opposite signal may close the position only once the minimum hold has elapsed
 
@@ -167,7 +202,7 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
 
     Scenario: a flat position has no stop to resize
       When computing the stop quantity for a remaining position of 0 fails
-      Then the trade-plan failure names "needs an open position"
+      Then the trade-plan failure is exactly "trade_plan: stop_quantity_for needs an open position, got 0"
 
   Rule: The executor's memory of the open trade consumes fired steps and adopts a tightened stop
 
@@ -184,41 +219,67 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
 
   Rule: F6's trade_plan feature is read as typed blocks and its absence is a chain misconfiguration
 
+    Background:
+      Given the state features hold this trade_plan
+        """
+        lot_size: 1.5
+        spread_pips: 1.0
+        long: {stop_pips: 16, targets: [{pips: 35, close_fraction: 0.5}], trail_stops: [{at_pips: 9.5, to_pips: -9.56}], reward_risk: 2.1875}
+        short: {stop_pips: 8, targets: [], trail_stops: [], reward_risk: null}
+        """
+
     Scenario: a complete trade_plan feature parses into the long and short plans
-      Given a trade_plan feature with lot_size 1.5 and spread 1.0 whose long stop is 16 pips with targets [{pips: 35, close_fraction: 0.5}] and trail [{at_pips: 9.5, to_pips: -9.56}]
       When the trade plan is parsed
       Then the parsed plan has lot_size 1.5, spread 1.0, long stop 16 pips, 1 long target and 1 long trail step
+      And the parsed long target 1 is 35 pips closing 0.5 of the position
+      And the parsed long trail step 1 arms at 9.5 pips and moves the stop to -9.56 pips
+      And the parsed long plan has reward_risk 2.1875
+      And the parsed short plan has stop_pips 8 and reward_risk null
       And the parsed long block for BUY is the long plan
 
     Scenario: a missing trade_plan feature names F6 and the contract
-      Given features without a trade_plan
+      Given the state features hold no trade_plan at all
       When parsing the trade plan fails
-      Then the trade-plan failure names "f6_capital_mgmt"
-      And the trade-plan failure names "trade_plan"
+      Then the trade-plan failure is exactly "trade_plan: state.features has no 'trade_plan' — the executor sizes every order from it, so f6_capital_mgmt must be listed in the strategy's filters and must enrich the plan before F7 decides"
 
-    Scenario Outline: a trade_plan block missing <key> fails naming it
-      Given a trade_plan feature whose long block lacks "<key>"
+    Scenario Outline: a trade_plan block missing <path> fails naming the block and the key
+      Given the trade_plan path <path> is removed
       When parsing the trade plan fails
-      Then the trade-plan failure names "<key>"
+      Then the trade-plan failure is exactly "trade_plan: <where> is missing '<key>' — f6_capital_mgmt must enrich state.features['trade_plan'] with it (see engine/trade_plan.py)"
 
       Examples:
-        | key         |
-        | stop_pips   |
-        | targets     |
-        | trail_stops |
-        | reward_risk |
+        | path                        | where                          | key         |
+        | long.stop_pips              | trade_plan.long                | stop_pips   |
+        | long.targets                | trade_plan.long                | targets     |
+        | long.trail_stops            | trade_plan.long                | trail_stops |
+        | long.reward_risk            | trade_plan.long                | reward_risk |
+        | long.targets[0].pips        | trade_plan.long.targets[0]     | pips        |
+        | long.trail_stops[0].to_pips | trade_plan.long.trail_stops[0] | to_pips     |
+        | long                        | trade_plan                     | long        |
+        | short                       | trade_plan                     | short       |
+        | lot_size                    | trade_plan                     | lot_size    |
+        | spread_pips                 | trade_plan                     | spread_pips |
 
     Scenario Outline: a trade_plan value of the wrong type fails naming its path (<case>)
-      Given a trade_plan feature where <path> is set to <value>
+      Given the trade_plan path <path> is set to <value>
       When parsing the trade plan fails
-      Then the trade-plan failure names "<failure>"
+      Then the trade-plan failure is exactly "<message>"
 
       Examples:
-        | case                          | path                      | value  | failure                                    |
-        | the feature is not a mapping  | trade_plan                | 42     | 'trade_plan' must be a mapping             |
-        | a block is not a mapping      | trade_plan.long           | [1, 2] | trade_plan.long must be a mapping          |
-        | text where a number belongs   | trade_plan.lot_size       | big    | trade_plan.lot_size must be a number       |
-        | a flag where a number belongs | trade_plan.long.stop_pips | true   | trade_plan.long.stop_pips must be a number |
+        | case                              | path                          | value  | message                                                                   |
+        | a block is not a mapping          | long                          | [1, 2] | trade_plan: trade_plan.long must be a mapping, got [1, 2]                 |
+        | the short block is not a mapping  | short                         | [1, 2] | trade_plan: trade_plan.short must be a mapping, got [1, 2]                |
+        | text where the lot size belongs   | lot_size                      | big    | trade_plan: trade_plan.lot_size must be a number, got 'big'               |
+        | text where the spread belongs     | spread_pips                   | wide   | trade_plan: trade_plan.spread_pips must be a number, got 'wide'           |
+        | a flag where a number belongs     | long.stop_pips                | true   | trade_plan: trade_plan.long.stop_pips must be a number, got True          |
+        | text where a target distance goes | long.targets[0].pips          | big    | trade_plan: trade_plan.long.targets[0].pips must be a number, got 'big'   |
+        | a flag as a close fraction        | long.targets[0].close_fraction | true  | trade_plan: trade_plan.long.targets[0].close_fraction must be a number, got True |
+        | a flag as a trail arming level    | long.trail_stops[0].at_pips   | true   | trade_plan: trade_plan.long.trail_stops[0].at_pips must be a number, got True |
+
+    Scenario: a trade_plan feature that is not a mapping fails naming it
+      Given the state features hold the trade_plan value 42
+      When parsing the trade plan fails
+      Then the trade-plan failure is exactly "trade_plan: 'trade_plan' must be a mapping, got 42"
 
   Rule: The trade-plans.json record carries the frozen keys the run statement reads
 
@@ -229,4 +290,34 @@ Feature: Trade-plan math turns an F7 signal into the orders the executor places
       And the serialised direction is "buy"
       And the serialised take_profits are [{price: 1.10350, close_fraction: 0.5, quantity: -75000}]
       And the serialised trail_stops are [{at_level_ratio: 0.59375, to_level_ratio: -0.5975, at_price: 1.10095, to_price: 1.099044}] within 1e-9
+      And the serialised scalar fields are
+        | field          | value                     |
+        | entry_order_id | 1                         |
+        | entry_time     | 2014-05-08T10:00:00+00:00 |
+        | lots           | 1.5                       |
+        | quantity       | 150000.0                  |
+        | entry_price    | 1.1                       |
+        | stop_loss      | 1.0984                    |
+        | spread_pips    | 1.0                       |
       And the trade-plans document is a JSON list of that one record
+
+    Scenario: the trade-plans.json document is indented JSON, one record per entry, ending in a newline
+      Given a SELL plan record at 1.1 for 0.25 lots (-25000 units), stop 1.102, targets [], trail [] over a 20 pip stop, spread 0
+      When the record is serialised
+      Then the trade-plans document is exactly
+        """
+        [
+          {
+            "entry_order_id": 1,
+            "entry_time": "2014-05-08T10:00:00+00:00",
+            "direction": "sell",
+            "lots": 0.25,
+            "quantity": -25000.0,
+            "entry_price": 1.1,
+            "stop_loss": 1.102,
+            "take_profits": [],
+            "trail_stops": [],
+            "spread_pips": 0.0
+          }
+        ]
+        """

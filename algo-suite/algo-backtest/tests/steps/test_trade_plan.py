@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -104,9 +105,20 @@ def _round(plan_ctx: _PlanCtx, quantity: float, lot_step: float) -> None:
     plan_ctx.result = round_to_lot_step(quantity, lot_step)
 
 
+@when(parsers.parse("rounding {quantity:g} units to a lot step of {lot_step:g} fails"))
+def _round_fails(plan_ctx: _PlanCtx, quantity: float, lot_step: float) -> None:
+    _fail(plan_ctx, lambda: round_to_lot_step(quantity, lot_step))
+
+
 @then(parsers.parse("the rounded quantity is {rounded:g}"))
 def _rounded_is(plan_ctx: _PlanCtx, rounded: float) -> None:
     assert plan_ctx.result == rounded
+
+
+@then(parsers.parse('the rounded quantity is written as "{text}"'))
+def _rounded_text(plan_ctx: _PlanCtx, text: str) -> None:
+    """The sign matters in a log line or a JSON document: `-0.0` is not `0.0` there."""
+    assert f"{plan_ctx.result}" == text
 
 
 # --- stop and targets -------------------------------------------------------------------
@@ -151,6 +163,20 @@ def _target_prices(
     plan_ctx: _PlanCtx, direction: str, entry: float, targets: str, pip_size: float
 ) -> None:
     plan_ctx.result = target_prices(entry, _targets(targets), pip_size, Direction(direction))
+
+
+@when(
+    parsers.parse(
+        "computing the target prices for a {direction} at {entry:g} with targets {targets} "
+        "and pip size {pip_size:g} fails"
+    )
+)
+def _target_prices_fail(
+    plan_ctx: _PlanCtx, direction: str, entry: float, targets: str, pip_size: float
+) -> None:
+    _fail(
+        plan_ctx, lambda: target_prices(entry, _targets(targets), pip_size, Direction(direction))
+    )
 
 
 @then(parsers.parse("the target prices are {prices} within {tolerance:g}"))
@@ -221,6 +247,24 @@ def _trail_check(
     plan_ctx.result = trail_update(
         entry, current, current_stop, plan_ctx.steps, plan_ctx.pip_size, Direction(direction),
         fired=plan_ctx.fired,
+    )
+
+
+@when(
+    parsers.parse(
+        "checking the trail for a {direction} entered at {entry:g} now at {current:g} with "
+        "stop {current_stop:g} fails"
+    )
+)
+def _trail_check_fails(
+    plan_ctx: _PlanCtx, direction: str, entry: float, current: float, current_stop: float
+) -> None:
+    _fail(
+        plan_ctx,
+        lambda: trail_update(
+            entry, current, current_stop, plan_ctx.steps, plan_ctx.pip_size,
+            Direction(direction), fired=plan_ctx.fired,
+        ),
     )
 
 
@@ -340,62 +384,43 @@ def _stop_quantity_is(plan_ctx: _PlanCtx, quantity: float) -> None:
 # --- parsing ----------------------------------------------------------------------------
 
 
-def _long_block(stop: float, targets: str, trail: str) -> dict[str, Any]:
-    """A directional block of the F6 contract."""
-    return {
-        "stop_pips": stop,
-        "targets": yaml.safe_load(targets),
-        "trail_stops": yaml.safe_load(trail),
-        "reward_risk": 2.0,
-    }
+def _walk(node: Any, path: str) -> tuple[Any, str | int]:
+    """The container and final key/index a dotted `a.b[0].c` path names inside `node`."""
+    parts = re.findall(r"\[(\d+)\]|([^.\[\]]+)", path)
+    keys: list[str | int] = [int(index) if index else name for index, name in parts]
+    for key in keys[:-1]:
+        node = node[key]
+    return node, keys[-1]
 
 
-@given(
-    parsers.parse(
-        "a trade_plan feature with lot_size {lots:g} and spread {spread:g} whose long stop is "
-        "{stop:g} pips with targets {targets} and trail {trail}"
-    )
-)
-def _feature(
-    plan_ctx: _PlanCtx, lots: float, spread: float, stop: float, targets: str, trail: str
-) -> None:
-    plan_ctx.features = {
-        "trade_plan": {
-            "lot_size": lots,
-            "spread_pips": spread,
-            "long": _long_block(stop, targets, trail),
-            "short": _long_block(stop, "[]", "[]"),
-        }
-    }
+@given("the state features hold this trade_plan")
+def _feature(plan_ctx: _PlanCtx, docstring: str) -> None:
+    """The F6 enrichment as a YAML document (the Background of the parsing rule)."""
+    plan_ctx.features = {"trade_plan": yaml.safe_load(docstring)}
 
 
-@given("features without a trade_plan")
+@given("the state features hold no trade_plan at all")
 def _no_feature(plan_ctx: _PlanCtx) -> None:
-    plan_ctx.features = {"proposed_lot_size": 1.0}
+    plan_ctx.features = {}
 
 
-@given(parsers.parse('a trade_plan feature whose long block lacks "{key}"'))
-def _feature_lacking(plan_ctx: _PlanCtx, key: str) -> None:
-    long = _long_block(16.0, "[]", "[]")
-    del long[key]
-    plan_ctx.features = {
-        "trade_plan": {"lot_size": 1.0, "spread_pips": 1.0, "long": long,
-                       "short": _long_block(16.0, "[]", "[]")}
-    }
+@given(parsers.parse("the state features hold the trade_plan value {value}"))
+def _feature_scalar(plan_ctx: _PlanCtx, value: str) -> None:
+    plan_ctx.features = {"trade_plan": yaml.safe_load(value)}
 
 
-@given(parsers.parse("a trade_plan feature where {path} is set to {value}"))
+@given(parsers.parse("the trade_plan path {path} is removed"))
+def _feature_lacking(plan_ctx: _PlanCtx, path: str) -> None:
+    """Delete one key (`long.targets[0].pips`-style path) from the Background's plan."""
+    node, key = _walk(plan_ctx.features["trade_plan"], path)
+    del node[key]
+
+
+@given(parsers.parse("the trade_plan path {path} is set to {value}"))
 def _feature_with_value(plan_ctx: _PlanCtx, path: str, value: str) -> None:
-    """A complete plan with the dotted `path` (`trade_plan[.block[.key]]`) set to a YAML value."""
-    plan_ctx.features = {
-        "trade_plan": {"lot_size": 1.0, "spread_pips": 1.0, "long": _long_block(16.0, "[]", "[]"),
-                       "short": _long_block(16.0, "[]", "[]")}
-    }
-    *parents, leaf = path.split(".")
-    node: Any = plan_ctx.features
-    for part in parents:
-        node = node[part]
-    node[leaf] = yaml.safe_load(value)
+    """Overwrite one key of the Background's plan with a YAML value."""
+    node, key = _walk(plan_ctx.features["trade_plan"], path)
+    node[key] = yaml.safe_load(value)
 
 
 @when("the trade plan is parsed")
@@ -422,6 +447,39 @@ def _parsed(
     assert len(plan.long.targets) == n_targets and len(plan.long.trail_stops) == n_trail
 
 
+@then(
+    parsers.parse(
+        "the parsed long target {index:d} is {pips:g} pips closing {fraction:g} of the position"
+    )
+)
+def _parsed_target(plan_ctx: _PlanCtx, index: int, pips: float, fraction: float) -> None:
+    plan: TradePlan = plan_ctx.result
+    assert plan.long.targets[index - 1] == PlanTarget(pips=pips, close_fraction=fraction)
+
+
+@then(
+    parsers.parse(
+        "the parsed long trail step {index:d} arms at {at_pips:g} pips and moves the stop to "
+        "{to_pips:g} pips"
+    )
+)
+def _parsed_trail(plan_ctx: _PlanCtx, index: int, at_pips: float, to_pips: float) -> None:
+    plan: TradePlan = plan_ctx.result
+    assert plan.long.trail_stops[index - 1] == PlanTrailStep(at_pips=at_pips, to_pips=to_pips)
+
+
+@then(parsers.parse("the parsed long plan has reward_risk {ratio}"))
+def _parsed_reward(plan_ctx: _PlanCtx, ratio: str) -> None:
+    plan: TradePlan = plan_ctx.result
+    assert plan.long.reward_risk == yaml.safe_load(ratio)
+
+
+@then(parsers.parse("the parsed short plan has stop_pips {stop:g} and reward_risk {ratio}"))
+def _parsed_short(plan_ctx: _PlanCtx, stop: float, ratio: str) -> None:
+    plan: TradePlan = plan_ctx.result
+    assert (plan.short.stop_pips, plan.short.reward_risk) == (stop, yaml.safe_load(ratio))
+
+
 @then("the parsed long block for BUY is the long plan")
 def _for_direction(plan_ctx: _PlanCtx) -> None:
     plan: TradePlan = plan_ctx.result
@@ -433,6 +491,13 @@ def _for_direction(plan_ctx: _PlanCtx) -> None:
 def _failure_names(plan_ctx: _PlanCtx, fragment: str) -> None:
     assert plan_ctx.error is not None
     assert fragment in str(plan_ctx.error), str(plan_ctx.error)
+
+
+@then(parsers.parse('the trade-plan failure is exactly "{message}"'))
+def _failure_exactly(plan_ctx: _PlanCtx, message: str) -> None:
+    """The whole message (`args[0]`, since `str(KeyError)` re-quotes it)."""
+    assert plan_ctx.error is not None
+    assert plan_ctx.error.args[0] == message
 
 
 # --- record -----------------------------------------------------------------------------
@@ -492,7 +557,22 @@ def _trail_records(plan_ctx: _PlanCtx, trail: str, tolerance: float) -> None:
             assert got[key] == pytest.approx(value, abs=tolerance), key
 
 
+@then("the serialised scalar fields are")
+def _scalar_fields(plan_ctx: _PlanCtx, datatable: list[list[str]]) -> None:
+    """Each `field | value` row, compared as text (ints, floats and ISO strings alike)."""
+    _header, *rows = datatable
+    for field_name, value in rows:
+        assert f"{plan_ctx.serialised[field_name]}" == value, field_name
+
+
 @then("the trade-plans document is a JSON list of that one record")
 def _document(plan_ctx: _PlanCtx) -> None:
     assert plan_ctx.record is not None
     assert json.loads(plans_json([plan_ctx.record])) == [plan_ctx.serialised]
+
+
+@then("the trade-plans document is exactly")
+def _document_exactly(plan_ctx: _PlanCtx, docstring: str) -> None:
+    """Byte-for-byte: two-space indentation and one trailing newline."""
+    assert plan_ctx.record is not None
+    assert plans_json([plan_ctx.record]) == docstring + "\n"
