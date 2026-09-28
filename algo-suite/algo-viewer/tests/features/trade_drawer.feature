@@ -27,6 +27,7 @@ Feature: Trade drawer
     And the drawer shows the plan stop "1.09800 (20.0 pips)"
     And the drawer shows the realized P/L "500.00"
     And the drawer offers 5 entry bars
+    And the chart caption reads "Entry buy @ 1.10000 on 2016-03-02 10:00" and "Exit Take profit @ 1.10500 on 2016-03-02 15:00"
 
   Scenario: the drawer link encodes the run and the trade so it can be shared
     When I open trade "1" of run "20260928T010000-fixture"
