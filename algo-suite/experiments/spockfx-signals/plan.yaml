@@ -8,6 +8,7 @@ train_start: '2015-02-02'
 train_end: '2015-06-30'
 calibration_start: '2015-07-01'
 calibration_end: '2015-07-31'
+heldout_end: '2015-09-30'
 test_start: '2015-09-01'
 test_end: '2015-09-30'
 train_timeout_seconds: 7200
