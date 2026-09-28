@@ -1,7 +1,8 @@
 """`decisions.parquet` rows -> `decisions` + `decision_filters` rows.
 
-Every chain invocation is kept (the audit trail); the row whose `final_decision` is
-BUY/SELL with a `trade_id` is the entry decision of that trade (`is_entry = 1`). The F7
+Every chain invocation is kept (the audit trail); the first BUY/SELL row carrying a
+`trade_id` is the entry decision of that trade (`is_entry = 1`) — a later same-side
+signal while the trade is open repeats the id but opened nothing. The F7
 probability is lifted into `p_hat` from the meta-learner's enrichment so the viewer can
 plot it without unpacking the filter rows. F3's detected pattern name is extracted from
 its reason text (`detected candlestick pattern 'hammer'`, or the older `pattern=hammer`
@@ -11,6 +12,7 @@ form) into `decision_filters.pattern_name`.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -93,15 +95,24 @@ def decision_rows(rows: Sequence[Mapping[str, Any]], run_dir: Path) -> list[Deci
     """Every `decisions.parquet` row -> `DecisionRow` (filters in chain order)."""
     path = run_dir / DECISIONS_FILE
     out: list[DecisionRow] = []
+    opened: set[str] = set()
     for row in rows:
         results = field(row, "filter_results", path) or []
         decision = str(field(row, "final_decision", path))
-        trade_id = row.get("trade_id")
+        trade_id = None if row.get("trade_id") is None else str(row["trade_id"])
+        is_entry = decision in _ENTRY_DECISIONS and trade_id is not None and trade_id not in opened
+        if is_entry and trade_id is not None:
+            opened.add(trade_id)
         out.append(DecisionRow(
-            trade_id=None if trade_id is None else str(trade_id),
-            timestamp=_timestamp(field(row, "timestamp", path), path),
+            trade_id=trade_id, timestamp=_timestamp(field(row, "timestamp", path), path),
             final_decision=decision, vetoed_by=row.get("vetoed_by"), p_hat=_p_hat(results),
-            is_entry=decision in _ENTRY_DECISIONS and trade_id is not None,
+            is_entry=is_entry,
             filters=tuple(_filter_row(i, r, path) for i, r in enumerate(results)),
         ))
     return out
+
+
+def summarize(rows: Sequence[DecisionRow]) -> list[tuple[str, str, int]]:
+    """(final_decision, vetoed_by or "", count) over every decision — the run's funnel."""
+    counts = Counter((row.final_decision, row.vetoed_by or "") for row in rows)
+    return [(decision, veto, count) for (decision, veto), count in sorted(counts.items())]

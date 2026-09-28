@@ -253,6 +253,11 @@ def results_db_build(
     bars_root: Path | None = _BARS_ROOT_OPTION,
     bars_before: int = typer.Option(30, "--bars-before", help="Bars kept before each entry."),
     bars_after: int = typer.Option(30, "--bars-after", help="Bars kept after each entry."),
+    decisions: str = typer.Option(
+        "full", "--decisions",
+        help="full = every chain decision with its filters; entries = only the entry "
+        "decisions (the funnel counts are always kept in decision_summary).",
+    ),
 ) -> None:
     """Ingest every finished run under each --runs-root into one SQLite file (upsert by run id).
 
@@ -264,7 +269,7 @@ def results_db_build(
     try:
         request = BuildRequest(
             roots=[RunsRoot.parse(text) for text in runs_root], out=out, bars_root=bars_root,
-            bars_before=bars_before, bars_after=bars_after,
+            bars_before=bars_before, bars_after=bars_after, decisions=decisions,
         )
         report = build_database(request)
     except (FileNotFoundError, ValueError) as exc:

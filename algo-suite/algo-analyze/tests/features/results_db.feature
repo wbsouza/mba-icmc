@@ -68,6 +68,17 @@ Feature: Results database from run directories
       And the trade plan of trade "1" has stop_loss 1.098, stop_pips 20, 2 targets and 1 trail step
       And table "trade_plans" has 1 row
 
+    Scenario: a plan without a recorded stop distance gets it from its entry price and the pip
+      Given a finished run "20260928T010000-aaab" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
+      And its closed trades are:
+        | order | direction | quantity | entry_time           | entry_price | exit_time            | exit_price | profit | closing_order |
+        | 1     | buy       | 100000   | 2016-03-02T10:00:00Z | 1.10000     | 2016-03-02T15:00:00Z | 1.10500    | 500    | limit         |
+      And its trade plans are:
+        | order | lots | stop_loss | stop_pips | targets     | trail_steps | spread_pips |
+        | 1     | 1.0  | 1.09750   | -         | 1.10500:1.0 | 40:5        | 1.0         |
+      When I build the results database
+      Then the trade plan of trade "1" has stop_loss 1.0975, stop_pips 25, 1 targets and 1 trail step
+
     Scenario: a run without a strategy config records only the --param values and the default bar size
       Given a finished run "20260928T010000-bbbb" of strategy "baseline" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
       And it has no strategy config
@@ -77,7 +88,7 @@ Feature: Results database from run directories
         | bar_minutes | 1     |
       And table "run_parameters" has 1 row
 
-  Rule: Every decision is kept; the BUY/SELL row of a trade is its entry decision
+  Rule: Every decision is kept; the first BUY/SELL row of a trade is its entry decision
 
     Scenario: decisions, their filters, the entry flag, F7's probability and F3's pattern
       Given a finished run "20260928T010000-cccc" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
@@ -89,6 +100,7 @@ Feature: Results database from run directories
         | 2016-03-02T09:00:00Z | NO_TRADE       |          | volume_strength |
         | 2016-03-02T10:00:00Z | BUY            | 1        |                 |
         | 2016-03-02T11:00:00Z | HOLD           | 1        |                 |
+        | 2016-03-02T12:00:00Z | BUY            | 1        |                 |
       And the decision at 2016-03-02T09:00:00Z ran the filters:
         | filter          | recommendation | veto | reason                                                                 | p_hat |
         | F1_trend        | BUY            | no   | trend_direction=1.0, trend_strength=3.0, higher_tf_trend_direction=1.0 |       |
@@ -99,15 +111,32 @@ Feature: Results database from run directories
         | F3_pattern      | BUY            | no   | detected candlestick pattern 'hammer'                                      |       |
         | f7_meta_learner | BUY            | no   | p_hat=0.61, theta_high=0.55, theta_low=0.45, regime_gate=False, regime=n/a | 0.61  |
       When I build the results database
-      Then table "decisions" has 3 rows
+      Then table "decisions" has 4 rows
       And table "decision_filters" has 5 rows
       And the entry decision of trade "1" is at 2016-03-02T10:00:00+00:00 with p_hat 0.61
       And the decision at 2016-03-02T09:00:00+00:00 is not an entry and was vetoed by "volume_strength"
+      And the decision at 2016-03-02T12:00:00+00:00 is a same-side repeat, not an entry
+      And the decision summary of the run is:
+        | final_decision | vetoed_by       | count |
+        | BUY            |                 | 2     |
+        | HOLD           |                 | 1     |
+        | NO_TRADE       | volume_strength | 1     |
       And the filters of the entry decision of trade "1" are, in order:
         | position | filter_name     | recommendation | veto | pattern_name |
         | 0        | F1_trend        | BUY            | 0    |              |
         | 1        | F3_pattern      | BUY            | 0    | hammer       |
         | 2        | f7_meta_learner | BUY            | 0    |              |
+
+    Scenario: the entries mode keeps only the entry decisions but still the whole funnel
+      Given a finished run "20260928T010000-cccd" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
+      And its decisions are:
+        | timestamp            | final_decision | trade_id | vetoed_by |
+        | 2016-03-02T09:00:00Z | NO_TRADE       |          | F1_trend  |
+        | 2016-03-02T10:00:00Z | SELL           | 1        |           |
+        | 2016-03-02T11:00:00Z | HOLD           | 1        |           |
+      When I build the results database keeping only the entry decisions
+      Then table "decisions" has 1 row
+      And table "decision_summary" has 3 rows
 
     Scenario Outline: F3's pattern name is extracted from its reason text
       Then the pattern extracted from "<reason>" is <pattern>

@@ -176,20 +176,22 @@ def trade_row(
     )
 
 
-def _stop_pips(plan: Mapping[str, Any]) -> float | None:
-    """The stop distance in pips when the plan records it (older plans do not)."""
-    for key in ("stop_pips", "stop_loss_pips"):
-        if plan.get(key) is not None:
-            return float(plan[key])
-    return None
+def _stop_pips(plan: Mapping[str, Any], stop_loss: float, pip_size: float) -> float | None:
+    """The stop distance in pips: recorded by the plan, else |entry - stop| / pip when the
+    plan records its entry price, else None."""
+    if plan.get("stop_pips") is not None:
+        return float(plan["stop_pips"])
+    if plan.get("entry_price") is None:
+        return None
+    return abs(float(plan["entry_price"]) - stop_loss) / pip_size
 
 
-def plan_row(trade_id: str, plan: Mapping[str, Any], run_dir: Path) -> PlanRow:
+def plan_row(trade_id: str, plan: Mapping[str, Any], pip_size: float, run_dir: Path) -> PlanRow:
     """One `trade-plans.json` record -> one `trade_plans` row (targets/trail as JSON)."""
     path = run_dir / PLANS_FILE
+    stop_loss = float(field(plan, "stop_loss", path))
     return PlanRow(
-        trade_id=trade_id, stop_loss=float(field(plan, "stop_loss", path)),
-        stop_pips=_stop_pips(plan),
+        trade_id=trade_id, stop_loss=stop_loss, stop_pips=_stop_pips(plan, stop_loss, pip_size),
         targets_json=json.dumps(field(plan, "take_profits", path)),
         trail_steps_json=json.dumps(plan.get("trail_stops", [])),
         spread_pips=None if plan.get("spread_pips") is None else float(plan["spread_pips"]),

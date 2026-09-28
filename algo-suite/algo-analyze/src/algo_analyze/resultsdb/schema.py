@@ -18,8 +18,8 @@ EXIT_KINDS: tuple[str, ...] = (
 
 # Tables that hold per-run rows, in the order a run is deleted (children first).
 RUN_TABLES: tuple[str, ...] = (
-    "decision_filters", "decisions", "entry_bars", "trail_moves", "trade_plans", "trades",
-    "monthly_returns", "equity_samples", "run_parameters", "runs",
+    "decision_filters", "decisions", "decision_summary", "entry_bars", "trail_moves",
+    "trade_plans", "trades", "monthly_returns", "equity_samples", "run_parameters", "runs",
 )
 
 _DDL = """
@@ -123,6 +123,13 @@ CREATE TABLE IF NOT EXISTS decision_filters (
     reason TEXT NOT NULL,
     pattern_name TEXT,
     PRIMARY KEY (decision_id, position)
+);
+CREATE TABLE IF NOT EXISTS decision_summary (
+    run_id TEXT NOT NULL,
+    final_decision TEXT NOT NULL,
+    vetoed_by TEXT NOT NULL,
+    count INTEGER NOT NULL,
+    PRIMARY KEY (run_id, final_decision, vetoed_by)
 );
 CREATE TABLE IF NOT EXISTS trail_moves (
     run_id TEXT NOT NULL,

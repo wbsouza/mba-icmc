@@ -282,9 +282,14 @@ def _plans(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
     plans = []
     for row in rows:
         cells = dict(zip(header, row, strict=True))
+        order = int(cells["order"])
+        entry_price = next(
+            t["entryPrice"] for t in _current(rctx).trades if t["orderIds"][0] == order
+        )
         plans.append({
             "entry_order_id": int(cells["order"]), "lots": float(cells["lots"]),
-            "stop_loss": float(cells["stop_loss"]), "stop_pips": float(cells["stop_pips"]),
+            "entry_price": entry_price, "stop_loss": float(cells["stop_loss"]),
+            "stop_pips": None if cells["stop_pips"] == "-" else float(cells["stop_pips"]),
             "take_profits": _levels(cells["targets"], ("price", "close_fraction")),
             "trail_stops": _levels(cells["trail_steps"], ("at_pips", "to_pips")),
             "spread_pips": float(cells["spread_pips"]),
@@ -390,10 +395,13 @@ def _request(
 
 
 def _build(rctx: dict[str, Any], expect_failure: bool, before: int | None = None,
-           after: int | None = None) -> None:
+           after: int | None = None, decisions: str = "full") -> None:
     """Run the build, recording the report or the failure message."""
     try:
-        rctx["report"] = build_database(_request(rctx, before, after))
+        request = _request(rctx, before, after)
+        rctx["report"] = build_database(
+            BuildRequest(**{**request.__dict__, "decisions": decisions})
+        )
     except (FileNotFoundError, ValueError) as exc:
         assert expect_failure, f"unexpected failure: {exc}"
         rctx["error"] = str(exc)
@@ -405,6 +413,11 @@ def _build(rctx: dict[str, Any], expect_failure: bool, before: int | None = None
 @when("I build the results database again")
 def _when_build(rctx: dict[str, Any]) -> None:
     _build(rctx, expect_failure=False)
+
+
+@when("I build the results database keeping only the entry decisions")
+def _when_build_entries(rctx: dict[str, Any]) -> None:
+    _build(rctx, expect_failure=False, decisions="entries")
 
 
 @when("I build the results database expecting failure")
@@ -537,6 +550,22 @@ def _vetoed_decision(rctx: dict[str, Any], timestamp: str, filter_name: str) -> 
         rctx, "SELECT is_entry, vetoed_by, trade_id FROM decisions WHERE timestamp = ?", timestamp
     )
     assert rows == [(0, filter_name, None)], rows
+
+
+@then(parsers.parse("the decision at {timestamp} is a same-side repeat, not an entry"))
+def _repeat_decision(rctx: dict[str, Any], timestamp: str) -> None:
+    rows = _query(
+        rctx, "SELECT is_entry, final_decision, trade_id FROM decisions WHERE timestamp = ?",
+        timestamp,
+    )
+    assert rows == [(0, "BUY", "1")], rows
+
+
+@then("the decision summary of the run is:")
+def _summary(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    columns = ", ".join(datatable[0])
+    sql = f"SELECT {columns} FROM decision_summary ORDER BY final_decision, vetoed_by"  # noqa: S608
+    _assert_rows(_query(rctx, sql), datatable)
 
 
 @then(parsers.parse('the filters of the entry decision of trade "{trade_id}" are, in order:'))

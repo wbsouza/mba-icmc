@@ -23,6 +23,7 @@ from typing import Any
 
 from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.statement import _leaf_paths
+from algo_core.instrument import build_instrument
 
 from algo_analyze.resultsdb import schema
 from algo_analyze.resultsdb.artifacts import (
@@ -35,7 +36,7 @@ from algo_analyze.resultsdb.artifacts import (
     load_run_artifacts,
 )
 from algo_analyze.resultsdb.bars import BarStore
-from algo_analyze.resultsdb.decisions import DecisionRow, decision_rows
+from algo_analyze.resultsdb.decisions import DecisionRow, decision_rows, summarize
 from algo_analyze.resultsdb.trades import (
     PlanRow,
     TradeRow,
@@ -48,6 +49,7 @@ from algo_analyze.resultsdb.trades import (
 )
 
 _GENERIC_DIRS = frozenset({"runs", "data"})
+DECISION_MODES: tuple[str, ...] = ("full", "entries")
 
 
 @dataclass(frozen=True)
@@ -84,6 +86,14 @@ class BuildRequest:
     bars_root: Path | None = None
     bars_before: int = 30
     bars_after: int = 30
+    decisions: str = "full"
+
+    def __post_init__(self) -> None:
+        """Fail fast on an unknown --decisions mode."""
+        if self.decisions not in DECISION_MODES:
+            raise ValueError(
+                f"--decisions must be one of {list(DECISION_MODES)}, got {self.decisions!r}"
+            )
 
 
 @dataclass(frozen=True)
@@ -196,16 +206,20 @@ class RunRows:
     trades: list[TradeRow]
     plans: list[PlanRow]
     decisions: list[DecisionRow]
+    summary: list[tuple[str, str, int]]
     trail: list[TrailMove]
     bar_minutes: int
     symbol: str
     window: tuple[date, date]
 
 
-def _trades_and_plans(artifacts: RunArtifacts) -> tuple[list[TradeRow], list[PlanRow]]:
+def _trades_and_plans(
+    artifacts: RunArtifacts, symbol: str
+) -> tuple[list[TradeRow], list[PlanRow]]:
     """The ledger's trades and, for those with a recorded plan, their plan rows."""
     plans = plans_by_entry(artifacts.plans, artifacts.run_dir)
     lot_units = lot_notional_units(artifacts.config)
+    pip_size = build_instrument(symbol).unit_size
     trades: list[TradeRow] = []
     plan_rows: list[PlanRow] = []
     for trade in artifacts.trades:
@@ -214,7 +228,7 @@ def _trades_and_plans(artifacts: RunArtifacts) -> tuple[list[TradeRow], list[Pla
         row = trade_row(trade, artifacts.orders, artifacts.log, plan, lot_units, artifacts.run_dir)
         trades.append(row)
         if plan is not None:
-            plan_rows.append(plan_row(row.trade_id, plan, artifacts.run_dir))
+            plan_rows.append(plan_row(row.trade_id, plan, pip_size, artifacts.run_dir))
     return sorted(trades, key=lambda t: t.entry_time), plan_rows
 
 
@@ -222,11 +236,13 @@ def derive_rows(artifacts: RunArtifacts, job: str) -> RunRows:
     """Turn one run's artifacts into the rows of every table (pure; raises on inconsistency)."""
     run, run_dir = artifacts.run, artifacts.run_dir
     path = run_dir / RUN_FILE
-    trades, plans = _trades_and_plans(artifacts)
+    symbol = str(field(run, "symbol", path))
+    trades, plans = _trades_and_plans(artifacts, symbol)
     metrics = artifacts.metrics
+    decisions = decision_rows(artifacts.decisions, run_dir)
     header = (
         run_dir.name, job, str(run_dir), str(field(run, "strategy", path)),
-        str(field(run, "symbol", path)), str(field(run, "start", path)),
+        symbol, str(field(run, "start", path)),
         str(field(run, "end", path)), _cash(run), bar_minutes_of(artifacts.config),
         artifacts.model_sha256, run.get("code_revision"), int(bool(run.get("success", True))),
         int(field(run, "closed_trades", path)) if "closed_trades" in run else len(trades),
@@ -238,9 +254,9 @@ def derive_rows(artifacts: RunArtifacts, job: str) -> RunRows:
         run_id=run_dir.name, header=header, parameters=parameters(artifacts),
         equity=artifacts.equity,
         monthly=monthly_returns(artifacts.equity, [t.exit_time for t in trades]),
-        trades=trades, plans=plans, decisions=decision_rows(artifacts.decisions, run_dir),
+        trades=trades, plans=plans, decisions=decisions, summary=summarize(decisions),
         trail=trail_moves(artifacts.log, trades), bar_minutes=bar_minutes_of(artifacts.config),
-        symbol=str(field(run, "symbol", path)), window=_window(run, path),
+        symbol=symbol, window=_window(run, path),
     )
 
 
@@ -275,9 +291,15 @@ def _write_trades(connection: sqlite3.Connection, rows: RunRows) -> None:
     )
 
 
-def _write_decisions(connection: sqlite3.Connection, rows: RunRows) -> None:
-    """Insert every decision and its filter rows (ids assigned by SQLite)."""
-    for decision in rows.decisions:
+def _write_decisions(connection: sqlite3.Connection, rows: RunRows, mode: str) -> None:
+    """Insert the funnel summary, then every decision (or only the entries) with its
+    filter rows (ids assigned by SQLite)."""
+    connection.executemany(
+        "INSERT INTO decision_summary VALUES (?,?,?,?)",
+        [(rows.run_id, *row) for row in rows.summary],
+    )
+    kept = rows.decisions if mode == "full" else [d for d in rows.decisions if d.is_entry]
+    for decision in kept:
         cursor = connection.execute(
             "INSERT INTO decisions (run_id, trade_id, timestamp, final_decision, vetoed_by, "
             "p_hat, is_entry) VALUES (?,?,?,?,?,?,?)",
@@ -307,7 +329,9 @@ def _write_bars(connection: sqlite3.Connection, rows: RunRows, store: BarStore) 
         )
 
 
-def write_run(connection: sqlite3.Connection, rows: RunRows, store: BarStore | None) -> None:
+def write_run(
+    connection: sqlite3.Connection, rows: RunRows, store: BarStore | None, mode: str = "full"
+) -> None:
     """Upsert one run: delete its old rows, insert the new ones, in one transaction."""
     with connection:
         schema.delete_run(connection, rows.run_id)
@@ -325,7 +349,7 @@ def write_run(connection: sqlite3.Connection, rows: RunRows, store: BarStore | N
             [(rows.run_id, *row) for row in rows.monthly],
         )
         _write_trades(connection, rows)
-        _write_decisions(connection, rows)
+        _write_decisions(connection, rows, mode)
         if store is not None:
             _write_bars(connection, rows, store)
 
@@ -356,7 +380,8 @@ def build_database(request: BuildRequest) -> BuildReport:
     ingested: list[str] = []
     try:
         for root, run_dir in _runs(request):
-            write_run(connection, derive_rows(load_run_artifacts(run_dir), root.job), store)
+            rows = derive_rows(load_run_artifacts(run_dir), root.job)
+            write_run(connection, rows, store, request.decisions)
             ingested.append(run_dir.name)
     finally:
         connection.close()
