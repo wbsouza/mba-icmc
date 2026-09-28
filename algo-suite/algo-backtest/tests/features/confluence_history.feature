@@ -304,6 +304,20 @@ Feature: Intensity history — frozen, causal monthly quantile snapshots (story 
       And the snapshot q_high is 0.3
       And the snapshot window_start is "2016-04-01T00:00:00+00:00"
 
+    Scenario: a collection declared exactly at window_start is READY, not WARMUP
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-03-02T00:00:00Z
+      And daily observations closing at 00:00 UTC from 2016-03-02 available at close, with intensities in time order:
+        """
+        1.50 0.25 1.10 0.05 0.90 1.45 0.60 0.15 1.30 0.40
+        0.75 1.00 0.20 1.25 0.35 0.10 1.40 0.55 0.95 0.30
+        1.20 0.70 0.45 1.35 0.85 0.65 1.15 0.50 1.05 0.80
+        """
+      When the intensity snapshot for decision time "2016-04-01T00:00:00Z" is computed
+      Then the snapshot status is "READY"
+      And the snapshot q_low is 0.195
+      And the snapshot q_high is 1.355
+      And the snapshot sample_count is 30
+
   Rule: Missing, malformed or unordered history is a hard failure naming the interval and the fix (CC-13)
 
     Scenario: a bar the collection should cover but does not fails naming the missing close
@@ -371,6 +385,11 @@ Feature: Intensity history — frozen, causal monthly quantile snapshots (story 
       Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z
       When a market closure from "2016-03-18T00:00:00Z" to "2016-03-17T00:00:00Z" is declared and fails
       Then the history failure names "closure end 2016-03-17T00:00:00+00:00 must be after its start 2016-03-18T00:00:00+00:00"
+
+    Scenario: a documented market closure whose end equals its start is refused, not treated as zero-length
+      Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z
+      When a market closure from "2016-03-17T00:00:00Z" to "2016-03-17T00:00:00Z" is declared and fails
+      Then the history failure names "closure end 2016-03-17T00:00:00+00:00 must be after its start 2016-03-17T00:00:00+00:00"
 
     Scenario Outline: recording <case> is rejected naming the offending bar
       Given an intensity history on a 1440-minute clock with collection declared from 2016-01-01T00:00:00Z

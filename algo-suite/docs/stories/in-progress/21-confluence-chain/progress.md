@@ -285,3 +285,33 @@ assertion was changed; every addition is a new scenario or Examples row.
   refuses `intensity_buy_threshold`/`intensity_sell_threshold`; `capital_mgmt_mapping`
   and `momentum_context_mapping` are the provenance mappings.
 - No shared file was changed in Phase 1; no patch is pending for one.
+
+## 2026-09-28 — Hardener phase 1
+
+Manual mutation testing (no `mutmut` in this workspace) of the five Phase 1
+production modules: `chain/terminal.py` (`AgreementTerminalDecision`),
+`chain/filters/f1_trend.py` (momentum context), `chain/intensity_history.py`
+(whole module), `chain/filters/f4_news_context.py` (`intensity_relative` hunks),
+`chain/filters/f6_capital_mgmt.py` (`exit_after_bars` hunks). 41 mutations
+injected one at a time in the worktree (backup → mutate → run the nine covering
+step files → restore → confirm the file's `git status --porcelain` clean), across
+comparison boundaries, `==`/`!=`, sign flips, arithmetic, off-by-one, removed
+validation raises and wrong constants, plus one negative control per module (5
+total). All 41 KILLED. Two mutations survived on the first pass — `IH-4`
+(`IntensityHistory._compute`'s WARMUP boundary, `collection_started_at >
+window_start`) and `IH-5` (`declare_closure`'s `end <= start` guard) — both for
+the same reason: no existing scenario hit the exact boundary value
+(`collection_started_at == window_start`; closure `end == start`). Added two
+scenarios to `confluence_history.feature` (44 → 46 scenarios in that file; no
+step code changed) that assert the correct boundary behaviour; both mutants then
+KILLED. Full table, operators and the two survivor write-ups:
+`mutation-phase1.md`. Gates after restoring everything: `uv run pytest
+algo-backtest/tests -q -p no:cacheprovider` → 1799 passed, 53 deselected;
+`uv run ruff check algo-backtest` → clean; `uv run mypy --strict algo-backtest`
+→ clean on 64 files (`.mypy_cache` removed after). One untracked file unrelated
+to this lane (`confluence_time_exit.feature`, plus others that appeared from a
+concurrent lane mid-campaign: `confluence_cells.feature`,
+`confluence_controls.feature`, `confluence_horizon_units.feature`,
+`confluence_preflight.feature`) was left untouched throughout, per the shared-
+worktree convention. Agent: hardener (Claude Sonnet 5). Branch
+`feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit `c622427`.
