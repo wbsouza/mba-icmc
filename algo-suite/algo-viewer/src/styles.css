@@ -131,3 +131,15 @@ details.params summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .candle.up line, .candle.up rect { stroke: var(--up); fill: var(--up); }
 .candle.down line, .candle.down rect { stroke: var(--down); fill: var(--down); }
 .pattern-card .examples { font-size: 12px; }
+ol.workflow { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+ol.workflow .node { display: flex; align-items: center; gap: 4px; }
+ol.workflow button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 12px; border-radius: 8px; min-width: 120px; }
+ol.workflow .node.selected button { border-color: var(--accent); background: var(--accent-soft); }
+ol.workflow .step { width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+ol.workflow .label { font-weight: 600; }
+ol.workflow .vetoes { font-size: 11px; }
+ol.workflow .arrow { color: var(--muted); font-size: 18px; }
+ol.workflow .terminal .label { padding: 8px 12px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); }
+.filter-details { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg); }
+.filter-details h3 { margin: 0 0 6px; text-transform: none; letter-spacing: 0; color: var(--text); font-size: 14px; }
+.filter-details dl { margin: 8px 0 10px; }
