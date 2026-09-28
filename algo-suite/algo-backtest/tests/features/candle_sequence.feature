@@ -135,6 +135,20 @@ Feature: Doji-to-engulfing next-bar confirmation
       Then the sequence states per bar are "IDLE, CANDIDATE, EXPIRED"
       And the reason at bar 3 is "missing_expected_bar"
 
+    Scenario: A next expected close exactly at the closure end is not treated as inside the closure
+      Given a calendar policy with a scheduled closure from "2024-01-05T22:00:00+00:00" to "2024-01-07T22:00:00+00:00"
+      And the closed bars F closing at "2024-01-07T20:00:00+00:00" and D closing at "2024-01-07T21:00:00+00:00"
+      And a bullish engulfing bar B closing at "2024-01-07T22:00:00+00:00"
+      When the sequence evaluator processes every bar under that calendar policy
+      Then the sequence states per bar are "IDLE, CANDIDATE, CONFIRMED"
+      And the confirmation_time at bar 3 is "2024-01-07T22:00:00+00:00"
+
+  Rule: A scheduled closure's bounds are validated eagerly
+
+    Scenario: A closure with equal start and end is rejected
+      When a scheduled closure from "2024-01-05T22:00:00+00:00" to "2024-01-05T22:00:00+00:00" is constructed
+      Then constructing the scheduled closure raises mentioning "strictly after"
+
   Rule: The evaluator is causal and fails fast
 
     Scenario: Suffix invariance: later bars never change earlier sequence evidence

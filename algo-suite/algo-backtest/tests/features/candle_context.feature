@@ -203,4 +203,9 @@ Feature: Causal candlestick context evaluation
       Given closes 1, 2, 3, 4, 5, 6, 7, 8 as 60-minute bars ending at "2024-01-01T08:00:00+00:00"
       When the context is evaluated after all bars
       Then the context evidence close_time is "2024-01-01T08:00:00+00:00"
+
+    Scenario: The context evaluator exposes its bound history
+      Given closes 1, 2, 3, 4, 5, 6, 7, 8 as 60-minute bars
+      When the context is evaluated after all bars, keeping the evaluator
+      Then the context evaluator's history holds 8 bars
       And the ema status is "READY" and its value is 4.5

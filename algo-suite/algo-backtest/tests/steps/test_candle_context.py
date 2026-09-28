@@ -233,6 +233,22 @@ def evaluate_all(ctx_ctx: dict[str, Any]) -> None:
     ctx_ctx["evidence"] = ctx_ctx["evidences"][-1]
 
 
+@when("the context is evaluated after all bars, keeping the evaluator")
+def evaluate_all_keep_evaluator(ctx_ctx: dict[str, Any]) -> None:
+    """Stream every staged bar through an evaluator kept for direct inspection."""
+    evaluator = ContextEvaluator(ctx_ctx["config"])
+    bars = _closed(ctx_ctx["bars"], ctx_ctx.get("end"))
+    ctx_ctx["evidences"] = [evaluator.update(bar) for bar in bars]
+    ctx_ctx["evidence"] = ctx_ctx["evidences"][-1]
+    ctx_ctx["evaluator"] = evaluator
+
+
+@then(parsers.parse("the context evaluator's history holds {count:d} bars"))
+def assert_evaluator_history(ctx_ctx: dict[str, Any], count: int) -> None:
+    """The evaluator exposes its bound history via the ``history`` accessor."""
+    assert ctx_ctx["evaluator"].history.history_count == count
+
+
 @when(parsers.parse("a bar with OHLC {prices} is offered to the context"))
 def offer_invalid(ctx_ctx: dict[str, Any], prices: str) -> None:
     """Stream the staged bars, then offer an invalid bar and keep the error."""

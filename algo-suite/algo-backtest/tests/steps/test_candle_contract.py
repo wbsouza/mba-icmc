@@ -20,6 +20,7 @@ from algo_backtest.perception.candle_contract import (
     ClosedBar,
     ContextConfig,
     PatternHit,
+    SequenceEvidence,
 )
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -307,6 +308,42 @@ def assert_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) ->
     _assert_outcome(cctx, outcome, mention)
 
 
+@given(
+    parsers.parse(
+        "a sequence evidence with state {state}, confirmed_direction {direction} and "
+        "confirmation_time {confirmation_time}"
+    )
+)
+def sequence_evidence_builder(
+    cctx: dict[str, Any], state: str, direction: str, confirmation_time: str
+) -> None:
+    """Stage a builder for a directly constructed SequenceEvidence."""
+    state_value = _json(state)
+    direction_value = _json(direction)
+    time_value = (
+        None if confirmation_time == "null" else datetime.fromisoformat(_json(confirmation_time))
+    )
+    cctx["build"] = lambda: SequenceEvidence(
+        state=state_value,
+        candidate_close_time=None,
+        confirmed_direction=direction_value,
+        confirmation_time=time_value,
+        reason=None,
+    )
+
+
+@when("the sequence evidence is validated")
+def validate_sequence_evidence(cctx: dict[str, Any]) -> None:
+    """Construct the sequence evidence, capturing a rejection."""
+    _attempt(cctx, "sequence_evidence")
+
+
+@then(parsers.parse('sequence evidence validation {outcome} mentioning "{mention}"'))
+def assert_sequence_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) -> None:
+    """Accepted, or rejected naming the state/confirmation contradiction."""
+    _assert_outcome(cctx, outcome, mention)
+
+
 # --- closed-bar history ---------------------------------------------------------------
 
 
@@ -433,6 +470,12 @@ def assert_gap(cctx: dict[str, Any], count: int) -> None:
 def history_from_config(cctx: dict[str, Any]) -> None:
     """An empty history bound to the staged configuration."""
     cctx["history"] = CandleHistory(cctx["build"]())
+
+
+@given(parsers.parse("the candle history's config has max_history {value:d}"))
+def assert_history_config(cctx: dict[str, Any], value: int) -> None:
+    """The history exposes its bound configuration via the ``config`` accessor."""
+    assert cctx["history"].config.max_history == value
 
 
 @given(parsers.parse("a candle history built from that configuration holding {count:d} valid bars"))

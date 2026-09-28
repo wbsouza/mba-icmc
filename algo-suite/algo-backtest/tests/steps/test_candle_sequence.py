@@ -121,6 +121,29 @@ def calendar_policy(seq_ctx: dict[str, Any], start: str, end: str) -> None:
     )
 
 
+@when(
+    parsers.re(
+        r'^a scheduled closure from "(?P<start>[^"]+)" to "(?P<end>[^"]+)" is constructed$'
+    )
+)
+def attempt_closure(seq_ctx: dict[str, Any], start: str, end: str) -> None:
+    """Attempt to construct a ScheduledClosure, capturing a rejection."""
+    try:
+        seq_ctx["closure"] = ScheduledClosure(
+            datetime.fromisoformat(start), datetime.fromisoformat(end)
+        )
+        seq_ctx["closure_error"] = None
+    except ValueError as error:
+        seq_ctx["closure_error"] = error
+
+
+@then(parsers.parse('constructing the scheduled closure raises mentioning "{fragment}"'))
+def assert_closure_raises(seq_ctx: dict[str, Any], fragment: str) -> None:
+    """The construction raised a ValueError naming the invariant it violated."""
+    assert isinstance(seq_ctx["closure_error"], ValueError)
+    assert fragment in str(seq_ctx["closure_error"])
+
+
 def _closed(bars: list[_Bar]) -> list[ClosedBar]:
     """Staged (close_time, OHLC) pairs as ``ClosedBar`` values."""
     return [ClosedBar(close_time, *ohlc) for close_time, ohlc in bars]

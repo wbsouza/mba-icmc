@@ -511,3 +511,59 @@ No production or test code was modified — every check passed or the only
 gaps found require new test scenarios outside Cleaner's authorized scope
 (STAGES.md reserves scenario-writing for Specifier/Hardener). This entry is
 committed standalone as `docs(candles): record cleaner review for phase 1`.
+
+## Hardener phase 1 (2026-09-28)
+
+Manual mutation testing (no `mutmut` in the workspace) over the phase's five
+production modules: `candle_contract.py`, `candle_catalog.py`,
+`candle_context.py`, `candle_sequence.py`, and the mode-handling hunks in
+`f3_pattern.py` (`git diff ef0111d..HEAD`). One mutation at a time, backed up
+in place, run against the full covering test set (the five modules' own step
+files plus `test_f3_policy_modes.py`, `test_candlestick_detector.py`,
+`test_f3_pattern.py`), then restored and `git status --porcelain` reconfirmed
+against the pre-mutation baseline before the next mutation. Full table,
+operators and justifications: `mutation-phase1.md`.
+
+- 51 mutations injected (15 contract, 8 catalog, 10 context, 10 sequence, 8
+  F3 mode hunks) — well above the brief's 8-per-module / 6-for-F3 minimums.
+  Negative control (CC1, a plainly-covered boundary) confirmed KILLED first.
+- First pass: 45 KILLED, 6 SURVIVED, 0 TIMEOUT, 0 ERROR. All six survivors
+  landed exactly on the coverage gaps the Cleaner flagged: the
+  `sma_periods`/`MAX_HISTORY` boundary and a `SequenceEvidence` partial-
+  contradiction case in `candle_contract.py`'s `__post_init__` guards
+  (CC5, CC10), the `CandleHistory.config` and `ContextEvaluator.history`
+  accessors (CC14, CX10), and two `ScheduledClosure`/`CalendarPolicy`-
+  adjacent boundaries in `candle_sequence.py` (CS2: equal start/end; CS8: the
+  half-open closure window's right edge).
+- Added six killing Gherkin scenarios (feature first, then steps): a new
+  Examples row for the `sma_periods` boundary; a new "Sequence evidence
+  confirmation fields agree with its state" Rule with a construction Scenario
+  Outline; a `config`/`history` accessor assertion added to two existing
+  scenarios in `candle_contract.feature`/`candle_context.feature`; a new
+  "A scheduled closure's bounds are validated eagerly" Rule; and a new
+  closure-boundary scenario timed so a candidate's continuous next close
+  lands exactly on `closure.end`. New step definitions in
+  `test_candle_contract.py`, `test_candle_context.py`, `test_candle_sequence.py`.
+  Re-running all six mutations against the hardened suite: all now KILLED.
+- One equivalent mutant: CC12 (`_validated_hits`' ascending-order check
+  widened from `<` to `<=`) is unreachable on any input, because the
+  preceding duplicate check (`current == previous`) always raises first on an
+  equal pair — no scenario added; justification recorded in
+  `mutation-phase1.md`.
+- Coverage after hardening (the same seven-file run): `candle_catalog.py`
+  100% (unchanged), `candle_context.py` 100% (was 99%), `candle_sequence.py`
+  98% (was 97%), `candle_contract.py` 98% (was 97%), `f3_pattern.py` 99%
+  (unchanged — the two missing lines, 142/144, are `_validate_detector`'s
+  raises, outside this phase's scope).
+- Final gates, all PASS: `uv run pytest algo-backtest/tests -q
+  -p no:cacheprovider` (1951 passed, 53 deselected), `uv run ruff check
+  algo-backtest`, `uv run mypy --strict algo-backtest`, `make
+  check-perception-architecture check-inference-architecture`.
+- Restoration confirmed clean throughout: every mutation restored from its
+  backup immediately after its test run, `git status --porcelain` matched
+  the pre-mutation baseline (the phase-2 specifier's concurrently-added
+  untracked feature files, left untouched) after every single mutation and
+  after the full pass; no `.mutbak` files left behind.
+- Committed as `test(candles): harden phase 1 modules against surviving
+  mutants` (feature files, step files and this progress/mutation-report
+  update only — no production code touched).

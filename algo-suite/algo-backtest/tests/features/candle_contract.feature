@@ -111,6 +111,7 @@ Feature: Candle evidence and configuration contract
         | one short of the hammer lookback      | 11    | hammer                     | 8   | 1,1,1  | 5          | rejects | 12          |
         | exactly the engulfing lookback        | 8     | bullish_engulfing          | 8   | 1,1,1  | 5          | accepts | max_history |
         | one short of the EMA lookback         | 7     | doji                       | 8   | 1,1,1  | 5          | rejects | 8           |
+        | sma_period exactly at the 256 bound   | 256   | doji                       | 8   | 1,1,1  | 256        | accepts | max_history |
         | above the 256 bound                   | 257   | all                        | 8   | 12,3,3 | 20,50,200  | rejects | 256         |
         | zero                                  | 0     | doji                       | 8   | 1,1,1  | 5          | rejects | max_history |
         | negative                              | -1    | doji                       | 8   | 1,1,1  | 5          | rejects | max_history |
@@ -261,6 +262,22 @@ Feature: Candle evidence and configuration contract
         | warming with only ready hits      | "WARMUP" | doji:READY                      | rejects |
         | warming with no hits              | "WARMUP" |                                 | rejects |
 
+  Rule: Sequence evidence confirmation fields agree with its state
+
+    Scenario Outline: SequenceEvidence confirmation fields must agree with its state (<case>)
+      Given a sequence evidence with state <state>, confirmed_direction <direction> and confirmation_time <confirmation_time>
+      When the sequence evidence is validated
+      Then sequence evidence validation <outcome> mentioning "confirmation"
+
+      Examples:
+        | case                         | state       | direction | confirmation_time            | outcome |
+        | idle, nothing set            | "IDLE"      | null      | null                          | accepts |
+        | confirmed, both set          | "CONFIRMED" | 1         | "2024-01-01T01:00:00+00:00"  | accepts |
+        | confirmed missing time       | "CONFIRMED" | 1         | null                          | rejects |
+        | confirmed missing direction  | "CONFIRMED" | null      | "2024-01-01T01:00:00+00:00"  | rejects |
+        | idle with a stray direction  | "IDLE"      | 1         | null                          | rejects |
+        | idle with a stray time       | "IDLE"      | null      | "2024-01-01T01:00:00+00:00"  | rejects |
+
   Rule: The closed-bar validator rejects malformed bars before any state advances
 
     Scenario Outline: Every price must be a finite positive real number (<field> = <value>)
@@ -325,6 +342,7 @@ Feature: Candle evidence and configuration contract
     Scenario: History is bounded by max_history and evicts the oldest bar first
       Given a candle configuration with max_history 12, enabled rules "hammer", ema_period 8, stochastic 1,1,1 and sma_periods "5"
       And a candle history built from that configuration
+      And the candle history's config has max_history 12
       When 17 valid consecutive 60-minute bars are offered
       Then the candle history holds 12 bars
       And the retained bars are the last 12 offered bars in order
