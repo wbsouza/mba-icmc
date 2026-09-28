@@ -4,7 +4,7 @@
 ALLURE_RESULTS := build/allure-results
 ALLURE_REPORT  := build/allure-report
 
-.PHONY: help install lint fmt type test check audit report report-html
+.PHONY: help install lint fmt type test check audit report report-html viewer viewer-dev viewer-serve viewer-fixture viewer-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -41,6 +41,22 @@ report-html: ## Generate a single-file Allure HTML report (opens via file://)
 		&& allure generate --clean --single-file -o $(ALLURE_REPORT) $(ALLURE_RESULTS) \
 		&& echo "Open $(ALLURE_REPORT)/index.html (self-contained; or: allure open $(ALLURE_REPORT))" \
 		|| echo "Install the 'allure' CLI to generate the report: https://allurereport.org/docs/install/"
+
+viewer: ## Build the results viewer: page (algo-viewer/dist/) + backend (algo-viewer/dist-server/)
+	cd algo-viewer && npm ci --no-audit --no-fund && npm run build
+
+DB ?= results.sqlite
+viewer-serve: ## Serve the built page and its API over a results database: make viewer-serve DB=results.sqlite
+	cd algo-viewer && node --no-warnings=ExperimentalWarning dist-server/server/main.js --db $(abspath $(DB)) --static dist --port 8787
+
+viewer-dev: ## Vite dev server for the page (proxies /api to the backend started with viewer-serve or npm run serve)
+	cd algo-viewer && npm install --no-audit --no-fund && npm run dev
+
+viewer-check: ## Lint, type-check, run the Gherkin suite and build the viewer
+	cd algo-viewer && npm ci --no-audit --no-fund && npm run lint && npm test && npm run build
+
+viewer-fixture: ## Regenerate algo-viewer/tests/fixtures/results.sqlite through the Python ingester
+	uv run python algo-viewer/tests/fixtures/build_fixture.py
 
 .PHONY: check-perception check-perception-architecture
 
