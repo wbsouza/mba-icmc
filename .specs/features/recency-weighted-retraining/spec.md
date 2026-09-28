@@ -148,11 +148,11 @@ not profitability. Do not fabricate market or training data.
 | Requirement ID | Story | Tasks | Status |
 | --- | --- | --- | --- |
 | RWT-01 | P1 training | T3, T9 | Implemented (T3) |
-| RWT-02 | P1 training | T3, T4 | Implemented (T3) |
+| RWT-02 | P1 training | T3, T4 | Implemented (T3, T4) |
 | RWT-03 | P1 training | T3, T11 | Implemented (T3) |
-| RWT-04 | P1 training | T4 | In Tasks |
-| RWT-05 | P1 training | T4, T5, T6 | In Tasks |
-| RWT-06 | P1 training | T4, T9 | In Tasks |
+| RWT-04 | P1 training | T4 | Implemented (T4) |
+| RWT-05 | P1 training | T4, T5, T6 | Implemented (T4) |
+| RWT-06 | P1 training | T4, T9 | Implemented (T4) |
 | RWT-07 | P1 training | T5 | In Tasks |
 | RWT-08 | P1 training | T6 | In Tasks |
 | RWT-09 | P1 training | T3, T9 | Implemented (T3) |

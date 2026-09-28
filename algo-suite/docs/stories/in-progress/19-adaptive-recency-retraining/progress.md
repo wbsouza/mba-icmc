@@ -49,7 +49,7 @@ convention; update both in the same tested task commit.
 - [x] T1: Register the adaptive comparison protocol.
 - [x] T2: Build the incremental data and label-maturity adapter.
 - [x] T3: Implement exact-UTC epoch planning.
-- [ ] T4: Implement exponential weights and feasibility checks.
+- [x] T4: Implement exponential weights and feasibility checks.
 - [ ] T5: Pass weights through family-model fitting.
 - [ ] T6: Pass independent weights through combiner fitting.
 - [ ] T7: Publish immutable epoch bundles.
@@ -191,7 +191,45 @@ selection and the unregistered epoch/policy outline; RWT-01 by the half-open
 availability, bucket-start, leaking-label and missing-history scenarios plus
 the legacy day-end contrast; RWT-09 by the trade-context scenario; the
 per-policy stage-span outlines pin the temporal contract's exact instants.
-Next: T4.
+Commit `bbcc598`, pushed. Next: T4.
+
+### 2026-09-28 T4: Implement exponential weights and feasibility checks (Claude coder, Lane A)
+
+What changed and why: `retraining/weights.py` with `age_days(available_at,
+cutoff)`, `exponential_weights(available_at, cutoff, half_life_days)` (absolute
+`2 ** (-age / h)`, pinned reading 1: partial underflow gives exact zeros, total
+underflow is rejected as zero total weight), `normalize_mean_one`,
+`effective_n`, `uniform_weights`, `SupportMinima`, `REGISTERED_MINIMA` (the
+protocol's family/combiner/threshold minima) and `check_support(labels,
+weights, minima, stage=...)`, which reports every violated minimum as
+"measured X, required Y" in one failure. Per-class minima count raw rows; only
+the effective N carries the weights (pinned reading 6). Steps in
+`tests/steps/test_retraining_weights.py`.
+
+Scenario change (feature is the spec; recorded per the brief): corrected the
+rows of "The spec's analytic fixture: ages 0, h and 2h at half-life 60 days".
+It placed rows at 2015-12-31 and 2015-11-01 against the 2016-03-01 cutoff and
+expected ages 60 and 120, but 2016 is a leap year and those instants are 61 and
+121 elapsed UTC days old, contradicting RWT-04 (age in elapsed UTC days). The
+rows now sit at 2016-01-01 and 2015-11-02, exactly 60 and 120 days before the
+cutoff; the expected ages and weights are unchanged.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_weights.py -q
+  -p no:cacheprovider`: 49 passed (14 scenarios plus 35 Examples rows).
+- `uv run ruff check algo-backtest`: clean (after splitting `check_support`'s
+  violation builders to stay under complexity 8). `uv run ruff format --check`
+  on the retraining package and the weights step file: clean.
+  `uv run mypy --strict algo-backtest`: clean, 68 source files.
+
+Adequacy: RWT-04 by the analytic fixture and the fractional/leap/year-end age
+outline; RWT-05 by the 12/7-6/7-3/7 fixture, the ratio-preserving case and the
+per-stage independence scenario; RWT-06 by the twelve boundary rows of the
+minima outline, the all-violations message and the length mismatch; RWT-02 by
+the half-life, future-row, naive/non-UTC, empty-stage and invalid-weight
+outlines; the extreme-scale rule by the 2^-20 ratio, partial-underflow and
+total-underflow scenarios. Next: T5.
 
 ## Earlier planning verification (before this amendment)
 
