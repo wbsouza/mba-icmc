@@ -87,11 +87,16 @@ strict = true
 # engine/chain_algorithm.py subclasses ExecutionAlgorithm under the same `*` import (the
 # shared chain-driven LEAN glue); its LEAN-free logic is in chain/wiring.py, which is
 # type-checked.
+# docs/stories/*/evidence/ holds each story's standalone QA gate script, always named
+# qa_check.py — two of them are a duplicate top-level module name to `mypy .`, which aborts
+# the whole run; each is type-checked on its own with `uv run mypy --strict <path>` and
+# exercised by its Gherkin feature (tests/features/qa_check_*.feature).
 exclude = [
     "(^|/)spikes/",
     "(^|/)algos/",
     "(^|/)tests/",
     "(^|/)mutants/",
+    "(^|/)docs/stories/[^/]+/[^/]+/evidence/",
     "(^|/)algo_backtest/engine/algorithm\\.py$",
     "(^|/)algo_backtest/engine/chain_algorithm\\.py$",
 ]
