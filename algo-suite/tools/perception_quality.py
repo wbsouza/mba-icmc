@@ -29,6 +29,10 @@ ALLOWED = {
     "bar_clock": set(),
     "candlestick": {"algo_backtest.perception.heikin_ashi"},
     "candle_contract": set(),
+    "candle_catalog": {
+        "algo_backtest.perception.candle_contract",
+        "algo_backtest.perception.candlestick",
+    },
     "volume": set(),
     "tick_activity": {"algo_backtest.months"},
     "lean_indicator": {"algo_backtest.perception.heikin_ashi", "QuantConnect.Indicators"},

@@ -256,7 +256,7 @@ closing at `c1..c4` so that `net(3) = c4 - c1`:
 | ID | Positive | Negative | Equality boundary |
 | --- | --- | --- | --- |
 | `hanging_man` | priors 900, 1040, 1040, 1040 (`net(3) = +140`), then `(955, 962, 850, 960)`: body 5, lower 105 >= 10, upper 2 <= 11.2 | priors 1040, 1040, 1040, 1040 (`net(3) = 0`), same bar: no hit | priors as positive, `(940, 951, 920, 950)`: lower 20 == 2 x body 10, hit; `(940, 960, 860, 950)`: upper 10 == 0.10 x 100, hit; `(940, 951, 921, 950)`: lower 19 < 20, no hit |
-| `inverted_hammer` | priors 1040, 900, 900, 900 (`net(3) = -140`), then `(960, 1070, 958, 955)`: body 5, upper 110 >= 10, lower 3 <= 11.2 | priors 900, 900, 900, 900 (`net(3) = 0`): no hit | priors as positive, `(950, 980, 949, 960)`: upper 20 == 2 x body 10, hit; `(950, 979, 949, 960)`: upper 19 < 20, no hit |
+| `inverted_hammer` | priors 1040, 900, 900, 900 (`net(3) = -140`), then `(960, 1070, 952, 955)`: body 5, upper 110 >= 10, lower 3 <= 11.8 | priors 900, 900, 900, 900 (`net(3) = 0`): no hit | priors as positive, `(950, 980, 949, 960)`: upper 20 == 2 x body 10, hit; `(950, 979, 949, 960)`: upper 19 < 20, no hit |
 
 ### 3.8 Legacy six (TA-Lib verbatim, byte-identical legacy behaviour)
 

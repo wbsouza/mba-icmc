@@ -489,10 +489,8 @@ def _price(value: object, name: str) -> float:
     return price
 
 
-def _validated_close_time(
-    value: object, timeframe_minutes: int, previous: datetime | None
-) -> datetime:
-    """An aware UTC close time aligned to the timeframe and strictly after ``previous``."""
+def _aligned_utc_close_time(value: object, timeframe_minutes: int) -> datetime:
+    """An aware UTC close time on the timeframe grid (whole minutes since UTC midnight)."""
     if not isinstance(value, datetime) or value.utcoffset() != timedelta(0):
         raise ValueError(
             f"Candle close_time must be a timezone-aware UTC datetime, got {value!r}; "
@@ -504,6 +502,11 @@ def _validated_close_time(
             f"Candle close_time {value.isoformat()} is not aligned to the "
             f"{timeframe_minutes}-minute timeframe; repair the bar clock"
         )
+    return value
+
+
+def _strictly_after(value: datetime, previous: datetime | None) -> datetime:
+    """``value`` strictly later than ``previous`` (duplicates and reversals rejected)."""
     if previous is not None and value == previous:
         raise ValueError(
             f"Candle close_time {value.isoformat()} is a duplicate; repair the bar stream"
@@ -526,7 +529,9 @@ def validate_bar(
             ordering, or a close_time that is naive, non-UTC, misaligned, duplicated or
             earlier than ``previous_close_time``; every message names a remedy.
     """
-    close_time = _validated_close_time(bar.close_time, timeframe_minutes, previous_close_time)
+    close_time = _strictly_after(
+        _aligned_utc_close_time(bar.close_time, timeframe_minutes), previous_close_time
+    )
     open_, high, low, close = (
         _price(getattr(bar, name), name) for name in ("open", "high", "low", "close")
     )

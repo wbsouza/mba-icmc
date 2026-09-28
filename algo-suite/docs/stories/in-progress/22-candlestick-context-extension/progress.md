@@ -61,7 +61,7 @@ no new branch, commit, push or PR is claimed. Preserve the existing directory mo
 
 - [x] T1 Review and freeze the source-rule ledger
 - [x] T2 Define immutable pattern evidence and configuration
-- [ ] T3 Implement the expanded geometry catalog
+- [x] T3 Implement the expanded geometry catalog
 - [ ] T4 Implement causal context evaluation
 - [ ] T5 Implement next-bar confirmation state machine
 - [ ] T6 Implement explicit F3 policy modes
@@ -147,5 +147,75 @@ T17–T21 are DEFERRED and never implemented.
   (CND-02/03) or a tasks.md T2 listed case; none removed. Check D: Gherkin-first,
   `scenarios("../features/candle_contract.feature")`, docstrings on every step.
 - Status: tasks.md T2 boxes ticked; spec.md CND-02, CND-03 → `Implemented (T2)`.
-- Commit: `feat(candles): define immutable pattern evidence and configuration` (SHA in the
-  next entry).
+- Commit: `071d1d0` `feat(candles): define immutable pattern evidence and configuration`; pushed.
+
+### 2026-09-28 — T3 expanded geometry catalog (CND-01, CND-02, CND-04, CND-05, CND-09)
+
+- Files: `perception/candle_catalog.py` (new: ledger formulas for the 13 new rules, TA-Lib
+  legacy scores exactly as `candlestick.py`, `evaluate_catalog`, `legacy_label`,
+  streaming `CandleCatalog`), `tests/features/candle_catalog.feature` (specifier, two
+  fixture amendments below), `tests/steps/test_candle_catalog.py` (new),
+  `tools/perception_quality.py` (registration: `candle_catalog` may import
+  `candle_contract` and `candlestick`), `perception/candle_contract.py` (the close-time
+  validator split into `_aligned_utc_close_time` + `_strictly_after` because the
+  perception CRAP gate counts boolean operands and reported CC 10 > 8; behaviour and
+  messages unchanged, 112 contract examples still pass).
+- Amended scenarios (feature file, reason recorded; specifier notified):
+  1. "Hanging man and inverted hammer": the four inverted-hammer rows used
+     `(960, 1070, 958, 955)`, an impossible bar (low 958 > close 955) that CND-03
+     validation rejects; low changed to 952 (body 5, upper 110, lower 3 <= 11.8), outcomes
+     unchanged. Ledger example corrected the same way.
+  2. "Opposing hits on one bar": the dip bar `(10, 10.6, 9.8, 9.0)` had close 9.0 below
+     low 9.8, and 12 bars left the two stars WARMUP (so "exactly hammer and hanging_man"
+     could not hold). Now 8 float context candles, dip `(10, 10.6, 8.9, 9.0)`, 3 context
+     candles, final `(9.55, 9.62, 8.5, 9.6)`; by the specifier's own doji formula the final
+     bar is also `doji` and `doji_dragonfly` (body 0.05 <= 0.112, upper 0.02 <= 0.112), so
+     the expected hits are doji, doji_dragonfly, hammer (+1), hanging_man (-1), status
+     READY; TA-Lib hammer 100 and legacy label "hammer" kept. QA step 3.4 needs the same
+     change (specifier's file).
+- Assumptions: legacy TA-Lib scores are computed on the retained (<= 256-bar) history,
+  as the legacy `CandleDetector` computes on its 64-bar buffer; frozen equality is proven
+  on the legacy corpora at every prefix. `CandleCatalog(config, pair)` produces
+  `CandleEvidence` with context/confirmation None (T4/T5 produce their own evidence; T7
+  assembles). Legacy fixtures are duplicated verbatim from `test_candlestick_detector.py`
+  because pytest runs with `--import-mode=importlib` (step modules are not importable).
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_candle_catalog.py -q -p no:cacheprovider`
+  → 106 passed (17 templates);
+  `uv run pytest algo-backtest/tests/steps/test_candle_contract.py algo-backtest/tests/steps/test_candle_catalog.py -q -p no:cacheprovider`
+  → 218 passed;
+  `uv run pytest algo-backtest/tests/steps/test_candlestick_detector.py algo-backtest/tests/steps/test_f3_pattern.py -q -p no:cacheprovider`
+  → 110 passed; `uv run ruff check algo-backtest tools` → clean; new files formatted;
+  `uv run mypy --strict algo-backtest tools/perception_quality.py` → 66 files clean;
+  `make check-perception-architecture` → PASS.
+  Pure gate host-side line (the `make check-perception` pytest --cov line plus the two new
+  step files): 501 passed, 9 deselected; `candle_catalog.py` 99% before removing one
+  impossible branch (now no unreachable line), `candle_contract.py` 90% (uncovered:
+  `IndicatorValue`, `LevelEvidence`, `ContextEvidence`, `SequenceEvidence` validators and
+  the context/confirmation type checks, exercised by T4–T6; re-checked at phase end).
+  `uv run python tools/perception_quality.py --coverage build/perception-host-coverage.json`
+  (informative, without the native merge): every `candle_catalog.py` function CRAP <= 8;
+  the only FAIL was `candle_contract.py:_validated_close_time` CC 10, fixed by the split
+  above. Docker lines of `make check-perception` (native LEAN assertions, feature parity,
+  closed-signal parity, mutations): BLOCKED in this lane until the phase-end attempt
+  (recorded there).
+- Adequacy review (file `tests/steps/test_candle_catalog.py`): CND-01 ledger rules with
+  boundary examples → `assert_neutral_hits` :317 / `assert_ready_hits` :324 (`ready ids ==
+  expected`, polarity == catalog polarity) over every doji/spinning/two-bar/umbrella row;
+  CND-02 every hit preserved in stable order → `assert_hits_table` :376 (`[(id, polarity,
+  status)] == table`), `assert_ready_ids` :408 + `assert_order_independent` :418
+  (`evidence == evidence` across enabled_rules orders); CND-04 WARMUP per rule →
+  `assert_warmup_ids` :383, `assert_hit_status` :363, `assert_status` :331; CND-05 prefix
+  invariance → `assert_prefix_invariance` :425 (`first == second`), `assert_prefix_final`
+  :433; CND-09 frozen legacy equality → `assert_corpora_equal` :445 (`labels == oracle` on
+  every prefix of every corpus), `assert_corpora_vocabulary` :451, `assert_label` :439,
+  `assert_legacy_label` :396 / `assert_legacy_label_none` :402; TA-Lib independence →
+  `assert_native` :357, `assert_native_score` :370, `assert_engulfing_score` :337,
+  `assert_native_hammer` :390; bounded history → `assert_bounded` :457. Check B: every
+  assertion compares ids/polarities/statuses/labels, none is call-count or no-throw only.
+  Check C: every scenario maps to a ledger rule row, a tasks.md T3 listed case (warmup,
+  simultaneous, opposing, ordering, prefix, frozen equality) or CND-02/04/05/09.
+  Check D: Gherkin-first with `scenarios("../features/candle_catalog.feature")`.
+- Status: tasks.md T3 boxes ticked; spec.md CND-01 → `Implemented (T1, T3)`, CND-02 →
+  `Implemented (T2, T3)`, CND-04/05/09 → `Implemented (T3)`.
+- Commit: `feat(candles): implement the expanded geometry catalog` (SHA in the next entry).
