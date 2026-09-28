@@ -87,6 +87,67 @@ Feature: Strategy-chain config loading (Spec 04h)
       Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 240, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
       And the loaded strategy's raw config records price_features.ema_higher_tf 240
 
+    Scenario: execution is always resolved, defaulting when the section is absent (story 12)
+      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      When strategy "plain" is loaded
+      Then the loaded strategy's execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
+      And the loaded strategy's raw config records execution.spread_pips 0.0
+      And the loaded strategy's parameter "execution.min_hold_bars" comes from "default"
+
+    Scenario: a partial execution section overrides, the rest defaults, each with its provenance
+      Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
+      And "custom" adds a "execution" section {spread_pips: 1.0}
+      When strategy "custom" is loaded
+      Then the loaded strategy's execution config is spread_pips 1.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
+      And the loaded strategy's raw config records execution.commission_per_lot 0.0
+      And the loaded strategy's parameter "execution.spread_pips" comes from "custom/config.yaml"
+      And the loaded strategy's parameter "execution.commission_per_lot" comes from "default"
+
+    Scenario Outline: a five-key capital_mgmt section resolves the trade-plan default for <key> and records it
+      Given a strategy config directory with "sized" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      When strategy "sized" is loaded
+      Then the loaded strategy's raw config records capital_mgmt.<key> <value>
+      And the loaded strategy's parameter "capital_mgmt.<key>" comes from "default"
+      And the loaded strategy's parameter "capital_mgmt.risk_per_trade" comes from "sized/config.yaml"
+
+      Examples:
+        | key                  | value                                        |
+        | stop_loss_shrink     | 0.0                                          |
+        | targets              | [{at_level_ratio: 2.0, close_fraction: 1.0}] |
+        | trail_stops          | []                                           |
+        | min_reward_risk      | null                                         |
+        | stop_distance_source | fixed                                        |
+        | min_stop_factor      | 1.0                                          |
+
+    Scenario: an explicit trade-plan key keeps its file as provenance
+      Given a strategy config directory with "planned" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      And "planned" also declares capital_mgmt.min_reward_risk as 2.0
+      When strategy "planned" is loaded
+      Then the loaded strategy's raw config records capital_mgmt.min_reward_risk 2.0
+      And the loaded strategy's parameter "capital_mgmt.min_reward_risk" comes from "planned/config.yaml"
+
+    Scenario Outline: an invalid <section> trade-plan or execution value fails fast at load (<case>)
+      Given a strategy config directory with "bad" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      And "bad" also declares <section>.<key> as <value>
+      When loading strategy "bad" fails
+      Then the failure names "<key>"
+      And the failure names "bad"
+
+      Examples:
+        | case                     | section      | key                  | value |
+        | stop shrink of 100%      | capital_mgmt | stop_loss_shrink     | 1.0   |
+        | unknown stop source      | capital_mgmt | stop_distance_source | structural |
+        | stop factor below one    | capital_mgmt | min_stop_factor      | 0.5   |
+        | negative broker level    | execution    | broker_stop_level_pips | -1  |
+        | negative spread          | execution    | spread_pips          | -1    |
+        | fractional hold          | execution    | min_hold_bars        | 1.5   |
+
+    Scenario: an execution section that is not a mapping fails fast
+      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      And "odd" replaces its "execution" section with a scalar
+      When loading strategy "odd" fails
+      Then the failure names "execution"
+
     Scenario Outline: <filter> listed without its optional <section> section resolves defaults and records them
       Given a strategy config directory with "defaulted" filters "<filter>" and families "trend"
       And "defaulted" drops its "<section>" section
@@ -104,6 +165,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       And "bad" adds a "<section>" section <section_yaml>
       When loading strategy "bad" fails
       Then the failure names "<names>"
+      And the failure names "strategy 'bad'"
 
       Examples:
         | case                        | section        | section_yaml                | names        |
@@ -115,8 +177,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "gap" filters "<filter>" and families "trend"
       And "gap" drops its "<section>" section
       When loading strategy "gap" fails
-      Then the failure names "<section>"
-      And the failure names "<filter>"
+      Then the failure names "strategy 'gap' lists '<filter>' but has no '<section>:' section"
 
       Examples:
         | filter          | section      |
@@ -128,14 +189,25 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "gap" filters "f7_meta_learner" and families "trend"
       And "gap" drops meta_learner key "theta_high"
       When loading strategy "gap" fails
-      Then the failure names "theta_high"
+      Then the failure names "strategy 'gap': meta_learner.theta_high is missing"
+
+    Scenario Outline: a listed filter's section missing <key> fails fast through the loader
+      Given a strategy config directory with "gapkey" filters "<filter>" and families "trend"
+      And "gapkey" drops "<section>" key "<key>"
+      When loading strategy "gapkey" fails
+      Then the failure names "strategy 'gapkey': <section>.<key> is missing"
+
+      Examples:
+        | filter          | section      | key                            |
+        | f4_news_context | news_context | event_intensity_veto_threshold |
+        | f5_risk_guard   | risk_guard   | max_leverage                   |
+        | f6_capital_mgmt | capital_mgmt | risk_per_trade                 |
 
     Scenario Outline: a <section> section for a filter that is not listed fails fast
       Given a strategy config directory with "stray" filters "f1_trend" and families "trend"
       And "stray" adds a "<section>" section anyway
       When loading strategy "stray" fails
-      Then the failure names "<section>"
-      And the failure names "<filter>"
+      Then the failure names "strategy 'stray' declares a '<section>:' section but does not list '<filter>'"
 
       Examples:
         | filter          | section      |
@@ -149,20 +221,22 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "odd" filters "<filter>" and families "trend"
       And "odd" replaces its "<section>" section with a scalar
       When loading strategy "odd" fails
-      Then the failure names "<section>"
+      Then the failure names "strategy 'odd': '<section>' must be a mapping (got 'str')"
 
       Examples:
-        | filter          | section      |
-        | f4_news_context | news_context |
-        | f5_risk_guard   | risk_guard   |
-        | f6_capital_mgmt | capital_mgmt |
+        | filter          | section        |
+        | f1_trend        | price_features |
+        | f4_news_context | news_context   |
+        | f5_risk_guard   | risk_guard     |
+        | f6_capital_mgmt | capital_mgmt   |
 
     Scenario Outline: F7 keys in meta_learner without f7_meta_learner listed fail fast (<key>)
       Given a strategy config directory with "strayf7" filters "f1_trend" and families "trend"
       And "strayf7" adds meta_learner key "<key>" with value <value>
       When loading strategy "strayf7" fails
       Then the failure names "<key>"
-      And the failure names "f7_meta_learner"
+      And the failure names "strategy 'strayf7': meta_learner declares"
+      And the failure names "'f7_meta_learner' in filters"
 
       Examples:
         | key         | value |
@@ -175,7 +249,7 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario Outline: an unknown filter name fails fast at load time (<filter>)
       Given a strategy config directory with "typo" filters "f1_trend,<filter>" and families "trend"
       When loading strategy "typo" fails
-      Then the failure names "<filter>"
+      Then the failure names "strategy 'typo': unknown filters ['<filter>'] in filters"
       And the failure names "known filters"
 
       Examples:
@@ -190,14 +264,15 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "old" filters "f1_trend" and families "trend"
       And "old" sets schema_version to <schema_version>
       When loading strategy "old" fails
-      Then the failure names "schema_version"
+      Then the failure names "strategy 'old': schema_version must be the integer 2 (got <got>)"
 
       Examples:
-        | case            | schema_version |
-        | version 1       | 1              |
-        | version 3       | 3              |
-        | string "2"      | "2"            |
-        | missing         | absent         |
+        | case            | schema_version | got  |
+        | version 1       | 1              | 1    |
+        | version 3       | 3              | 3    |
+        | string "2"      | "2"            | '2'  |
+        | boolean         | true           | True |
+        | missing         | absent         | None |
 
   Rule: extends chains of any depth compose base-first, like compose override files (2026-09-27)
 
@@ -218,6 +293,17 @@ Feature: Strategy-chain config loading (Spec 04h)
       And "a" is changed to extend "b"
       When loading strategy "a" fails
       Then the failure names "extends cycle a -> b -> a"
+
+    Scenario Outline: an extends value that is not a strategy name fails fast (<case>)
+      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      And "odd" sets extends to <value>
+      When loading strategy "odd" fails
+      Then the failure names "strategy 'odd': 'extends' must be a strategy name, got <got>"
+
+      Examples:
+        | case    | value      | got          |
+        | integer | 7          | 7            |
+        | list    | [baseline] | ['baseline'] |
 
   Rule: An unknown strategy fails fast, naming the missing config path
 
@@ -258,6 +344,34 @@ Feature: Strategy-chain config loading (Spec 04h)
         | baseline-dsha |
         | hybrid        |
 
+    Scenario Outline: every bundled strategy resolves the A05 trade plan and execution costs (<name>: <section>.<key>)
+      When the real strategy "<name>" is loaded with the default root
+      Then the loaded strategy's raw config records <section>.<key> <value>
+      And the loaded strategy's parameter "<section>.<key>" comes from "baseline/config.yaml"
+
+      Examples:
+        | name          | section      | key                               | value                                          |
+        | baseline      | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline      | capital_mgmt | min_stop_pips                     | 5.0                                            |
+        | baseline      | capital_mgmt | targets                           | [{at_level_ratio: 2.0, close_fraction: 0.5}]   |
+        | baseline      | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | baseline      | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | baseline      | capital_mgmt | stop_distance_source              | swing                                          |
+        | baseline      | capital_mgmt | min_stop_factor                   | 1.2                                            |
+        | baseline      | execution    | broker_stop_level_pips            | 0.0                                            |
+        | hybrid        | capital_mgmt | min_stop_factor                   | 1.2                                            |
+        | baseline      | capital_mgmt | atr_multiplier                    | 2.0                                            |
+        | baseline      | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | baseline      | execution    | spread_pips                       | 1.0                                            |
+        | baseline      | execution    | commission_per_lot                | 0.0                                            |
+        | baseline      | execution    | min_hold_bars                     | 0                                              |
+        | hybrid        | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | hybrid        | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | hybrid        | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | hybrid        | execution    | spread_pips                       | 1.0                                            |
+        | baseline-dsha | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline-dsha | execution    | spread_pips                       | 1.0                                            |
+
   Rule: An empty resolved filters list fails fast, whether absent or explicitly empty
 
     Scenario: a strategy config with an explicitly empty filters list fails fast
@@ -282,7 +396,7 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario: a scalar meta_learner value fails fast
       Given a strategy config directory with "odd" filters "f1_trend" and a scalar meta_learner
       When loading strategy "odd" fails
-      Then the failure names "meta_learner"
+      Then the failure names "strategy 'odd': 'meta_learner' must be a mapping (got 'str')"
 
     Scenario: a scalar meta_learner overriding a dict base still fails fast
       Given a strategy config directory with "baseline" filters "f1_trend" and families "trend"
@@ -295,7 +409,12 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario: meta_learner.families as a bare string fails fast, not "tuple(str)" char-splat
       Given a strategy config directory with "typo" filters "f1_trend" and meta_learner.families as the scalar "trend"
       When loading strategy "typo" fails
-      Then the failure names "meta_learner.families"
+      Then the failure names "strategy 'typo': 'meta_learner.families' must be a list"
+
+    Scenario: filters as a bare string fails fast, not "tuple(str)" char-splat
+      Given a strategy config directory with "typo" filters as the scalar "f1_trend"
+      When loading strategy "typo" fails
+      Then the failure names "strategy 'typo': 'filters' must be a list"
 
     Scenario: meta_learner.families as a mapping fails fast, not "list(dict)" silent key-splat
       Given a strategy config directory with "oddmap" filters "f1_trend" and meta_learner.families as a mapping
@@ -315,11 +434,26 @@ Feature: Strategy-chain config loading (Spec 04h)
       When strategy "hybrid" is loaded
       And the loaded strategy is dumped to a resolved YAML file and loaded back as "hybrid"
       Then the reloaded strategy equals the loaded one apart from its extends provenance
+      And the reloaded strategy's parameter "filters" comes from "strategy.yaml"
+      And the reloaded strategy's parameter "risk_guard.max_leverage" comes from "strategy.yaml"
 
     Scenario: a resolved file still carrying extends is rejected
       Given a resolved strategy file for "leaf" that still declares extends
       When loading the resolved strategy file as "leaf" fails
       Then the failure names "extends"
+
+  Rule: The F1 perception source is typed into the loaded config
+
+    Scenario Outline: perception_source resolves to the declared source (<source>)
+      Given a strategy config directory with "seen" filters "f1_trend" and families "trend"
+      And "seen" sets perception_source to <source>
+      When strategy "seen" is loaded
+      Then the loaded strategy's perception source is "<source>"
+
+      Examples:
+        | source                      |
+        | double_smoothed_heikin_ashi |
+        | ema                         |
 
   Rule: A child in an external directory may extend a bundled base
 

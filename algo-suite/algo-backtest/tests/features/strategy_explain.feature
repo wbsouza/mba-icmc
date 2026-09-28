@@ -15,6 +15,9 @@ Feature: explain-strategy shows the resolved parameters and where each one came 
       | hybrid | risk_guard.max_leverage                      | baseline/config.yaml |
       | hybrid | meta_learner.regime_gate                     | baseline/config.yaml |
       | hybrid | filters                                      | hybrid/config.yaml   |
+      | hybrid | capital_mgmt.min_reward_risk                 | baseline/config.yaml |
+      | hybrid | execution.spread_pips                        | baseline/config.yaml |
+      | hybrid | capital_mgmt.risk_per_trade                  | baseline/config.yaml |
 
   Scenario: an external variant explains both its own keys and the defaults it inherited
     Given an external strategies directory holding "tight" extending "baseline" with extra "{meta_learner: {theta_high: 0.6}}"

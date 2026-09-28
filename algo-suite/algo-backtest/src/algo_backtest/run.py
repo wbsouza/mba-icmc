@@ -6,10 +6,13 @@ the result. A small strategy registry (not a plugin framework — a dict of entr
 each strategy to its bundled algorithm and its parameter validator, so a second strategy is
 added without touching the run path.
 
-Each strategy carries its own parameters (baseline-ma: fast/slow/size; baseline-meanrev:
-window/band/size; the config.yaml chain strategies baseline/baseline-dsha/hybrid:
-size/cash, `cash` being the account's starting deposit), validated by that strategy and
-passed to its algorithm verbatim.
+Each strategy carries its own parameters (baseline-ma: fast/slow/size/cash;
+baseline-meanrev: window/band/size/cash; buyhold/perfect_foresight: size/cash; random:
+size/seed/cash/entry_probability/exit_probability/long_probability; the config.yaml chain
+strategies baseline/baseline-dsha/hybrid: cash only — F6's trade plan sizes every order,
+story 12), validated by that strategy and passed to its algorithm verbatim. `cash` is the
+account's starting deposit and is common to every strategy (story 12, TD-65), so a chain
+strategy and an engine control can be compared from the same deposit.
 `baseline`/`hybrid` additionally drive the real F1-F7 filter chain; `hybrid` (Spec 04h)
 adds F4/news to `baseline`'s price-only chain, so it alone needs a second data mount —
 `StrategySpec.needs_news_data` marks that in the registry instead of special-casing the
@@ -32,14 +35,20 @@ from algo_core.layout import lean_data_dir_for
 
 import algo_backtest
 from algo_backtest.chain.filters.f4_news_context import news_coverage_problems
+from algo_backtest.chain.filters.f7_meta_learner import F7Config
 from algo_backtest.chain.filters.f7_model_io import (
     load_families,
     load_provenance,
     require_families,
 )
-from algo_backtest.chain.price_features import parse_price_features_config, price_features_mapping
+from algo_backtest.chain.price_features import (
+    PriceFeatureConfig,
+    parse_price_features_config,
+    price_features_mapping,
+)
 from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
+from algo_backtest.perception.tick_activity import activity_provenance
 from algo_backtest.results import RunResult, parse_results
 from algo_backtest.strategies import (
     StrategyChainConfig,
@@ -95,11 +104,12 @@ def _validate_size(params: Params, strategy: str) -> None:
 
 
 def _validate_baseline_ma(params: Params) -> None:
-    """baseline-ma params: fast >= 1, fast < slow, size in (0, 1]."""
-    _check_keys(params, {"fast", "slow", "size"}, "baseline-ma")
+    """baseline-ma params: fast >= 1, fast < slow, size in (0, 1], cash > 0."""
+    _check_keys(params, {"fast", "slow", "size", "cash"}, "baseline-ma")
     fast = _int_param(params, "fast", "baseline-ma")
     slow = _int_param(params, "slow", "baseline-ma")
     _validate_size(params, "baseline-ma")
+    _validate_cash(params, "baseline-ma")
     if fast < 1:
         raise ValueError(f"fast period ({fast}) must be a positive integer")
     if fast >= slow:
@@ -107,11 +117,12 @@ def _validate_baseline_ma(params: Params) -> None:
 
 
 def _validate_baseline_meanrev(params: Params) -> None:
-    """baseline-meanrev params: window >= 2, band > 0, size in (0, 1]."""
-    _check_keys(params, {"window", "band", "size"}, "baseline-meanrev")
+    """baseline-meanrev params: window >= 2, band > 0, size in (0, 1], cash > 0."""
+    _check_keys(params, {"window", "band", "size", "cash"}, "baseline-meanrev")
     window = _int_param(params, "window", "baseline-meanrev")
     band = _float_param(params, "band", "baseline-meanrev")
     _validate_size(params, "baseline-meanrev")
+    _validate_cash(params, "baseline-meanrev")
     if window < 2:
         raise ValueError(f"window ({window}) must be at least 2")
     if band <= 0:
@@ -119,7 +130,7 @@ def _validate_baseline_meanrev(params: Params) -> None:
 
 
 def _validate_cash(params: Params, strategy: str) -> None:
-    """The chain strategies' starting deposit: the account's initial cash, strictly positive."""
+    """Every strategy's starting deposit: the account's initial cash, strictly positive."""
     cash = _float_param(params, "cash", strategy)
     if cash <= 0:
         raise ValueError(
@@ -129,29 +140,61 @@ def _validate_cash(params: Params, strategy: str) -> None:
 
 
 def _validate_chain_params(params: Params, strategy: str) -> None:
-    """The config.yaml-driven chain strategies share one closed param set: size + cash."""
-    _check_keys(params, {"size", "cash"}, strategy)
-    _validate_size(params, strategy)
+    """The config.yaml-driven chain strategies share one closed param set: cash only.
+
+    Position size is not a run parameter: the executor sizes every order from F6's trade
+    plan (`capital_mgmt.risk_per_trade` and the stop distance, story 12 item D).
+    """
+    _check_keys(params, {"cash"}, strategy)
     _validate_cash(params, strategy)
 
 
 def _validate_buyhold(params: Params) -> None:
-    """buyhold params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size"}, "buyhold")
+    """buyhold params: size in (0, 1], cash > 0 (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size", "cash"}, "buyhold")
     _validate_size(params, "buyhold")
+    _validate_cash(params, "buyhold")
+
+
+def _validate_probability(
+    params: Params, name: str, strategy: str, *, zero_allowed: bool
+) -> None:
+    """A per-bar probability parameter: in (0, 1], or [0, 1] when zero is a valid split."""
+    value = _float_param(params, name, strategy)
+    low_ok = value >= 0 if zero_allowed else value > 0
+    if not (low_ok and value <= 1):
+        bounds = "[0, 1]" if zero_allowed else "(0, 1]"
+        raise ValueError(
+            f"{name} ({value}) must be in range {bounds} — {strategy}'s per-bar probability, "
+            f"e.g. --param {name}=0.5"
+        )
 
 
 def _validate_random(params: Params) -> None:
-    """random params: size in (0, 1], seed any integer (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size", "seed"}, "random")
+    """random params (docs/experiments.md #0): size in (0, 1], seed any integer, cash > 0,
+    entry/exit probabilities in (0, 1], long_probability in [0, 1] (0.5 = unbiased coin).
+
+    Every behaviour parameter of the random control is external (story 12): the per-bar
+    chance of entering while flat, of exiting while invested, and the BUY share of entries.
+    """
+    _check_keys(
+        params,
+        {"size", "seed", "cash", "entry_probability", "exit_probability", "long_probability"},
+        "random",
+    )
     _validate_size(params, "random")
     _int_param(params, "seed", "random")
+    _validate_cash(params, "random")
+    _validate_probability(params, "entry_probability", "random", zero_allowed=False)
+    _validate_probability(params, "exit_probability", "random", zero_allowed=False)
+    _validate_probability(params, "long_probability", "random", zero_allowed=True)
 
 
 def _validate_perfect_foresight(params: Params) -> None:
-    """perfect_foresight params: size in (0, 1] only (docs/experiments.md #0, Spec 04h)."""
-    _check_keys(params, {"size"}, "perfect_foresight")
+    """perfect_foresight params: size in (0, 1], cash > 0 (docs/experiments.md #0, Spec 04h)."""
+    _check_keys(params, {"size", "cash"}, "perfect_foresight")
     _validate_size(params, "perfect_foresight")
+    _validate_cash(params, "perfect_foresight")
 
 
 @dataclass(frozen=True)
@@ -183,8 +226,9 @@ class StrategySpec:
 # config.yaml-driven filter chain on the shared `engine/chain_algorithm.py`. `baseline`
 # runs F1+F2+F3+F5+F6+F7 (no F4/news); `hybrid` adds F4/news on top of the identical
 # chain (`strategies/hybrid/config.yaml`'s `extends: baseline`). Known simplifications:
-# F3's candlestick pattern is never populated (no real detector), F5/F6 use fixed
-# placeholder economics (`chain/wiring.py`), and the bundled F7 models come from the
+# The bundled configurations keep F3 detection disabled; Story 13 enables TA-Lib only
+# for explicitly configured, freshly trained variants. F5/F6 use the resolved risk and
+# execution plan (Story 12), and the bundled F7 models come from the
 # walk-forward split recorded in each model's provenance (2015-02..07 in-sample,
 # 2015-08..2016-01 held out). `hybrid`'s F4 sentiment half stays best-effort/ABSTAIN
 # pending TD-48 (its GDELT event-intensity veto is real). Wiring proof, not a Chapter-4
@@ -213,7 +257,7 @@ def resolve_strategy(strategy: str, *, strategies_root: Path | None = None) -> S
 
     A chain strategy's YAML decides everything the run path needs: the LEAN algorithm
     that hosts it (`algos/hybrid` when `f4_news_context` is listed, else `algos/baseline`),
-    whether the news Parquet is mounted, and that it takes the `size` + `cash` params.
+    whether the news Parquet is mounted, and that it takes the `cash` param alone.
     `strategies_root` is an external directory searched before the bundled one.
 
     Raises:
@@ -314,16 +358,44 @@ def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConf
         ValueError: naming every differing period, or the differing label horizon.
     """
     provenance = load_provenance(path)
+    from algo_backtest.signal_contract import require_signal_contract
+
+    require_signal_contract(provenance, config)
+    _require_same_price_features(
+        path, strategy, _trained_price_features(provenance, path), config.price_features
+    )
+    _require_same_horizon(path, strategy, provenance, config.f7)
+
+
+def _trained_price_features(provenance: Mapping[str, object], path: Path) -> PriceFeatureConfig:
+    """The price_features a model was fitted under; a provenance without the section (or
+    without a mapping `strategy_config` at all) means the documented defaults."""
     trained_config = provenance.get("strategy_config", {})
     trained_raw = (
         trained_config.get("price_features", {}) if isinstance(trained_config, dict) else {}
     )
-    trained = parse_price_features_config(trained_raw, strategy=f"model {path.name}")
-    declared = config.price_features
-    differing = sorted(
+    return parse_price_features_config(trained_raw, strategy=f"model {path.name}")
+
+
+def _differing_price_features(
+    trained: PriceFeatureConfig, declared: PriceFeatureConfig
+) -> list[str]:
+    """The price_features keys whose trained and declared values differ, sorted."""
+    return sorted(
         key for key, value in price_features_mapping(declared).items()
         if getattr(trained, key) != value
     )
+
+
+def _require_same_price_features(
+    path: Path, strategy: str, trained: PriceFeatureConfig, declared: PriceFeatureConfig
+) -> None:
+    """Fail fast when the model's price_features differ from the strategy's.
+
+    Raises:
+        ValueError: naming every differing period on both sides.
+    """
+    differing = _differing_price_features(trained, declared)
     if differing:
         raise ValueError(
             f"F7 model {path} was trained with price_features "
@@ -331,12 +403,23 @@ def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConf
             f"{ {k: getattr(declared, k) for k in differing} } — retrain the model with "
             "scripts/train_*_meta_learner.py or align the strategy's price_features section"
         )
+
+
+def _require_same_horizon(
+    path: Path, strategy: str, provenance: Mapping[str, object], f7: F7Config | None
+) -> None:
+    """Fail fast when the model's label horizon differs from the strategy's F7 config
+    (a strategy without F7 has no horizon to compare).
+
+    Raises:
+        ValueError: naming both horizons.
+    """
     horizon = provenance.get("horizon_minutes")
-    if config.f7 is not None and horizon != config.f7.label_horizon_minutes:
+    if f7 is not None and horizon != f7.label_horizon_minutes:
         raise ValueError(
             f"F7 model {path} was trained with a {horizon}-minute label horizon but strategy "
             f"{strategy!r} declares meta_learner.label_horizon_minutes="
-            f"{config.f7.label_horizon_minutes} — retrain the model or align the strategy"
+            f"{f7.label_horizon_minutes} — retrain the model or align the strategy"
         )
 
 
@@ -447,11 +530,26 @@ def run_strategy(
         data_mounts.update(_news_mounts(data_root))
         parameters["news_data_root"] = str(NEWS_DATA_ROOT)
     algo_files: dict[str, Path] = {}
+    activity_inputs: dict[str, str] | None = None
     if model is not None and spec.model_file:
         algo_files[spec.model_file] = model
     with tempfile.TemporaryDirectory(prefix="lean-strategy-") as scratch:
         if spec.model_file:  # a chain strategy: ship its resolved YAML next to main.py
             config = load_strategy_chain_config(strategy, root=strategies_root)
+            if config.volume_strength is not None:
+                price_root = data_root / "parquet" / instrument.security_type
+                if not price_root.is_dir():
+                    raise ValueError(
+                        "volume filter requires canonical prices Parquet; materialize prices"
+                    )
+                data_mounts[f"activity/parquet/{instrument.security_type}"] = price_root
+                parameters["activity_data_root"] = "/Lean/Data/activity"
+                activity_inputs = activity_provenance(data_root, instrument, start, end)
+                write_text_atomic(
+                    results_dir / "activity-inputs.json",
+                    json.dumps({"schema_version": 1, "source": "quote_tick_count",
+                                "files": activity_inputs}, indent=2, sort_keys=True) + "\n",
+                )
             resolved = Path(scratch) / _RESOLVED_STRATEGY_FILE
             resolved.write_text(resolved_yaml(config))
             algo_files[_RESOLVED_STRATEGY_FILE] = resolved
@@ -466,4 +564,7 @@ def run_strategy(
             algo_dir, results_dir, data_mounts=data_mounts,
             parameters=parameters, timeout=timeout, algo_files=algo_files,
         )
+    if (activity_inputs is not None
+            and activity_provenance(data_root, instrument, start, end) != activity_inputs):
+        raise ValueError("canonical tick activity changed during execution; discard this run")
     return parse_results(results_dir, success=run.exit_code == 0)

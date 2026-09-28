@@ -51,9 +51,9 @@ RUN_KEYS = frozenset({"id", "strategy", "symbol", "from", "to", "params"})
 class Run:
     """One pinned, reproducible backtest within an experiment.
 
-    `params` are strategy-specific (e.g. baseline-ma: fast/slow/size; baseline-meanrev:
-    window/band/size) and validated by the strategy at run time — the spec must pin them
-    explicitly (no hidden defaults).
+    `params` are strategy-specific (e.g. baseline-ma: fast/slow/size/cash; baseline-meanrev:
+    window/band/size/cash; every strategy takes `cash`, the starting deposit) and validated
+    by the strategy at run time — the spec must pin them explicitly (no hidden defaults).
     """
 
     run_id: str

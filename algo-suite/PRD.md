@@ -46,8 +46,9 @@ older schedule dates below are historical.
 - **Top risks:** LEAN integration (**retired** — a testcontainers suite validates
   the Parquet→lean-data→engine path and the UTC/START-indexed timezone), Dukascopy
   single-source (yfinance fallback), FinBERT cost (Loughran–McDonald fallback).
-- **Reproducibility:** every Chapter-4 number traces to a `run-id`, its command,
-  `parameters.txt` and `features_hash`.
+- **Reproducibility:** every Chapter-4 number traces to a `run-id`, its command, the
+  run's resolved `strategy-config.yaml` + `strategy-provenance.json` (every parameter and
+  the `config.yaml` that set it; `parameters.txt` is the planned name) and `features_hash`.
 
 ---
 
@@ -236,9 +237,28 @@ from real data (with a one-day publication lag). F7 models are trained offline o
 leak-free, LEAN-parity pipeline (EUR/USD 2015-02 → 2015-07 train + validation,
 2015-08 → 2016-01 held out) and shipped as portable JSON. These runs are still
 wiring smoke tests (no real F3 pattern detector, placeholder F5/F6 economics,
-sentiment best-effort pending TD-48 — `docs/technical-debt.md` TD-51); the critical
+sentiment best-effort pending TD-48); the critical
 path is now a statistically meaningful hybrid-vs-baseline result, see
 `docs/ch04-deliverables.md`.
+
+**Update (2026-09-27, stories 09 and 12).** Every filter parameter moved into the
+strategy's `config.yaml` — one section per filter (`price_features`, `indicator`,
+`pattern`, `news_context`, `risk_guard`, `capital_mgmt`, `meta_learner`) plus an
+`execution` section (spread, commission, minimum hold, broker stop level, close-on-veto)
+— with `extends:` chains of any depth and per-parameter provenance (`explain-strategy`,
+the run's `strategy-config.{json,yaml}` and `strategy-provenance.json`; keys tabulated in
+`algo-backtest/SPEC.md` §6.4.1). The F5/F6 placeholders are gone: F6 builds the
+fx-manager A05 trade plan (structural or ATR stop, shrink and floors, 3 % risk sizing,
+partial-close targets, trailing steps, reward:risk veto) and the executor places its
+stop-market and limit orders with a configured spread and commission on every fill.
+The F7 regime gate is off (the pilot's model was anti-aligned with F1's regime) and every
+account starts from `--param cash`. Each run ends with a broker-style `statement.md`,
+`equity.png`, `equity.csv` and `report.html`; `algo-analyze equity-curves` chains monthly
+runs into one curve per strategy. The 2015-09 replay now trades (~1,000 minute-scale
+trades per strategy, near zero net) and is the pilot check of the machinery; the
+registered one-year protocol (family models 2015-03 → 2015-12, calibration 2016-01,
+simulation 2016-03-01 → 2016-10-31 from $10,000, both strategies in parallel) is the
+experiment; it is running and no result is claimed yet.
 
 ```mermaid
 %%{init: {'themeVariables': {'doneTaskBkgColor':'#2563eb','doneTaskBorderColor':'#93c5fd','activeTaskBkgColor':'#f59e0b','activeTaskBorderColor':'#fcd34d'}}}%%

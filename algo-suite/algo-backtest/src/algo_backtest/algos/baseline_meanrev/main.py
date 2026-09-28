@@ -2,9 +2,9 @@
 # position, fixed sizing. Counter-trend (the structural opposite of baseline-ma's crossover):
 # buy when price dips a band below its SMA, exit when it reverts to the SMA. A second
 # price-only baseline for the multi-strategy comparison — no news/sentiment signal.
-# Parameters (symbol, window, band, sizing, brokerage adapter) come from the run via
-# get_parameter(). Order placement goes through OrderExecutor (Spec 04a), not a raw
-# set_holdings/liquidate call, so every fill is normalized and every rejection recorded.
+# Parameters (symbol, window, band, sizing, starting cash, brokerage adapter) come from
+# the run via get_parameter(). Order placement goes through OrderExecutor (Spec 04a), not a
+# raw set_holdings/liquidate call, so every fill is normalized and every rejection recorded.
 #
 # Known limitation (deliberate, for an honest baseline): no stop-loss or time exit, so in a
 # sustained downtrend the position can stay open until the window ends — the metrics expose
@@ -33,11 +33,19 @@ class main(ExecutionAlgorithm):  # noqa: F405  (algorithm-type-name = "main")
         window = int(self._required("window"))
         self._band = float(self._required("band"))
         self._size = float(self._required("size"))
+        cash = float(self._required("cash"))
+        if cash <= 0:
+            raise ValueError(
+                f"{self.strategy_name}: cash ({cash}) must be positive — the account's starting "
+                "deposit; run.py validates this on the host, so a non-positive value here means "
+                "the algorithm was launched outside `algo-backtest run`"
+            )
         broker_adapter = self._required("broker_adapter")
 
         self.set_start_date(int(start[:4]), int(start[4:6]), int(start[6:8]))
         self.set_end_date(int(end[:4]), int(end[4:6]), int(end[6:8]))
-        self.set_cash(100_000)
+        self.set_cash(cash)
+        self.debug(f"BASELINE_MEANREV_STARTING_CASH={cash}")
         self._symbol = self.add_forex(
             symbol, Resolution.MINUTE, Market.OANDA, False  # noqa: F405
         ).symbol

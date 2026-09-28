@@ -12,9 +12,12 @@ LEAN container.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+
+from algo_backtest.engine.trade_plan import OpenOrder
 
 
 class Decision(StrEnum):
@@ -71,8 +74,9 @@ class OrderExecutor:
 
     ``algorithm`` is the running ``QCAlgorithm`` (or a test double exposing the
     same narrow surface: ``market_order``, ``liquidate``, ``calculate_order_quantity``,
-    ``utc_time``). Order events are collected via :meth:`on_order_event`, which
-    ``engine/algorithm.py``'s ``OnOrderEvent`` callback forwards here.
+    ``stop_market_order``, ``limit_order``, ``transactions``, ``utc_time``). Order events
+    are collected via :meth:`on_order_event`, which ``engine/algorithm.py``'s
+    ``OnOrderEvent`` callback forwards here.
 
     ``SizingContext.size`` is a target portfolio fraction in ``(0, 1]`` — the same
     semantics ``self.set_holdings`` uses — translated to a real order quantity via
@@ -111,6 +115,75 @@ class OrderExecutor:
         ticket = self._algorithm.market_order(symbol, quantity)
         event = self._pending.pop(ticket.order_id, None)
         return self._normalize(decision, ticket.order_id, sizing, event)
+
+    def execute_quantity(self, symbol: Any, decision: Decision, quantity: float) -> FillRecord:
+        """Place a market order for an explicit signed `quantity` (units) for a BUY/SELL.
+
+        The trade-plan path (story 12): the quantity comes from F6's lot size, not from a
+        portfolio fraction, so LEAN's percent-to-quantity helper is bypassed.
+
+        Raises:
+            ValueError: `decision` is not BUY/SELL, or `quantity`'s sign contradicts it
+                (a plan bug to surface before any order is placed).
+        """
+        if decision not in (Decision.BUY, Decision.SELL):
+            raise ValueError(
+                f"OrderExecutor.execute_quantity: {decision!r} places no order; only BUY/SELL"
+            )
+        expected_sign = 1 if decision == Decision.BUY else -1
+        if quantity == 0 or (quantity > 0) != (expected_sign > 0):
+            raise ValueError(
+                f"OrderExecutor.execute_quantity: quantity {quantity!r} contradicts {decision} "
+                "(BUY needs a positive quantity, SELL a negative one)"
+            )
+        ticket = self._algorithm.market_order(symbol, quantity)
+        event = self._pending.pop(ticket.order_id, None)
+        return self._normalize(decision, ticket.order_id, SizingContext(size=abs(quantity)), event)
+
+    def place_stop(self, symbol: Any, quantity: float, stop_price: float) -> int:
+        """Submit a stop-market order (the plan's protective stop); returns its order id.
+
+        Three positional arguments only: the pinned LEAN image cannot bind
+        ``StopMarketOrder(Symbol, float, float, str)`` when a tag string is passed
+        positionally (verified in-container, story 12), so orders carry no tag and the
+        plan's log lines identify them instead.
+        """
+        return int(self._algorithm.stop_market_order(symbol, quantity, stop_price).order_id)
+
+    def place_limit(self, symbol: Any, quantity: float, limit_price: float) -> int:
+        """Submit a limit order (one take-profit level); returns its order id. No tag, see
+        `place_stop`."""
+        return int(self._algorithm.limit_order(symbol, quantity, limit_price).order_id)
+
+    def update_stop_price(self, order_id: int, stop_price: float) -> None:
+        """Move a working stop order to `stop_price` (LEAN `OrderTicket.update_stop_price`)."""
+        self._ticket(order_id).update_stop_price(stop_price)
+
+    def update_quantity(self, order_id: int, quantity: float) -> None:
+        """Resize a working order (LEAN `OrderTicket.update_quantity`)."""
+        self._ticket(order_id).update_quantity(quantity)
+
+    def cancel(self, order_ids: Iterable[int]) -> None:
+        """Cancel each working order by id (LEAN `OrderTicket.cancel`)."""
+        for order_id in order_ids:
+            self._ticket(order_id).cancel()
+
+    def open_orders(self, symbol: Any) -> tuple[OpenOrder, ...]:
+        """The working orders for `symbol` (LEAN `Transactions.get_open_orders`)."""
+        return tuple(
+            OpenOrder(order_id=int(order.id), quantity=float(order.quantity))
+            for order in self._algorithm.transactions.get_open_orders(symbol)
+        )
+
+    def _ticket(self, order_id: int) -> Any:
+        """The LEAN order ticket for `order_id` (fail fast if LEAN has none)."""
+        ticket = self._algorithm.transactions.get_order_ticket(order_id)
+        if ticket is None:
+            raise ValueError(
+                f"OrderExecutor: no order ticket for order id {order_id}; the plan's working "
+                "orders and LEAN's transaction ledger disagree"
+            )
+        return ticket
 
     def close(self, symbol: Any) -> FillRecord:
         """Liquidate the open position in ``symbol`` (an exit, not one of the

@@ -11,10 +11,11 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
 
   Rule: Inputs are validated before any container starts
 
-    Scenario: a size outside (0, 1] is rejected
-      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=2 --param cash=10000"
+    Scenario: a size param is rejected — F6's trade plan sizes the position (story 12)
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param cash=10000"
       Then the run command exits with code 2
-      And the error says size must be in range
+      And the error says params must be exactly
+      And the error names "size"
 
     Scenario: a model trained for baseline is rejected for hybrid before any container starts
       When I run hybrid with the bundled baseline model as --model
@@ -22,7 +23,7 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
       And the error names the model's families and the strategy's declared families
 
     Scenario: an unknown param is rejected
-      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param size=0.5 --param cash=10000 --param bogus=1"
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-08 --param cash=10000 --param bogus=1"
       Then the run command exits with code 2
       And the error says params must be exactly
 
@@ -33,14 +34,14 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
 
     Scenario: a window without built GDELT event features is rejected before any container starts
       Given materialized EUR/USD minute data with a price swing in 2014-05
-      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param size=0.5 --param cash=10000"
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param cash=10000"
       Then the run command exits with code 2
       And the error names the missing 2014-05 GDELT event-feature partition and how to build it
 
     Scenario: features built only through the run's last day are rejected naming the final decision minute
       Given materialized EUR/USD minute data with a price swing in 2014-05
       And raw GDELT events at goldstein 0.0 for every day from 2014-05-06 to 2014-05-10, built into features only from 2014-05-07 through 2014-05-09
-      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param size=0.5 --param cash=10000"
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param cash=10000"
       Then the run command exits with code 2
       And the error names decision minute "2014-05-10T00:00:00+00:00" and the command building through "2014-05-10"
 
@@ -48,7 +49,7 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
       Given materialized EUR/USD minute data with a price swing in 2014-05
       And raw GDELT events at goldstein 0.0 for every day from 2014-05-06 to 2014-05-10, built into features only from 2014-05-07 through 2014-05-07
       And GDELT features are also built from 2014-05-09 through 2014-05-10
-      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param size=0.5 --param cash=10000"
+      When I run "algo-backtest run --strategy hybrid --symbol EURUSD --from 2014-05-07 --to 2014-05-09 --param cash=10000"
       Then the run command exits with code 2
       And the error names 1440 uncovered decision minutes starting "2014-05-08T00:00:00+00:00"
       And after the remediation command printed for a 2014-05-07 to 2014-05-09 run has been run, the run has no news coverage problems
@@ -66,7 +67,7 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
       Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-05-05 to 2014-05-09
       And raw GDELT events at goldstein 0.0 for every day from 2014-05-04 to 2014-05-10, built into features by the remediation command for a 2014-05-05 to 2014-05-09 run
       And a hybrid F7 model trained on it: train through 2014-05-06, validate on 2014-05-07, test 2014-05-08 to 2014-05-09
-      When I run hybrid over the 2014-05-08 to 2014-05-09 test span with size 0.5, cash 10000 and that model
+      When I run hybrid over the 2014-05-08 to 2014-05-09 test span with cash 10000 and that model
       Then the strategy run exits successfully
       And the container log shows the algorithm loaded the fixture model
       And a metrics summary is reported
@@ -80,7 +81,7 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
     Scenario: an active high-risk event vetoes every bar
       Given materialized EUR/USD minute data with a price swing in 2014-05
       And raw GDELT events at goldstein -10.0 for every day from 2014-05-06 to 2014-05-10, built into features by the remediation command for a 2014-05-07 to 2014-05-09 run
-      When I run hybrid over 2014-05-07 to 2014-05-09 with size 0.5 and cash 10000
+      When I run hybrid over 2014-05-07 to 2014-05-09 with cash 10000
       Then the strategy run exits successfully
       And no trade was ever opened
       And every decisions.parquet row is a NO_TRADE vetoed by f4_news_context
@@ -89,6 +90,6 @@ Feature: Run the F1-F7 hybrid chain (with F4/news) via the run CLI (wiring smoke
     Scenario: a run ending on a trading-day month end decides its final bar from the next month's partition
       Given materialized EUR/USD minute data with a four-hour sine cycle over 2014-04-28 to 2014-04-30
       And raw GDELT events at goldstein 0.0 for every day from 2014-04-27 to 2014-05-01, built into features by the remediation command for a 2014-04-29 to 2014-04-30 run
-      When I run hybrid over 2014-04-29 to 2014-04-30 with size 0.5 and cash 10000
+      When I run hybrid over 2014-04-29 to 2014-04-30 with cash 10000
       Then the strategy run exits successfully
       And decisions.parquet has a row at "2014-05-01T00:00:00+00:00"

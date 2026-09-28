@@ -49,12 +49,16 @@ def _unknown_key(pf_ctx: _PfCtx, key: str) -> None:
 @given(
     parsers.parse(
         "a price_features section with ema_higher_tf {htf:d}, rsi_period {rsi:d}, "
-        "macd_slow {slow:d}, macd_signal {signal:d}"
+        "macd_slow {slow:d}, macd_signal {signal:d}, atr_period {atr:d}, "
+        "swing_lookback_bars {swing:d}"
     )
 )
-def _warmup_inputs(pf_ctx: _PfCtx, htf: int, rsi: int, slow: int, signal: int) -> None:
+def _warmup_inputs(
+    pf_ctx: _PfCtx, htf: int, rsi: int, slow: int, signal: int, atr: int, swing: int
+) -> None:
     pf_ctx.section = {
         "ema_higher_tf": htf, "rsi_period": rsi, "macd_slow": slow, "macd_signal": signal,
+        "atr_period": atr, "swing_lookback_bars": swing,
     }
 
 
@@ -74,15 +78,16 @@ def _parse_fails(pf_ctx: _PfCtx, strategy: str) -> None:
     parsers.parse(
         "the parsed price features are ema_fast {fast:d}, ema_slow {slow:d}, "
         "ema_higher_tf {htf:d}, rsi_period {rsi:d}, macd_fast {mf:d}, macd_slow {ms:d}, "
-        "macd_signal {sig:d}"
+        "macd_signal {sig:d}, atr_period {atr:d}, swing_lookback_bars {swing:d}"
     )
 )
 def _all_values(
-    pf_ctx: _PfCtx, fast: int, slow: int, htf: int, rsi: int, mf: int, ms: int, sig: int
+    pf_ctx: _PfCtx,
+    fast: int, slow: int, htf: int, rsi: int, mf: int, ms: int, sig: int, atr: int, swing: int,
 ) -> None:
     assert pf_ctx.parsed == PriceFeatureConfig(
         ema_fast=fast, ema_slow=slow, ema_higher_tf=htf, rsi_period=rsi,
-        macd_fast=mf, macd_slow=ms, macd_signal=sig,
+        macd_fast=mf, macd_slow=ms, macd_signal=sig, atr_period=atr, swing_lookback_bars=swing,
     )
 
 

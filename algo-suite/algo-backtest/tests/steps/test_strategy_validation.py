@@ -29,6 +29,12 @@ def _given(vctx: dict[str, Any], strategy: str, params: str) -> None:
     vctx["params"] = dict(token.split("=", 1) for token in params.split())
 
 
+@given(parsers.parse('strategy "{strategy}" with no params'))
+def _given_no_params(vctx: dict[str, Any], strategy: str) -> None:
+    vctx["strategy"] = strategy
+    vctx["params"] = {}
+
+
 @when("I validate the run inputs")
 def _validate(vctx: dict[str, Any]) -> None:
     validate_run_inputs(vctx["strategy"], vctx["params"], _START, _END)
@@ -124,19 +130,77 @@ def _covers(vctx: dict[str, Any], first: str, last: str, covered: str) -> None:
     parsers.parse("a baseline-family model file whose provenance price_features is {provenance}")
 )
 def _model_with_provenance(vctx: dict[str, Any], tmp_path: Path, provenance: str) -> None:
-    """A minimal F7 model document: families + provenance are all validation reads."""
-    strategy_config: dict[str, Any] = {}
-    if provenance != "absent":
-        strategy_config["price_features"] = yaml.safe_load(provenance)
+    """A minimal F7 model document: families + provenance are all validation reads.
+
+    `absent` leaves `price_features` out of the recorded strategy config; `scalar` records a
+    non-mapping strategy config (a pre-schema model), which must count as the defaults.
+    """
+    strategy_config: dict[str, Any] | str = {}
+    if provenance == "scalar":
+        strategy_config = "legacy"
+    elif provenance != "absent":
+        strategy_config = {"price_features": yaml.safe_load(provenance)}
+    _write_model(vctx, tmp_path, strategy_config=strategy_config)
+
+
+def _write_model(
+    vctx: dict[str, Any],
+    tmp_path: Path,
+    *,
+    strategy_config: dict[str, Any] | str | None = None,
+    families: list[str] | None = None,
+    horizon: int = 15,
+) -> None:
+    """Write a minimal F7 model document and point the scenario's run at it."""
     document = {
         "format": "algo-backtest/f7-meta-learner", "format_version": 1,
-        "families": ["trend", "indicator", "pattern"], "family_models": {}, "combiner": {},
-        "provenance": {"strategy_config": strategy_config, "horizon_minutes": 15},
+        "families": families if families is not None else ["trend", "indicator", "pattern"],
+        "family_models": {}, "combiner": {},
+        "provenance": {
+            "strategy_config": strategy_config if strategy_config is not None else {},
+            "horizon_minutes": horizon,
+        },
     }
     vctx["model"] = tmp_path / "model.json"
     vctx["model"].write_text(json.dumps(document))
     vctx["strategy"] = "baseline"
-    vctx["params"] = {"size": "0.5", "cash": "10000"}
+    vctx["params"] = {"cash": "10000"}
+
+
+@given(
+    parsers.parse(
+        "a baseline-family model file whose provenance strategy_config is {strategy_config} "
+        "and horizon_minutes is {horizon:d}"
+    )
+)
+def _model_with_horizon(
+    vctx: dict[str, Any], tmp_path: Path, strategy_config: str, horizon: int
+) -> None:
+    """A model whose provenance carries any YAML `strategy_config` (a mapping, null or a
+    scalar for a legacy document) and the given label horizon."""
+    _write_model(vctx, tmp_path, strategy_config=yaml.safe_load(strategy_config), horizon=horizon)
+
+
+@given(
+    parsers.parse("a baseline-family model file trained with a {horizon:d}-minute label horizon")
+)
+def _model_with_horizon(vctx: dict[str, Any], tmp_path: Path, horizon: int) -> None:
+    """A model whose provenance records the given label horizon, default periods otherwise."""
+    _write_model(vctx, tmp_path, horizon=horizon)
+
+
+@given(parsers.parse('a baseline-family model file whose families are "{families}"'))
+def _model_with_families(vctx: dict[str, Any], tmp_path: Path, families: str) -> None:
+    """A model fitted on a different family set than the strategy declares."""
+    _write_model(vctx, tmp_path, families=[f.strip() for f in families.split(",")])
+
+
+@given("a baseline-family model path that does not exist")
+def _missing_model(vctx: dict[str, Any], tmp_path: Path) -> None:
+    """A `--model` override pointing at nothing."""
+    vctx["model"] = tmp_path / "missing-model.json"
+    vctx["strategy"] = "baseline"
+    vctx["params"] = {"cash": "10000"}
 
 
 @when(parsers.parse('I validate the run inputs for strategy "{strategy}" with that model passes'))
@@ -210,3 +274,9 @@ def _validate_external(vctx: dict[str, Any], name: str, params: str) -> None:
 @then(parsers.parse('the resolution failure names "{fragment}"'))
 def _resolution_failure(vctx: dict[str, Any], fragment: str) -> None:
     assert fragment in vctx["error"], vctx["error"]
+
+
+@then("the resolution failure names the external strategies directory")
+def _resolution_failure_names_root(vctx: dict[str, Any]) -> None:
+    """The remediation lists every directory that was searched, the external one included."""
+    assert str(vctx["strategies_root"]) in vctx["error"], vctx["error"]

@@ -23,6 +23,7 @@ import yaml
 from algo_backtest.chain.audit import DecisionRow
 from algo_backtest.cli import app
 from algo_backtest.materialize import materialize_month
+from algo_backtest.results import find_result_json
 from algo_core.bars import QuoteBar, Timeframe
 from algo_core.instrument import build_instrument
 from algo_core.layout import price_path_for
@@ -81,15 +82,14 @@ def _materialize_swing(bctx: dict[str, Any]) -> None:
 
 
 @when(
-    "I run baseline over the 2014-05-08 to 2014-05-09 test span with size 0.5, cash 10000 "
-    "and that model"
+    "I run baseline over the 2014-05-08 to 2014-05-09 test span with cash 10000 and that model"
 )
 def _run_baseline_chain(bctx: dict[str, Any], require_docker: None) -> None:
     bctx["cli"] = CliRunner().invoke(
         app,
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD",
-            "--from", "2014-05-08", "--to", "2014-05-09", "--param", "size=0.5",
+            "--from", "2014-05-08", "--to", "2014-05-09",
             "--param", "cash=10000",
             "--model", str(bctx["model"]),
         ],
@@ -112,10 +112,29 @@ def _external_variant_dir(
     bctx["strategies_root"] = root
 
 
+@given(
+    parsers.parse(
+        'an external strategies directory with "{name}" extending baseline with these '
+        "{section} overrides:"
+    )
+)
+def _external_variant_overrides(
+    bctx: dict[str, Any], tmp_path: Path, name: str, section: str, datatable: list[list[str]]
+) -> None:
+    """A variant overriding one section's keys (YAML cells: lists, null and numbers)."""
+    header, *rows = datatable
+    assert header == ["key", "value"], header
+    root = tmp_path / "strategies"
+    (root / name).mkdir(parents=True)
+    body = {"extends": "baseline", section: {key: yaml.safe_load(value) for key, value in rows}}
+    (root / name / "config.yaml").write_text(yaml.safe_dump(body))
+    bctx["strategies_root"] = root
+
+
 @when(
     parsers.parse(
         "I run {name} from that directory over the 2014-05-08 to 2014-05-09 test span with "
-        "size 0.5, cash 10000 and that model"
+        "cash 10000 and that model"
     )
 )
 def _run_external_variant(bctx: dict[str, Any], require_docker: None, name: str) -> None:
@@ -124,7 +143,7 @@ def _run_external_variant(bctx: dict[str, Any], require_docker: None, name: str)
         [
             "run", "--strategy", name, "--strategies-dir", str(bctx["strategies_root"]),
             "--symbol", "EURUSD", "--from", "2014-05-08", "--to", "2014-05-09",
-            "--param", "size=0.5", "--param", "cash=10000", "--model", str(bctx["model"]),
+            "--param", "cash=10000", "--model", str(bctx["model"]),
         ],
     )
 
@@ -183,10 +202,9 @@ def _cash_positive(bctx: dict[str, Any]) -> None:
     assert "cash" in out and "positive" in out
 
 
-@then("the error says size must be in range")
-def _size_range(bctx: dict[str, Any]) -> None:
-    out = bctx["cli"].output
-    assert "size" in out and "(0, 1]" in out
+@then(parsers.parse('the error names "{word}"'))
+def _error_names(bctx: dict[str, Any], word: str) -> None:
+    assert word in bctx["cli"].output, bctx["cli"].output
 
 
 @then("the error says params must be exactly")
@@ -265,7 +283,7 @@ def _run_with_hybrid_model(bctx: dict[str, Any]) -> None:
         app,
         [
             "run", "--strategy", "baseline", "--symbol", "EURUSD", "--from", "2014-05-07",
-            "--to", "2014-05-09", "--param", "size=0.5",
+            "--to", "2014-05-09",
             "--param", "cash=10000", "--model", str(model),
         ],
     )
@@ -275,3 +293,172 @@ def _run_with_hybrid_model(bctx: dict[str, Any]) -> None:
 def _families_error(bctx: dict[str, Any]) -> None:
     out = bctx["cli"].output
     assert "was trained on families" in out and "meta_learner.families" in out, out
+
+
+# --- Story 12, item D: the planned trade's stop, targets, trail and spread -----------------
+
+
+def _any_run_dir(bctx: dict[str, Any]) -> Path:
+    """The single run directory of this scenario, whatever strategy name it ran under."""
+    runs = list((bctx["data_root"] / "runs").glob("*/*/"))
+    assert len(runs) == 1, f"expected exactly one run dir, found {runs}"
+    return runs[0]
+
+
+def _plans(run_dir: Path) -> list[dict[str, Any]]:
+    """The run's trade-plans.json records (the story 12 contract)."""
+    return list(json.loads((run_dir / "trade-plans.json").read_text()))
+
+
+def _plans_by_entry(run_dir: Path) -> dict[int, dict[str, Any]]:
+    """trade-plans.json keyed by entry order id, the join key to trades.json's orderIds[0]."""
+    return {int(plan["entry_order_id"]): plan for plan in _plans(run_dir)}
+
+
+def _closed_trades(run_dir: Path) -> list[dict[str, Any]]:
+    """LEAN's flat-to-flat closed trades (trades.json), those with order ids."""
+    trades = json.loads((run_dir / "trades.json").read_text())
+    return [trade for trade in trades if trade.get("orderIds")]
+
+
+def _orders(run_dir: Path) -> dict[int, dict[str, Any]]:
+    """Every order LEAN recorded in the result JSON, by id (camelCase keys)."""
+    orders = json.loads(find_result_json(run_dir).read_text())["orders"]
+    return {int(order_id): order for order_id, order in orders.items()}
+
+
+def _log_lines(run_dir: Path, marker: str) -> list[str]:
+    """The container log lines carrying `marker`."""
+    return [line for line in (run_dir / "log.txt").read_text().splitlines() if marker in line]
+
+
+def _log_field(line: str, key: str) -> float:
+    """The numeric `key=value` field of a pipe-delimited `<TAG>_...|k=v|...` log line."""
+    return float(line.split(f"{key}=", 1)[1].split("|", 1)[0])
+
+
+@then(
+    parsers.parse(
+        "trade-plans.json is written under the run's results directory with at least "
+        "{count:d} plan"
+    )
+)
+def _plans_written(bctx: dict[str, Any], count: int) -> None:
+    run_dir = _any_run_dir(bctx)
+    assert (run_dir / "trade-plans.json").exists(), f"no trade-plans.json in {run_dir}"
+    assert len(_plans(run_dir)) >= count, _plans(run_dir)
+
+
+@then(
+    parsers.parse(
+        "every plan's stop_loss is {pips:g} pips of {pip_size:g} from its entry_price within "
+        "{tolerance:g}"
+    )
+)
+def _plan_stops(bctx: dict[str, Any], pips: float, pip_size: float, tolerance: float) -> None:
+    plans = _plans(_any_run_dir(bctx))
+    assert plans, "no plans to check"
+    for plan in plans:
+        distance = abs(plan["entry_price"] - plan["stop_loss"])
+        assert distance == pytest.approx(pips * pip_size, abs=tolerance), plan
+
+
+@then(
+    parsers.parse(
+        "at least one closed trade exited within {pips:g} pip of {pip_size:g} of its plan's "
+        "stop_loss"
+    )
+)
+def _stop_exit(bctx: dict[str, Any], pips: float, pip_size: float) -> None:
+    run_dir = _any_run_dir(bctx)
+    plans = _plans_by_entry(run_dir)
+    gaps = [
+        abs(float(trade["exitPrice"]) - plans[int(trade["orderIds"][0])]["stop_loss"])
+        for trade in _closed_trades(run_dir)
+        if int(trade["orderIds"][0]) in plans
+    ]
+    assert gaps, "no closed trade joins a plan"
+    assert min(gaps) <= pips * pip_size, f"closest exit to a plan's stop: {min(gaps)} (gaps {gaps})"
+
+
+@then(
+    parsers.parse(
+        "every plan has {count:d} take_profits whose quantities sum to its whole position "
+        "within {tolerance:g} unit"
+    )
+)
+def _plan_targets(bctx: dict[str, Any], count: int, tolerance: float) -> None:
+    plans = _plans(_any_run_dir(bctx))
+    assert plans, "no plans to check"
+    for plan in plans:
+        exits = plan["take_profits"]
+        assert len(exits) == count, plan
+        assert sum(t["quantity"] for t in exits) == pytest.approx(-plan["quantity"], abs=tolerance)
+
+
+@then(
+    parsers.parse(
+        "some closed trade has at least {count:d} order ids and its first exit closes "
+        "{fraction:g} of its plan's quantity within {tolerance:g} unit"
+    )
+)
+def _partial_exit(bctx: dict[str, Any], count: int, fraction: float, tolerance: float) -> None:
+    run_dir = _any_run_dir(bctx)
+    plans, orders = _plans_by_entry(run_dir), _orders(run_dir)
+    matches = []
+    for trade in _closed_trades(run_dir):
+        ids = [int(i) for i in trade["orderIds"]]
+        if len(ids) < count or ids[0] not in plans:
+            continue
+        first_exit = abs(float(orders[ids[1]]["quantity"]))
+        matches.append((ids, first_exit, fraction * abs(plans[ids[0]]["quantity"])))
+    assert matches, "no closed trade with a partial exit joins a plan"
+    assert any(got == pytest.approx(want, abs=tolerance) for _ids, got, want in matches), matches
+
+
+@then(parsers.parse('the container log has a "{marker}" line'))
+def _log_has(bctx: dict[str, Any], marker: str) -> None:
+    run_dir = _any_run_dir(bctx)
+    assert _log_lines(run_dir, marker), f"no {marker!r} line in {run_dir / 'log.txt'}"
+
+
+@then(
+    parsers.parse(
+        'every "{marker}" line moves the stop closer to its entry than the stop it replaced'
+    )
+)
+def _trail_tightens(bctx: dict[str, Any], marker: str) -> None:
+    lines = _log_lines(_any_run_dir(bctx), marker)
+    assert lines
+    for line in lines:
+        entry, before, after = (_log_field(line, k) for k in ("entry", "from", "to"))
+        assert abs(after - entry) < abs(before - entry), line
+
+
+@then(
+    parsers.parse(
+        "every buy market fill is {pips:g} pip of {pip_size:g} above the fixture bar's ask "
+        "within {tolerance:g}"
+    )
+)
+def _spread_fills(bctx: dict[str, Any], pips: float, pip_size: float, tolerance: float) -> None:
+    """A market order placed at bar end T fills against that bar's ask plus half the spread;
+    the fixture bar is the m1 Parquet row starting at T - 1 minute."""
+    run_dir = _any_run_dir(bctx)
+    bars = {
+        bar.timestamp: bar.ask_close
+        for bar in ParquetRepository(
+            QuoteBar, price_path_for(bctx["data_root"], _EURUSD, Timeframe.M1.value, 2014, 5)
+        ).read_all()
+    }
+    buys = [
+        order for order in _orders(run_dir).values()
+        if order["type"] == 0 and float(order["quantity"]) > 0
+    ]
+    assert buys, "no buy market order filled"
+    for order in buys:
+        filled_at = datetime.fromisoformat(order["time"].replace("Z", "+00:00"))
+        ask = bars[filled_at - timedelta(minutes=1)]
+        assert float(order["price"]) - ask == pytest.approx(pips * pip_size, abs=tolerance), (
+            order["id"], order["price"], ask
+        )

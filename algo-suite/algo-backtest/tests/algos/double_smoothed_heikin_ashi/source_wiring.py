@@ -13,7 +13,21 @@ def verify_source_wiring(bar):
     receiver = SimpleNamespace(_symbol=bar.symbol,
                                ema=lambda *args: indicator,
                                rsi=lambda *args: indicator,
-                               macd=lambda *args: indicator)
+                               macd=lambda *args: indicator,
+                               atr=lambda *args: indicator,
+                               min=lambda *args: indicator,
+                               max=lambda *args: indicator)
+    # The probe isolates DSHA wiring. Supply the Story 12 account/stop collaborators
+    # and Story 13 minute-management hooks without pretending these are fill tests.
+    receiver.securities = {bar.symbol: SimpleNamespace(price=12)}
+    receiver.portfolio = SimpleNamespace(invested=False, total_portfolio_value=100000,
+        total_unrealized_profit=0, total_holdings_value=0, cash=100000, margin_remaining=100000)
+    receiver.time = bar.end_time
+    receiver._pnl = SimpleNamespace(update=lambda *args: (0, 0))
+    receiver._pip_size = lambda: 0.0001
+    receiver._economics = None
+    receiver._closed_signal_bar = lambda quote: True
+    receiver._manage_open = lambda price: None
     ChainAlgorithm._subscribe_indicators(receiver)
     observed = {"ema_selected": receiver._trend_perception is None,
                 "ema_ready": ChainAlgorithm._indicators_ready(receiver)}
@@ -37,11 +51,6 @@ def verify_source_wiring(bar):
     observed["other_indicator_unready"] = ChainAlgorithm._indicators_ready(receiver)
     indicator.is_ready = True
     receiver._ema_htf = SimpleNamespace(is_ready=True, current=SimpleNamespace(value=20))
-    receiver.securities = {bar.symbol: SimpleNamespace(price=12)}
-    receiver.portfolio = SimpleNamespace(invested=False, total_portfolio_value=100000,
-        total_unrealized_profit=0, total_holdings_value=0, cash=100000, margin_remaining=100000)
-    receiver.time = bar.end_time
-    receiver._pnl = SimpleNamespace(update=lambda *args: (0, 0))
     candidate_features = ChainAlgorithm._features(receiver)
     receiver._trend_perception = None
     ema_features = ChainAlgorithm._features(receiver)

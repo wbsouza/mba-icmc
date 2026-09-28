@@ -16,12 +16,15 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     walk_forward_split,
 )
 from algo_backtest.chain.filters.f7_model_io import load_model, load_provenance
+from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.training import (
+    atr_series,
     build_training_rows,
     lean_bar_stream,
     load_m1_bars,
     mid,
     save_model,
+    swing_levels,
 )
 from algo_core.bars import QuoteBar
 from algo_core.instrument import build_instrument
@@ -41,6 +44,9 @@ _LIVE_PRICE_KEYS = {
     "rsi",
     "macd_hist",
     "candlestick_pattern",
+    "atr_pips",
+    "swing_low_pips",
+    "swing_high_pips",
 }
 
 
@@ -56,6 +62,9 @@ class _TrainCtx:
     model_path: Path | None = None
     manifest: dict[str, object] = field(default_factory=dict)
     splits: list[WalkForwardSplit] = field(default_factory=list)
+    atr: list[float] = field(default_factory=list)
+    swings: list[tuple[float, float]] = field(default_factory=list)
+    filled_at: datetime | None = None
 
 
 @pytest.fixture
@@ -130,18 +139,18 @@ def _load_fails(train_ctx: _TrainCtx, start: str, end: str) -> None:
 @when(parsers.parse("price-only training rows are built for the window {start} to {end}"))
 def _price_rows(train_ctx: _TrainCtx, start: str, end: str) -> None:
     bars = load_m1_bars(train_ctx.root, _EURUSD, date.fromisoformat(start), date.fromisoformat(end))
-    train_ctx.rows = build_training_rows(bars)
+    train_ctx.rows = build_training_rows(bars, instrument=_EURUSD)
 
 
 @when("news training rows are built")
 def _news_rows(train_ctx: _TrainCtx) -> None:
-    train_ctx.rows = build_training_rows(train_ctx.bars, train_ctx.intensity)
+    train_ctx.rows = build_training_rows(train_ctx.bars, train_ctx.intensity, instrument=_EURUSD)
 
 
 @when("building news training rows fails")
 def _news_rows_fail(train_ctx: _TrainCtx) -> None:
     with pytest.raises(ValueError) as excinfo:
-        build_training_rows(train_ctx.bars, train_ctx.intensity)
+        build_training_rows(train_ctx.bars, train_ctx.intensity, instrument=_EURUSD)
     train_ctx.error = excinfo.value
 
 
@@ -263,7 +272,7 @@ def _shaped_bars(train_ctx: _TrainCtx, count: int, first: str, shape: str) -> No
 
 @when("training rows are built from those bars")
 def _rows_from_bars(train_ctx: _TrainCtx) -> None:
-    train_ctx.rows = build_training_rows(train_ctx.bars)
+    train_ctx.rows = build_training_rows(train_ctx.bars, instrument=_EURUSD)
 
 
 @then(parsers.parse("every row's label is {label:d}"))
@@ -281,7 +290,7 @@ def _label_times(train_ctx: _TrainCtx) -> None:
 def _split(bars: list[QuoteBar]) -> WalkForwardSplit:
     """The fixed three-day walk-forward split these scenarios use."""
     return walk_forward_split(
-        build_training_rows(bars),
+        build_training_rows(bars, instrument=_EURUSD),
         train_end=date(2015, 2, 23),
         validation_end=date(2015, 2, 24),
         test_end=date(2015, 2, 25),
@@ -334,12 +343,21 @@ def _validation_label_times(train_ctx: _TrainCtx, limit: str) -> None:
     )
 
 
+def _ranged_quote(ts: datetime, close: float) -> QuoteBar:
+    """A quote bar closing at `close` with a 2-pip range around it (1-pip spread)."""
+    return QuoteBar(
+        timestamp=ts, bid_open=close, bid_high=close + 1e-4, bid_low=close - 1e-4, bid_close=close,
+        ask_open=close + 1e-4, ask_high=close + 2e-4, ask_low=close, ask_close=close + 1e-4,
+        tick_count=1,
+    )
+
+
 @given(parsers.parse('EUR/USD m1 bars from "{first}" to "{last}" without "{gap}"'))
 def _bars_with_gap(train_ctx: _TrainCtx, first: str, last: str, gap: str) -> None:
     start, stop = datetime.fromisoformat(first), datetime.fromisoformat(last)
     minutes = int((stop - start).total_seconds() // 60) + 1
     train_ctx.bars = [
-        _quote(start + timedelta(minutes=i), 1.1000 + 0.0001 * i)
+        _ranged_quote(start + timedelta(minutes=i), 1.1000 + 0.0001 * i)
         for i in range(minutes)
         if start + timedelta(minutes=i) != datetime.fromisoformat(gap)
     ]
@@ -365,3 +383,119 @@ def _filled(train_ctx: _TrainCtx, ts: str) -> None:
     previous, filled = stream[at - timedelta(minutes=1)], stream[at]
     assert (filled.bid_close, filled.ask_close) == (previous.bid_close, previous.ask_close)
     assert filled.tick_count == 0
+    train_ctx.filled_at = at
+
+
+@then(
+    "that filled-forward bar carries the previous bar's high and low, not a flat bar at its "
+    "close"
+)
+def _filled_keeps_range(train_ctx: _TrainCtx) -> None:
+    at = train_ctx.filled_at
+    assert at is not None
+    stream = {bar.timestamp: bar for bar in train_ctx.bars}
+    previous, filled = stream[at - timedelta(minutes=1)], stream[at]
+    assert previous.bid_high != previous.bid_close, "the fixture must have a real range"
+    assert (filled.bid_high, filled.bid_low, filled.ask_high, filled.ask_low) == (
+        previous.bid_high, previous.bid_low, previous.ask_high, previous.ask_low
+    )
+    assert (filled.bid_open, filled.ask_open) == (previous.bid_open, previous.ask_open)
+
+
+_MINIMAL_PERIODS = {
+    "ema_fast": 1, "ema_slow": 2, "ema_higher_tf": 3, "rsi_period": 1,
+    "macd_fast": 1, "macd_slow": 2, "macd_signal": 1,
+}
+
+
+@given("the mid-price bars", target_fixture="train_ctx")
+def _mid_bars(train_ctx: _TrainCtx, datatable: list[list[str]]) -> _TrainCtx:
+    """Minute bars from a high/low/close table; bid = ask so each mid is the table value."""
+    headers, *rows = datatable
+    start = datetime(2015, 2, 27, tzinfo=UTC)
+    train_ctx.bars = []
+    for i, cells in enumerate(rows):
+        bar = dict(zip(headers, (float(cell) for cell in cells), strict=True))
+        train_ctx.bars.append(
+            QuoteBar(
+                timestamp=start + timedelta(minutes=i),
+                bid_open=bar["close"], bid_high=bar["high"], bid_low=bar["low"],
+                bid_close=bar["close"],
+                ask_open=bar["close"], ask_high=bar["high"], ask_low=bar["low"],
+                ask_close=bar["close"],
+                tick_count=1,
+            )
+        )
+    return train_ctx
+
+
+@when(parsers.parse("the ATR series is computed with period {period:d}"))
+def _atr(train_ctx: _TrainCtx, period: int) -> None:
+    train_ctx.atr = atr_series(train_ctx.bars, period)
+
+
+@when(parsers.parse("the swing levels are computed with a look-back of {lookback:d} bars"))
+def _swings(train_ctx: _TrainCtx, lookback: int) -> None:
+    train_ctx.swings = swing_levels(train_ctx.bars, lookback)
+
+
+@when(
+    parsers.parse(
+        'training rows are built for instrument "{symbol}" with every period minimal, '
+        "atr_period {atr_period:d}, swing_lookback_bars {lookback:d} and a 1-bar horizon"
+    )
+)
+def _atr_rows(train_ctx: _TrainCtx, symbol: str, atr_period: int, lookback: int) -> None:
+    train_ctx.rows = build_training_rows(
+        train_ctx.bars,
+        instrument=build_instrument(symbol),
+        price_features_config=PriceFeatureConfig(
+            **_MINIMAL_PERIODS, atr_period=atr_period, swing_lookback_bars=lookback
+        ),
+        horizon_minutes=1,
+    )
+
+
+@then(
+    parsers.parse(
+        "the swing low at bar {bar:d} is {low:g} and the swing high is {high:g}"
+    )
+)
+def _swing_at(train_ctx: _TrainCtx, bar: int, low: float, high: float) -> None:
+    assert train_ctx.swings[bar - 1] == (low, high), train_ctx.swings
+
+
+@then(
+    parsers.parse(
+        "the row for bar {bar:d} has swing_low_pips {low:g} and swing_high_pips {high:g} "
+        "to {digits:d} decimal places"
+    )
+)
+def _row_swings(train_ctx: _TrainCtx, bar: int, low: float, high: float, digits: int) -> None:
+    row = next(r for r in train_ctx.rows if r.timestamp == train_ctx.bars[bar - 1].timestamp)
+    got = [row.features["swing_low_pips"], row.features["swing_high_pips"]]
+    assert all(isinstance(value, float) for value in got), row.features
+    rounded = [round(float(value), digits) for value in got if isinstance(value, float)]
+    assert rounded == [round(low, digits), round(high, digits)], row.features
+
+
+@then(parsers.parse("the ATR at bar {bar:d} is {atr:g} to {digits:d} decimal places"))
+def _atr_at(train_ctx: _TrainCtx, bar: int, atr: float, digits: int) -> None:
+    assert round(train_ctx.atr[bar - 1], digits) == round(atr, digits), train_ctx.atr
+
+
+@then(
+    parsers.parse(
+        "the row for bar {bar:d} has atr_pips {atr_pips:g} to {digits:d} decimal places"
+    )
+)
+def _row_atr_pips(train_ctx: _TrainCtx, bar: int, atr_pips: float, digits: int) -> None:
+    row = next(r for r in train_ctx.rows if r.timestamp == train_ctx.bars[bar - 1].timestamp)
+    value = row.features["atr_pips"]
+    assert isinstance(value, float)
+    assert round(value, digits) == round(atr_pips, digits), row.features
+
+
+@then(parsers.parse("the first row is for bar {bar:d}"))
+def _first_row_bar(train_ctx: _TrainCtx, bar: int) -> None:
+    assert train_ctx.rows[0].timestamp == train_ctx.bars[bar - 1].timestamp

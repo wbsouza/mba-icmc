@@ -71,12 +71,137 @@ Feature: F7 training data assembled over a multi-month window, on the live featu
       And every validation row's label time is no later than 2015-02-25T00:00:00+00:00
 
   Rule: Training sees exactly the bar stream LEAN delivers
+    LEAN fills a missing open minute with a clone of the previous bar (`BaseData.Clone(
+    fillForward)`): its open/high/low/close all carry over, only the volume is zeroed. A
+    bar flattened to the previous close would give the ATR a zero true range instead.
 
     Scenario: Bars in the daily market break are dropped and missing open minutes are filled forward
       Given EUR/USD m1 bars from "2015-02-25T21:50:00+00:00" to "2015-02-25T22:10:00+00:00" without "2015-02-25T21:52:00+00:00"
       When the LEAN bar stream is built from those bars
       Then no streamed bar starts between "2015-02-25T21:58:00+00:00" and "2015-02-25T22:02:00+00:00"
       And the bar starting "2015-02-25T21:52:00+00:00" is filled forward from the one before it
+      And that filled-forward bar carries the previous bar's high and low, not a flat bar at its close
+
+  Rule: The ATR is Wilder's, exactly as LEAN's AverageTrueRange(period, WILDERS) computes it
+    True range = max(high - low, |high - previous close|, |low - previous close|), the
+    first bar's being just high - low; the first ATR (ready after `period` bars) is the
+    simple mean of the first `period` true ranges, then ATR = (TR + (period - 1) x
+    previous ATR) / period. High/low/close are bid/ask midpoints, like `mid()`. Rows carry
+    it as `atr_pips` = ATR / the instrument's pip (its `unit_size`: 0.0001 for a 5-digit
+    pair, 0.01 for a JPY pair) — the instrument is a required input, never a literal.
+
+    Scenario Outline: The period-2 ATR of a hand-computed bar table, bar by bar (bar <bar>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When the ATR series is computed with period 2
+      Then the ATR at bar <bar> is <atr> to 9 decimal places
+
+      Examples:
+        | bar | atr     | why                                                     |
+        | 1   | 0.00100 | first true range is high - low alone                    |
+        | 2   | 0.00125 | mean of true ranges 10 and 15 pips (gap up to 1.1020)   |
+        | 3   | 0.001375 | Wilder: (15 + 12.5) / 2                                |
+        | 4   | 0.0021375 | Wilder: (29 + 13.75) / 2, the bar's own range rules   |
+        | 5   | 0.00156875 | Wilder: (10 + 21.375) / 2                            |
+
+    Scenario Outline: Training rows carry the ATR in pips of the pair (<case>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When training rows are built for instrument "<instrument>" with every period minimal, atr_period 2, swing_lookback_bars 2 and a 1-bar horizon
+      Then there are 2 rows
+      And the row for bar <bar> has atr_pips <atr_pips> to 9 decimal places
+
+      Examples:
+        | case                     | instrument | bar | atr_pips |
+        | 5-digit pair, first row  | EURUSD     | 3   | 13.75    |
+        | 5-digit pair, second row | EURUSD     | 4   | 21.375   |
+        | 3-digit (JPY) pair       | USDJPY     | 3   | 0.1375   |
+
+    Scenario Outline: The ATR warm-up excludes the bars before LEAN's ATR is ready (atr_period <atr_period>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When training rows are built for instrument "EURUSD" with every period minimal, atr_period <atr_period>, swing_lookback_bars 2 and a 1-bar horizon
+      Then there are <rows> rows
+      And the first row is for bar <first>
+
+      Examples:
+        | atr_period | first | rows |
+        | 3          | 3     | 2    |
+        | 4          | 4     | 1    |
+
+  Rule: The swing levels are the lowest mid low and highest mid high of the last swing_lookback_bars closed bars
+    `swing_low_pips` is the distance from the bar's mid close down to that low,
+    `swing_high_pips` up to that high, both in the instrument's pips and >= 0 (the
+    closing bar is inside its own range). Live, LEAN's Minimum(Field.LOW) and
+    Maximum(Field.HIGH) over the same period give the same levels.
+
+    Scenario Outline: The look-back-2 swing levels of a hand-computed bar table, bar by bar (bar <bar>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When the swing levels are computed with a look-back of 2 bars
+      Then the swing low at bar <bar> is <low> and the swing high is <high>
+
+      Examples:
+        | bar | low    | high   | why                                        |
+        | 1   | 1.1000 | 1.1010 | only its own range so far                  |
+        | 2   | 1.1000 | 1.1020 | bar 1's low still inside the window        |
+        | 3   | 1.1008 | 1.1030 | bar 1 has left the window                  |
+        | 4   | 1.1000 | 1.1030 | its own low, bar 3's high                  |
+        | 5   | 1.1000 | 1.1029 | bar 4's low and high                       |
+
+    Scenario Outline: Training rows carry both swing distances in pips (<instrument>, bar <bar>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When training rows are built for instrument "<instrument>" with every period minimal, atr_period 2, swing_lookback_bars 2 and a 1-bar horizon
+      Then the row for bar <bar> has swing_low_pips <low> and swing_high_pips <high> to 9 decimal places
+
+      Examples:
+        | instrument | bar | low  | high |
+        | EURUSD     | 3   | 20   | 2    |
+        | EURUSD     | 4   | 10   | 20   |
+        | USDJPY     | 4   | 0.10 | 0.20 |
+
+    Scenario Outline: The swing warm-up excludes the bars before the look-back window is full (look-back <lookback>)
+      Given the mid-price bars
+        | high   | low    | close  |
+        | 1.1010 | 1.1000 | 1.1005 |
+        | 1.1020 | 1.1008 | 1.1015 |
+        | 1.1030 | 1.1025 | 1.1028 |
+        | 1.1029 | 1.1000 | 1.1010 |
+        | 1.1015 | 1.1005 | 1.1010 |
+      When training rows are built for instrument "EURUSD" with every period minimal, atr_period 2, swing_lookback_bars <lookback> and a 1-bar horizon
+      Then there are <rows> rows
+      And the first row is for bar <first>
+
+      Examples:
+        | lookback | first | rows |
+        | 3        | 3     | 2    |
+        | 4        | 4     | 1    |
 
   Rule: A saved model carries the provenance that makes it traceable
 

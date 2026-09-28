@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
@@ -15,6 +16,7 @@ from algo_backtest.chain.filters.f7_meta_learner import (
     FeatureFamily,
     TrainingRow,
     WalkForwardSplit,
+    family_vector,
     parse_f7_config,
     train_meta_learner,
     walk_forward_split,
@@ -59,6 +61,9 @@ class _F7Ctx:
     section: dict[str, Any] = field(default_factory=dict)
     parsed_config: F7Config | None = None
     parse_error: Exception | None = None
+    vector: list[float] | None = None
+    vector_error: Exception | None = None
+    train_error: Exception | None = None
 
 
 @pytest.fixture
@@ -231,6 +236,38 @@ def _inverted_train_validation_split(f7_ctx: _F7Ctx) -> None:
     f7_ctx.split = WalkForwardSplit(
         train=tuple(train_rows), validation=tuple(validation_rows), test=tuple(test_rows)
     )
+
+
+@given(parsers.parse("a walk-forward split whose validation labels are {labels}"))
+def _split_with_validation_labels(f7_ctx: _F7Ctx, labels: str) -> None:
+    """A mixed-label train span, then one validation row per listed label (alternating
+    trend_direction so the features themselves are never degenerate)."""
+    train_rows = [_trend_row(d, 1.0, 1) for d in range(1, 6)] + [
+        _trend_row(d, -1.0, 0) for d in range(6, 11)
+    ]
+    validation_rows = [
+        _trend_row(11 + i, 1.0 if i % 2 == 0 else -1.0, int(label))
+        for i, label in enumerate(yaml.safe_load(labels))
+    ]
+    f7_ctx.split = WalkForwardSplit(
+        train=tuple(train_rows), validation=tuple(validation_rows),
+        test=(_trend_row(20, 1.0, 1),),
+    )
+
+
+@when(parsers.parse("training the meta-learner on the families {families} fails"))
+def _train_fails(f7_ctx: _F7Ctx, families: str) -> None:
+    assert f7_ctx.split is not None
+    chosen = [FeatureFamily(name) for name in yaml.safe_load(families)]
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        train_meta_learner(chosen, f7_ctx.split)
+    f7_ctx.train_error = exc_info.value
+
+
+@then(parsers.parse('the training failure names "{fragment}"'))
+def _train_failure(f7_ctx: _F7Ctx, fragment: str) -> None:
+    assert f7_ctx.train_error is not None
+    assert fragment in str(f7_ctx.train_error)
 
 
 @when("the meta-learner is trained on the trend family alone")
@@ -433,3 +470,36 @@ def _parsed_gate(f7_ctx: _F7Ctx, gate: str) -> None:
 def _parse_failure_names(f7_ctx: _F7Ctx, fragment: str) -> None:
     assert f7_ctx.parse_error is not None
     assert fragment in str(f7_ctx.parse_error)
+
+
+# --- family_vector ------------------------------------------------------------------------
+
+
+@when(parsers.parse('the "{family}" family vector is extracted from features {features}'))
+def _extract_vector(f7_ctx: _F7Ctx, family: str, features: str) -> None:
+    f7_ctx.vector = family_vector(FeatureFamily(family), yaml.safe_load(features))
+
+
+@when(
+    parsers.parse('extracting the "{family}" family vector from features {features} fails')
+)
+def _extract_vector_fails(f7_ctx: _F7Ctx, family: str, features: str) -> None:
+    with pytest.raises(ValueError) as exc_info:  # noqa: PT011 - message asserted in Then
+        family_vector(FeatureFamily(family), yaml.safe_load(features))
+    f7_ctx.vector_error = exc_info.value
+
+
+@then(parsers.parse("the family vector is {vector}"))
+def _vector_is(f7_ctx: _F7Ctx, vector: str) -> None:
+    """Element-wise equality where `nan` (YAML text) means a NaN reading."""
+    expected = [float(cell) for cell in yaml.safe_load(vector)]
+    assert f7_ctx.vector is not None
+    assert len(f7_ctx.vector) == len(expected)
+    for got, want in zip(f7_ctx.vector, expected, strict=True):
+        assert (math.isnan(got) and math.isnan(want)) or got == want, (got, want)
+
+
+@then(parsers.parse('the family vector failure names "{fragment}"'))
+def _vector_failure(f7_ctx: _F7Ctx, fragment: str) -> None:
+    assert f7_ctx.vector_error is not None
+    assert fragment in str(f7_ctx.vector_error)

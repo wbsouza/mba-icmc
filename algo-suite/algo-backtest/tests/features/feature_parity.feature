@@ -1,10 +1,13 @@
 @integration
 Feature: Training features equal the live algorithm's features, numerically
   scripts/train_*_meta_learner.py computes F1/F2 features in plain Python
-  (algo_backtest.training) while the live algorithm reads LEAN's own EMA/RSI/MACD
-  (engine/chain_algorithm.py). Both go through chain.wiring.price_features, but that
-  only shares the formula — this proves the inputs agree too, bar by bar, from the
-  first bar the live algorithm decides on.
+  (algo_backtest.training) while the live algorithm reads LEAN's own EMA/RSI/MACD/ATR
+  and Minimum/Maximum (engine/chain_algorithm.py). Both go through
+  chain.wiring.price_features, but that only shares the formula — this proves the inputs
+  agree too, bar by bar, from the first bar the live algorithm decides on. The probe logs
+  every price key the rows carry: trend_direction, trend_strength,
+  higher_tf_trend_direction, rsi, macd_hist, atr_pips, swing_low_pips and swing_high_pips
+  (story 12; pips from LEAN's minimum price variation x 10 = Instrument.unit_size).
 
   LEAN only delivers bars while the exchange is open (e.g. never in the daily
   16:58-17:03 New York break) and fills a missing open minute forward from the

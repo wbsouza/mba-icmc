@@ -22,6 +22,50 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then feature "trend_direction" is 0
       And feature "trend_strength" is 0
 
+    Scenario Outline: The ATR reading is carried under atr_pips exactly as given (<case>)
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000 with atr_pips <atr_pips>
+      Then feature "atr_pips" is <atr_pips>
+      And feature "trend_direction" is 0
+
+      Examples:
+        | case          | atr_pips |
+        | quiet market  | 3.25     |
+        | volatile bar  | 42       |
+
+    Scenario: Without an ATR reading the features carry no atr_pips key rather than an invented one
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000
+      Then the features carry none of "atr_pips, swing_low_pips, swing_high_pips"
+
+    Scenario Outline: The swing distances are carried under swing_low_pips / swing_high_pips exactly as given (<case>)
+      When price features are built for price 1.1000, fast EMA 1.1000, slow EMA 1.1000, HTF EMA 1.1000 with swing_low_pips <low> and swing_high_pips <high>
+      Then feature "swing_low_pips" is <low>
+      And feature "swing_high_pips" is <high>
+      And the features carry none of "atr_pips"
+
+      Examples:
+        | case               | low  | high |
+        | price near the low | 2.5  | 38   |
+        | price at the high  | 40   | 0    |
+
+  Rule: The pip is the instrument's price-movement unit, never a literal
+    Live, LEAN's symbol properties give the minimum price variation (the 5-digit
+    "pipette"); the pip is ten of those by the FX quoting convention. Offline, the
+    Instrument's unit_size is the same pip.
+
+    Scenario Outline: A pip is ten times LEAN's minimum price variation (<pair>)
+      When the pip size is derived from a minimum price variation of <variation>
+      Then the pip size is <pip>
+      And it equals the unit_size of instrument "<pair>"
+
+      Examples:
+        | pair   | variation | pip    |
+        | EURUSD | 0.00001   | 0.0001 |
+        | USDJPY | 0.001     | 0.01   |
+
+    Scenario: A non-positive minimum price variation fails fast
+      When deriving the pip size from a minimum price variation of 0 fails
+      Then building fails naming "minimum price variation"
+
   Rule: Account features follow the F5/F6 contract
 
     Scenario: A net-short portfolio's leverage is its unsigned holdings over equity
@@ -59,23 +103,22 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
 
     Scenario Outline: The F6 sizing inputs come from the capital_mgmt section, not constants (<case>)
       Given a flat account worth 10000
-      When account features are built at price <price> with capital_mgmt stop_loss_pips <stop>, pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
-      Then feature "stop_loss_pips" is <stop>
-      And feature "pip_value" is <pip>
+      When account features are built at price <price> with capital_mgmt pip_value_per_lot <pip>, lot_notional_units <lot>, assumed_leverage <lev>
+      Then feature "pip_value" is <pip>
       And feature "margin_per_lot" is <margin>
 
       Examples:
-        | case                 | price | stop | pip | lot    | lev | margin |
-        | standard lot at 30x  | 1.1   | 20   | 10  | 100000 | 30  | 3666.6666667 |
-        | mini lot at 50x      | 1.25  | 15   | 1   | 10000  | 50  | 250    |
-        | unlevered            | 2.0   | 5    | 10  | 100000 | 1   | 200000 |
-        | zero price           | 0     | 20   | 10  | 100000 | 30  | 0      |
+        | case                 | price | pip | lot    | lev | margin |
+        | standard lot at 30x  | 1.1   | 10  | 100000 | 30  | 3666.6666667 |
+        | mini lot at 50x      | 1.25  | 1   | 10000  | 50  | 250    |
+        | unlevered            | 2.0   | 10  | 100000 | 1   | 200000 |
+        | zero price           | 0     | 10  | 100000 | 30  | 0      |
 
     Scenario: A strategy without F6 gets no sizing inputs rather than invented ones
       Given a flat account worth 10000
       When account features are built at price 1.1000 without a capital_mgmt section
       Then feature "account_balance" is 10000
-      And the features carry none of "pip_value, stop_loss_pips, margin_per_lot"
+      And the features carry none of "pip_value, margin_per_lot"
 
   Rule: PnL anchors reset at each new UTC day and ISO week
 
@@ -98,7 +141,7 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then the chain's filters are "f1_trend, f2_indicator, f3_pattern, f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner"
       And the built F7 filter carries the hybrid config's thresholds and regime gate
       And the built F5 filter carries the hybrid config's risk-guard caps
-      And the built F6 filter carries the hybrid config's risk_per_trade
+      And the built F6 filter carries the hybrid config's capital_mgmt section and execution spread
       And the built F4 filter carries the hybrid config's news-context thresholds
 
     Scenario: F4 without a news index fails fast

@@ -76,7 +76,8 @@ def _parse_args() -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--symbol", default="EURUSD")
-    parser.add_argument("--strategy", choices=("baseline", "baseline-dsha"), default="baseline")
+    parser.add_argument("--strategy", default="baseline")
+    parser.add_argument("--strategies-dir", type=Path)
     parser.add_argument(
         "--from",
         dest="start",
@@ -100,8 +101,8 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.start > args.train_end:
         parser.error(f"--from {args.start} is after --train-end {args.train_end}")
-    if args.strategy == "baseline-dsha" and args.out is None:
-        parser.error("--strategy baseline-dsha requires --out for its separately trained model")
+    if (args.strategy != "baseline" or args.strategies_dir) and args.out is None:
+        parser.error(f"--strategy {args.strategy} requires --out for its separately trained model")
     args.out = args.out or _DEFAULT_OUT
     return args
 
@@ -109,14 +110,31 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Read the window's Parquet, build rows, split, train, persist model + manifest."""
     args = _parse_args()
+    config = load_strategy_chain_config(args.strategy, root=args.strategies_dir)
+    if config.f7 is None:
+        raise ValueError(
+            f"strategy {args.strategy!r} does not list f7_meta_learner; enable it before training"
+        )
+    expected = sorted(family.value for family in _FAMILIES)
+    if sorted(config.meta_learner_families) != expected:
+        raise ValueError(
+            f"baseline trainer requires families {expected}, but strategy {args.strategy!r} "
+            f"declares {list(config.meta_learner_families)}; use the matching training script "
+            "or align meta_learner.families"
+        )
+    if "f4_news_context" in config.filters:
+        raise ValueError(
+            f"baseline trainer cannot supply f4_news_context for strategy {args.strategy!r}; "
+            "use the hybrid trainer with the news family or remove the news filter"
+        )
     data_root = layout.data_root()
     instrument = build_instrument(args.symbol)
     bars = load_m1_bars(data_root, instrument, args.start, args.test_end)
-    config = load_strategy_chain_config(args.strategy)
-    assert config.f7 is not None, f"strategy {args.strategy!r} does not list f7_meta_learner"
     rows = build_training_rows(
-        bars, perception=config.perception, price_features_config=config.price_features,
+        bars, instrument=instrument, perception=config.perception,
+        price_features_config=config.price_features,
         horizon_minutes=config.f7.label_horizon_minutes,
+        pattern_config=config.pattern, volume_config=config.volume_strength,
     )
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end

@@ -27,11 +27,11 @@ def _write_spec(cctx: dict[str, Any], spec: dict[str, Any]) -> None:
 
 
 def _run(cells: dict[str, str]) -> dict[str, Any]:
-    """Build one run dict from a Gherkin table row, nesting fast/slow/size."""
+    """Build one run dict from a Gherkin table row, nesting fast/slow/size/cash."""
     run: dict[str, Any] = {}
     params: dict[str, Any] = {}
     for key, value in cells.items():
-        if key in ("fast", "slow"):
+        if key in ("fast", "slow", "cash"):
             params[key] = int(value)
         elif key == "size":
             params[key] = float(value)
@@ -102,10 +102,18 @@ def _runs_over(cctx: dict[str, Any], rid: str, start: str, end: str) -> None:
     assert run.start.isoformat() == start and run.end.isoformat() == end
 
 
-@then(parsers.parse('run "{rid}" has params fast {fast:d}, slow {slow:d} and size {size:g}'))
-def _has_params(cctx: dict[str, Any], rid: str, fast: int, slow: int, size: float) -> None:
+@then(
+    parsers.parse(
+        'run "{rid}" has params fast {fast:d}, slow {slow:d}, size {size:g} and cash {cash:d}'
+    )
+)
+def _has_params(
+    cctx: dict[str, Any], rid: str, fast: int, slow: int, size: float, cash: int
+) -> None:
     run = _by_id(cctx["experiment"], rid)
-    assert run.params == {"fast": str(fast), "slow": str(slow), "size": str(size)}
+    assert run.params == {
+        "fast": str(fast), "slow": str(slow), "size": str(size), "cash": str(cash),
+    }
 
 
 @then("loading fails naming the duplicate run id")

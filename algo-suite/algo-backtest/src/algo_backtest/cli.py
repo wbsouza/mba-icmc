@@ -27,6 +27,10 @@ _STRATEGIES_DIR_OPTION = typer.Option(
     help="Directory of extra strategies/<name>/config.yaml files (a variant there may "
     "`extends:` a bundled strategy); the bundled strategies stay available.",
 )
+_STATEMENT_OUT_OPTION = typer.Option(
+    None, "--out",
+    help="Directory for statement.md + equity.png + equity.csv (default: the run directory).",
+)
 _MODEL_OPTION = typer.Option(
     None,
     "--model",
@@ -173,8 +177,10 @@ def run(
     """Run a single strategy over a window and report success + closed-trade count.
 
     Parameters are strategy-specific, passed as repeated `--param key=value` and validated
-    by the strategy (baseline-ma: fast/slow/size; baseline-meanrev: window/band/size). For
-    multi-strategy comparison use `experiment run`.
+    by the strategy (baseline-ma: fast/slow/size/cash; baseline-meanrev: window/band/size/cash;
+    the config.yaml chain strategies cash only — F6's trade plan sizes each order; every
+    strategy takes cash, the account's starting deposit). For multi-strategy comparison use
+    `experiment run`.
     """
     import json as _json
     from datetime import datetime
@@ -265,6 +271,29 @@ def run(
         f"metrics: total_return={metrics.total_return} sharpe={metrics.sharpe} "
         f"max_drawdown={metrics.max_drawdown} hit_rate={metrics.hit_rate}"
     )
+    # Story 12 item H: every simulation ends with a broker-style statement + equity chart
+    # + equity.csv built from the artifacts just written (regenerable via `statement --run`).
+    _emit_statement(results_dir, None)
+
+
+def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
+    """Write statement.md, equity.png, equity.csv and report.html for `run_dir`; print the
+    A/C summary lines and the four paths."""
+    from algo_backtest.statement import (
+        build_statement,
+        load_run_artifacts,
+        summary_lines,
+        write_statement_files,
+    )
+
+    statement = build_statement(load_run_artifacts(run_dir))
+    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    for line in summary_lines(statement):
+        typer.echo(f"statement: {line}")
+    typer.echo(f"statement: {paths.statement}")
+    typer.echo(f"equity chart: {paths.chart}")
+    typer.echo(f"equity csv: {paths.equity_csv}")
+    typer.echo(f"report: {paths.report}")
 
 
 @app.command(name="explain-strategy")
@@ -318,6 +347,26 @@ def metrics(
         f"metrics: total_return={m.total_return} sharpe={m.sharpe} "
         f"max_drawdown={m.max_drawdown} hit_rate={m.hit_rate}"
     )
+
+
+@app.command()
+def statement(
+    run_dir: str = typer.Option(..., "--run", help="A finished run's results directory."),
+    out: Path | None = _STATEMENT_OUT_OPTION,
+) -> None:
+    """Regenerate the broker-style statement, equity chart and equity CSV for a finished run.
+
+    Reads run.json, trades.json, LEAN's result JSON and its order-events sibling (plus
+    strategy-config.json, strategy-provenance.json and trade-plans.json when present) and
+    writes statement.md + equity.png + equity.csv (the chart's series: time, equity,
+    drawdown_pct — the input of `algo-analyze equity-curves`); prints the A/C summary.
+    Exits 2 when a required artifact is missing or malformed, naming the file.
+    """
+    try:
+        _emit_statement(Path(run_dir), out)
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(2) from exc
 
 
 experiment_app = typer.Typer(

@@ -38,7 +38,7 @@ def rctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     return {"data_root": data_root}
 
 
-_MA_PARAMS = {"fast": "3", "slow": "8", "size": "0.5"}
+_MA_PARAMS = {"fast": "3", "slow": "8", "size": "0.5", "cash": "10000"}
 
 
 def _experiment(n: int) -> Experiment:
@@ -264,7 +264,7 @@ def _meanrev_experiment(rctx: dict[str, Any]) -> None:
     run = Run(
         run_id="mr", strategy="baseline-meanrev", symbol="EURUSD",
         start=_WINDOW[0], end=_WINDOW[1],
-        params={"window": "5", "band": "0.001", "size": "0.5"},
+        params={"window": "5", "band": "0.001", "size": "0.5", "cash": "10000"},
     )
     rctx["experiment"] = Experiment(name="test-experiment", runs=(run,))
 

@@ -96,6 +96,39 @@ trade p-values are exploratory. Missing search records cannot be reconstructed f
 published strategies. Missing equity requires simulation reruns, not fabricated daily
 returns. Existing trade-sequence figures remain descriptive and are not portfolio series.
 
+## Consolidated equity curves
+
+`equity-curves --run DIR [--run DIR ...] [--label strategy=Label ...] --out DIR` overlays
+several finished runs on one time axis, one line per strategy, like a robustness-testing
+chart. Each `--run` is a results directory (`runs/<strategy>/<stamp>/`) holding `run.json`
+and the `equity.csv` that `algo-backtest statement --run <dir>` writes next to
+`equity.png` (`time,equity,drawdown_pct`, one row per LEAN equity sample); a run without
+it fails fast naming that command.
+
+Consecutive windows of the same strategy (e.g. `baseline` run for 2015-09, 2015-10 and
+2015-11 as three one-month backtests, each from a fresh 10,000 deposit) are **chained**
+into one continuous curve: each later window is re-based by
+`previous_window_chained_end / this_window_raw_start`, compounding along the chain, so a
+monthly redeposit does not show as a reset. The un-chained `equity_raw` stays beside the
+`equity_chained` column in `equity-consolidated.csv` (long format: `strategy, run_id,
+time, equity_raw, equity_chained, drawdown_pct`; the drawdown follows the running peak of
+the chained curve), and `equity-consolidated.png` draws the chained line per strategy
+with a starting-deposit reference, dotted window boundaries, a legend and a UTC date
+axis titled with the covered window. `equity-consolidated.html` is a self-contained
+comparison dashboard (inline CSS + SVG, opens from `file://`): a KPI card per strategy
+(start/end equity, chained net %, max drawdown %, trades and win rate pooled from the
+runs' `trades.json`, `n/a` when not recorded), one chart with a colour per strategy and
+month labels, and the table of runs behind each curve. One summary line per strategy
+prints first/last equity, chained net % and max drawdown %.
+
+```sh
+algo-analyze equity-curves \
+  --run data/runs/baseline/20260901T000000-aaaaaaaa \
+  --run data/runs/baseline/20261001T000000-bbbbbbbb \
+  --run data/runs/hybrid/20260901T000000-cccccccc \
+  --label "baseline=Baseline (F1-F7)" --out data/analysis/equity
+```
+
 ## Verification
 
 Run `make check-inference` in this directory for lint, strict types, Gherkin

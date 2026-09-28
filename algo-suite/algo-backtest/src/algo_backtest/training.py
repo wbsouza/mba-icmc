@@ -2,22 +2,24 @@
 
 Keeps train and serve on one feature definition: every row's features come from
 `chain.wiring.price_features` (the same function `engine/chain_algorithm.py` calls live)
-over plain-Python re-implementations of LEAN's EMA/RSI/MACD and config-selected
-DSHA direction features. News lookups are keyed
-on the bar's *decision time* (bar start + one minute), which is what LEAN's `self.time`
-is inside `on_data` — so a feature never sees a later value at train time than it would
-at backtest time.
+over plain-Python re-implementations of LEAN's EMA/RSI/MACD/ATR/Minimum/Maximum and
+config-selected DSHA direction features. EMA-based strategies can use complete,
+UTC-anchored multi-minute bars. News lookups use the closed bar's decision time
+(start + configured duration), matching LEAN rather than looking into its future.
+`MarketSignals` supplies the same optional TA-Lib labels and relative quote activity
+offline and online. Activity is a separate veto, not an additional F7 feature family.
 
 SMOKE-TEST scope, not a methodology result (docs/technical-debt.md TD-51): the label is
-a simple fixed-horizon up/down move, and `candlestick_pattern`/`news_sentiment_score`
-are always missing (no detector; TD-48) — deliberately, in the same shape as live.
+a simple fixed-horizon up/down move over delivered complete bars; market closures
+can extend its elapsed duration. Candlesticks are missing only when disabled, while
+`news_sentiment_score` remains missing (TD-48), in the same shape as live.
 """
 
 from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from importlib import metadata
 from pathlib import Path
 
@@ -28,18 +30,22 @@ from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
 
+from algo_backtest.chain.filters.f3_pattern import PatternConfig
 from algo_backtest.chain.filters.f7_meta_learner import TrainedMetaLearner, TrainingRow
 from algo_backtest.chain.filters.f7_model_io import dump_model
+from algo_backtest.chain.filters.volume_strength import VolumeConfig
+from algo_backtest.chain.market_signals import MarketSignals
 from algo_backtest.chain.price_features import PriceFeatureConfig, warmup_bars
 from algo_backtest.chain.wiring import price_features
 from algo_backtest.market_hours import exchange_time, lean_delivers
 from algo_backtest.months import BAR_DURATION, months_between
+from algo_backtest.perception.bar_clock import aggregate_closed_bars
 from algo_backtest.perception.config import PerceptionConfig
 from algo_backtest.perception.heikin_ashi import OHLC
 from algo_backtest.perception.offline import OfflineMultiTimeframeHeikinAshi
 
 _RSI_NEUTRAL = 50.0
-_MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow")
+_MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow", "TA-Lib")
 
 
 def mid(bar: QuoteBar) -> float:
@@ -47,14 +53,12 @@ def mid(bar: QuoteBar) -> float:
     return (bar.bid_close + bar.ask_close) / 2.0
 
 
-def ema_series(values: Sequence[float], period: int) -> list[float]:
-    """LEAN's `ExponentialMovingAverage`: a running SMA until `period` samples, then EMA.
+def _smoothed_series(values: Sequence[float], period: int, k: float) -> list[float]:
+    """A running SMA until `period` samples, then `value * k + previous * (1 - k)`.
 
-    Seeding matters for train/serve parity: an EMA seeded on the first value instead
-    differs from LEAN's by ~1e-4 on the 60-period HTF EMA for hours, enough to flip
-    `higher_tf_trend_direction` (proven by `feature_parity.feature`).
+    The seeding LEAN's `ExponentialMovingAverage` and `WilderMovingAverage` share; only
+    the smoothing constant `k` differs.
     """
-    k = 2.0 / (period + 1)
     out: list[float] = []
     total = 0.0
     for i, value in enumerate(values):
@@ -66,9 +70,76 @@ def ema_series(values: Sequence[float], period: int) -> list[float]:
     return out
 
 
+def ema_series(values: Sequence[float], period: int) -> list[float]:
+    """LEAN's `ExponentialMovingAverage`: a running SMA until `period` samples, then EMA.
+
+    Seeding matters for train/serve parity: an EMA seeded on the first value instead
+    differs from LEAN's by ~1e-4 on the 60-period HTF EMA for hours, enough to flip
+    `higher_tf_trend_direction` (proven by `feature_parity.feature`).
+    """
+    return _smoothed_series(values, period, 2.0 / (period + 1))
+
+
+def _true_range(bar: QuoteBar, previous_close: float | None) -> float:
+    """LEAN's `AverageTrueRange.ComputeTrueRange` on mid prices: high - low on the first
+    bar, else the largest of high - low, |high - previous close|, |low - previous close|."""
+    high = (bar.bid_high + bar.ask_high) / 2.0
+    low = (bar.bid_low + bar.ask_low) / 2.0
+    if previous_close is None:
+        return high - low
+    return max(high - low, abs(high - previous_close), abs(low - previous_close))
+
+
+def atr_series(bars: Sequence[QuoteBar], period: int) -> list[float]:
+    """Wilder's ATR per bar, exactly as LEAN's `AverageTrueRange(period, WILDERS)` (in price units).
+
+    True ranges come from bid/ask-midpoint high/low/close (a LEAN forex `QuoteBar`'s
+    `High`/`Low`/`Close`, as `mid()` is its `Close`); the smoother is LEAN's Wilder
+    moving average — the simple mean of the first `period` true ranges, then
+    `(tr + (period - 1) * previous) / period`. Ready after `period` bars, since the
+    first true range needs no previous close; `price_features.warmup_bars` relies on that.
+    """
+    ranges: list[float] = []
+    previous_close: float | None = None
+    for bar in bars:
+        ranges.append(_true_range(bar, previous_close))
+        previous_close = mid(bar)
+    return _smoothed_series(ranges, period, 1.0 / period)
+
+
+def _mid_low(bar: QuoteBar) -> float:
+    """Bid/ask low midpoint — a LEAN forex `QuoteBar.Low` (`Field.LOW`)."""
+    return (bar.bid_low + bar.ask_low) / 2.0
+
+
+def _mid_high(bar: QuoteBar) -> float:
+    """Bid/ask high midpoint — a LEAN forex `QuoteBar.High` (`Field.HIGH`)."""
+    return (bar.bid_high + bar.ask_high) / 2.0
+
+
+def swing_levels(bars: Sequence[QuoteBar], lookback: int) -> list[tuple[float, float]]:
+    """Per bar, (lowest mid low, highest mid high) over the last `lookback` bars, that bar included.
+
+    LEAN's `Minimum(lookback)` over `Field.LOW` and `Maximum(lookback)` over
+    `Field.HIGH`: both are rolling windows that include the current bar and, before
+    `lookback` bars have arrived, span whatever has (those bars are inside
+    `price_features.warmup_bars` and never become rows).
+    """
+    lows = [_mid_low(bar) for bar in bars]
+    highs = [_mid_high(bar) for bar in bars]
+    return [
+        (min(lows[max(0, i + 1 - lookback) : i + 1]), max(highs[max(0, i + 1 - lookback) : i + 1]))
+        for i in range(len(bars))
+    ]
+
+
 def _rsi_value(avg_gain: float, avg_loss: float) -> float:
-    """RSI from Wilder-smoothed average gain/loss."""
-    return 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    """Match LEAN's Math.Round(nonnegative AverageLoss, 10) == 0 overflow guard.
+
+    The half-even rounding boundary is inclusive at 5e-11. Python's binary
+    round(5e-11, 10) rounds upward, so use the equivalent nonnegative interval.
+    """
+    return 100.0 if avg_loss <= 5e-11 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
 
 
 def rsi_series(values: Sequence[float], period: int) -> list[float]:
@@ -179,7 +250,7 @@ def lean_bar_stream(bars: Sequence[QuoteBar]) -> list[QuoteBar]:
 
     Time-ordered, only minutes the exchange is open (`market_hours.lean_delivers`),
     and every open minute between the first and last bar present: a minute missing
-    from the data is filled forward from the previous bar's close, as LEAN does.
+    from the data is filled forward as a clone of the previous bar, as LEAN does.
     """
     ordered = sorted(bars, key=lambda bar: bar.timestamp)
     if not ordered:
@@ -199,13 +270,18 @@ def lean_bar_stream(bars: Sequence[QuoteBar]) -> list[QuoteBar]:
 
 
 def _filled_forward(previous: QuoteBar, minute: datetime) -> QuoteBar:
-    """A flat bar at `minute` carrying `previous`'s closing quotes (LEAN fill-forward)."""
+    """`previous` re-stamped at `minute` with zero volume — LEAN's fill-forward bar.
+
+    LEAN's `FillForwardEnumerator` emits `previous.Clone(fillForward=True)`: the whole
+    bid/ask open/high/low/close carries over and only the sizes are zeroed. Flattening
+    the bar to the previous close would zero the ATR's true range on every filled minute.
+    """
     return QuoteBar(
         timestamp=minute,
-        bid_open=previous.bid_close, bid_high=previous.bid_close,
-        bid_low=previous.bid_close, bid_close=previous.bid_close,
-        ask_open=previous.ask_close, ask_high=previous.ask_close,
-        ask_low=previous.ask_close, ask_close=previous.ask_close,
+        bid_open=previous.bid_open, bid_high=previous.bid_high,
+        bid_low=previous.bid_low, bid_close=previous.bid_close,
+        ask_open=previous.ask_open, ask_high=previous.ask_high,
+        ask_low=previous.ask_low, ask_close=previous.ask_close,
         tick_count=0,
     )
 
@@ -234,9 +310,12 @@ def _perception_features(
 
 def build_training_rows(
     bars: Sequence[QuoteBar], event_intensity: Mapping[datetime, float] | None = None,
-    *, perception: PerceptionConfig | None = None,
+    *, instrument: Instrument,
+    perception: PerceptionConfig | None = None,
     price_features_config: PriceFeatureConfig | None = None,
     horizon_minutes: int = 15,
+    pattern_config: PatternConfig | None = None,
+    volume_config: VolumeConfig | None = None,
 ) -> list[TrainingRow]:
     """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
@@ -244,17 +323,26 @@ def build_training_rows(
     algorithm's LEAN indicators consume — so indicator state, warm-up and the label
     horizon (counted in delivered bars) match the backtest.
 
-    Label: 1 if the mid price is strictly higher `horizon_minutes` bars later, else 0
+    Label: 1 if the mid price is strictly higher `horizon_minutes / bar_minutes`
+    complete decision bars later, else 0
     (flat is 0). `label_time` is the close of that horizon bar, so
     `walk_forward_split` can purge rows whose label reaches into the next span. The
     first `warmup_bars(price_features_config)` bars and any additional DSHA warm-up bars
-    yield no row, matching live readiness. The last `horizon_minutes` bars have no label.
+    yield no row, matching live readiness. The last horizon's bars have no label.
     Perception, the indicator periods and the horizon come from the strategy config
     (`config.perception`, `config.price_features`, `config.f7.label_horizon_minutes`);
-    omitted means the documented defaults.
+    omitted means the documented defaults. `instrument` supplies the pip
+    (`Instrument.unit_size`: 0.0001 on a 5-digit pair, 0.01 on a JPY pair — the value
+    the live side derives from LEAN's minimum price variation) that scales the row's
+    `atr_pips`, `swing_low_pips` and `swing_high_pips`; it is required so no pip is ever
+    assumed.
     """
     periods = price_features_config or PriceFeatureConfig()
-    bars = lean_bar_stream(bars)
+    horizon_bars = _horizon_bars(horizon_minutes, periods.bar_minutes)
+    bars = _training_bars(bars, periods, perception)
+    signals = MarketSignals(pattern_config, volume_config)
+    signal_features = [signals.update(bar) for bar in bars]
+    duration = timedelta(minutes=periods.bar_minutes)
     directions = _perception_features(bars, perception or PerceptionConfig())
     prices = [mid(bar) for bar in bars]
     fast = ema_series(prices, periods.ema_fast)
@@ -262,8 +350,11 @@ def build_training_rows(
     htf = ema_series(prices, periods.ema_higher_tf)
     rsi = rsi_series(prices, periods.rsi_period)
     macd = macd_hist_series(prices, periods)
+    atr = atr_series(bars, periods.atr_period)
+    swings = swing_levels(bars, periods.swing_lookback_bars)
+    pip = instrument.unit_size
     rows: list[TrainingRow] = []
-    for i in range(warmup_bars(periods), len(bars) - horizon_minutes):
+    for i in range(warmup_bars(periods), len(bars) - horizon_bars):
         direction = directions[i]
         if direction is None:
             continue
@@ -274,20 +365,42 @@ def build_training_rows(
             ema_htf=htf[i],
             rsi=rsi[i],
             macd_hist=macd[i],
+            atr_pips=atr[i] / pip,
+            swing_low_pips=(prices[i] - swings[i][0]) / pip,
+            swing_high_pips=(swings[i][1] - prices[i]) / pip,
         )
         features.update(direction)
+        features.update(signal_features[i])
         if event_intensity is not None:
-            features |= _news_features(event_intensity, bars[i].timestamp + BAR_DURATION)
-        horizon = i + horizon_minutes
+            features |= _news_features(event_intensity, bars[i].timestamp + duration)
+        horizon = i + horizon_bars
         rows.append(
             TrainingRow(
                 timestamp=bars[i].timestamp,
                 features=features,
                 label=1 if prices[horizon] > prices[i] else 0,
-                label_time=bars[horizon].timestamp + BAR_DURATION,
+                label_time=bars[horizon].timestamp + duration,
             )
         )
     return rows
+
+
+def _horizon_bars(minutes: int, bar_minutes: int) -> int:
+    """Require an explicit whole number of decision bars, rather than silently rounding."""
+    if type(minutes) is not int or minutes < bar_minutes or minutes % bar_minutes:
+        raise ValueError(
+            "label_horizon_minutes must be a positive multiple of bar_minutes; retrain"
+        )
+    return minutes // bar_minutes
+
+
+def _training_bars(
+    bars: Sequence[QuoteBar], periods: PriceFeatureConfig, perception: PerceptionConfig | None
+) -> list[QuoteBar]:
+    """Aggregate the delivered minute stream without changing DSHA's minute-only contract."""
+    if periods.bar_minutes != 1 and perception is not None and perception.source != "ema":
+        raise ValueError("multi-minute decision bars require EMA perception; use M1 for DSHA")
+    return aggregate_closed_bars(lean_bar_stream(bars), periods.bar_minutes)
 
 
 def file_digest(path: Path) -> str:

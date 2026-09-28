@@ -39,6 +39,19 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When the meta-learner is trained twice with random_state 42 on the trend and indicator families
       Then both trained meta-learners predict the same p_hat for the same held-out row
 
+  Rule: train_meta_learner refuses a degenerate fit rather than returning a biased combiner
+
+    Scenario Outline: training fails fast on <case>
+      Given a walk-forward split whose validation labels are <labels>
+      When training the meta-learner on the families <families> fails
+      Then the training failure names "<failure>"
+
+      Examples:
+        | case                          | labels       | families | failure                       |
+        | an all-UP validation span     | [1, 1, 1, 1] | [trend]  | only one label class          |
+        | an all-DOWN validation span   | [0, 0, 0, 0] | [trend]  | only one label class          |
+        | an empty family list          | [1, 0, 1, 0] | []       | at least one feature family   |
+
   Rule: train_meta_learner calibrates the combiner on validation, not train (regression proof)
 
     Scenario: a train/validation split with an inverted trend-label relationship proves validation is used
@@ -107,6 +120,29 @@ Feature: F7 — threshold-rule (meta-learner) filter
       When F7 applies to a state missing "trend_score"
       Then F7 recommends "BUY"
 
+  Rule: A family's feature vector coerces each reading to a float; a pattern name becomes its polarity
+
+    Scenario Outline: the <family> family vector from <features> is <vector>
+      When the "<family>" family vector is extracted from features <features>
+      Then the family vector is <vector>
+
+      Examples:
+        | family  | features                                  | vector          |
+        | pattern | {candlestick_pattern: hammer}             | [1.0]           |
+        | pattern | {candlestick_pattern: shooting_star}      | [-1.0]          |
+        | pattern | {candlestick_pattern: null}               | [nan]           |
+        | pattern | {}                                        | [nan]           |
+        | trend   | {trend_direction: 1, trend_strength: 0.5} | [1.0, 0.5, nan] |
+
+    Scenario Outline: an unrecognized candlestick pattern fails fast naming it (<pattern>)
+      When extracting the "pattern" family vector from features {candlestick_pattern: <pattern>} fails
+      Then the family vector failure names "<pattern>"
+
+      Examples:
+        | pattern |
+        | doji    |
+        | HAMMER  |
+
   Rule: F7's thresholds and gate come from the strategy config.yaml meta_learner section
 
     Scenario Outline: a complete meta_learner section parses into an F7Config (<case>)
@@ -148,21 +184,24 @@ Feature: F7 — threshold-rule (meta-learner) filter
       Then the parsed F7 config has label_horizon_minutes <horizon>
 
       Examples:
-        | case            | value  | horizon |
-        | absent: default | absent | 15      |
-        | one hour        | 60     | 60      |
+        | case                    | value  | horizon |
+        | absent: default         | absent | 15      |
+        | one hour                | 60     | 60      |
+        | one bar (the minimum)   | 1      | 1       |
 
     Scenario Outline: an invalid label_horizon_minutes fails fast (<case>)
       Given a meta_learner section with theta_high 0.55, theta_low 0.45 and regime_gate false
       And the meta_learner section sets label_horizon_minutes to <value>
       When parsing the F7 config for strategy "baseline" fails
-      Then the F7 config failure names "label_horizon_minutes"
+      Then the F7 config failure names "strategy 'baseline': meta_learner.label_horizon_minutes must be a positive integer number of bars, got <got>"
 
       Examples:
-        | case        | value |
-        | zero        | 0     |
-        | fractional  | 7.5   |
-        | string      | hour  |
+        | case        | value | got    |
+        | zero        | 0     | 0      |
+        | negative    | -5    | -5     |
+        | fractional  | 7.5   | 7.5    |
+        | string      | hour  | 'hour' |
+        | boolean     | true  | True   |
 
     Scenario Outline: a missing meta_learner key fails fast naming the key and the strategy (<key>)
       Given a meta_learner section missing "<key>"

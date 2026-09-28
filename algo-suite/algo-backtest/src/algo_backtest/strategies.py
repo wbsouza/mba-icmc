@@ -30,12 +30,17 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from algo_backtest.chain.execution_config import (
+    ExecutionConfig,
+    execution_mapping,
+    parse_execution_config,
+)
 from algo_backtest.chain.filters.f2_indicator import (
     IndicatorConfig,
     indicator_mapping,
@@ -52,9 +57,11 @@ from algo_backtest.chain.filters.f4_news_context import (
 )
 from algo_backtest.chain.filters.f6_capital_mgmt import (
     CapitalMgmtConfig,
+    capital_mgmt_mapping,
     parse_capital_mgmt_config,
 )
 from algo_backtest.chain.filters.f7_meta_learner import F7Config, parse_f7_config
+from algo_backtest.chain.filters.volume_strength import VolumeConfig, parse_volume_config
 from algo_backtest.chain.price_features import (
     PriceFeatureConfig,
     parse_price_features_config,
@@ -70,7 +77,7 @@ SCHEMA_VERSION = 2
 KNOWN_FILTERS: frozenset[str] = frozenset(
     {
         "f1_trend", "f2_indicator", "f3_pattern", "f4_news_context", "f5_risk_guard",
-        "f6_capital_mgmt", "f7_meta_learner",
+        "f6_capital_mgmt", "f7_meta_learner", "volume_strength",
     }
 )
 
@@ -84,6 +91,7 @@ _SECTION_FOR_FILTER: dict[str, str] = {
     "f4_news_context": "news_context",
     "f5_risk_guard": "risk_guard",
     "f6_capital_mgmt": "capital_mgmt",
+    "volume_strength": "volume_strength",
 }
 _DEFAULTABLE_FILTERS = frozenset({"f2_indicator", "f3_pattern"})
 _F7_KEYS = ("theta_high", "theta_low", "regime_gate")
@@ -106,12 +114,15 @@ class StrategyChainConfig:
     raw: Mapping[str, Any]
     perception: PerceptionConfig = PerceptionConfig()
     price_features: PriceFeatureConfig = PriceFeatureConfig()
+    # Fill costs and holding rule (story 12): always resolved, tied to no filter.
+    execution: ExecutionConfig = ExecutionConfig()
     indicator: IndicatorConfig | None = None
     pattern: PatternConfig | None = None
     news_context: NewsContextConfig | None = None
     risk_guard: RiskGuardCaps | None = None
     capital_mgmt: CapitalMgmtConfig | None = None
     f7: F7Config | None = None
+    volume_strength: VolumeConfig | None = None
     # dotted parameter path -> the `<name>/config.yaml` in the extends chain that set it,
     # or "default" for a value the loader filled in. Informational: excluded from equality.
     provenance: Mapping[str, str] = field(default_factory=dict, compare=False)
@@ -229,27 +240,31 @@ def _filter_section(
     """
     section = _SECTION_FOR_FILTER[filter_name]
     listed, present = filter_name in filters, section in merged
-    if listed and not present and filter_name in _DEFAULTABLE_FILTERS:
-        return {}
-    if listed and not present:
-        raise ValueError(
-            f"strategy {name!r} lists {filter_name!r} but has no '{section}:' section — add "
-            f"the filter's parameters to strategies/{name}/config.yaml"
-        )
-    if present and not listed:
+    if listed and present:
+        return _mapping_section(name, merged, section)
+    if listed:
+        return _omitted_section(name, filter_name, section)
+    if present:
         raise ValueError(
             f"strategy {name!r} declares a '{section}:' section but does not list "
             f"{filter_name!r} in filters — remove the section or add the filter"
         )
-    if not listed:
-        return None
-    value = merged[section]
-    if not isinstance(value, dict):
-        raise ValueError(
-            f"strategy {name!r}: '{section}' must be a mapping (got "
-            f"{type(value).__name__!r}) — check its config.yaml"
-        )
-    return value
+    return None
+
+
+def _omitted_section(name: str, filter_name: str, section: str) -> dict[str, Any]:
+    """`{}` (every key defaults) for a listed filter whose section may be omitted; a hard
+    stop for a trading-impactful filter, whose parameters must be spelled out.
+
+    Raises:
+        ValueError: `filter_name` is not one of the defaultable filters.
+    """
+    if filter_name in _DEFAULTABLE_FILTERS:
+        return {}
+    raise ValueError(
+        f"strategy {name!r} lists {filter_name!r} but has no '{section}:' section — add "
+        f"the filter's parameters to strategies/{name}/config.yaml"
+    )
 
 
 def _require_schema_version(name: str, merged: Mapping[str, Any]) -> None:
@@ -299,20 +314,42 @@ def _reject_stray_f7_keys(
         )
 
 
+def _mapping_section(name: str, merged: Mapping[str, Any], section: str) -> dict[str, Any]:
+    """`merged[section]` as a mapping: `{}` when the section is absent (so every key
+    defaults — the `price_features`/`execution` case); anything present must be a mapping.
+
+    Raises:
+        ValueError: the section is present but not a mapping.
+    """
+    raw = merged.get(section, {})
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"strategy {name!r}: '{section}' must be a mapping (got "
+            f"{type(raw).__name__!r}) — check its config.yaml"
+        )
+    return raw
+
+
+def _always_resolved_sections(name: str, merged: dict[str, Any]) -> dict[str, Any]:
+    """`price_features` and `execution`: parsed with defaults for every omitted key and
+    their effective values written back into `merged` (story 09 / story 12)."""
+    price = parse_price_features_config(
+        _mapping_section(name, merged, "price_features"), strategy=name
+    )
+    merged["price_features"] = price_features_mapping(price)
+    execution = parse_execution_config(
+        _mapping_section(name, merged, "execution"), strategy=name
+    )
+    merged["execution"] = execution_mapping(execution)
+    return {"price_features": price, "execution": execution}
+
+
 def _defaulted_sections(
     name: str, merged: dict[str, Any], filters: tuple[str, ...], meta_learner: dict[str, Any]
 ) -> dict[str, Any]:
-    """The sections with defaults (price_features, indicator, pattern, F7's horizon):
-    parsed, and their *effective* values written back into `merged` so the run's
-    `strategy-config.json` records what was actually used, defaults included."""
-    price_raw = merged.get("price_features", {})
-    if not isinstance(price_raw, dict):
-        raise ValueError(
-            f"strategy {name!r}: 'price_features' must be a mapping (got "
-            f"{type(price_raw).__name__!r}) — check its config.yaml"
-        )
-    price = parse_price_features_config(price_raw, strategy=name)
-    merged["price_features"] = price_features_mapping(price)
+    """The sections with defaults (price_features, execution, indicator, pattern, F7's
+    horizon): parsed, and their *effective* values written back into `merged` so the run's
+    `strategy-config.{json,yaml}` records what was actually used, defaults included."""
     indicator_raw = _filter_section(name, merged, filters, "f2_indicator")
     indicator = (
         parse_indicator_config(indicator_raw, strategy=name) if indicator_raw is not None else None
@@ -326,7 +363,23 @@ def _defaulted_sections(
     f7 = parse_f7_config(meta_learner, strategy=name) if "f7_meta_learner" in filters else None
     if f7 is not None:
         meta_learner.setdefault("label_horizon_minutes", f7.label_horizon_minutes)
-    return {"price_features": price, "indicator": indicator, "pattern": pattern, "f7": f7}
+    return {
+        **_always_resolved_sections(name, merged),
+        "indicator": indicator, "pattern": pattern, "f7": f7,
+    }
+
+
+def _capital_mgmt(
+    name: str, merged: dict[str, Any], filters: tuple[str, ...]
+) -> CapitalMgmtConfig | None:
+    """F6's section when the filter is listed; the trade-plan keys it omits default and the
+    effective values are written back into `merged` (story 12)."""
+    capital = _filter_section(name, merged, filters, "f6_capital_mgmt")
+    if capital is None:
+        return None
+    config = parse_capital_mgmt_config(capital, strategy=name)
+    merged["capital_mgmt"] = capital_mgmt_mapping(config)
+    return config
 
 
 def _typed_sections(
@@ -336,17 +389,27 @@ def _typed_sections(
     _reject_stray_f7_keys(name, filters, meta_learner)
     news = _filter_section(name, merged, filters, "f4_news_context")
     risk = _filter_section(name, merged, filters, "f5_risk_guard")
-    capital = _filter_section(name, merged, filters, "f6_capital_mgmt")
     return {
         "news_context": (
             parse_news_context_config(news, strategy=name) if news is not None else None
         ),
         "risk_guard": parse_risk_guard_caps(risk, strategy=name) if risk is not None else None,
-        "capital_mgmt": (
-            parse_capital_mgmt_config(capital, strategy=name) if capital is not None else None
-        ),
+        "capital_mgmt": _capital_mgmt(name, merged, filters),
+        "volume_strength": _volume_section(name, merged, filters),
         **_defaulted_sections(name, merged, filters, meta_learner),
     }
+
+
+def _volume_section(
+    name: str, merged: dict[str, Any], filters: tuple[str, ...]
+) -> VolumeConfig | None:
+    """Resolve every volume parameter so reports never omit default threshold values."""
+    raw = _filter_section(name, merged, filters, "volume_strength")
+    if raw is None:
+        return None
+    config = parse_volume_config(raw, strategy=name)
+    merged["volume_strength"] = asdict(config)
+    return config
 
 
 def load_strategy_chain_config(name: str, *, root: Path | None = None) -> StrategyChainConfig:
@@ -448,9 +511,20 @@ def _from_merged(
     families_raw = meta_learner.get("families", ())
     families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
     typed = _typed_sections(name, merged, filters, meta_learner)
+    _validate_clock(typed, parse_perception_config(merged))
     for path in _leaf_paths(merged):
         provenance.setdefault(path, "default")
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
         perception=parse_perception_config(merged), provenance=provenance, **typed,
     )
+
+
+def _validate_clock(typed: Mapping[str, Any], perception: PerceptionConfig) -> None:
+    """Reject unsupported minute contracts before launching a model or the engine."""
+    minutes = typed["price_features"].bar_minutes
+    if minutes != 1 and perception.source != "ema":
+        raise ValueError("multi-minute decision bars require EMA perception; use M1 for DSHA")
+    f7 = typed["f7"]
+    if f7 is not None and f7.label_horizon_minutes % minutes:
+        raise ValueError("label_horizon_minutes must be a multiple of bar_minutes; fix config")

@@ -12,9 +12,15 @@ the same `price_features()` so train and serve cannot drift.
 Since the 2026-09-27 amendment (story 09) no filter parameter lives here: F4/F5/F6/F7
 read `StrategyChainConfig`'s typed sections, so the bundled `strategies/<name>/config.yaml`
 travels into the LEAN container with the algorithm and is the single source of the run's
-economics (closing `docs/technical-debt.md` TD-43). The F6 sizing inputs are still fixed
-configured values — no ATR indicator is wired (TD-51), so the stop distance is not
-volatility-derived.
+economics (closing `docs/technical-debt.md` TD-43). Since story 12 the bar's Wilder ATR
+travels in the features as `atr_pips` (LEAN's `AverageTrueRange` live, `training.atr_series`
+offline) and the swing levels as `swing_low_pips` / `swing_high_pips` (LEAN's Minimum /
+Maximum live, `training.swing_levels` offline), so F6 can derive the stop distance from
+volatility or structure instead of a fixed value. Pips come from the instrument on both
+sides (`pip_size_from_price_variation`, `Instrument.unit_size`), never from a literal. F6
+additionally takes the `execution` section's `spread_pips` and `broker_stop_level_pips`:
+its trade plan adds the spread to every target and trail level and floors the stop at
+the broker's stop level.
 """
 
 from __future__ import annotations
@@ -33,6 +39,7 @@ from algo_backtest.chain.filters.f4_news_context import F4NewsContextFilter, New
 from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
 from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
 from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
+from algo_backtest.chain.filters.volume_strength import VolumeStrengthFilter
 from algo_backtest.chain.model import Filter
 from algo_backtest.strategies import KNOWN_FILTERS, StrategyChainConfig
 
@@ -42,6 +49,29 @@ _TREND_STRENGTH_CAP = 100.0
 _BASIS_POINTS = 10_000.0
 
 _KNOWN_FILTERS = sorted(KNOWN_FILTERS)
+# FX quoting convention: a broker's minimum price variation is the "pipette" (the fifth
+# decimal on EURUSD, the third on USDJPY) and a pip is ten of them. A definition, not a
+# tunable — it is what makes LEAN's SymbolProperties agree with Instrument.unit_size.
+_PIPETTES_PER_PIP = 10.0
+
+
+def pip_size_from_price_variation(minimum_price_variation: float) -> float:
+    """The pip in price units from LEAN's `SymbolProperties.minimum_price_variation`.
+
+    Ten pipettes make a pip (0.00001 -> 0.0001 on a 5-digit pair, 0.001 -> 0.01 on a
+    3-digit JPY pair), the same value as the offline `Instrument.unit_size`.
+
+    Raises:
+        ValueError: on a non-positive variation — the security's symbol properties were
+            not loaded for its market; check the LEAN symbol-properties database entry.
+    """
+    if minimum_price_variation <= 0:
+        raise ValueError(
+            f"minimum price variation must be positive, got {minimum_price_variation!r}: the "
+            "security's symbol properties carry no tick size, so no pip can be derived — check "
+            "LEAN's symbol-properties-database entry for the symbol and market"
+        )
+    return minimum_price_variation * _PIPETTES_PER_PIP
 
 
 def _sign(delta: float) -> float:
@@ -61,16 +91,24 @@ def price_features(
     ema_htf: float,
     rsi: float,
     macd_hist: float,
+    atr_pips: float | None = None,
+    swing_low_pips: float | None = None,
+    swing_high_pips: float | None = None,
 ) -> dict[str, object]:
     """The F1/F2/F3 (and F7 TREND/INDICATOR/PATTERN family) inputs for one bar.
 
-    `candlestick_pattern` is always `None`: no real detector is wired yet
-    (`f3_pattern.py`'s documented gap) — deliberately missing, not fabricated.
+    `candlestick_pattern` starts as `None`; the shared `MarketSignals` perception
+    layer overwrites it when the strategy enables TA-Lib on closed decision bars.
+    The F6 stop-distance readings — `atr_pips` (the bar's Wilder ATR in pips),
+    `swing_low_pips` / `swing_high_pips` (pips from the mid close down to the look-back
+    window's lowest low / up to its highest high) — are each added under their key only
+    when given (F1/F2/F3/F7 ignore them), so a caller without a reading yields no key
+    rather than an invented value.
     """
     trend_strength = (
         min(abs(ema_fast - ema_slow) / price * _BASIS_POINTS, _TREND_STRENGTH_CAP) if price else 0.0
     )
-    return {
+    features: dict[str, object] = {
         "trend_direction": _sign(ema_fast - ema_slow),
         "trend_strength": trend_strength,
         "higher_tf_trend_direction": _sign(price - ema_htf),
@@ -78,6 +116,11 @@ def price_features(
         "macd_hist": macd_hist,
         "candlestick_pattern": None,
     }
+    optional = {
+        "atr_pips": atr_pips, "swing_low_pips": swing_low_pips, "swing_high_pips": swing_high_pips,
+    }
+    features.update({key: value for key, value in optional.items() if value is not None})
+    return features
 
 
 @dataclass(frozen=True)
@@ -128,7 +171,6 @@ def _sizing_inputs(economics: CapitalMgmtConfig, price: float) -> dict[str, obje
     notional = economics.lot_notional_units * price
     return {
         "pip_value": economics.pip_value_per_lot,
-        "stop_loss_pips": economics.stop_loss_pips,
         "margin_per_lot": notional / economics.assumed_leverage,
     }
 
@@ -204,6 +246,9 @@ def _build_f4(
 
 _Builder = Callable[[StrategyChainConfig, TrainedMetaLearner, NewsContextIndex | None], Filter]
 _BUILDERS: dict[str, _Builder] = {
+    "volume_strength": lambda c, m, n: VolumeStrengthFilter(
+        config=_section(c.volume_strength, "volume_strength", c)
+    ),
     "f1_trend": lambda c, m, n: F1TrendFilter(),
     "f2_indicator": lambda c, m, n: F2IndicatorFilter(
         config=_section(c.indicator, "indicator", c)
@@ -214,7 +259,9 @@ _BUILDERS: dict[str, _Builder] = {
         caps=_section(c.risk_guard, "risk_guard", c)
     ),
     "f6_capital_mgmt": lambda c, m, n: CapitalMgmtFilter(
-        risk_per_trade=_section(c.capital_mgmt, "capital_mgmt", c).risk_per_trade
+        config=_section(c.capital_mgmt, "capital_mgmt", c),
+        spread_pips=c.execution.spread_pips,
+        broker_stop_level_pips=c.execution.broker_stop_level_pips,
     ),
     "f7_meta_learner": lambda c, m, n: F7MetaLearnerFilter(
         meta_learner=m, config=_section(c.f7, "meta_learner", c)

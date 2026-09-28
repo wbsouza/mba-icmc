@@ -13,23 +13,45 @@ the F7 training scripts also key their news lookups on), run the chain, map its
 ``decisions.parquet`` row whose ``trade_id`` identifies the LEAN trade open at that
 moment — the ledger is explicitly configured flat-to-flat (``use_flat_to_flat_trades``)
 to match ``DecisionRecorder.on_fill`` — written once at end of algorithm.
+
+Story 12 (execution realism, item D): a BUY/SELL while flat becomes the trade F6 planned
+(``state.features["trade_plan"]``, ``engine/trade_plan.py``): a market order sized from
+the plan's lot size, a stop-market order at the stop distance and one limit order per
+target; each later bar applies the trailing steps, an opposite signal closes only after
+``execution.min_hold_bars``, a veto closes only when ``execution.close_on_veto``, and the
+stop and targets are one-cancels-the-others (``on_order_event``). Every planned entry is
+recorded to ``trade-plans.json`` next to ``decisions.parquet``.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, date
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
+from algo_core.atomicio import write_text_atomic
+from algo_core.bars import QuoteBar as CanonicalQuoteBar
+from algo_core.instrument import build_instrument
 from AlgorithmImports import *  # noqa: F403  (LEAN injects its API into this namespace)
+from AlgorithmImports import (  # noqa: E402
+    AverageTrueRange,
+    ExponentialMovingAverage,
+    Maximum,
+    Minimum,
+    MovingAverageConvergenceDivergence,
+    MovingAverageType,
+    RelativeStrengthIndex,
+    TradeBar,
+)
 from engine.algorithm import ExecutionAlgorithm  # noqa: E402
 from engine.order_executor import Decision as OrderDecision  # noqa: E402
-from engine.order_executor import FillStatus, SizingContext  # noqa: E402
+from engine.order_executor import FillStatus  # noqa: E402
 
 from algo_backtest.artifacts import write_strategy_config
 from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
-from algo_backtest.chain.model import ExecutionState, FilterChain
+from algo_backtest.chain.market_signals import MarketSignals
+from algo_backtest.chain.model import ChainOutcome, ExecutionState, FilterChain
 from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
 from algo_backtest.chain.wiring import (
@@ -39,10 +61,30 @@ from algo_backtest.chain.wiring import (
     build_filters,
     file_sha256,
     parse_yyyymmdd,
+    pip_size_from_price_variation,
     price_features,
 )
-from algo_backtest.container_paths import DECISIONS_FILE
+from algo_backtest.container_paths import DECISIONS_FILE, TRADE_PLANS_FILE
+from algo_backtest.engine.trade_plan import (
+    PlannedPosition,
+    TradePlanRecord,
+    build_record,
+    hold_elapsed,
+    order_quantity,
+    orders_to_cancel,
+    parse_trade_plan,
+    plans_json,
+    round_to_lot_step,
+    stop_price,
+    stop_quantity_for,
+    target_prices,
+    target_quantities,
+    trail_update,
+)
+from algo_backtest.perception.bar_clock import ClosedBarClock
 from algo_backtest.perception.config import PerceptionConfig
+from algo_backtest.perception.tick_activity import TickActivityIndex
+from algo_backtest.rules.trail_stop import Direction
 from algo_backtest.strategies import load_resolved_strategy
 
 
@@ -87,7 +129,6 @@ class ChainAlgorithm(ExecutionAlgorithm):
         symbol = self._required("symbol")
         start = parse_yyyymmdd(self._required("start"))
         end = parse_yyyymmdd(self._required("end"))
-        self._size = float(self._required("size"))
         cash = float(self._required("cash"))
         if cash <= 0:
             raise ValueError(
@@ -110,6 +151,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             name=self.get_parameter("chain_config") or self.strategy_name,
         )
         self._subscribe_indicators(config.perception, config.price_features)
+        self._configure_signals(config)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
         write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
@@ -119,6 +161,19 @@ class ChainAlgorithm(ExecutionAlgorithm):
             meta_learner.families, config.meta_learner_families, where=str(self.model_path)
         )
         self._economics = config.capital_mgmt
+        if self._economics is None:
+            raise ValueError(
+                f"{self.strategy_name}: the executor sizes every order from F6's trade plan, "
+                "so a chain strategy needs f6_capital_mgmt in filters: and a capital_mgmt: "
+                "section in its config.yaml — add both (see strategies/baseline/config.yaml)"
+            )
+        self._execution = config.execution
+        properties = self.securities[self._symbol].symbol_properties
+        self._pip = self._pip_size()  # E's helper: ten pipettes per pip, from symbol properties
+        self._lot_step = float(properties.lot_size)
+        self._bar_index = 0
+        self._position: PlannedPosition | None = None
+        self._plans: list[TradePlanRecord] = []
         filters = build_filters(
             config,
             meta_learner=meta_learner,
@@ -128,18 +183,32 @@ class ChainAlgorithm(ExecutionAlgorithm):
         self._decisions = DecisionRecorder()
         self._pnl = PnlWindows()
 
-        self.init_execution(broker_adapter)
+        self.init_execution(
+            broker_adapter,
+            spread_pips=self._execution.spread_pips,
+            commission_per_lot=self._execution.commission_per_lot,
+            lot_notional_units=self._economics.lot_notional_units,
+        )
 
     def _subscribe_indicators(
         self,
         perception: PerceptionConfig | None = None,
         price_features_config: PriceFeatureConfig | None = None,
     ) -> None:
-        """Subscribe EMA/RSI/MACD with the strategy's periods and, when selected, construct
-        the native HA perception. Omitted arguments mean the documented defaults."""
+        """Subscribe EMA/RSI/MACD/ATR and the swing Minimum/Maximum with the strategy's
+        periods and, when selected, construct the native HA perception. Omitted arguments
+        mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
         periods = price_features_config or PriceFeatureConfig()
+        self._price_periods = periods
         self._trend_perception = None
+        if periods.bar_minutes != 1:
+            if perception.source != "ema":
+                raise ValueError(
+                    "multi-minute decisions require EMA perception; set perception_source=ema"
+                )
+            self._manual_indicators(periods)
+            return
         if perception.source == "double_smoothed_heikin_ashi":
             from algo_backtest.perception.multi_timeframe import MultiTimeframeHeikinAshi
 
@@ -156,10 +225,85 @@ class ChainAlgorithm(ExecutionAlgorithm):
             self._symbol, periods.macd_fast, periods.macd_slow, periods.macd_signal,
             MovingAverageType.EXPONENTIAL, minute,  # noqa: F405
         )
+        self._atr = self.atr(self._symbol, periods.atr_period, MovingAverageType.WILDERS, minute)  # noqa: F405
+        # Field.LOW / Field.HIGH: a forex subscription is QuoteBars, for which LEAN's
+        # default MIN/MAX selector would be the close (Value), not the bar's low/high.
+        lookback = periods.swing_lookback_bars
+        self._swing_low = self.min(self._symbol, lookback, minute, Field.LOW)  # noqa: F405
+        self._swing_high = self.max(self._symbol, lookback, minute, Field.HIGH)  # noqa: F405
+
+    def _manual_indicators(self, periods: PriceFeatureConfig) -> None:
+        """Update native LEAN indicators only when the shared UTC decision candle closes."""
+        self._ema_fast = ExponentialMovingAverage(periods.ema_fast)
+        self._ema_slow = ExponentialMovingAverage(periods.ema_slow)
+        self._ema_htf = ExponentialMovingAverage(periods.ema_higher_tf)
+        self._rsi = RelativeStrengthIndex(periods.rsi_period, MovingAverageType.WILDERS)
+        self._macd = MovingAverageConvergenceDivergence(
+            periods.macd_fast, periods.macd_slow, periods.macd_signal,
+            MovingAverageType.EXPONENTIAL)
+        self._atr = AverageTrueRange(periods.atr_period, MovingAverageType.WILDERS)
+        self._swing_low = Minimum(periods.swing_lookback_bars)
+        self._swing_high = Maximum(periods.swing_lookback_bars)
+
+    def _configure_signals(self, config) -> None:
+        """Preserve canonical tick counts via a separate read-only source, never quote sizes."""
+        self._bar_clock = ClosedBarClock(config.price_features.bar_minutes)
+        self._signals = MarketSignals(config.pattern, config.volume_strength)
+        self._signal_features = {}
+        self._tick_activity = None
+        if config.volume_strength is not None:
+            self._tick_activity = TickActivityIndex(
+                Path(self._required("activity_data_root")), build_instrument(str(self._symbol)))
+
+    def _closed_signal_bar(self, quote) -> bool:
+        """Normalize an actual delivered minute, then publish only a complete UTC bucket."""
+        start = self.utc_time.replace(tzinfo=UTC) - timedelta(minutes=1)
+        count = (self._tick_activity.count_at(start, fill_forward=bool(quote.is_fill_forward))
+                 if self._tick_activity is not None else 0)
+        minute = CanonicalQuoteBar(
+            timestamp=start,
+            bid_open=float(quote.bid.open), bid_high=float(quote.bid.high),
+            bid_low=float(quote.bid.low), bid_close=float(quote.bid.close),
+            ask_open=float(quote.ask.open), ask_high=float(quote.ask.high),
+            ask_low=float(quote.ask.low), ask_close=float(quote.ask.close), tick_count=count)
+        closed = self._bar_clock.update(minute)
+        if closed is None:
+            return False
+        self._signal_features = self._signals.update(closed)
+        if self._price_periods.bar_minutes != 1:
+            self._update_closed_indicators(closed)
+        return True
+
+    def _update_closed_indicators(self, bar: CanonicalQuoteBar) -> None:
+        """Feed midpoint OHLC into the same LEAN indicator types used for minute decisions."""
+        close = (bar.bid_close + bar.ask_close) / 2
+        low, high = (bar.bid_low + bar.ask_low) / 2, (bar.bid_high + bar.ask_high) / 2
+        for indicator in (self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd):
+            indicator.update(self.time, close)
+        self._swing_low.update(self.time, low)
+        self._swing_high.update(self.time, high)
+        native = TradeBar(bar.timestamp.replace(tzinfo=None), self._symbol,
+                          (bar.bid_open + bar.ask_open) / 2, high, low, close,
+                          0, timedelta(minutes=self._price_periods.bar_minutes))
+        self._atr.update(native)
+
+    def _pip_size(self) -> float:
+        """The pair's pip in price units, from the security's symbol properties.
+
+        LEAN's ``minimum_price_variation`` is the pipette (0.00001 on EURUSD, 0.001 on
+        USDJPY); ``pip_size_from_price_variation`` applies the ten-pipettes-per-pip
+        convention, giving the same value as the offline ``Instrument.unit_size`` that
+        ``training.build_training_rows(instrument=...)`` uses.
+        """
+        properties = self.securities[self._symbol].symbol_properties
+        return pip_size_from_price_variation(float(properties.minimum_price_variation))
 
     def _indicators_ready(self) -> bool:
         """Whether every indicator the features contract reads has warmed up."""
-        indicators = (self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd)
+        indicators = (
+            self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd, self._atr,
+            self._swing_low, self._swing_high,
+        )
         return all(indicator.is_ready for indicator in indicators) and (
             self._trend_perception is None or self._trend_perception.is_ready
         )
@@ -179,6 +323,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             daily_pnl_fraction=daily,
             weekly_pnl_fraction=weekly,
         )
+        pip = self._pip_size()
         market = price_features(
             price=price,
             ema_fast=self._ema_fast.current.value,
@@ -186,9 +331,13 @@ class ChainAlgorithm(ExecutionAlgorithm):
             ema_htf=self._ema_htf.current.value,
             rsi=self._rsi.current.value,
             macd_hist=self._macd.current.value - self._macd.signal.current.value,
+            atr_pips=self._atr.current.value / pip,
+            swing_low_pips=(price - self._swing_low.current.value) / pip,
+            swing_high_pips=(self._swing_high.current.value - price) / pip,
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())
+        market.update(getattr(self, "_signal_features", {}))
         return {**market, **account_features(account, price, self._economics)}
 
     def _state(self) -> ExecutionState:
@@ -205,37 +354,171 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
 
     def on_data(self, data: Slice) -> None:  # noqa: F405
-        """Each bar: run the chain, act on its Decision, record one audit row."""
+        """Each bar: run the chain, manage the open plan, act on the Decision, record a row."""
         if self._symbol not in data.quote_bars:
             return
+        # Calendar risk anchors must observe every delivered minute, including
+        # midnight bars that never complete an H4 candle after a market break.
+        self._pnl.update(self.time, self.portfolio.total_portfolio_value)
         if self._trend_perception is not None:
             self._trend_perception.update(data.quote_bars[self._symbol])
+        closed = self._closed_signal_bar(data.quote_bars[self._symbol])
+        # Stops, targets and trailing management retain minute granularity even when
+        # entries are evaluated only on complete H1/H4 candles.
+        self._manage_open(self.securities[self._symbol].price)
+        if not closed:
+            return
         if not self._indicators_ready():
             return
+        self._bar_index += 1
         outcome = self._chain.run(self._state())
         action = decision_to_order_action(outcome.decision)
         self.debug(f"{self.log_tag}_DECISION|decision={outcome.decision}|action={action}")
 
-        prior_quantity = self.portfolio[self._symbol].quantity
-        fill = None
         if action == "execute":
-            # Explicit chain.model.Decision -> engine.order_executor.Decision conversion:
-            # separate StrEnum classes with the same values (chain/terminal.py).
-            order_decision = OrderDecision(outcome.decision.value)
-            fill = self.order_executor.execute(
-                self._symbol, order_decision, SizingContext(size=self._size)
-            )
-        elif action == "stand_aside" and self.portfolio.invested:
-            fill = self.order_executor.close(self._symbol)
-        # action == "manage" (HOLD): leave any open position (and its trade_id) alone.
-        if fill is not None and fill.status == FillStatus.FILLED and fill.order_id is not None:
-            self._decisions.on_fill(
-                str(fill.order_id), prior_quantity, self.portfolio[self._symbol].quantity
-            )
+            self._on_signal(outcome)
+        elif action == "stand_aside" and self.portfolio.invested and self._execution.close_on_veto:
+            self._close_open("veto")
+        # action == "manage" (HOLD): the plan's own orders and trailing steps run the trade.
         self._decisions.record(outcome)
 
+    def on_order_event(self, order_event: OrderEvent) -> None:  # noqa: F405
+        """Every fill: thread the audit trade id, then reconcile the plan's working orders.
+
+        LEAN applies a fill to the portfolio before raising its event, so the position
+        after the fill is the portfolio's and the position before it is that minus the
+        signed fill quantity. Stop/target fills arrive between bars; the entry's own fill
+        arrives synchronously inside `execute_quantity`, before the plan is remembered.
+        """
+        super().on_order_event(order_event)
+        if order_event.status != OrderStatus.FILLED:  # noqa: F405
+            return
+        position = float(self.portfolio[self._symbol].quantity)
+        prior = position - float(order_event.fill_quantity)
+        self._decisions.on_fill(str(order_event.order_id), prior, position)
+        self._reconcile_working_orders(int(order_event.order_id), position)
+
+    def _on_signal(self, outcome: ChainOutcome) -> None:
+        """A BUY/SELL: open the planned trade when flat; reverse only after the minimum hold."""
+        direction = Direction(outcome.decision.value)
+        if not self.portfolio.invested:
+            self._open_planned(outcome, direction)
+            return
+        if self._position is not None and self._position.direction is direction:
+            return  # same-side signal: one planned position at a time, manage only
+        if self._position is not None and not hold_elapsed(
+            self._position.entry_bar_index, self._bar_index, self._execution.min_hold_bars
+        ):
+            self.debug(
+                f"{self.log_tag}_HOLD_GUARD|signal={direction}|since_entry="
+                f"{self._bar_index - self._position.entry_bar_index}|"
+                f"min_hold_bars={self._execution.min_hold_bars}"
+            )
+            return
+        self._close_open("reversal")
+        self._open_planned(outcome, direction)
+
+    def _open_planned(self, outcome: ChainOutcome, direction: Direction) -> None:
+        """Market entry sized from the plan, then its stop and take-profit orders."""
+        plan = parse_trade_plan(outcome.state.features)
+        side = plan.for_direction(direction)
+        quantity = round_to_lot_step(
+            order_quantity(plan.lot_size, self._economics.lot_notional_units, direction),
+            self._lot_step,
+        )
+        if quantity == 0:
+            raise ValueError(
+                f"{self.strategy_name}: the plan's {plan.lot_size} lots round to zero units at "
+                f"lot step {self._lot_step}; raise capital_mgmt.risk_per_trade or lower the stop"
+            )
+        fill = self.order_executor.execute_quantity(
+            self._symbol, OrderDecision(direction.value), quantity
+        )
+        if fill.status != FillStatus.FILLED or fill.fill_price is None or fill.order_id is None:
+            self.debug(f"{self.log_tag}_PLAN_REJECTED|reason={fill.rejection_reason}")
+            return
+        position = float(self.portfolio[self._symbol].quantity)
+        entry = fill.fill_price
+        stop = stop_price(entry, side.stop_pips, self._pip, direction)
+        stop_id = self.order_executor.place_stop(self._symbol, stop_quantity_for(position), stop)
+        levels = target_prices(entry, side.targets, self._pip, direction)
+        exits = target_quantities(position, side.targets, self._lot_step)
+        placed = [
+            (price, fraction, exit_quantity)
+            for (price, fraction), exit_quantity in zip(levels, exits, strict=True)
+        ]
+        target_ids = tuple(
+            self.order_executor.place_limit(self._symbol, qty, price)
+            for i, (price, _fraction, qty) in enumerate(placed)
+        )
+        self._position = PlannedPosition(
+            direction=direction, plan=side, entry_price=entry, entry_bar_index=self._bar_index,
+            entry_order_id=fill.order_id, stop_order_id=stop_id, target_order_ids=target_ids,
+            current_stop=stop,
+        )
+        self._plans.append(
+            build_record(
+                entry_order_id=fill.order_id, entry_time=self.utc_time.isoformat(),
+                direction=direction, lots=plan.lot_size, quantity=position, entry_price=entry,
+                stop_loss=stop, targets=placed, plan=side, pip_size=self._pip,
+                spread_pips=plan.spread_pips,
+            )
+        )
+        self.debug(
+            f"{self.log_tag}_PLAN|entry={entry}|lots={plan.lot_size}|quantity={position}|"
+            f"stop={stop}|targets={[(price, qty) for price, _f, qty in placed]}"
+        )
+
+    def _manage_open(self, price: float) -> None:
+        """Apply the trailing steps to the open planned position (if any) at `price`."""
+        position = self._position
+        if position is None or not self.portfolio.invested:
+            return
+        move = trail_update(
+            position.entry_price, price, position.current_stop, position.plan.trail_stops,
+            self._pip, position.direction, fired=position.fired,
+        )
+        if move is None:
+            return
+        previous = position.current_stop
+        position.apply(move)
+        if move.new_stop is not None:
+            self.order_executor.update_stop_price(position.stop_order_id, move.new_stop)
+            self.debug(
+                f"{self.log_tag}_TRAIL|entry={position.entry_price}|from={previous}|"
+                f"to={move.new_stop}|steps={list(move.fired)}"
+            )
+
+    def _close_open(self, reason: str) -> None:
+        """Cancel the plan's working orders, then liquidate the position."""
+        working = [order.order_id for order in self.order_executor.open_orders(self._symbol)]
+        if working:
+            self.order_executor.cancel(working)
+            self.debug(f"{self.log_tag}_OCO_CANCEL|reason={reason}|orders={working}")
+        self._position = None
+        self.order_executor.close(self._symbol)
+
+    def _reconcile_working_orders(self, order_id: int, position: float) -> None:
+        """OCO emulation after a stop/target fill: flat cancels the rest, a partial exit
+        resizes the stop to what is still open."""
+        planned = self._position
+        if planned is None or order_id == planned.entry_order_id:
+            return
+        if position == 0:
+            to_cancel = orders_to_cancel(position, self.order_executor.open_orders(self._symbol))
+            if to_cancel:
+                self.order_executor.cancel(to_cancel)
+                self.debug(f"{self.log_tag}_OCO_CANCEL|reason=flat|orders={list(to_cancel)}")
+            self._position = None
+            return
+        if order_id in planned.target_order_ids:
+            resized = stop_quantity_for(position)
+            self.order_executor.update_quantity(planned.stop_order_id, resized)
+            self.debug(f"{self.log_tag}_STOP_RESIZE|order={planned.stop_order_id}|quantity={resized}")
+
     def on_end_of_algorithm(self) -> None:
-        """Log closed-trade count + any still-open trade id; persist decisions.parquet.
+        """Log closed-trade count + any still-open trade id; persist decisions.parquet and
+        trade-plans.json (one record per planned entry).
 
         A trade still open when the backtest ends has no entry in LEAN's closed-trade
         ledger (trades.json), so its id is logged to keep every decisions.parquet
@@ -245,3 +528,4 @@ class ChainAlgorithm(ExecutionAlgorithm):
         self.debug(f"{self.log_tag}_CLOSED_TRADES={closed}")
         self.debug(f"{self.log_tag}_OPEN_TRADE_AT_END={self._decisions.current_trade_id}")
         self._decisions.write(Path(DECISIONS_FILE))
+        write_text_atomic(Path(TRADE_PLANS_FILE), plans_json(self._plans))

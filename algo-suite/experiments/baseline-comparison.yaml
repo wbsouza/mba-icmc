@@ -21,6 +21,7 @@ runs:
       fast: 20
       slow: 60
       size: 0.5
+      cash: 10000
   - id: meanrev-eurusd-2024-06
     strategy: baseline-meanrev
     symbol: EURUSD
@@ -30,3 +31,4 @@ runs:
       window: 60
       band: 0.0015
       size: 0.5
+      cash: 10000

@@ -144,6 +144,17 @@ def _amend_max_leverage(strategies_ctx: _StrategiesCtx, name: str, value: float)
     )
 
 
+@given(parsers.parse('"{name}" also declares {section}.{key} as {value}'))
+def _amend_section_key(
+    strategies_ctx: _StrategiesCtx, name: str, section: str, key: str, value: str
+) -> None:
+    """Set one key of any section (created if absent); the value is flow-style YAML."""
+    _amend_config(
+        strategies_ctx.root, name,
+        lambda b: b.setdefault(section, {}).__setitem__(key, yaml.safe_load(value)),
+    )
+
+
 @given(parsers.parse('"{name}" adds meta_learner key "{key}" with value {value}'))
 def _add_meta_learner_key(strategies_ctx: _StrategiesCtx, name: str, key: str, value: str) -> None:
     _amend_config(
@@ -162,6 +173,14 @@ def _set_schema_version(strategies_ctx: _StrategiesCtx, name: str, value: str) -
             body["schema_version"] = yaml.safe_load(value)
 
     _amend_config(strategies_ctx.root, name, amend)
+
+
+@given(parsers.parse('"{name}" sets extends to {value}'))
+def _set_extends(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
+    """`extends` as any YAML value, so a non-string can be proven a hard stop."""
+    _amend_config(
+        strategies_ctx.root, name, lambda b: b.__setitem__("extends", yaml.safe_load(value))
+    )
 
 
 @given(parsers.parse('"{name}" is changed to extend "{base}"'))
@@ -427,6 +446,22 @@ def _loaded_price_features(  # noqa: PLR0913 - one parameter per table column
     assert (pf.rsi_period, pf.macd_fast, pf.macd_slow, pf.macd_signal) == (rsi, mf, ms, sig)
 
 
+@then(
+    parsers.parse(
+        "the loaded strategy's execution config is spread_pips {spread:g}, "
+        "commission_per_lot {commission:g}, min_hold_bars {hold:d}, "
+        "broker_stop_level_pips {level:g}"
+    )
+)
+def _loaded_execution(
+    strategies_ctx: _StrategiesCtx, spread: float, commission: float, hold: int, level: float
+) -> None:
+    assert strategies_ctx.loaded is not None
+    execution = strategies_ctx.loaded.execution
+    assert (execution.spread_pips, execution.commission_per_lot) == (spread, commission)
+    assert (execution.min_hold_bars, execution.broker_stop_level_pips) == (hold, level)
+
+
 @then(parsers.parse("the loaded strategy's raw config records {section}.{key} {value}"))
 def _raw_records(strategies_ctx: _StrategiesCtx, section: str, key: str, value: str) -> None:
     """Effective (possibly defaulted) values must appear in `raw`, hence in strategy-config.json."""
@@ -590,3 +625,46 @@ def _loaded_filters_end_with(strategies_ctx: _StrategiesCtx, names: str) -> None
 def _provenance(strategies_ctx: _StrategiesCtx, key: str, source: str) -> None:
     assert strategies_ctx.loaded is not None
     assert strategies_ctx.loaded.provenance.get(key) == source, strategies_ctx.loaded.provenance
+
+
+@then(parsers.parse('the reloaded strategy\'s parameter "{key}" comes from "{source}"'))
+def _reloaded_provenance(strategies_ctx: _StrategiesCtx, key: str, source: str) -> None:
+    """A resolved document attributes every parameter it carries to its own file name."""
+    assert strategies_ctx.reloaded is not None
+    provenance = strategies_ctx.reloaded.provenance
+    assert provenance.get(key) == source, provenance
+
+
+@given(parsers.parse('"{name}" sets extends to {value}'))
+def _set_extends(strategies_ctx: _StrategiesCtx, name: str, value: str) -> None:
+    """Set `extends` from the table's YAML so a non-string value can be tried."""
+    _amend_config(
+        strategies_ctx.root, name, lambda b: b.__setitem__("extends", yaml.safe_load(value))
+    )
+
+
+@given(parsers.parse('"{name}" drops "{section}" key "{key}"'))
+def _drop_section_key(strategies_ctx: _StrategiesCtx, name: str, section: str, key: str) -> None:
+    """Remove one key from an already-written filter section, leaving the section listed."""
+    _amend_config(strategies_ctx.root, name, lambda b: b[section].pop(key))
+
+
+@given(parsers.parse('"{name}" sets perception_source to {source}'))
+def _set_perception_source(strategies_ctx: _StrategiesCtx, name: str, source: str) -> None:
+    """Declare the F1 perception source at the top level of the config."""
+    _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__("perception_source", source))
+
+
+@given(parsers.parse('a strategy config directory with "{name}" filters as the scalar "{scalar}"'))
+def _scalar_filters_config(strategies_ctx: _StrategiesCtx, name: str, scalar: str) -> None:
+    """`filters:` written as a bare string where a one-item list was meant."""
+    _write_config(
+        strategies_ctx.root, name,
+        {"schema_version": 2, "filters": scalar, "meta_learner": {"families": ["trend"]}},
+    )
+
+
+@then(parsers.parse('the loaded strategy\'s perception source is "{source}"'))
+def _perception_source(strategies_ctx: _StrategiesCtx, source: str) -> None:
+    assert strategies_ctx.loaded is not None
+    assert strategies_ctx.loaded.perception.source == source

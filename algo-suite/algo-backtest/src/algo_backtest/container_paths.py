@@ -19,3 +19,5 @@ NEWS_SUBPATH = "news"
 NEWS_DATA_ROOT = LEAN_DATA_ROOT / NEWS_SUBPATH
 
 DECISIONS_FILE = RESULTS_MOUNT / "decisions.parquet"
+# Story 12: one record per planned entry (engine/trade_plan.py `TradePlanRecord`).
+TRADE_PLANS_FILE = RESULTS_MOUNT / "trade-plans.json"
