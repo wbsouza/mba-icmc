@@ -150,6 +150,67 @@ Continue minute-level protection when higher-timeframe setup gates veto.
 Review TD-71 (OCO), TD-67 (financing) and TD-70 (code provenance) before results
 depend on them. Unresolved relevant defects block readiness claims.
 
+### Momentum-literature filters (Antonacci, *Dual Momentum Investing*, 2015)
+
+Ideas to enter the contest as ordinary filter combinations, not as a standalone strategy
+(added 2026-09-28; the book's evidence is monthly, on equity and bond indices, so every
+claim below is a hypothesis to test on our clocks, not a result):
+
+- **Absolute-momentum regime gate** (Appendix B): trade long only when the pair's
+  trailing excess return over a long lookback is positive, short only when negative.
+  Lookback candidates 6 and 12 months of daily closes (about 130 and 250 trading days;
+  our data starts 2015-01, so 12 months is available from the first test bar). This is a
+  time-series momentum filter at a horizon far above F1's higher-timeframe EMA (60 H4
+  bars, about ten days), so it is a distinct component. Implementation shape: an F1
+  variant or a second regime input to the F7 gate; the value is computed from bars
+  closed before the decision bar.
+- **Momentum crash guard** (Ch. 7): stand aside on the side opposite the long-lookback
+  trend after a sharp reversal (e.g. the 20-day return against the 250-day sign exceeds a
+  registered threshold), which is where momentum strategies take their largest losses.
+- **Exposure by regime instead of lockout after loss**: an F5 alternative to compare
+  in story 17: reduce `risk_per_trade` when absolute momentum is flat or against the
+  side, rather than only after the daily/weekly drawdown limit has been hit.
+- **Relative momentum across pairs** (Ch. 8–9): rank a G10 universe by 1–12-month
+  returns and trade the leaders/laggards. Out of scope until more pairs are downloaded
+  (only EUR/USD and USD/JPY exist locally); recorded for the commodity-currency
+  follow-up of story 18.
+
+Contest cells: baseline price-only; + absolute-momentum gate (6 and 12 months); + crash
+guard; the F5 exposure variant belongs to story 17's comparison of management policies
+with fixed entry logic. Same registration, ranking and untouched-months discipline as the
+other combinations.
+
+### Ichimoku Kinko Hyo filters (Patel, *Trading with Ichimoku Clouds*, 2010)
+
+Local copy: `Trading with Ichimoku Clouds - The Essential Guide to Ichimoku Kinko Hyo Technical
+Analysis 2010.pdf` (table of contents verified 2026-09-28). The book defines the five lines
+(Tenkan-sen 9, Kijun-sen 26, Senkou A/B forming the Kumo cloud projected 26 bars ahead, Chikou
+span 26 bars back), gives its own two-year EUR/USD backtest (pp. 46–137), examines and optimises
+the plan (pp. 137–150) and states an "ideal Ichimoku strategy" (p. 150). TA-Lib has no Ichimoku;
+the lines are rolling midpoints of highs and lows, cheap to build in `price_features`.
+
+Causality note, to be encoded in the Gherkin scenarios: at decision bar t the cloud value
+*at t* was computed from bars t−26 and earlier (it was projected forward when drawn), and the
+Chikou condition compares the close at t with the price 26 bars earlier; both read only closed
+bars. Never use the cloud drawn *ahead* of t as if it were known at t for a bar later than t.
+
+Filter ideas for the contest, each a separate component so combinations can be ranked:
+- **Cloud regime** (F1 alternative): long only above the Kumo, short only below, stand aside
+  inside it. Compare with F1's EMA regime and with the absolute-momentum gate above; the three
+  differ in horizon (about 10 days, 26 bars, 6–12 months).
+- **Tenkan/Kijun cross** (F2 alternative to the RSI/MACD pair): direction from the cross, strength
+  from the cross's position relative to the cloud (above/inside/below), as the book grades it.
+- **Chikou confirmation** (veto): no entry when the Chikou span is on the wrong side of the price
+  26 bars back.
+- **Kijun-sen as stop/trail** (F6 alternative for story 17): stop at the Kijun line instead of the
+  swing or ATR stop; trail as the Kijun moves.
+- **Cloud thickness / twist** (context feature for F7): Senkou A−B distance in pips and its sign
+  change, as a volatility-of-regime feature.
+
+Contest cells: baseline; cloud regime replacing F1; TK cross replacing F2; both; + Chikou veto.
+The book's EUR/USD backtest is the reference to compare against, with its period and rules
+quoted, not its numbers taken as ours. Same registration and untouched-months discipline.
+
 ## 4. Acceptance criteria and verification
 
 Write Gherkin scenarios before code; implement pytest-bdd steps, not plain tests.
