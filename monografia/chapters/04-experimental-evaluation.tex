@@ -1,6 +1,6 @@
 \chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
 
-This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 27, 2026. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
+This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The intermediate-results snapshot is September 28, 2026, at 00:36 UTC (September 27 in the operator's Pacific timezone). The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
 
 \section{Experimental Setup} \label{sec:experimental-setup}
 
@@ -27,11 +27,55 @@ Initial simulation & September 1--30, 2015 & Frozen-model engine replay \\
 
 Both offline training jobs completed and saved separate portable model artifacts. Each log records 153,531 fitting rows, 32,813 calibration rows, and 30,297 held-out rows, for 216,671 rows in total. These are observation counts, not independent replications. Labels use a fifteen-minute midpoint direction and are purged at split boundaries. The current setup is a single chronological fit, not rolling retraining or CPCV. Additional held-out months can reuse these frozen models; a refit must be registered separately.
 
-At this snapshot, the baseline September replay completed with zero closed trades. Its recorded identifier is \path{baseline/20260927T044836-4cd12c922200}; the UTC identifier falls on September 27 although execution occurred on September 26 in the operator's Pacific timezone. A zero-trade replay requires investigation of coverage, model outputs, and filter vetoes before interpretation. Its zero return and zero-valued summary statistics are not evidence of strategy efficacy or a validated null result. The hybrid replay subsequently completed as \path{hybrid/20260927T053156-4f2ebf081eaf}, also with zero closed trades. Both saved engine files contain the daily equity endpoints for September. Their flat equity cannot estimate return variance or paired uncertainty; the integration check must report unavailable statistics. No paired performance or significance result is claimed here.
+In the initial historical pilot, the baseline September replay completed with zero closed trades. Its recorded identifier is \path{baseline/20260927T044836-4cd12c922200}; the UTC identifier falls on September 27 although execution occurred on September 26 in the operator's Pacific timezone. A zero-trade replay requires investigation of coverage, model outputs, and filter vetoes before interpretation. Its zero return and zero-valued summary statistics are not evidence of strategy efficacy or a validated null result. The hybrid replay subsequently completed as \path{hybrid/20260927T053156-4f2ebf081eaf}, also with zero closed trades. Both saved engine files contain the daily equity endpoints for September. Their flat equity cannot estimate return variance or paired uncertainty; the integration check must report unavailable statistics. No paired performance or significance result is claimed here.
 
 Artifacts are kept in the directory \path{2026-09-26-six-month-pilot/} beneath the local \path{algo-suite/data/training/} root. Model JSON files contain split metadata, input hashes, configuration, code revision, and package versions. The job records stage logs and exit status; run directories contain \path{run.json}, \path{trades.json}, \path{metrics.json}, \path{strategy-config.json}, LEAN outputs, and the chain's \path{decisions.parquet}. The repository progress record tracks the initial missing-broker-configuration failure and the resumed OANDA run. These local artifacts must be archived with the final report; a documentation snapshot is not a substitute for them.
 
-The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, and inspection of decision/trade evidence. Story 11 delivered the corrected inference software of Section~\ref{subsec:rule-significance}; each empirical use of it still requires audited daily equity, cost metadata, actual selection history and block settings registered before evaluation. The wider validation study, additional pairs, and feature ablations remain separate work. The results sections below stay incomplete until their required evidence exists.
+The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, and inspection of decision/trade evidence. Story 11 delivered the corrected inference software of Section~\ref{subsec:rule-significance}; each empirical use of it still requires audited daily equity, cost metadata, actual selection history and block settings registered before evaluation. The wider validation study, additional pairs, and feature ablations remain separate work. The following results are descriptive intermediate observations; unfinished stages remain explicitly unavailable.
+
+\subsection{Snapshot provenance and effective parameters} \label{subsec:intermediate-provenance}
+
+The evidence archive is located beneath the repository root at:
+\begin{quote}
+\small\ttfamily
+algo-suite/docs/stories/in-progress/\\
+13-pattern-volume-experiments/evidence/
+\end{quote}
+The file \path{snapshot-20260928T003601Z.json} records source paths, SHA-256 hashes, code and model identities, job scripts, log excerpts, manifests, and configuration artifacts. The companion \path{per-run-parameters-20260928T003601Z.md} joins each reference R01--R20 to its full run identifier, result, F1--F7 parameter matrix, and per-field provenance. References in the tables and figure legends use these same keys. The clock was confirmed at 00:36:01 UTC; the read-only collection ended at 00:36:02 UTC. It is a bounded snapshot of active jobs, not a claim about their eventual outcomes.
+
+Sixteen run manifests record \path{success=true}; four further runs have live processes but no final manifest. No inspected final manifest records failure. A separate historical failed launch reports a missing \path{broker.adapter}; its result and effective parameters are unavailable. The execution-realism job has completed September and October for both strategies, is running the November baseline, and has not yet started the November hybrid. The A05 sweep has four completed variants and one running variant; the four SpockFX-derived variants have completed. Both annual-protocol simulations are still running. The parallel scripts use bare \path{wait}, so a parent exit code of zero does not establish success of every child; completion here requires each run's own manifest.
+
+The execution-realism and sweep jobs record revision \path{7165308778fd}. Their frozen pilot model hashes begin \path{1a6fd37e96de} (baseline) and \path{a6dda4c2effc} (hybrid). Full revision identifiers, hashes, and training provenance are in the archive. The earlier ungated job records revision \path{709b9bd4bdcf} with uncommitted changes; the pilot hybrid training provenance also carries a dirty revision. Those commit identifiers alone cannot reconstruct the missing patches.
+
+\begin{table}[htbp]
+\centering
+\caption{Compact parameter reading for execution-model runs R08/R09 (baseline) and R13/R14 (hybrid). The full per-run matrix, including missing historical fields, is in the evidence appendix.}
+\label{tab:intermediate-filter-parameters}
+\small
+\begin{tabular}{p{1.1cm}p{12.2cm}}
+\toprule
+\textbf{Filter} & \textbf{Archived settings and evidence limits} \\
+\midrule
+F1 & EMA perception recorded in runtime logs; upstream EMA periods 3/8/60 on minute bars. The 60-period EMA is not an H1/H4 bar series. \\
+F2 & RSI period 14, midline 50; MACD 12/26/9, histogram threshold 0. \\
+F3 & Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. These configured names do not imply a detector: the predecessor runtime supplies no candle pattern. \\
+F4 & Absent from baseline; hybrid event-intensity veto threshold $-0.5$ and sentiment-direction threshold 0.15. Text sentiment is absent in these runs. \\
+F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.10. Configured limits are not independently verified enforcement. \\
+F6 & Risk fraction 0.03; swing lookback 60 bars; stop shrink 0.20; minimum 5 pips; minimum reward/risk 2. Target: 2R closes 0.5; trailing step: at 0.5R, stop to $-0.66$R. \\
+F7 & Thresholds 0.55/0.45; regime gate off; label horizon 15 minutes. Families: trend, indicator, pattern; hybrid additionally includes news. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The same four runs record starting cash 10,000 and shared execution settings: spread 1 pip, commission per lot 0, broker stop level 0, minimum holding bars 0, and \path{close_on_veto=false}. These are archived assumptions, not an economic validation. All fourteen available JSON/YAML configuration pairs agree. The initial and ungated runs R06/R07/R11/R12 lack archived YAML and parameter provenance, and their JSON omits several filter settings; those values remain \textit{missing}, without substitution from current defaults. Running R10 and R19 also lack their own configuration JSON/YAML at this snapshot. A provenance file naming a source is not a substitute for its missing effective values.
+
+\subsection{Annual protocol: training diagnostics and unfinished replay} \label{subsec:intermediate-annual}
+
+The annual job fits family models on March 2--December 31, 2015, calibrates the combiner on January 2016, and constructs a February 2016 held-out partition. Both saved models record 312,878 fitting, 28,802 calibration, and 30,120 held-out rows. Their SHA-256 prefixes are \path{0b41fd39ebf3} and \path{b67ac32e1fc5}; their recorded training revision is the Story 12 revision above. The planned continuous replay spans March 1--October 31, 2016. Baseline R19 and hybrid R20 have no final \path{run.json} or \path{metrics.json}; no annual return is reported. Their full run identifiers and launched arguments are preserved in the appendix.
+
+The saved threshold grid shows descriptive anti-alignment between F7's upward-direction probability and the trend regime. In January, baseline mean probabilities are 0.4791 in bull regimes and 0.5149 in bear regimes; hybrid values are 0.4794 and 0.5148. At thresholds 0.55/0.45, enabling the regime gate leaves only two sell signals for either model, whereas disabling it yields 1,242 baseline and 1,125 hybrid signals. The corresponding ungated label hit rates are 0.569 and 0.564. These are calibration diagnostics over overlapping fifteen-minute labels, not realized trade win rates, independent trials, or proof of profitable anti-trend trading. They do not identify the cause of the replay losses.
+
+The calibration script actually inspects both January and February, including the nominal held-out partition, across eight threshold pairs and both gate settings for each model (64 recorded combinations across the two spans). Thus February is held out from fitting but has already been inspected diagnostically. An untouched-2016-data claim would be false. Any later choice informed by these grids or the ongoing replay must enter the selection history; this snapshot establishes no confirmatory result.
 
 \section{Data Coverage} \label{sec:coverage-results}
 
@@ -39,15 +83,66 @@ The remaining gates are coverage reconciliation for the BigQuery materialization
 
 \section{Baseline Strategy} \label{sec:baseline-results}
 
-\textit{To be added in the final version.}
+The ungated September development replay R07 records 1,032 closed trades and a return of $-0.05\%$ with \path{size=0.5} and \path{cash=10000}. The later execution-model runs use a different sizing and exit contract and record much larger losses (Table~\ref{tab:intermediate-replays}). These are separate experiments on reused historical data; their difference cannot isolate a single execution parameter's effect. The November baseline R10 is still running at the snapshot.
+
+\begin{table}[htbp]
+\centering
+\caption{Completed execution-model replays, with their own effective parameters linked by R reference to Table~\ref{tab:intermediate-filter-parameters} and the full evidence appendix. Returns and maximum drawdowns are copied from \texttt{metrics.json}; trade counts are from successful \texttt{run.json} manifests.}
+\label{tab:intermediate-replays}
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Ref./strategy} & \textbf{Month} & \textbf{Closed trades} & \textbf{Return (\%)} & \textbf{Max DD (\%)} \\
+\midrule
+R08 baseline & Sept.\ 2015 & 320 & $-52.57$ & 53.8 \\
+R13 hybrid   & Sept.\ 2015 & 322 & $-52.75$ & 54.0 \\
+R09 baseline & Oct.\ 2015  & 319 & $-53.35$ & 55.2 \\
+R14 hybrid   & Oct.\ 2015  & 349 & $-51.37$ & 53.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The appendix joins each result (R08, R13, R09, R14) to its full run identifier, manifest hash, and model hash. Each month starts separately from 10,000; the months are not presented as a single continuously funded account.
 
 \section{Hybrid Strategy} \label{sec:hybrid-results}
 
-\textit{To be added in the final version.}
+The ungated September development replay R12 records 1,069 closed trades and $+0.51\%$ return under the earlier execution contract. Under the later contract, both completed hybrid replays lose more than half the starting account value, as Table~\ref{tab:intermediate-replays} shows. The baseline--hybrid ordering changes between September and October. Neither ordering supports a news-effect claim without paired inference, audited costs, and the full exploratory selection history.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/evidence/figures/execution-september-print.pdf}
+\caption{Observed September equity and drawdown for completed runs R08 and R13, in 2:1 panels. Legends join the parameter appendix; curves use the original \texttt{equity.csv} samples. Drawdown is relative to each sampled running peak and need not equal the engine's rounded maximum-drawdown statistic.}
+\label{fig:intermediate-equity}
+\end{figure}
+
+Figure~\ref{fig:intermediate-equity} and the October and sweep figures in the evidence archive reuse the repository's equity reader and drawdown calculation. Their presentation adapts the \textit{trading-visualization} skill's Matplotlib layout and styling guidance\footnote{\url{https://github.com/agiprolabs/claude-trading-skills/tree/main/skills/trading-visualization}}; that software guidance supplies no empirical performance evidence. Dark PNG and print PDF variants are provided. No synthetic curve, monthly rebasing, or unfinished annual result is plotted.
 
 \section{Ablations} \label{sec:ablations}
 
-\textit{To be added in the final version.}
+The September sweeps are exploratory parameter comparisons using the frozen pilot baseline model. Table~\ref{tab:intermediate-sweeps} retains losing and zero-trade variants. R02 (a05-gated) remains running with no final result. The full F1--F7 configuration of every listed run, including parameters not varied, is joined to its R reference in the appendix.
+
+\begin{table}[htbp]
+\centering
+\caption{Completed September-2015 exploratory variants. Every row links its result to its own archived filter matrix by R reference; zero trades do not establish robustness.}
+\label{tab:intermediate-sweeps}
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Ref.} & \textbf{Variant} & \textbf{Closed trades} & \textbf{Return (\%)} & \textbf{Max DD (\%)} \\
+\midrule
+R01 & a05-conservative & 3 & $-0.81$ & 10.8 \\
+R03 & a05-risk1 & 552 & $-55.28$ & 55.4 \\
+R04 & a05-selective & 6 & $-3.76$ & 5.6 \\
+R05 & a05-wide-stop & 14 & $-17.65$ & 21.5 \\
+R15 & spockfx-dragon03 & 144 & $-53.47$ & 55.8 \\
+R16 & spockfx-dragon03-atr & 437 & $-42.16$ & 50.1 \\
+R17 & spockfx-dragon05 & 0 & 0.00 & 0.0 \\
+R18 & spockfx-setupnow & 0 & 0.00 & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The SpockFX labels describe selected plan adaptations, not faithful replications of the reference strategies. At reference revision \path{a1ed6b43b3a7}, \path{deploy.xml} declares a 60-minute selector with a 20\% stop cut and 240-minute deployment templates with a 50\% cut. These H1/H4 settings, indicator-based entry/stop buffers, and strategy rules are not equivalent to the M1 EMA chain and frozen model used in these sweeps. For example, R16 actually archives ATR multiplier 4, stop shrink 0.5, minimum stop 10 pips, and risk fraction 0.01; the YAML comment's ``2 x ATR14'' is not the configured pre-shrink multiplier. Increasing an M1 ATR multiplier does not create H4 candles. Results therefore cannot establish the performance of the original SpockFX system or of the new Story 13 candle/quote-activity implementation.
 
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 
@@ -56,5 +151,7 @@ The remaining gates are coverage reconciliation for the BigQuery materialization
 \section{Threats to Validity Specific to the Observed Results} \label{sec:experimental-threats}
 
 The present evidence supports an implementation and execution report. It does not establish H1. A short single-pair window, overlapping labels, and daily event values repeated across minute rows limit generalization and invalidate treating row count as an independent sample size. Missing text sentiment and pattern detection also narrow the construct being tested.
+
+Repeated inspection of September, gate changes, threshold grids, execution changes, and nine named sweep variants create multiple exploratory selection opportunities. Selecting the least negative or zero-trade run would not turn this development window into an out-of-sample confirmatory test. The observed losses and F7/regime anti-alignment must be retained alongside favorable historical numbers. The full search history, rather than only the two finally reported strategies, is required for any selection adjustment; the 64 grid entries alone are not an established effective trial count for DSR. Recorded configuration values do not prove effective enforcement, and a successful manifest does not close this economic-validation gap.
 
 The hybrid introduces both a news-family model and an event gate, so a paired difference would represent their combined effect rather than an isolated sentiment contribution. The next-day event lag does not remove the documented late-reporting leakage from aggregation by event date. Fixed stop, pip-value, margin, and risk proxies require economic validation. Finally, schema-v2 inference in Section~\ref{subsec:rule-significance} requires complete daily equity, documented cost treatment and actual selection history. Legacy DSR adjustments and pooled-trade permutation outputs remain exploratory. An unavailable corrected statistic cannot be replaced with a legacy value. Subsequent runs must update this assessment with actual coverage, trade activity, cost assumptions, and paired uncertainty.

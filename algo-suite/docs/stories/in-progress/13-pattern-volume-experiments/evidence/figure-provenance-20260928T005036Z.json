@@ -1,0 +1,89 @@
+{
+  "checked_static_artifact_hashes": 88,
+  "files": [
+    {
+      "path": "figures/a05-sweep-september-dark.png",
+      "sha256": "3e7ac2e1c57c9225d8526117be52e62209f7850b038c1caebf107e4de49bdcff",
+      "bytes": 246871
+    },
+    {
+      "path": "figures/a05-sweep-september-print.pdf",
+      "sha256": "f64efd1bceb6422a1077a0204092e286130568da803176906783deab353f31af",
+      "bytes": 170801
+    },
+    {
+      "path": "figures/execution-october-dark.png",
+      "sha256": "86816c271c018df4e167b38fd3f0cf23dd2a53bc1ad286326495c4b481acc100",
+      "bytes": 233295
+    },
+    {
+      "path": "figures/execution-october-print.pdf",
+      "sha256": "b5fe76ea2f827654f338bf8104588b11e20b67518652b9cb1812df0e6e2832ea",
+      "bytes": 130168
+    },
+    {
+      "path": "figures/execution-september-dark.png",
+      "sha256": "ef67d36df98e91be2cbe01fab3ed8ffbd0d65a5c0dbaeb9a46e1ab9e3b1628d1",
+      "bytes": 215271
+    },
+    {
+      "path": "figures/execution-september-print.pdf",
+      "sha256": "754e3f169515a85501b2dab1fc048cff0bc3de5da8bc89010b8d74f88daa4032",
+      "bytes": 111871
+    },
+    {
+      "path": "figures/spockfx-sweep-september-dark.png",
+      "sha256": "efaab95b6d46c51cd14e60f1b98663aca0ad6fd1e36495f16dc0c5b0b32ceaa8",
+      "bytes": 231660
+    },
+    {
+      "path": "figures/spockfx-sweep-september-print.pdf",
+      "sha256": "afdcf1994e961bb7a0abdd9b516d606a6429448d3f6b5badd75e40bd925d7670",
+      "bytes": 161396
+    }
+  ],
+  "generator_sha256": "3fe43f29593952cd318e353e3dbf12d4e2fdb2e3896217f70b11b663caa7911d",
+  "snapshot_sha256": "27dc802fa10ba54c27de95d37d2b14acf34bbcc8e8428cb70f9e73e48cc55ba3",
+  "reused_source_sha256": {
+    "algo-suite/algo-analyze/src/algo_analyze/equity.py": "20c7ce126247eca299f5a7cab6afb8edc1c1a831f10109644cc3dc3a880dc7e3",
+    "algo-suite/algo-backtest/src/algo_backtest/statement.py": "1e70fcf5f5667d29f4b81cd2dee79c14531f2e74636dc6593ae3ebe62852e4ea",
+    "algo-suite/algo-analyze/src/algo_analyze/_style.py": "a28a0c7629e34d28318d9e77a104c20eb62bf64090f289da94a21d4e32d7136d"
+  },
+  "local_links": "pass",
+  "verified_utc": "2026-09-28 00:50:36 UTC",
+  "source_snapshot": "snapshot-20260928T003601Z.json",
+  "parameter_appendix": "per-run-parameters-20260928T003601Z.md",
+  "groups": {
+    "execution-september": [
+      "R08",
+      "R13"
+    ],
+    "execution-october": [
+      "R09",
+      "R14"
+    ],
+    "a05-sweep-september": [
+      "R01",
+      "R03",
+      "R04",
+      "R05"
+    ],
+    "spockfx-sweep-september": [
+      "R15",
+      "R16",
+      "R17",
+      "R18"
+    ]
+  },
+  "method": {
+    "panels": "equity and negative drawdown, height ratio 2:1",
+    "inputs": "original completed-run equity.csv samples only, hash-checked",
+    "selection": "all completed runs with archived equity.csv grouped by job/window, not performance",
+    "transformations": "negative of existing drawdowns() function; no chaining, resampling, interpolation, or synthetic data",
+    "themes": [
+      "dark PNG 150 DPI",
+      "white-background print PDF"
+    ],
+    "skill": "https://raw.githubusercontent.com/agiprolabs/claude-trading-skills/main/skills/trading-visualization/SKILL.md"
+  }
+}

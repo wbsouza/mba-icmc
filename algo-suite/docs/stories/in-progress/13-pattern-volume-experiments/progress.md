@@ -13,6 +13,10 @@ worktrees. Never label a running job or a successful shell `wait` as a completed
 
 All current implementation work is in `/tmp/mba-pattern-volume`, branch
 `feat/13-pattern-volume-experiments`, based on Story 12 commit `7165308`.
+Worktree decision: **created a new isolated worktree**, rather than extending or
+changing an existing Claude worktree. Story 13 extends the Story 12 code history,
+not its working directory. All four current agents share the new worktree with
+separate file ownership; no additional per-agent worktrees were created.
 The original checkout remains on `feat/09-f7-config-regime-gate-cash` at `c6f9be3`;
 its existing changes are not part of this work.
 
@@ -128,7 +132,9 @@ settings are unchanged. No model weights or Torch/Transformers were installed.
 
 `3a705ef` — documentation: agent/worktree ownership, decisions, verification and
 consolidation plan. Pushed to `origin/feat/13-pattern-volume-experiments`.
-This follow-up relocates the progress file into the story directory as requested.
+`2be2af2` — moved this file into the Story 13 directory as requested; pushed.
+The next documentation commit archives the verified predecessor results and
+monograph update, independently of the still-in-review implementation.
 Implementation and evidence remain uncommitted pending the two review regressions.
 
 1. Finish risk-calendar and trainer-family regressions; freeze code and commit/push.
