@@ -19,5 +19,6 @@ Wave 3 (lead):
 - [x] Cleaner: CRAP > 8 functions split, uncovered branches covered (wave3/cleaner)
 - [ ] Rerun 2015-09 baseline + hybrid from $10,000 with A05 values; Oct–Nov confirmation
 - [ ] Gauntlet: CRAP, mutation pass, QA script and procedure
-- [ ] Docs: SPEC, READMEs, thesis §3, story 09 follow-up (TD-46 and TD-65 rows deleted as resolved; the debt ledger had no TD-51 row)
+- [x] Docs: SPEC, READMEs, architecture, PRD, debt ledger, story 09 follow-up (TD-46 and TD-65 rows deleted as resolved; the debt ledger had no TD-51 row and the dangling TD-51 references were replaced; TD-66..68 added; story 09 stays in progress — its progress file has no checklist, its follow-up bullets are open)
+- [ ] Thesis §3 wording (handled outside the docs-sync stage)
 - [ ] PR

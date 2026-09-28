@@ -19,13 +19,16 @@ parameter with provenance; nothing is a code constant.
 
 | Item | Owner | Deliverable |
 |---|---|---|
-| A | wave 1 | `capital_mgmt` grows `stop_loss_shrink`, `min_stop_factor`, `targets[]` (`at_level_ratio`, `close_fraction`), `trail_stops[]` (`at_level_ratio`, `to_level_ratio`), `min_reward_risk` (null = off), `stop_distance_source` (`fixed`\|`atr`), `atr_multiplier`; new `execution` section (`spread_pips`, `commission_per_lot`, `min_hold_bars`) always resolved with defaults; `strategy-config.yaml` written next to the JSON artifact; YAML, README tables, SPEC |
-| B | wave 2 (after A) | F6 builds the full plan from its section — stop pips (fixed or ATR × multiplier, shrunk, floored), lot size, target and trail offsets in pips via `rules/strategy_math`, reward:risk — enriches `trade_plan`, vetoes below `min_reward_risk` |
+| A | wave 1 | `capital_mgmt` grows `stop_loss_shrink`, `min_stop_pips`, `min_stop_factor`, `targets[]` (`at_level_ratio`, `close_fraction`), `trail_stops[]` (`at_level_ratio`, `to_level_ratio`), `min_reward_risk` (null = off), `stop_distance_source` (`fixed`\|`atr`\|`swing` — `swing` added in wave 2, see below), `atr_multiplier`; new `execution` section (`spread_pips`, `commission_per_lot`, `min_hold_bars`, `broker_stop_level_pips`, `close_on_veto`) always resolved with defaults; `strategy-config.yaml` written next to the JSON artifact; YAML, README tables, SPEC |
+| B | wave 2 (after A) | F6 builds the full plan from its section — stop pips per side (fixed, ATR × multiplier, or the structural swing low/high distance over `price_features.swing_lookback_bars`; shrunk, then floored by `max(min_stop_pips, min_stop_factor × execution.broker_stop_level_pips)`), lot size from the wider stop, target and trail offsets in pips via `rules/trail_stop`, reward:risk — enriches `trade_plan`, vetoes below `min_reward_risk` |
 | C | wave 1 | Fill costs: pip-spread slippage model and per-lot commission fee model applied to the security from the `execution` section; pure math in a typed module with BDD, LEAN adapters call it |
-| D | wave 2 (after A, C) | Executor: market order sized from the plan, stop-market and take-profit orders with partial close, trail updates per bar, `min_hold_bars`; opposite signal closes only after plan logic; `size` param dropped for chain strategies |
+| D | wave 2 (after A, C) | Executor: market order sized from the plan, stop-market and take-profit orders with partial close (one-cancels-the-others), trail updates per bar, `min_hold_bars` before an opposite signal may reverse, `close_on_veto` (default false); `trade-plans.json` per run; `size` param dropped for chain strategies |
 | E | wave 1 | ATR: `price_features.atr_period`, LEAN ATR subscription, `atr_pips` feature, offline `atr_series` for train/serve parity |
 | F | wave 1 | Engine controls and legacy baselines take `--param cash` (closes TD-65); experiment specs updated |
 | G | wave 3 | Integration scenarios (stop fill, target partial close, trail move, spread cost), Sept-2015 rerun with A05 values from $10,000, Oct–Nov confirmation, QA script, docs, debt ledger, thesis §3 wording |
+| H | wave 1 | End-of-run broker-style `statement.md` + `equity.png`; `algo-backtest statement --run` regenerates them for any finished run |
+| H2 | wave 1 | `report.html`: self-contained "Account Performance" dashboard beside the statement |
+| H3 | wave 1 | `equity.csv` per run; `algo-analyze equity-curves` chains several runs per strategy into `equity-consolidated.{csv,png,html}` |
 
 ## A05 reference values (specs.md §14.7)
 
@@ -35,8 +38,10 @@ moving the stop to entry − 66% × SL distance, intermediate partial close 50%.
 
 ## Out of scope
 
-Structural (swing/breakout) stop levels — the stop distance is fixed pips or ATR here;
-F9–F14 extended filters; live trading.
+F9–F14 extended filters; live trading. Structural (swing) stop levels were listed here
+originally; they shipped in wave 2 as `stop_distance_source: swing` (the distance to the
+rolling swing low/high over `price_features.swing_lookback_bars`, A05's structural
+template stop) and are `baseline`'s default. Breakout-level stops remain out of scope.
 
 ## Registered protocol (2026-09-27, with the user) — decided before any 2016 bar is simulated
 
@@ -65,4 +70,14 @@ experiment. Job scripts: `data/training/2026-09-27-execution-realism/run.sh` and
   USD/JPY variant did); the stop, targets, trail and `min_hold_bars` govern exits.
 - Stop and limit orders carry no tag: the pinned LEAN image cannot bind
   `StopMarketOrder(Symbol, float, float, str)` from Python; the plan log lines identify
-  the orders instead.
+  the orders instead (TD-66).
+- The planned-stop integration scenario (`run_baseline_chain.feature`, "planned stop
+  fills at the configured distance") uses a **1-pip fixed stop**, not the A05 distance:
+  the sine fixture's ask peaks only 1.5 pips above the short entry the model takes at the
+  sine top (the entry slips half the 1-pip spread), so a 2-pip stop would never be
+  touched within the two-day span. Shrink and floors are zeroed in that variant and the
+  exit is asserted within 2 pips of the planned stop (the exit slips the other half
+  spread). The A05 values themselves are exercised by the target, trail and spread
+  scenarios with 4- and 10-pip stops.
+- Every planned entry is recorded in the run's `trade-plans.json`, which the statement
+  joins to `trades.json` by `orderIds[0]` for the S/L and T/P columns.
