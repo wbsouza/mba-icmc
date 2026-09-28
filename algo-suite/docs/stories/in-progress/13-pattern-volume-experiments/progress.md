@@ -96,7 +96,7 @@ infer that an old worktree represents unmerged work.
   Existing unrelated layout/duplicate-destination warnings remain.
 
 Detailed frozen snapshot and per-run settings:
-[intermediate evidence](algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/evidence/intermediate-results-20260928T003601Z.md).
+[intermediate evidence](evidence/intermediate-results-20260928T003601Z.md).
 The snapshot records 16 successful final manifests, four running runs, a historical
 failed launch and one planned run. It is not overwritten when later jobs finish.
 
@@ -126,9 +126,10 @@ settings are unchanged. No model weights or Torch/Transformers were installed.
 
 ## Commit/push log and next actions
 
-At this update: implementation and evidence are uncommitted in the isolated worktree.
-User explicitly requested incremental commits and pushes; parent will publish the
-Story 13 branch after the two review regressions pass, then record commit IDs here.
+`3a705ef` — documentation: agent/worktree ownership, decisions, verification and
+consolidation plan. Pushed to `origin/feat/13-pattern-volume-experiments`.
+This follow-up relocates the progress file into the story directory as requested.
+Implementation and evidence remain uncommitted pending the two review regressions.
 
 1. Finish risk-calendar and trainer-family regressions; freeze code and commit/push.
 2. Prepare fresh disjoint output directories with the immutable matrix/settings.
@@ -141,3 +142,17 @@ Story 13 branch after the two review regressions pass, then record commit IDs he
 
 No force-push, branch deletion, worktree removal, merge to main, or PR merge has been
 performed by this takeover. Existing jobs are not promised indefinite monitoring.
+
+## Story completion checklist
+
+Check an implementation item only after its changes are committed and tests pass.
+
+- [ ] Inventory predecessor jobs and preserve their results and source revisions.
+- [ ] Add causal TA-Lib detection, deterministic conflict handling and BDD tests.
+- [ ] Add relative quote-activity calculation and configurable veto with BDD tests.
+- [ ] Wire identical closed-bar signals into offline training and LEAN execution.
+- [ ] Reject models trained with an incompatible signal/family contract.
+- [ ] Map SpockFX parameters and register controlled exploratory comparisons.
+- [ ] Verify native/offline parity, offline gates and dependency audit.
+- [ ] Train separate models, execute experiments and archive all outcomes.
+- [ ] Update monograph and parameter/result evidence for the new comparisons.
