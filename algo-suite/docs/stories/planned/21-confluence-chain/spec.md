@@ -28,6 +28,13 @@ because the money-management template holds each short for days with 4R/6R targe
 becomes the drift; and 20-day momentum in the same direction doubles the tilt while adding nothing on
 its own. Candlestick confirmation adds nothing and leans the wrong way at H1.
 
+Third reading, established after the story was drafted (`evidence/signal-horizon-check.md`, last
+section): January 2016, the calibration month of every session, is the only month in twenty-four with
+negative intensity values (GDELT coverage uniform), so every absolute news threshold was taken from an
+outlier month; the low cut was never reached again and the rule cells were one-sided by construction.
+Absolute cuts on the intensity are regime bets (share of bars above the high cut swings 0–87 % by
+month).
+
 Question: does a chain whose sequence is a contract (context → trigger → confirmation → risk →
 horizon-matched exit) and whose thresholds are set by a rule on trailing data, not by outcome search,
 beat its controls on a registered protocol?
