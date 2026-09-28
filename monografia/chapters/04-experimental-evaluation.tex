@@ -443,6 +443,40 @@ TA-Lib is not disconnected: F3 records four bearish engulfings, three bullish en
 
 These favorable H4 observations do not supersede the predecessor losses or calibration anti-alignment. The reused September window, eight separate fitted models, multiple earlier exploratory selections, warm-up truncation, and only three or six closed trades prevent a confirmatory out-of-sample claim. No corrected significance, generalization, causal feature benefit, or economically validated strategy is established.
 
+\subsection{Tuning sweeps: candlesticks, quote activity, thresholds, plans and timeframes} \label{subsec:tuning-sweeps}
+
+After the eight-cell matrix, fifty-one further exploratory variants were run on the one-year splits (family fitting March 2--December 31, 2015; combiner calibrated on January 2016; February 2016 held out), each as one continuous \$10,000 account from March 1 to November 30, 2016. The selection rule was declared before any outcome was viewed: rank on March--October, which the M1 one-year replay had already consumed as development data, and read November, the only month no earlier decision had touched, last. Every variant's resolved configuration with per-key provenance is archived beside the results (\path{evidence/tuning-sweeps-20260928T0240Z.md} and its parameter appendix). Two facts shaped the sweeps. First, the H4 models' combiner probability spans only 0.517--0.539 on the January validation bars, so the registered thresholds 0.55/0.45 cannot fire: the registered broad-window matrix executed through the immutable runner closed zero or one trade in each of its eight cells, and the first fourteen H4 variants did the same. Thresholds were therefore re-registered as symmetric quantiles of each model's own validation distribution (5, 10 and 15\,\% per side). Second, on the H1 models 0.55 is the 98th percentile of the probability and 0.45 lies below its minimum, so the fixed-threshold H1 runs were long-only on about 2\,\% of bars.
+
+\begin{table}[htbp]
+\centering
+\caption{Tuning sweeps, March--November 2016, one account per variant from \$10,000. Best and worst March--October return per sweep, with the November reading of the same variant. Full tables with every month in the evidence file.}
+\label{tab:tuning-sweeps}
+\small
+\begin{tabular}{p{4.6cm}p{3.4cm}rrrr}
+\toprule
+\textbf{Sweep} & \textbf{Variant} & \textbf{Trades} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Max DD} \\
+\midrule
+H4, calibrated 10\,\% & ATR stop, floor 10 pips & 65 & $+9.0\%$ & $-6.0\%$ & 25.0\% \\
+H4, calibrated 10\,\% & regime gate on & 16 & $-20.2\%$ & $-4.8\%$ & 26.1\% \\
+H4, calibrated 10\,\% & candles on vs.\ off & 100 / 104 & $-12.1\%$ / $-12.3\%$ & $-1.3\%$ / $-1.1\%$ & 21--23\% \\
+Timeframes, fixed 0.55/0.45 & H1 hybrid, activity on & 17 & $+13.6\%$ & $-2.5\%$ & 7.4\% \\
+Timeframes, fixed 0.55/0.45 & M15 candles, activity on & 58 & $-14.0\%$ & $-1.2\%$ & 18.0\% \\
+H1 variants, fixed & hybrid, activity off & 31 & $+15.0\%$ & $-2.6\%$ & 10.7\% \\
+H1 variants, fixed & thresholds 0.53/0.47 & 209 & $-23.3\%$ & $-3.5\%$ & 48.7\% \\
+H1, calibrated 5 / 10 / 15\,\% & baseline & 114 / 196 / 316 & $+3.1\%$ / $-26.6\%$ / $-51.1\%$ & $-8.0\%$ / $-4.6\%$ / $-8.8\%$ & 21 / 41 / 59\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-tuning-h4q.png}{\includegraphics[width=\textwidth]{img/equity-tuning-h4q.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-tuning-h4q.png}.}\vspace{2em}}}}
+\caption{Equity of four calibrated H4 variants (ATR stop, base, hybrid, activity off), March--November 2016, from \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-tuning-h4q}
+\end{figure}
+
+The sweeps answer the tuning question negatively. No variant is profitable in November: every variant that traded in that month lost between 0.1 and 8.8\,\%. The only positive March--October returns come from low-frequency settings with 17 to 65 trades, and each of them lost in November; making the same H1 models trade more through symmetric calibrated thresholds reverses the sign monotonically (114 trades $+3\,\%$, 196 trades $-27\,\%$, 316 trades $-51\,\%$). The TA-Lib detector does not move the outcome at any timeframe: candle-on and candle-off pairs differ by less than 0.1\,\% because the pattern family shifts the combiner probability without crossing a threshold. The quote-activity gate reduces trade counts; at H4 it worsens every pair. The regime gate is the emptiest or worst setting at every timeframe, filter order changes nothing because vetoes compose, and the Dragon05 plan is viable only with a minimum reward-to-risk of 1. Applying the pre-declared rule, the best March--October variant of each family (H4 ATR stop, H1 hybrid without the activity gate) fails its November reading. With fifty-one trials, one or two positive development-window results are expected under the null; none survives the untouched month.
+
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 
 \textit{To be added in the final version.} This section will compare a deflated Sharpe ratio for the hybrid, computed with the schema-v2 procedure of Section~\ref{subsec:rule-significance} over the extended window that the GDELT materialization through August 2016 now permits, against the plausibility band derived from \citeonline{zhang2025macroalpha}; the present one-month, near-zero-cost replay cannot supply that statistic.
@@ -451,7 +485,7 @@ These favorable H4 observations do not supersede the predecessor losses or calib
 
 The present evidence supports an implementation and execution report. It does not establish H1. A short single-pair window, overlapping labels, and daily event values repeated across minute rows limit generalization and invalidate treating row count as an independent sample size. Text sentiment is missing throughout; pattern detection is absent from the predecessor pilot but is observed in the new TA-Lib H4 cells.
 
-Repeated inspection of September, gate changes, threshold grids, execution changes, and nine named sweep variants create multiple exploratory selection opportunities. Selecting the least negative or zero-trade run would not turn this development window into an out-of-sample confirmatory test. The observed losses and F7/regime anti-alignment must be retained alongside favorable historical numbers. The full search history, rather than only the two finally reported strategies, is required for any selection adjustment; the 64 grid entries alone are not an established effective trial count for DSR. Recorded configuration values do not prove effective enforcement, and a successful manifest does not close this economic-validation gap.
+Repeated inspection of September, gate changes, threshold grids, execution changes, nine named M1 sweep variants and fifty-one later H4/H1/M15 tuning variants create multiple exploratory selection opportunities. Selecting the least negative or zero-trade run would not turn this development window into an out-of-sample confirmatory test. The observed losses and F7/regime anti-alignment must be retained alongside favorable historical numbers. The full search history, rather than only the two finally reported strategies, is required for any selection adjustment; the 64 grid entries alone are not an established effective trial count for DSR. Recorded configuration values do not prove effective enforcement, and a successful manifest does not close this economic-validation gap.
 
 Four threats arise from what was observed. First, the gate decision was taken after inspecting September's zero-trade outcome, so September 2015 is development data for the ungated rule and cannot serve as its confirmation window; the threshold choice, by contrast, read only July and August. Second, the execution assumptions are unrealistic in a direction that flatters minute-scale flipping: a median spread of 0.3 pip as the only cost, zero fees, no enforced stop or take-profit, and a fixed half-of-equity notional in place of the F6 risk-based lot. Roughly one thousand trades per month with average wins and losses of a few hundredths of a percent would be dominated by any commission or slippage, so the signs of the September returns carry no economic information. Third, the F6 sizing was computed but not applied, so the capital-management layer described in Section~\ref{sec:execution-engine} has not been exercised, and the risk figures in Table~\ref{tab:pilot-parameters} describe configuration, not behavior. Fourth, F4 abstained on every bar, so the hybrid-minus-baseline difference measures only the news family's input to the combiner; it says nothing about the event gate, and a paired difference in a later window would still represent the joint effect of both unless the ablations of Section~\ref{sec:ablations} separate them.
 

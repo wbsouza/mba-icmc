@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 02:00 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 02:45 UTC (September 27, America/Vancouver).
 Owner: Claude (integration and next protocol); Codex implementation and eight-run experiment complete. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -274,6 +274,23 @@ eight cells declared as the trial count). Warm-up: prime indicators from prior c
 (February 2016) if the runner supports it; otherwise exclude the first 59 H4 bars identically
 in every cell. Budget: six LEAN slots, 4 CPU / 8 GiB per container, two workers, fresh
 disk-backed output root and basetemp, `df -i` checked first. Not launched in this session.
+
+### Tuning sweeps and registered broad-window run (2026-09-28, 01:45–02:40 UTC)
+
+- Registered broad-window matrices (PR #56 runner, `plan-broad-window.yaml`) executed through
+  the immutable runner: baseline and hybrid, 4 cells each, all `succeeded`, final input checks
+  `ok`; 0–1 closed trades per cell (−0.03 % where traded) because the H4 models' p_hat spans
+  0.517–0.539 on the January validation bars and cannot cross 0.55/0.45. Output roots
+  `/tmp/mba-broad/algo-suite/build/experiments/broad-window-{baseline,hybrid}-20260928T0152`.
+- Thresholds re-registered as validation quantiles (5/10/15 % per side) before any 2016-03+
+  outcome was viewed; calibration JSONs in the job dirs.
+- Five exploratory sweeps, 51 variants, one-year splits, 2016-03-01..2016-11-30 one account
+  each, rank on Mar..Oct and read November last: H4 fixed (14), H4 calibrated (11), timeframes
+  M15/H1/H2 (9), H1 fixed variants (9), H1 calibrated (8). Evidence
+  `evidence/tuning-sweeps-20260928T0240Z.{md,json}` + parameter appendix. Result: no variant
+  profitable in November; positive Mar..Oct returns only at 17–65 trades and reversed in
+  November; loss grows monotonically with trade count; detector on/off within 0.1 %.
+- Job directories (local, gitignored): `data/training/2026-09-28-{broad-window-h4,h4-tuning-sweep,h4-tuning-sweep-q,tf-sweep,h1-tuning-sweep,h1-tuning-sweep-q}`.
 
 ## Story completion checklist
 
