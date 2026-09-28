@@ -19,8 +19,8 @@ Feature: Results database from run directories
       And its config sets:
         | key                             | value  | source               |
         | price_features.bar_minutes      | 60     | hybrid/config.yaml   |
-        | meta_learner.theta_high         | 0.55   | dragon08/config.yaml |
-        | capital_mgmt.lot_notional_units | 100000 | dragon08/config.yaml |
+        | meta_learner.theta_high         | 0.55   | h4-base/config.yaml |
+        | capital_mgmt.lot_notional_units | 100000 | h4-base/config.yaml |
       And its engine log names model sha256 "4220696d32cfd2c60f9821a2c5944f406b7f391b68fccd155ab498459a124d9a"
       And its equity samples are:
         | time                      | equity |
@@ -54,7 +54,7 @@ Feature: Results database from run directories
         | hit_rate      | 0.5                                                              |
       And the run's run_dir, statement_path and report_path point into its directory
       And table "run_parameters" has 4 rows
-      And the parameter "meta_learner.theta_high" of the run is "0.55" from "dragon08/config.yaml"
+      And the parameter "meta_learner.theta_high" of the run is "0.55" from "h4-base/config.yaml"
       And the parameter "cash" of the run is "\"10000\"" from "--param"
       And table "equity_samples" has 4 rows
       And the monthly returns of the run are:

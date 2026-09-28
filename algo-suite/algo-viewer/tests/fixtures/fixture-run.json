@@ -12,15 +12,15 @@
     "volume_strength": {"lookback": 20, "min_relative_activity": 1.0}
   },
   "provenance": {
-    "capital_mgmt.lot_notional_units": "dragon08/config.yaml",
-    "capital_mgmt.risk_per_trade": "dragon08/config.yaml",
-    "meta_learner.theta_high": "dragon08/config.yaml",
-    "meta_learner.theta_low": "dragon08/config.yaml",
+    "capital_mgmt.lot_notional_units": "h4-base/config.yaml",
+    "capital_mgmt.risk_per_trade": "h4-base/config.yaml",
+    "meta_learner.theta_high": "h4-base/config.yaml",
+    "meta_learner.theta_low": "h4-base/config.yaml",
     "meta_learner.regime_gate": "hybrid/config.yaml",
     "pattern.detector": "hybrid/config.yaml",
     "price_features.bar_minutes": "hybrid/config.yaml",
-    "volume_strength.lookback": "dragon08/config.yaml",
-    "volume_strength.min_relative_activity": "dragon08/config.yaml"
+    "volume_strength.lookback": "h4-base/config.yaml",
+    "volume_strength.min_relative_activity": "h4-base/config.yaml"
   },
   "trades": [
     {"entryTime": "2016-03-02T10:00:00Z", "entryPrice": 1.1, "direction": 0, "quantity": 100000.0,

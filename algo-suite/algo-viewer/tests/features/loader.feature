@@ -8,7 +8,7 @@ Feature: SQLite loader
     When I open the database
     Then it holds 1 run, 2 trades and 2 entry decisions
     And the run "20260928T010000-fixture" is strategy "hybrid" on H1 with 2 trades and win rate 0.5
-    And the run's parameter "meta_learner.theta_high" is "0.55" from "dragon08/config.yaml"
+    And the run's parameter "meta_learner.theta_high" is "0.55" from "h4-base/config.yaml"
     And the run's decision funnel is:
       | final_decision | vetoed_by       | count |
       | NO_TRADE       | volume_strength | 1     |
