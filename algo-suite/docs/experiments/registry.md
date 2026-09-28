@@ -39,10 +39,16 @@ for this registry.
 
 **Dates.** The date column is the UTC time of the job's `exit-status.txt` (recorded by the
 machine in `-07:00` and converted here), or the registration time when the job did not
-finish. README and story files also state UTC registration times; several of those are a
-few minutes to half an hour later than the machine's exit timestamp for the same job
-(for example the trading-year controls). The registry records both as written and does
-not reconcile them.
+finish. README and story files also state UTC registration times ("registered HH:MM
+UTC"); for several session-1 jobs those are minutes to half an hour later than the
+machine's exit timestamp for the same stage. A file-time audit (entries 14, 18 and 19)
+reconciles them: each stage's plan, variant list and strategy configurations were written
+seconds before that stage launched, so every cell was fixed before its own launch, while
+the README paragraphs that state a registration time were written after the stage had
+finished. Those stated times are writing times, not pre-registration times; the file
+modification times are the record of when each design was fixed. The pre-specified
+primary comparison of the trading year comes from the one-year protocol (Chapter 4
+`subsec:one-year-protocol`), not from those paragraphs.
 
 ## Index
 
@@ -61,12 +67,12 @@ not reconcile them.
 | 11 | 2026-09-28 02:08 | `2026-09-28-h4-tuning-sweep-q` (archived) | story 13, PR #57 | exploratory, thresholds re-registered as validation quantiles before any 2016-03+ outcome was viewed | Ch. 4 `subsec:tuning-sweeps` / `tab:tuning-sweeps`, `fig:equity-tuning-h4q` |
 | 12 | 2026-09-28 02:13 | `2026-09-28-tf-sweep` (archived) | story 13, PR #57 | exploratory, declared before viewing (README: 02:05 UTC) | Ch. 4 `subsec:tuning-sweeps` / `tab:tuning-sweeps` |
 | 13 | 2026-09-28 02:31 | `2026-09-28-h1-tuning-sweep` (archived) | story 13, PR #57 | exploratory, declared before viewing (README: 02:25 UTC) | Ch. 4 `subsec:tuning-sweeps` / `tab:tuning-sweeps` |
-| 14 | 2026-09-28 02:31 | `2026-09-28-h1-tuning-sweep-q` (archived) | story 13, PR #57 | exploratory, declared before viewing (README: 02:35 UTC) | Ch. 4 `subsec:tuning-sweeps` / `tab:tuning-sweeps` |
+| 14 | 2026-09-28 02:31 | `2026-09-28-h1-tuning-sweep-q` (archived) | story 13, PR #57 | exploratory, declared before viewing (files written 02:18 UTC before launch; the README text says 02:35 UTC, see entry) | Ch. 4 `subsec:tuning-sweeps` / `tab:tuning-sweeps` |
 | 15 | 2026-09-28 04:35 | `2026-09-28-dec-extension` (archived) | story 13, PR #59 | registered before viewing (registered before any December bar was read; story progress 03:30–04:10 UTC) | Ch. 4 `subsec:registered-followups` |
 | 16 | 2026-09-28 04:37 | `2026-09-28-h1-open` (archived) | story 13, PR #59 | exploratory, declared before viewing (README: 04:05 UTC); called a curiosity check by the monograph | Ch. 4 `subsec:registered-followups` (prose only: "recorded only in the story evidence") |
 | 17 | 2026-09-28 05:08 (stopped) | `2026-09-28-h1-grid` (archived) | story 13, PR #59 | exploratory, declared before viewing; stopped by the user after a fraction of its cells | Ch. 4 `subsec:registered-followups` (prose only); counted in the trial count of `sec:experimental-threats`; no result in the monograph |
-| 18 | 2026-09-28 05:38 (news-only) and 05:52 (rule arm) | `2026-09-28-news-only` (archived) | story 14, `feat/14-news-only-strategy` PR #60 (code), PRs #61, #62 (docs) | registered before viewing (spec: 05:40 UTC; rule-only arm added 06:05 UTC before any cell ran) | Ch. 4 `subsec:news-only` |
-| 19 | 2026-09-28 06:21 to 07:31 | `2026-09-28-trading-year` (archived) | story 14, PRs #63, #65 | registered before viewing (README: 06:25 UTC; supplements 06:50, 06:58, 07:05, 07:10 UTC; one control corrected 07:15 UTC after running) | Ch. 4 `subsec:trading-year` / `tab:trading-year`, `fig:equity-trading-year` |
+| 18 | 2026-09-28 05:38 (news-only) and 05:52 (rule arm) | `2026-09-28-news-only` (archived) | story 14, `feat/14-news-only-strategy` PR #60 (code), PRs #61, #62 (docs) | registered before viewing (cells and calibration fixed before launch per file times; the README stating 05:40 and 06:05 UTC was written at 06:07 UTC, see entry) | Ch. 4 `subsec:news-only` |
+| 19 | 2026-09-28 06:21 to 07:31 | `2026-09-28-trading-year` (archived) | story 14, PRs #63, #65 | registered before viewing (file-time audit: each stage's plan and configurations written seconds before its launch; the README's "registered" times are writing times, see entry) | Ch. 4 `subsec:trading-year` / `tab:trading-year`, `fig:equity-trading-year` |
 | 20 | 2026-09-28 07:00 (registered) to 07:25 (stopped) | `2026-09-28-tf-year` (archived) | no story file; user request recorded in the job README | registered before viewing (README: 07:05 UTC), then stopped for session 2 | not reported (session 2 re-ran the sub-hour q10 cells) |
 | 21 | 2026-09-28 03:30–04:28 (file times) | `2026-09-28-reports` (archived) | rendering bundle for the viewer and the monograph, not an experiment | none | none |
 | 22 | 2026-09-28 07:40 (registered) to 08:36 | `2026-09-28-session-2` (local, `algo-suite/data/training/`) | story 20 (registered as 15, renumbered by PR #78), `exp/session-2`, PR #74 | registered before viewing (README written before any cell ran) | Ch. 4 `subsec:session-2` / `tab:session-2`, `fig:equity-session-2`; TD-71 |
@@ -327,8 +333,12 @@ and 10–14 by their Chapter 4 sections; no other entry is cited in Chapter 5.
 ### 14. H1 tuning sweep, calibrated thresholds (`2026-09-28-h1-tuning-sweep-q`)
 
 - **Window.** As entry 13 with symmetric quantile thresholds (5/10/15% per side) from
-  `tf-threshold-calibration.json`. README declared 02:35 UTC; finished 2026-09-28
-  02:31 UTC, exit 0. Trial count so far 51.
+  `tf-threshold-calibration.json`. The README text says "Declared 2026-09-28 02:35 UTC";
+  the job's files show `README.md`, `run.sh`, `variants.txt`, `model-map.json`,
+  `model-hashes.txt` and the `strategies/` directory all written at 02:18:11 UTC, the
+  first cell's parameter dump at 02:18:12 UTC, `exit-status.txt` at 02:31:57 UTC (exit 0)
+  and `results.md` at 02:32:26 UTC. The stated 02:35 matches none of these; the batch was
+  declared and launched at 02:18 UTC. Trial count so far 51.
 - **Cells and models.** Eight variants; the two H1 models.
 - **Key result (as stated).** h1-q05-base 114 trades, +3.08% Mar–Oct, −8.01% Nov;
   h1-q10-base 196, −26.59%, −4.59%; h1-q15-base 316, −51.13%, −8.78%; h1-q10-hybrid 204,
@@ -393,10 +403,16 @@ and 10–14 by their Chapter 4 sections; no other entry is cited in Chapter 5.
   news family only; thresholds 0.55/0.45 or, if unreachable, 5% and 10% January quantiles
   decided from the calibration JSON; one $10,000 account per cell 2016-03-01 to
   2016-12-31; rank on March–October, November and December read last; primary comparison
-  news-only vs price-only baseline at H1. Registered 05:40 UTC per the spec; rule-only arm
-  (F4 decides from the intensity at the January-2016 90% / 10% quantiles 0.6294 / −0.0046,
-  both sign conventions) added 06:05 UTC before any cell ran. `exit-status.txt` finished
-  05:38 UTC (news-only) and `exit-status-rule.txt` 05:52 UTC. Trial count 10.
+  news-only vs price-only baseline at H1. The spec text says "registered 05:40 UTC" and
+  that the rule-only arm (F4 decides from the intensity at the January-2016 90% / 10%
+  quantiles 0.6294 / −0.0046, both sign conventions) was "added 06:05 UTC, before any
+  cell ran". File-time audit (UTC): `run.sh` 05:31:57; calibration files 05:34:09–13;
+  first run log 05:34:21; news-only stage exit 05:38:54; rule-arm strategy configurations
+  05:51:31; rule stage exit 05:52:52; job `README.md` (the registration text) 06:07:42.
+  Reading: the cells and their calibrated thresholds were fixed before launch (the
+  thresholds come from the calibration JSON, not from a 2016-03+ outcome), and the
+  README paragraph was written after both stages had finished; its stated times are
+  writing times. Trial count 10.
 - **Cells and models.** Six news-only cells (2 clocks × fixed/q05/q10) and four rule
   cells (2 clocks × 2 signs); two models (`news-only-h1` 4,739 fitting rows,
   `news-only-h4` 1,030; January band H1 0.5253–0.5288, H4 0.5245–0.5265).
@@ -420,11 +436,25 @@ and 10–14 by their Chapter 4 sections; no other entry is cited in Chapter 5.
   account per cell 2016-03-01 to 2017-02-28; March–October 2016 development data, November
   2016 to February 2017 untouched, read last; primary comparison hybrid vs price-only at
   H1, paired daily equity on the untouched months (block 4, sensitivity 2, 999 resamples,
-  seed 42). Registered per README 06:25 UTC; supplement 06:50 UTC (`q10-atr-stop`,
-  `h1-vol-0.8`); control 06:58 UTC (`short-when-flat-*`, found mis-specified and corrected
-  07:15 UTC to `always-short-*`); both-sides supplement 07:05 UTC (four calibrated H1
-  cells); gated supplement 07:10 UTC. `exit-status*.txt`: main 06:21, supplement 06:24,
-  control2 06:31, control 06:34, both-sides and gated 07:31 UTC, all exit 0. Trial count 22.
+  seed 42). The README text says registered 06:25 UTC; supplement 06:50 UTC
+  (`q10-atr-stop`, `h1-vol-0.8`); control 06:58 UTC (`short-when-flat-*`, found
+  mis-specified and corrected 07:15 UTC to `always-short-*`); both-sides supplement
+  07:05 UTC (four calibrated H1 cells); gated supplement 07:10 UTC. `exit-status*.txt`:
+  main 06:21, supplement 06:24, control2 06:31, control 06:34, both-sides and gated
+  07:31 UTC, all exit 0. Trial count 22.
+- **Timestamp audit (file modification times, UTC).** Each stage's `plan*.tsv` and
+  strategy configurations were written seconds before its launch: ten main cells
+  06:12:24 → launch 06:12:41 → finished 06:21:48; supplement 06:21:02 → 06:21:03 →
+  06:24:49; long-whenever-flat control 06:30:03 → 06:30:04 → 06:31:33; always-short
+  control 06:32:58 → 06:32:59 → 06:34:26; both-sides 07:03:25 → 07:03:28 → 07:31:35;
+  gated 07:04:05 → 07:04:07 → 07:31:35. The README's "registered HH:MM UTC" paragraphs
+  for the first four stages were written after those stages finished
+  (`paired-inference.md` 06:23:17, `results.md` 06:35:01, README mtime 07:04:05).
+  Conclusion: every cell was fixed before its own launch; the primary comparison was
+  pre-specified in the one-year protocol (Chapter 4 `subsec:one-year-protocol`); the
+  registration paragraphs' times are writing times, not pre-registration times. The audit
+  table is appended to story 14 `evidence/trading-year-registration.md` (branch
+  `docs/ch05-lessons-2026-09-28`, PR #83), and Chapter 4 carries one sentence about it.
 - **Cells and models.** Ten registered cells + 2 + 2 + 2 + 4 + 2 supplement and control
   cells (22 runs; the mis-specified long-whenever-flat pair reported as such at H1 −29.0%,
   H4 −14.5%); no new model.
@@ -435,7 +465,8 @@ and 10–14 by their Chapter 4 sections; no other entry is cited in Chapter 5.
   −5.54%. Primary hybrid vs price-only H1: −0.048%/day on the untouched months,
   95% CI [−0.115%, +0.019%], p = 0.149; full year +0.001%/day, p = 0.938. The long-
   whenever-flat control exposed the same-bar OCO double fill (TD-71).
-- **Evidence.** Story 14 `evidence/trading-year-registration.md`,
+- **Evidence.** Story 14 `evidence/trading-year-registration.md` (registration text
+  and, on PR #83, the timestamp audit table),
   `trading-year-cells-20260928T0640Z.md`, `trading-year-inference-20260928T0640Z.{md,json}`,
   `progress.md`; archived job (`README.md`, `results.md`, `paired-inference.{md,json}`,
   `plan*.tsv`, `run-*.sh`, `exit-status*.txt`, `equity-trading-year-h1.{png,html}`,
