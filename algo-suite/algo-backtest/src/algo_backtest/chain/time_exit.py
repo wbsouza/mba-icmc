@@ -294,6 +294,20 @@ class TimeExitLifecycle:
         An exact repeat of the last delivered candle is idempotent. Raises on a partial
         bucket, an off-grid close, a naive time, or a candle not after the last delivered one.
         """
+        self._validate_candle_bounds(start, end)
+        if self._is_repeat_of_last_candle(start, end):
+            return
+        self._last_candle = (start, end)
+        self._advance(end)
+        self._count_bar_toward_horizon(start, end)
+
+    def _validate_candle_bounds(self, start: datetime, end: datetime) -> None:
+        """Fail fast on a naive time, a partial bucket, or an off-grid close.
+
+        Raises:
+            ValueError: `start`/`end` is naive, `[start, end)` is not one complete
+                clock-minute candle, or `end` is not on the clock-minute UTC grid.
+        """
         _require_utc(start, what="candle start")
         _require_utc(end, what="candle end")
         if end - start != self._clock_delta:
@@ -306,17 +320,27 @@ class TimeExitLifecycle:
                 f"{_LIFECYCLE}: candle ending at {end.isoformat()} is not on the "
                 f"{self.clock_minutes}-minute UTC grid"
             )
-        if self._last_candle is not None:
-            last_start, last_end = self._last_candle
-            if (start, end) == (last_start, last_end):
-                return
-            if end <= last_end:
-                raise ValueError(
-                    f"{_LIFECYCLE}: candle ending at {end.isoformat()} is not after the last "
-                    f"completed candle ending at {last_end.isoformat()}"
-                )
-        self._last_candle = (start, end)
-        self._advance(end)
+
+    def _is_repeat_of_last_candle(self, start: datetime, end: datetime) -> bool:
+        """Whether `[start, end)` is an idempotent repeat of the last delivered candle.
+
+        Raises:
+            ValueError: `[start, end)` is not after the last delivered candle.
+        """
+        if self._last_candle is None:
+            return False
+        last_start, last_end = self._last_candle
+        if (start, end) == (last_start, last_end):
+            return True
+        if end <= last_end:
+            raise ValueError(
+                f"{_LIFECYCLE}: candle ending at {end.isoformat()} is not after the last "
+                f"completed candle ending at {last_end.isoformat()}"
+            )
+        return False
+
+    def _count_bar_toward_horizon(self, start: datetime, end: datetime) -> None:
+        """Advance the open HOLDING trade's completed-bar count, moving it to DUE at horizon."""
         trade = self._open_trade()
         if trade is not None and trade.status == HOLDING and start >= trade.bar_t_start:
             trade.completed_bars += 1
@@ -395,8 +419,9 @@ class TimeExitLifecycle:
             trade.fill_time = at
             trade.fill_quantity = quantity
             trade.fill_price = price
-            if self._open_trade_id == trade_id:
-                self._open_trade_id = None
+            # trade was open (status != CLOSED per _known_trade) and only one trade is
+            # ever open at a time, so trade_id is necessarily self._open_trade_id here.
+            self._open_trade_id = None
 
     def order_submitted(self, trade_id: str, order_id: int, at: datetime) -> None:
         """The engine reports a close order live for the trade; blocks a second request."""
@@ -441,8 +466,9 @@ class TimeExitLifecycle:
             trade.remaining_quantity = 0.0
             trade.reason = "expiry"
             trade.status = CLOSED
-            if self._open_trade_id == trade_id:
-                self._open_trade_id = None
+            # trade was PENDING, reachable only for the currently open trade, so
+            # trade_id is necessarily self._open_trade_id here.
+            self._open_trade_id = None
         elif status in ("rejected", "canceled"):
             trade.rejections += 1
             trade.order_status = "REJECTED" if status == "rejected" else "CANCELED"

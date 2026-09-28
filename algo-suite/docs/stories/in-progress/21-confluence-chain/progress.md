@@ -670,3 +670,42 @@ the next dependency per tasks.md's execution plan (`T10 -> T11 -> T12 -> T13
 -> T15 -> T14`) and is integration-owned, outside this lane. Agent: coder
 (Claude Sonnet 5). Branch `feat/21-confluence-chain`, worktree
 `/tmp/mba-impl-21`, base commit `525f99e`.
+
+## Cleaner phase 2 (2026-09-28)
+
+Baseline: phase-2 diff `git diff 0c4d612..13fcf4c -- algo-backtest/src
+experiments`. Per-file review: ruff (`--select C901,PLR0912,PLR0915`), mypy
+`--strict`, branch coverage over the five phase-2 step files, CRAP via
+`radon cc -s` (installed in the workspace venv), docstrings/fail-fast/dead-code/
+naming review, and the `make check-perception-architecture
+check-inference-architecture` dependency-boundary gate.
+
+| File | Ruff | Mypy strict | Coverage (before → after) | Max cc / CRAP (before → after) | Actions |
+| --- | --- | --- | --- | --- | --- |
+| `chain/time_exit.py` | clean | clean | 98% (2 partial branches, 1 uncovered line) → 100% | `completed_candle` cc 10 (CRAP 10) → 2; `order_status_report` cc 8 → 7 | Split `completed_candle` into `_validate_candle_bounds`/`_is_repeat_of_last_candle`/`_count_bar_toward_horizon`; removed two `if self._open_trade_id == trade_id` guards in `stop_filled`/`order_status_report` that were always true (the lifecycle's own invariant — exactly one non-closed trade, always `self._open_trade_id` — makes both branches unreachable; replaced with an explanatory comment and the unconditional assignment); added the missing "unrecognized order status is refused" scenario to `confluence_time_exit.feature` (reuses the existing `_order_status_refused` step, no step code changed) to cover the `order_status_report` `ValueError` branch that had no scenario |
+| `chain/filters/constant_direction.py` | clean | clean | 100% → 100% | cc 1 (trivial) | None needed |
+| `experiments/confluence-chain/rederive_horizon.py` | clean | clean | not selected for branch coverage (outside `algo_backtest`); reviewed by inspection | max cc 6 (`_row`), all ≤8 | None needed |
+| `experiments/confluence-chain/preflight.py` | clean | clean | not selected for branch coverage (outside `algo_backtest`); reviewed by inspection | max cc 7 (`compute_arm_ledger`), all ≤8 | None needed |
+| `experiments/confluence-chain/make_cells.py` | clean | clean | not selected for branch coverage (outside `algo_backtest`); reviewed by inspection | max cc 5, all ≤8 | None needed |
+
+Duplication noted, not merged (Phase 2's private-file boundary, matching the
+Phase 1 cleaner's disposition): `_require_utc`/`_clock_label` helpers repeat
+verbatim across `time_exit.py`, `preflight.py` and `rederive_horizon.py`.
+
+Verification after refactor: the five phase-2 step files (134 passed, 100%
+line+branch coverage on `time_exit.py`/`constant_direction.py`); the
+tasks.md Regression selection (`test_filter_chain_mechanics.py`,
+`test_f1_trend.py`, `test_f4_news_context.py`, `test_f6_capital_mgmt.py`,
+`test_chain_wiring.py`, `test_strategy_explain.py`,
+`test_decision_recorder.py`, `test_audit.py`, `test_bar_clock.py`,
+`test_order_executor.py`, `test_trade_plan.py`,
+`algo-analyze/tests/steps/test_portfolio_inference.py`; 477 passed); `uv run
+ruff check algo-backtest experiments` clean; `uv run mypy --strict
+algo-backtest experiments/confluence-chain` clean (69 source files);
+`check-perception-architecture`/`check-inference-architecture` both PASS.
+`.mypy_cache` removed after the run.
+
+No behaviour changed: every existing scenario/assertion is untouched; only one
+new scenario was added. Agent: cleaner (Claude Sonnet 5). Branch
+`feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, phase commits
+`3bbbbf8..13fcf4c`.

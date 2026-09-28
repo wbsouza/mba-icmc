@@ -287,6 +287,15 @@ Feature: Time exit — the causal bar-count expiry as a pure lifecycle (story 21
       When the engine reports close order 9 "filled" at "2016-03-01T14:00:00Z" for -1000 units at price 1.1010 and is refused
       Then the time-exit failure names "order 9 is not the live close order of trade 'T1'"
 
+    Scenario: an order status report with an unrecognized status is refused
+      Given a time-exit lifecycle on a 60-minute clock with exit_after_bars 4
+      And the entry of trade "T1" filled at "2016-03-01T10:00:30Z" for 1000 units
+      And completed candles on the clock from "2016-03-01T10:00:00Z" through "2016-03-01T13:00:00Z"
+      When a tradable event arrives at "2016-03-01T14:00:00Z"
+      And the engine reports close order 7 submitted for trade "T1" at "2016-03-01T14:00:00Z"
+      And the engine reports close order 7 "expired" at "2016-03-01T14:00:00Z" for -1000 units at price 1.1010 and is refused
+      Then the time-exit failure names "unknown order status 'expired' for trade 'T1'"
+
   Rule: The expiry-submission event suppresses new entry on that event only (CC-19)
 
     Scenario Outline: new entry is <suppressed> at <event> (<case>)
