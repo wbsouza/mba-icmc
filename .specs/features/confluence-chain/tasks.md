@@ -287,8 +287,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Exactly 14 unique IDs; A/B/T-only/M-only named-voter lists are correct; controls need no news; time plans explicitly disable targets/trail; A-plan pins every inherited exit setting; costs, caps and clocks are invariant; F3/F7/adaptive/candlestick/SR arms cannot enter the manifest.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Exactly 14 unique IDs; A/B/T-only/M-only named-voter lists are correct; controls need no news; time plans explicitly disable targets/trail; A-plan pins every inherited exit setting; costs, caps and clocks are invariant; F3/F7/adaptive/candlestick/SR arms cannot enter the manifest.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_cells.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_cells.py` in this task; at least 8 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_cells.py`; Build and applicable Regression before handoff.

@@ -545,3 +545,128 @@ Next: T10 (`experiments/confluence-chain/make_cells.py`, the fourteen-cell
 manifest generator). Blockers: none. Agent: coder (Claude Sonnet 5). Branch
 `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit
 `e4959a6`.
+
+## 2026-09-28 — Coder phase 2, T10 (Phase 2 close-out)
+
+Implemented `experiments/confluence-chain/make_cells.py` (CC-21, CC-23, CC-28;
+D3, D7, D9, D11): a deterministic generator of the 7 registered arms (A, B,
+A-plan, T-only, M-only, always-short, always-long) × 2 clocks (H1=60/L=480,
+H4=240/L=120), two closed registries (`ARMS`, `CLOCK_LOOKBACK`) that refuse
+anything outside them. Each cell's `filters:` list is exactly its required
+voters plus F5/F6 — deliberately never an extra non-required directional
+voter, since the agreement terminal's "any other voter that disagrees" rule
+(CC-02) would otherwise force HOLD for e.g. T-only if f1_trend also ran
+unrequired; `momentum_context.lookback_bars` is still declared on every cell
+regardless of arm, since CC-28 registers it as a per-clock protocol parameter,
+not a per-arm one — a design decision worth flagging for T11/T12's config-key
+validation, not a spec deviation (nothing in spec.md/design.md contradicts it).
+Six arms get the shared time-exit plan (empty targets/trail_stops,
+`exit_after_bars: 4`, `min_hold_bars: 4`, `risk_per_trade: 0.03`,
+`stop_distance_source: atr`, `atr_multiplier: 2.0`); A-plan pins the eight
+fields from the specifier's pinned gap #6
+(`experiments/heikin-ashi-signals/strategies/heikin-ashi-h4-talib-volume-on/config.yaml`),
+carries no `exit_after_bars` key, and keeps `min_hold_bars: 0` (the reference
+template's own default, since D11's `min_hold_bars: 4` registration applies to
+"time-exit arms" specifically). Every cell shares EUR/USD, USD 10,000,
+OANDA costs (`spread_pips: 1.0`, `commission_per_lot: 0.0`,
+`broker_stop_level_pips: 0.0` — the same values every existing strategy config
+in this repo uses), the F5 caps and the 2016-03-01..2017-02-28 window.
+`config_hash` is a SHA-256 over each cell's canonical (sorted-key) JSON,
+verified deterministic across two separate job directories. Writes
+`<job_dir>/<cell_id>/config.yaml` (following the
+`experiments/heikin-ashi-signals/strategies/` layout) and one
+`<job_dir>/manifest.json` listing all 14 rows.
+
+Deviation from tasks.md's "Reuses" hint (not a scenario correction — recorded
+per COMMON-RULES): does not call any "pinned template resolution" helper from
+`experiments/heikin-ashi-signals/runner.py`, because that script has no
+importable, reusable resolution function — it is a `main()`-only CLI. The
+eight pinned A-plan fields were instead copied directly from the reference
+strategy's `config.yaml` (verified by reading the file), matching the
+specifier's own pinned gap #6 exactly.
+
+No SPEC_DEVIATION: the specifier's `confluence_cells.feature` needed no
+correction — all 35 scenarios passed against the first implementation.
+
+Gate (cwd `algo-suite`): `uv run pytest
+algo-backtest/tests/steps/test_confluence_cells.py -q` → 35 passed (35
+collected, matches the QA procedure's Phase 2 count); `uv run ruff check` →
+clean; `uv run ruff format --check` → clean; `uv run mypy --strict
+experiments/confluence-chain/make_cells.py` → clean (`.mypy_cache` removed
+after). Regression (the eleven Phase-1/legacy step files plus
+`algo-analyze/tests/steps/test_portfolio_inference.py`, exactly the tasks.md
+Gate Check Commands "Regression" selection) → 477 passed, 0 failed. Full
+offline suite `uv run pytest algo-backtest/tests -q -p no:cacheprovider` →
+**1932 passed, 53 deselected** — the Phase 1 hardening baseline (1799) plus
+exactly the five Phase 2 features' 133 new scenario/Examples rows (47 + 16 +
+14 + 21 + 35), with zero regressions. No existing test was modified, skipped
+or deleted anywhere in Phase 2.
+
+Workspace-wide `make lint type` (run once at Phase 2 close-out, all five
+touched files plus their step files individually clean per the per-task gates
+above): fails on 9 files, all pre-existing debt this lane never touched —
+`tools/mutation_harness.py` (missing type annotations), `scripts/bigquery_*.py`
+(no `google.cloud`/`google.api_core` stubs installed) and
+`docs/stories/done/20-session-2-clean-rerun/scripts/*.py` (a pre-existing
+assignment-type error). Confirmed via `uv run ruff check .` /
+`uv run mypy` that none of Phase 2's five new files or step files appear in
+either error list. Recorded here as BLOCKED pre-existing debt, not claimed as
+passed.
+
+Files touched (T10 only): `experiments/confluence-chain/make_cells.py` (new),
+`algo-backtest/tests/steps/test_confluence_cells.py` (new),
+`.specs/features/confluence-chain/tasks.md` (T10 checkboxes),
+`.specs/features/confluence-chain/spec.md` (CC-21, CC-23, CC-28 status). Not
+touched: `confluence_cells.feature` (specifier's file, no deviation needed),
+any integration-owned file, or any other Story-21-private module.
+
+### Phase 2 summary (T6–T10 complete)
+
+All five Phase 2 tasks (T6 time-exit lifecycle, T7 drift-control filter, T8
+horizon unit re-derivation, T9 population/availability preflight, T10
+fourteen-cell manifest) are implemented, gated green individually and
+together, committed one-task-per-commit, and pushed to
+`feat/21-confluence-chain`. New files, all Story-21-private (never touched by
+Phase 1 or integration-owned): `chain/time_exit.py`,
+`chain/filters/constant_direction.py`,
+`experiments/confluence-chain/{rederive_horizon,preflight,make_cells}.py`,
+their five `tests/features/confluence_*.feature` files (all authored by the
+specifier, none rewritten except the one corrected scenario-value in
+`confluence_time_exit.feature`, recorded above under T6) and five matching
+`tests/steps/test_confluence_*.py` files.
+
+**Integration handoff notes for Phase 3 (T11–T15)**:
+- T8/T9/T10's production scripts live at `algo-suite/experiments/confluence-chain/`
+  (outside the `algo_backtest` package, matching design.md's
+  `experiments/heikin-ashi-signals/` layout precedent) but their tests live
+  inside `algo-backtest/tests/steps/` (as tasks.md specifies); each step file
+  loads its script by file path via `importlib.util.spec_from_file_location`
+  (no dotted-import path exists for them). If T11/T12 need to import these
+  scripts from `algo_backtest` production code, the same loading pattern
+  applies, or the scripts should be promoted into the package at that point —
+  a decision for the integration lane, not made here.
+- `make_cells.py`'s per-cell config's `agreement.required_filters` key is the
+  new, generator-invented location for the canonical required-voter list;
+  T11/T12 will need to decide whether `strategies.py`/`chain/wiring.py` reads
+  this key verbatim or maps it to its own `momentum_context`/`news_context`/
+  `capital_mgmt` section convention already used by Phase 1's real strategy
+  configs — the shapes match Phase 1's sections field-for-field (verified by
+  eye against `chain/filters/f1_trend.py`'s `MOMENTUM_SECTION`/`_MOMENTUM_KEYS`
+  and `f4_news_context.py`'s config keys), but wiring one into the other was
+  out of this lane's scope.
+- `preflight.py`'s `compute_population_ledger`/`compute_arm_ledger` take
+  already-known missing-bar sets and `AvailabilitySidecar` objects; a real T17
+  launch harness needs its own front end (e.g. calling the existing
+  `news_coverage_problems`/`ClosedBarClock`) to produce those inputs from real
+  Parquet — see the T9 entry above for the full reasoning.
+- `rederive_horizon.py`'s real `--decisions`/`--source` Parquet loading (via
+  `algo_core.duck`) is implemented but untested in this environment (no
+  fixture Parquet); confirmed only that the CLI raises its explicit
+  "no source close data configured" error when those flags are omitted, per
+  the QA procedure's documented BLOCKED expectation.
+
+No blockers remain for Phase 2. Phase 3 (T11 config/provenance contracts) is
+the next dependency per tasks.md's execution plan (`T10 -> T11 -> T12 -> T13
+-> T15 -> T14`) and is integration-owned, outside this lane. Agent: coder
+(Claude Sonnet 5). Branch `feat/21-confluence-chain`, worktree
+`/tmp/mba-impl-21`, base commit `525f99e`.
