@@ -151,10 +151,10 @@ not profitability. Do not fabricate market or training data.
 | RWT-02 | P1 training | T3, T4 | Implemented (T3, T4) |
 | RWT-03 | P1 training | T3, T11 | Implemented (T3) |
 | RWT-04 | P1 training | T4 | Implemented (T4) |
-| RWT-05 | P1 training | T4, T5, T6 | Implemented (T4, T5) |
+| RWT-05 | P1 training | T4, T5, T6 | Implemented (T4, T5, T6) |
 | RWT-06 | P1 training | T4, T9 | Implemented (T4) |
 | RWT-07 | P1 training | T5 | Implemented (T5) |
-| RWT-08 | P1 training | T6 | In Tasks |
+| RWT-08 | P1 training | T6 | Implemented (T6) |
 | RWT-09 | P1 training | T3, T9 | Implemented (T3) |
 | RWT-10 | P1 training | T8 | In Tasks |
 | RWT-11 | P1 replay | T7, T9, T14 | In Tasks |
@@ -163,7 +163,7 @@ not profitability. Do not fabricate market or training data.
 | RWT-14 | P1 replay | T12 | In Tasks |
 | RWT-15 | P1 replay | T7, T11, T14 | In Tasks |
 | RWT-16 | P1 replay | T13 | In Tasks |
-| RWT-17 | P1 replay | T5, T6, T12 | Implemented (T5) |
+| RWT-17 | P1 replay | T5, T6, T12 | Implemented (T5, T6) |
 | RWT-18 | P2 evidence | T1, T15, T18 | Implemented (T1) |
 | RWT-19 | P2 evidence | T14, T15, T16, T18 | In Tasks |
 | RWT-20 | P2 evidence | T16 | In Tasks |

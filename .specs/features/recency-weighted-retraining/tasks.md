@@ -212,8 +212,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): pass independent weights through combiner fitting`
 

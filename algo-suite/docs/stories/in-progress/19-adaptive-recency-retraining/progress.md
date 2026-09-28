@@ -51,7 +51,7 @@ convention; update both in the same tested task commit.
 - [x] T3: Implement exact-UTC epoch planning.
 - [x] T4: Implement exponential weights and feasibility checks.
 - [x] T5: Pass weights through family-model fitting.
-- [ ] T6: Pass independent weights through combiner fitting.
+- [x] T6: Pass independent weights through combiner fitting.
 - [ ] T7: Publish immutable epoch bundles.
 - [ ] T8: Implement separate-span threshold calibration.
 - [ ] T9: Orchestrate one epoch's weighted training.
@@ -411,3 +411,55 @@ this story's docs. Deviation: mutated in place in the shared worktree
 per `STAGES.md`'s default Hardener recipe, per explicit team-lead direction
 for this resumed session, after confirming the concurrent specifier agent
 sharing this worktree never touches the mutated tracked files.
+
+### 2026-09-28 T6: Pass independent weights through combiner fitting (Claude coder, Lane A, Phase 2)
+
+What changed and why: `chain/filters/f7_meta_learner.py`'s `train_meta_learner`
+gains a second optional keyword, `combiner_weights: Sequence[float] | None =
+None`, one finite non-negative weight per `split.validation` row. The former
+`_validated_family_weights` is generalized to `_validated_stage_weights(weights,
+row_count, *, name, span)` and called twice — `family_weights` against
+`len(split.train)` first, then `combiner_weights` against
+`len(split.validation)` — both before any family is fitted, so a request with
+both vectors wrong reports the family error first (the specifier's pinned
+reading in `qa-procedure-phase2.md`). `combiner_weights` is forwarded as
+`sample_weight=` to `LogisticRegression.fit` only when given; `None` keeps the
+legacy call (RWT-17). The one-class guard is generalized to
+`_require_two_combiner_classes`, which still rejects fewer than two distinct
+validation labels unconditionally, and additionally rejects `combiner_weights`
+that zero out one class's total weight even though both labels are present
+(the "positive weight" scenario). Steps in
+`tests/steps/test_f7_combiner_weights.py`: a `_RecordingLogisticRegression`
+subclass alongside the existing `_RecordingClassifier` pattern, monkeypatched
+into the module, prove each stage's weights reach only its own fit call and
+that a weighted combiner really moves p_hat (identical-feature validation
+fixture, 20 UP/20 DOWN, ties at 0.5 unweighted). No existing scenario was
+changed.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_f7_combiner_weights.py -q
+  -p no:cacheprovider`: 19 passed (task asked for >=6; the feature's 12
+  scenarios plus outline Examples rows total 19).
+- `uv run pytest algo-backtest/tests/steps/test_f7_meta_learner.py
+  test_f7_model_io.py test_f7_family_weights.py -q -p no:cacheprovider`:
+  80 passed, the baseline count, 0 failed.
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on
+  the F7 module and the new step file: clean. `uv run mypy --strict
+  algo-backtest`: clean, 68 source files (`tests/` is excluded from the
+  project's mypy config; the new step file's recording subclasses only
+  type-check standalone against lightgbm/sklearn's real (unstubbed)
+  signatures, matching T5's `_RecordingClassifier`).
+
+Adequacy: RWT-08 by the "reach only" scenario (2 LightGBM fits and 1
+LogisticRegression fit observed, each stage's own ramp in order, and the
+LogisticRegression inputs equal to the families' recomputed P(up) on
+`split.validation`); RWT-05 as the forwarding contract for the combiner stage
+(normalization remains T4's); RWT-17 by the legacy-versus-omitted and
+legacy-versus-uniform-1.0 parity scenarios (equal p_hat and identical
+`coef_`/`intercept_`); RWT-02 by the misaligned-vector outline (family checked
+first) and the negative/non-finite-position outline, both with 0 fits of
+either kind observed; the "zero total weight leaves one class" scenario is a
+spec-precision case the specifier flagged, covered by its own scenario and
+message-fragment assertions. `split.test` independence reconfirmed by the
+differing-test-rows scenario.
