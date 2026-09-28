@@ -155,24 +155,57 @@ def _failure(io_ctx: _IoCtx, fragment: str) -> None:
     assert io_ctx.error is not None and fragment in str(io_ctx.error)
 
 
-@then(
-    "each F7-driven strategy's bundled model has exactly its config.yaml meta_learner families"
-)
-def _bundled_models_match() -> None:
-    """Guards the committed artifacts themselves, not just the runtime check."""
+def _bundled_model_path(name: str) -> Path:
+    """The model `run --strategy <name>` loads when no `--model` is given."""
     import algo_backtest
     from algo_backtest.run import resolve_strategy
-    from algo_backtest.strategies import load_strategy_chain_config, strategies_root
 
-    algos = Path(algo_backtest.__file__).parent / "algos"
+    spec = resolve_strategy(name)
+    assert spec.model_file is not None
+    return Path(algo_backtest.__file__).parent / "algos" / spec.algo_dir / spec.model_file
+
+
+@given(parsers.parse('the bundled strategies are "{names}"'))
+def _bundled_strategies(names: str) -> None:
+    """The scenario names every bundled config.yaml, so a new strategy must be classified
+    here as either shipping with a matching model or needing its own `--model`."""
+    from algo_backtest.strategies import strategies_root
+
     bundled = sorted(p.name for p in strategies_root().iterdir() if (p / "config.yaml").is_file())
-    assert bundled == ["baseline", "baseline-dsha", "hybrid"]
-    for name in bundled:
-        spec = resolve_strategy(name)
-        assert spec.model_file is not None
-        families = load_families(algos / spec.algo_dir / spec.model_file)
+    assert bundled == [n.strip() for n in names.split(",")]
+
+
+@then(
+    parsers.parse(
+        'the bundled model of each of "{names}" has exactly its config.yaml meta_learner families'
+    )
+)
+def _bundled_models_match(names: str) -> None:
+    """Guards the committed artifacts themselves, not just the runtime check."""
+    from algo_backtest.strategies import load_strategy_chain_config
+
+    for name in (n.strip() for n in names.split(",")):
+        families = load_families(_bundled_model_path(name))
         declared = load_strategy_chain_config(name).meta_learner_families
         assert sorted(f.value for f in families) == sorted(declared), name
+
+
+@then(
+    parsers.parse(
+        'the bundled hybrid model is refused for each of "{names}" naming "{fragment}"'
+    )
+)
+def _bundled_model_refused(names: str, fragment: str) -> None:
+    """A news-family-only strategy resolves to the hybrid hosting algorithm, whose bundled
+    four-family model must be refused: such a run needs its own `--model`."""
+    from algo_backtest.strategies import load_strategy_chain_config
+
+    for name in (n.strip() for n in names.split(",")):
+        path = _bundled_model_path(name)
+        assert path.name == "f7_meta_learner.json" and path.parent.name == "hybrid"
+        declared = load_strategy_chain_config(name).meta_learner_families
+        with pytest.raises(ValueError, match=fragment):
+            require_families(load_families(path), declared, where=str(path))
 
 
 @when(parsers.parse('families "{trained}" are required to match "{declared}"'))

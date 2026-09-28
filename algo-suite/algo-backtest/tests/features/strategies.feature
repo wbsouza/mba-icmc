@@ -363,6 +363,27 @@ Feature: Strategy-chain config loading (Spec 04h)
       And the real loaded strategy extends "baseline"
       And the real loaded strategy has typed "news_context,risk_guard,capital_mgmt,meta_learner" configs
 
+    Scenario: the real news-only strategy runs the news family alone through F4, F5, F6 and F7
+      When the real strategy "news-only" is loaded with the default root
+      Then the loaded strategy's filters are "f4_news_context,f5_risk_guard,f6_capital_mgmt,f7_meta_learner"
+      And the real loaded strategy's meta-learner families are "news"
+      And the real loaded strategy extends "baseline"
+      And the real loaded strategy has typed "news_context,risk_guard,capital_mgmt,meta_learner" configs
+      And the real loaded strategy has no "indicator" config
+      And the real loaded strategy has no "pattern" config
+      And the loaded strategy's raw config has no "pattern" section
+      And the loaded strategy's raw config records price_features.bar_minutes 60
+      And the loaded strategy's raw config records meta_learner.label_horizon_minutes 60
+      And the loaded strategy's raw config records meta_learner.regime_gate false
+
+    Scenario: the real news-only-h4 strategy restates only the H4 clock over news-only
+      When the real strategy "news-only-h4" is loaded with the default root
+      Then the loaded strategy's filters are "f4_news_context,f5_risk_guard,f6_capital_mgmt,f7_meta_learner"
+      And the real loaded strategy's meta-learner families are "news"
+      And the real loaded strategy extends "news-only"
+      And the loaded strategy's raw config records price_features.bar_minutes 240
+      And the loaded strategy's raw config records meta_learner.label_horizon_minutes 240
+
     Scenario Outline: every bundled strategy resolves the same F7 thresholds and gate (<name>)
       When the real strategy "<name>" is loaded with the default root
       Then the real loaded strategy's F7 config has theta_high 0.55, theta_low 0.45 and the regime gate off
@@ -372,6 +393,57 @@ Feature: Strategy-chain config loading (Spec 04h)
         | baseline      |
         | baseline-dsha |
         | hybrid        |
+        | news-only     |
+        | news-only-h4  |
+
+    Scenario Outline: the news-only strategies carry the Heikin-Ashi H4 template's risk and exit plan (<name>: <section>.<key>)
+      When the real strategy "<name>" is loaded with the default root
+      Then the loaded strategy's raw config records <section>.<key> <value>
+      And the loaded strategy's parameter "<section>.<key>" comes from "<source>"
+
+      Examples:
+        | name         | section        | key                               | value                                                                              | source                  |
+        | news-only    | risk_guard     | portfolio_at_risk_cap             | 0.18                                                                               | news-only/config.yaml   |
+        | news-only    | capital_mgmt   | stop_loss_shrink                  | 0.5                                                                                | news-only/config.yaml   |
+        | news-only    | capital_mgmt   | targets                           | [{at_level_ratio: 4.0, close_fraction: 0.5}, {at_level_ratio: 6.0, close_fraction: 0.5}] | news-only/config.yaml   |
+        | news-only    | capital_mgmt   | trail_stops                       | [{at_level_ratio: 2.0, to_level_ratio: 0.1}]                                       | news-only/config.yaml   |
+        | news-only    | capital_mgmt   | stop_distance_source              | swing                                                                              | news-only/config.yaml   |
+        | news-only    | news_context   | event_intensity_veto_threshold    | -0.5                                                                               | news-only/config.yaml   |
+        | news-only    | price_features | swing_lookback_bars               | 60                                                                                 | baseline/config.yaml    |
+        | news-only    | execution      | spread_pips                       | 1.0                                                                                | baseline/config.yaml    |
+        | news-only-h4 | price_features | bar_minutes                       | 240                                                                                | news-only-h4/config.yaml |
+        | news-only-h4 | meta_learner   | label_horizon_minutes             | 240                                                                                | news-only-h4/config.yaml |
+        | news-only-h4 | capital_mgmt   | stop_loss_shrink                  | 0.5                                                                                | news-only/config.yaml   |
+        | news-only-h4 | risk_guard     | max_concurrent_trades_per_account | 2                                                                                  | news-only/config.yaml   |
+        | news-only-h4 | execution      | spread_pips                       | 1.0                                                                                | baseline/config.yaml    |
+
+    Scenario Outline: every bundled strategy resolves the A05 trade plan and execution costs (<name>: <section>.<key>)
+      When the real strategy "<name>" is loaded with the default root
+      Then the loaded strategy's raw config records <section>.<key> <value>
+      And the loaded strategy's parameter "<section>.<key>" comes from "baseline/config.yaml"
+
+      Examples:
+        | name          | section      | key                               | value                                          |
+        | baseline      | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline      | capital_mgmt | min_stop_pips                     | 5.0                                            |
+        | baseline      | capital_mgmt | targets                           | [{at_level_ratio: 2.0, close_fraction: 0.5}]   |
+        | baseline      | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | baseline      | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | baseline      | capital_mgmt | stop_distance_source              | swing                                          |
+        | baseline      | capital_mgmt | min_stop_factor                   | 1.2                                            |
+        | baseline      | execution    | broker_stop_level_pips            | 0.0                                            |
+        | hybrid        | capital_mgmt | min_stop_factor                   | 1.2                                            |
+        | baseline      | capital_mgmt | atr_multiplier                    | 2.0                                            |
+        | baseline      | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | baseline      | execution    | spread_pips                       | 1.0                                            |
+        | baseline      | execution    | commission_per_lot                | 0.0                                            |
+        | baseline      | execution    | min_hold_bars                     | 0                                              |
+        | hybrid        | capital_mgmt | min_reward_risk                   | 2.0                                            |
+        | hybrid        | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
+        | hybrid        | risk_guard   | max_concurrent_trades_per_account | 2                                              |
+        | hybrid        | execution    | spread_pips                       | 1.0                                            |
+        | baseline-dsha | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
+        | baseline-dsha | execution    | spread_pips                       | 1.0                                            |
 
   Rule: An empty resolved filters list fails fast, whether absent or explicitly empty
 

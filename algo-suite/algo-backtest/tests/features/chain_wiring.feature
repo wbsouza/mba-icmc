@@ -178,3 +178,50 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
     Scenario: A positive (sign-flipped) drawdown limit is rejected at construction
       When risk-guard caps are built with daily_drawdown_limit 0.05
       Then building fails naming "must be <= 0"
+
+  Rule: A chain without price filters wires from its YAML and decides from the news family alone
+
+    Scenario Outline: the four-filter news-only chain decides on news_event_intensity <intensity> with no price feature present
+      Given an external strategy "news-only-inline" loaded through the production loader from its config.yaml:
+        """
+        schema_version: 2
+        extends: baseline
+        filters: [f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner]
+        indicator: null
+        pattern: null
+        price_features: {bar_minutes: 60}
+        news_context: {event_intensity_veto_threshold: -0.5, sentiment_direction_threshold: 0.15}
+        risk_guard:
+          portfolio_at_risk_cap: 0.18
+          daily_drawdown_limit: -0.05
+          weekly_drawdown_limit: -0.15
+          max_concurrent_trades_per_account: 2
+          max_leverage: 30
+        capital_mgmt:
+          risk_per_trade: 0.03
+          stop_distance_source: swing
+          stop_loss_pips: 20.0
+          pip_value_per_lot: 10.0
+          lot_notional_units: 100000
+          assumed_leverage: 30
+          stop_loss_shrink: 0.50
+          min_stop_pips: 5.0
+          min_stop_factor: 1.2
+          targets: [{at_level_ratio: 4.0, close_fraction: 0.5}, {at_level_ratio: 6.0, close_fraction: 0.5}]
+          trail_stops: [{at_level_ratio: 2.0, to_level_ratio: 0.1}]
+          min_reward_risk: 2.0
+        meta_learner: {families: [news], theta_high: 0.55, theta_low: 0.45, regime_gate: false, label_horizon_minutes: 60}
+        """
+      And a news-only meta-learner trained on 120 synthetic rows labelled up when news_event_intensity is positive
+      When the loaded strategy's filters are built with a news index reading <intensity> at the decision minute
+      Then the chain's filters are "f4_news_context, f5_risk_guard, f6_capital_mgmt, f7_meta_learner"
+      And the built F7 filter's model was trained on the families "news"
+      And the loaded strategy has no F1, F2 or F3 section and declares no pattern family
+      And running the chain on a flat 10000 account at price 1.1000 with 30-pip swing distances and no price feature decides <decision>
+      And F4's result carries news_event_intensity <intensity> and the decision came through <last_filter>
+
+      Examples:
+        | intensity | decision | last_filter     |
+        | 0.4       | BUY      | f7_meta_learner |
+        | -0.4      | SELL     | f7_meta_learner |
+        | -0.6      | NO_TRADE | f4_news_context |
