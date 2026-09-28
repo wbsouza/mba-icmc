@@ -194,3 +194,53 @@
 - Status updates: tasks.md T5 both boxes; spec.md CC-21, CC-22 → `Implemented (T5)`;
   CC-20 → `Implemented (T1, T2, T4, T5)`.
 - Next: Phase 1 close-out (full suite counts), then T6 (Phase 2) in a later lane run.
+
+### 2026-09-28 — Phase 1 close-out (T1..T5)
+
+- Commits on `feat/21-confluence-chain` (pushed to origin): T1 `c760b76`, T2 `97e766a`,
+  T3 `8a7b8f0`, T4 `0e3a1b7`, T5 `1ad1adf`.
+- Full offline suite, cwd `algo-suite`, `uv run pytest algo-backtest/tests -q -p no:cacheprovider`:
+  1778 passed, 53 deselected, 0 failed (exit 0). Collection 1778/1831 = baseline 1598 +
+  45 (agreement) + 38 (momentum) + 32 (history) + 40 (relative intensity) + 25 (capital
+  plan), exactly the specifier's counts.
+- `uv run ruff check algo-backtest` clean; `uv run mypy --strict algo-backtest` → 64
+  source files, no issues; `ruff format --check` clean on all 8 files this phase created
+  or owns exclusively (`terminal.py`, `f1_trend.py`, `intensity_history.py`, the five
+  `test_confluence_*.py`).
+- Workspace `make lint` (195 findings) and `make type` (107 errors) fail on pre-existing
+  files outside `algo-backtest` only: `docs/stories/done/**` (142 lint / 47 type),
+  `scripts/bigquery_ctas_export_gdelt_{gkg,events}.py`, `scripts/bigquery_join_gdelt_events_gkg.py`,
+  `tools/mutation_harness.py` (35 type), one `algo-viewer/tests/fixtures` file. None in
+  `algo-backtest`. Recorded as BLOCKED-pre-existing for the workspace gate; the
+  integration branch's chore commit owns it.
+- Legacy CLI unchanged (CC-20): `algo-backtest explain-strategy news-rule` still resolves
+  `direction_source = "intensity"` with no `intensity_relative`/`momentum_context`/
+  `agreement`/`exit_after_bars` line; `git diff main -- strategies.py chain/wiring.py engine/`
+  is empty (no integration-owned file touched).
+- QA procedure: `qa-procedure-phase1.md` (specifier) committed with two alignments to the
+  built code: Step 5's first expected line carries the actual `momentum_context WARMUP:`
+  reason prefix; Step 13 scopes the lint/type expectation to `algo-backtest` and names
+  the pre-existing workspace failures.
+
+## Integration handoff (for T11..T15, integration lane)
+
+- `chain/wiring.py` (T12): build `AgreementTerminalDecision(required_filters=<canonical
+  names from YAML>, voter_name_map={"f1_trend": "F1_trend", "f2_indicator":
+  "F2_indicator", "f3_pattern": "F3_pattern", "f4_news_context": "f4_news_context"})`;
+  `F1MomentumContextFilter(config=parse_momentum_context_config(section, strategy=...),
+  history=MomentumHistory(lookback_bars=config.lookback_bars))` when `momentum_context`
+  is selected; `F4NewsContextFilter(index, config, snapshots={cutoff: IntensitySnapshot},
+  availability={decision_minute: available_at})` when `direction_source:
+  intensity_relative` (both mandatory; construction raises otherwise).
+- `engine/chain_algorithm.py` (T13): feed `MomentumHistory.push(close_time, close)` once
+  per completed signal bar from the same `ClosedBarClock` as the decision path; feed
+  `IntensityHistory.record(IntensityObservation(...))` per completed bar from the
+  provenance-bearing source (T9) and register documented closures via
+  `declare_closure(start, end)`; preload enough history that March starts READY; call
+  `snapshot_for(decision_time)` and hand the resulting `{cutoff: snapshot}` to F4. The
+  trade plan carries `exit_after_bars` only when configured; T6's lifecycle consumes it.
+- `strategies.py` (T11): sections `momentum_context` (`lookback_bars`) and
+  `capital_mgmt.exit_after_bars`; `news_context.direction_source: intensity_relative`
+  refuses `intensity_buy_threshold`/`intensity_sell_threshold`; `capital_mgmt_mapping`
+  and `momentum_context_mapping` are the provenance mappings.
+- No shared file was changed in Phase 1; no patch is pending for one.
