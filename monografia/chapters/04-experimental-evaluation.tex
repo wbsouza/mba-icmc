@@ -1,6 +1,6 @@
 \chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
 
-This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The intermediate-results snapshot is September 28, 2026, at 00:36 UTC (September 27 in the operator's Pacific timezone). The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
+This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The predecessor snapshot is September 28, 2026, at 00:36 UTC (September 27 in the operator's Pacific timezone); Section~\ref{subsec:h4-snapshot} adds the completed H4 matrix at 01:11 UTC without replacing that historical record. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison.
 
 \section{Experimental Setup} \label{sec:experimental-setup}
 
@@ -144,13 +144,104 @@ R18 & spockfx-setupnow & 0 & 0.00 & 0.0 \\
 
 The SpockFX labels describe selected plan adaptations, not faithful replications of the reference strategies. At reference revision \path{a1ed6b43b3a7}, \path{deploy.xml} declares a 60-minute selector with a 20\% stop cut and 240-minute deployment templates with a 50\% cut. These H1/H4 settings, indicator-based entry/stop buffers, and strategy rules are not equivalent to the M1 EMA chain and frozen model used in these sweeps. For example, R16 actually archives ATR multiplier 4, stop shrink 0.5, minimum stop 10 pips, and risk fraction 0.01; the YAML comment's ``2 x ATR14'' is not the configured pre-shrink multiplier. Increasing an M1 ATR multiplier does not create H4 candles. Results therefore cannot establish the performance of the original SpockFX system or of the new Story 13 candle/quote-activity implementation.
 
+\subsection{Completed H4 candle and quote-activity matrix} \label{subsec:h4-snapshot}
+
+The second snapshot, clock-confirmed at September 28, 2026, 01:11:14 UTC, contains all four baseline-v1 and four hybrid-v2 Dragon08 H4 swing-proxy cells. Both parent processes record exit 0, both final input checks pass with no errors or mismatches, and all eight individual manifests record success. The interrupted hybrid-v1 root is retained separately: its first two cells succeeded, but its last two logs report ENOSPC before creating their result directories. Its controller-observed parent exit was 1 and its final integrity report is missing. It is not a completed matrix or an additional replication.
+
+The H4 archive joins H01--H08 to each cell's full configuration JSON/YAML, field provenance, model SHA-256, training revision, result manifest, trades, equity, and source fingerprints. Its files, beneath the evidence directory given above, are:
+\begin{quote}
+\small\ttfamily
+h4-snapshot-20260928T011114Z.json\\
+h4-parameters-20260928T011114Z.md
+\end{quote}
+All eight runtime configurations match their prepared JSON, YAML, and model training configuration. The two matrix manifests have identical maps of 249 code-file hashes, despite different recorded Git revisions during concurrent documentation commits. These source fingerprints, not a commit identifier alone, establish the recorded implementation identity.
+
+\begin{table}[htbp]
+\centering
+\caption{All completed exploratory September-2015 H4 cells. H references join the full per-cell parameter/model appendix; no cell is omitted. Maximum drawdown is the engine-reported statistic.}
+\label{tab:h4-results}
+\small
+\begin{tabular}{lllcrrr}
+\toprule
+\textbf{Ref.} & \textbf{Family} & \textbf{F3} & \textbf{Volume} & \textbf{Trades} & \textbf{Return (\%)} & \textbf{DD (\%)} \\
+\midrule
+H01 & Baseline & Disabled & Off & 6 & 1.36 & 5.1 \\
+H02 & Baseline & Disabled & On & 3 & 2.87 & 5.1 \\
+H03 & Baseline & TA-Lib & Off & 6 & 1.36 & 5.1 \\
+H04 & Baseline & TA-Lib & On & 3 & 2.87 & 5.1 \\
+H05 & Hybrid & Disabled & Off & 6 & 1.36 & 5.1 \\
+H06 & Hybrid & Disabled & On & 3 & 2.87 & 5.1 \\
+H07 & Hybrid & TA-Lib & Off & 6 & 1.36 & 5.1 \\
+H08 & Hybrid & TA-Lib & On & 3 & 2.87 & 5.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Closed-trade counts come from both the manifest and the actual trade ledger, not from the reciprocal of a rounded win rate. No new cell has zero closed trades; earlier zero-trade and losing runs remain in the predecessor tables. Equity returns include open-position valuation at the endpoint and are not equivalent to realized closed-trade profit. Identical return rows are not independent replications. Within each volume setting, all four equity CSVs are byte-identical.
+
+\begin{table}[htbp]
+\centering
+\caption{Effective H4 settings for H01--H08. Every filter is included; the H-keyed appendix repeats the complete resolved matrix and model identity alongside each result.}
+\label{tab:h4-parameters}
+\small
+\begin{tabular}{p{1.2cm}p{12.1cm}}
+\toprule
+\textbf{Filter} & \textbf{Recorded settings} \\
+\midrule
+F1 & EMA perception; complete 240-minute bars; EMA 3/8/60. The 60-period series is an H4 EMA, not the reference H1 selector. \\
+F2 & RSI 14 with midline 50; MACD 12/26/9 with histogram threshold 0; ATR period 14. \\
+F3 & Disabled or TA-Lib per row. Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. \\
+F4 & Absent in H01--H04; H05--H08: event veto threshold $-0.5$, sentiment-direction threshold 0.15. Text sentiment is missing. \\
+Volume & Absent in odd-numbered H rows; even rows use quote-tick activity, lookback 20 prior closed bars, minimum relative activity 1.0. Not exchange-traded volume. \\
+F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.18. \\
+F6 & Risk fraction 0.03; swing lookback 60; stop shrink 0.5; minimum 5 pips; minimum reward/risk 2. Targets 4R/6R, each closes 0.5; trail at 2R to $+0.1$R. \\
+F7 & Separate model per cell; horizon 240 minutes; thresholds 0.55/0.45; regime gate off. Trend, indicator, pattern families; hybrid adds news. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All cells start with cash 10,000 and record spread 1 pip, commission per lot 0, broker stop level 0, minimum holding bars 0, and \path{close_on_veto=false}. The H4 bar construction and Dragon08 exit settings distinguish these cells from the earlier M1 sweeps, but reference SpockFX entry, stop, trend-buffer, and exit semantics remain replaced by research proxies. Neither faithful replication nor economic validity follows from these settings.
+
+The effective sample is especially small: the controller's completed-bar audit counts 110 September H4 bars, of which the first 59 are consumed by warm-up. Independently inspected decision artifacts contain only 51 decisions per cell, from September 16 at 20:00 UTC through September 30 at 20:00 UTC. Model provenance records 475 fitting, 114 calibration, and 214 test rows; the last count covers August--September and must not be presented as 214 September trading decisions.
+
+\begin{table}[htbp]
+\centering
+\caption{Decision-level diagnostics, identical across the two families for the counts shown. F4 applies only to hybrid cells.}
+\label{tab:h4-diagnostics}
+\small
+\begin{tabular}{p{8.4cm}rr}
+\toprule
+\textbf{Observation per cell} & \textbf{Volume off} & \textbf{Volume on} \\
+\midrule
+Audited decisions / F1 vetoes & 51 / 11 & 51 / 11 \\
+Decisions reaching F3 & 40 & 40 \\
+Disabled F3: abstentions & 40 & 40 \\
+TA-Lib F3: abstentions / buys / sells & 32 / 4 / 4 & 32 / 4 / 4 \\
+Hybrid F4: reached / vetoes & 40 / 0 & 40 / 0 \\
+Quote-activity vetoes & 0 & 17 \\
+Final SELL decisions / closed trades & 40 / 6 & 23 / 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+TA-Lib is not disconnected: F3 records four bearish engulfings, three bullish engulfings, and one hammer among the 40 reached decisions. Baseline F7 probabilities range from 0.408089--0.428667 with detection disabled and 0.408195--0.428762 with TA-Lib. Hybrid ranges are 0.389898--0.436169 and 0.389917--0.436204, respectively. All remain below the fixed SELL threshold 0.45. Pattern and event features change model probabilities without crossing a decision boundary in this sample; identical outcomes therefore do not demonstrate that patterns or news are generally useless. Hybrid F4 records 40 abstentions and no vetoes per cell. The controller's canonical-input audit reports event intensity 0.643298--0.903367, above the $-0.5$ veto threshold, and missing sentiment on all 40 reached decisions; its detailed diagnostic attribution is retained in the evidence synopsis.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/evidence/figures/h4-baseline-v1-20260928T011114Z-print.pdf}
+\caption{All four baseline H4 cells, including coincident curves. The archive also contains the four hybrid cells and dark-screen variants. Panels use actual equity samples and their drawdown in a 2:1 layout; sampled drawdown need not equal the engine's intraday maximum. Labels join the full parameter appendix.}
+\label{fig:h4-equity}
+\end{figure}
+
+These favorable H4 observations do not supersede the predecessor losses or calibration anti-alignment. The reused September window, eight separate fitted models, multiple earlier exploratory selections, warm-up truncation, and only three or six closed trades prevent a confirmatory out-of-sample claim. No corrected significance, generalization, causal feature benefit, or economically validated strategy is established.
+
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 
 \textit{To be added in the final version.}
 
 \section{Threats to Validity Specific to the Observed Results} \label{sec:experimental-threats}
 
-The present evidence supports an implementation and execution report. It does not establish H1. A short single-pair window, overlapping labels, and daily event values repeated across minute rows limit generalization and invalidate treating row count as an independent sample size. Missing text sentiment and pattern detection also narrow the construct being tested.
+The present evidence supports an implementation and execution report. It does not establish H1. A short single-pair window, overlapping labels, and daily event values repeated across minute rows limit generalization and invalidate treating row count as an independent sample size. Text sentiment is missing throughout; pattern detection is absent from the predecessor pilot but is observed in the new TA-Lib H4 cells.
 
 Repeated inspection of September, gate changes, threshold grids, execution changes, and nine named sweep variants create multiple exploratory selection opportunities. Selecting the least negative or zero-trade run would not turn this development window into an out-of-sample confirmatory test. The observed losses and F7/regime anti-alignment must be retained alongside favorable historical numbers. The full search history, rather than only the two finally reported strategies, is required for any selection adjustment; the 64 grid entries alone are not an established effective trial count for DSR. Recorded configuration values do not prove effective enforcement, and a successful manifest does not close this economic-validation gap.
 

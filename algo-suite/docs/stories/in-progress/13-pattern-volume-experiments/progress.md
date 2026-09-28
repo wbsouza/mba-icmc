@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 01:11 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 01:20 UTC (September 27, America/Vancouver).
 Owner: Codex. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -28,11 +28,11 @@ integrates, commits and pushes their combined work on the Story 13 branch.
 
 | Agent | Agent ID | Git worktree / branch | Ownership and status |
 | --- | --- | --- | --- |
-| Parent Codex | main session | `/tmp/mba-pattern-volume` / `feat/13-pattern-volume-experiments` | Integration, native parity, experiments, resource limits, Git and this log; active |
+| Parent Codex | main session | `/tmp/mba-pattern-volume` / `feat/13-pattern-volume-experiments` | Implementation, experiments and verification complete; publishing final evidence |
 | Mendel | `01a0e56c-9c4e-7fa2-b824-94e042fc7b83` | Same Story 13 worktree/branch | TA-Lib detector complete; independent review and four native risk-calendar regressions complete |
 | Poincare | `01a0e56c-9c8c-7960-b046-eec4b1aa7a5e` | Same Story 13 worktree/branch | Quote-activity/filter/provenance complete; trainer family validation and 16 targeted BDD scenarios pass |
 | Herschel | `01a0e56c-c91f-70e2-bd1d-b84207343b70` | Same Story 13 worktree/branch | Complete-bar clock, fixed experiment matrix/runner and BDD complete; no job launched by agent |
-| Ampere | `01a0e56c-9cc0-7cb1-b9e2-005b5432f357` | Same Story 13 worktree/branch | Prior-run inventory, per-filter appendices, figures and monograph chapters 04/05 complete; awaiting new results |
+| Ampere | `01a0e56c-9cc0-7cb1-b9e2-005b5432f357` | Same Story 13 worktree/branch | Prior and new eight-run snapshots, full parameter appendices, figures, chapters 04/05 and verification complete |
 
 ## Prior Claude worktrees to consolidate separately
 
@@ -102,7 +102,7 @@ infer that an old worktree represents unmerged work.
 - Broad non-backtest suite on disk-backed retry: **504 passed, four deselected**.
 - Whole-workspace checks have unrelated pre-existing lint/type failures; the scoped
   passes above do not imply `make check` is globally green.
-- Monograph `make verify`: **94 pages**, no undefined citations/references.
+- Final monograph `make verify`: **96 pages**, no undefined citations/references.
   Existing unrelated layout/duplicate-destination warnings remain.
 
 Detailed frozen snapshot and per-run settings:
@@ -145,6 +145,7 @@ pushed.
 both independent-review fixes; pushed. `de34647` — detailed test/handoff procedure;
 pushed. `4636ce7` — baseline outcome and inode-safe retry record; pushed.
 `1f6b16f` — eight completed experiments and threshold diagnostics; pushed.
+`fccd186` — expanded perception coverage/native gate and repaired wiring probe; pushed.
 Full execution-chain tests and the disk-backed broad retry are now green.
 
 ### Experiment execution and infrastructure incident
@@ -176,8 +177,8 @@ The broad test retry completed (504 passed) using the fresh **disk-backed** base
 
 1. Risk-calendar/trainer regressions and implementation freeze are complete and pushed.
 2. Both fresh matrices completed; failed hybrid v1 is preserved separately.
-3. Archive every outcome and show settings alongside results.
-4. Append a new evidence snapshot and monograph update; commit/push documentation.
+3. Every outcome and per-filter setting is archived in the new H01–H08 appendix.
+4. New result snapshot, figures and 96-page monograph verified; final publishing batch.
 5. Consolidate only after checking branch ancestry and dirty files. Story 13 already
    includes Story 12 through `7165308`; do not blindly reapply those commits or the
    shared agents' files. Review Claude's later hardener/QA/docs branches separately.
@@ -197,8 +198,17 @@ Check an implementation item only after its changes are committed and tests pass
 - [x] Reject models trained with an incompatible signal/family contract.
 - [x] Map SpockFX parameters and register controlled exploratory comparisons.
 - [x] Verify native/offline parity, offline gates and dependency audit.
-- [ ] Train separate models, execute experiments and archive all outcomes.
-- [ ] Update monograph and parameter/result evidence for the new comparisons.
+- [x] Train separate models, execute experiments and archive all outcomes.
+- [x] Update monograph and parameter/result evidence for the new comparisons.
+
+Final deliverables: [eight-run results](evidence/h4-results-20260928T011114Z.md),
+[all per-run/filter parameters](evidence/h4-parameters-20260928T011114Z.md),
+[raw models/results/failure archive](evidence/h4-run-artifacts-20260928T011114Z.tar.gz),
+and [test/takeover procedure](qa-procedure.md). Seven evidence BDD scenarios and
+scoped Ruff/mypy pass; monograph verification passes at 96 pages. Final archive
+comparison against all three original matrix roots passes. No current Codex agent
+has remaining implementation/experiment work. Review/merge/consolidation of earlier
+Claude branches and completion/audit of their older long-window jobs are separate.
 
 ### Why the pattern-on/off results match
 

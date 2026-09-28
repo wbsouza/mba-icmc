@@ -1,0 +1,343 @@
+{
+  "source_snapshot": "h4-snapshot-20260928T011114Z.json",
+  "code_hash_maps_identical": true,
+  "code_file_count": 249,
+  "runs": [
+    {
+      "reference": "H01",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 11,
+        "SELL": 40
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "None": 40
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 40
+      },
+      "f4_reached": 0,
+      "f4_recommendations": {},
+      "f4_vetoes": 0,
+      "f7_reached": 40,
+      "f7_p_hat_range": [
+        0.4080891717333382,
+        0.42866721956485376
+      ],
+      "equity_sha256": "a0adba94de3fa1c641db6a50d8dded59a7e8f78ff9d73a4f1b68761ab13072ae",
+      "model_sha256": "6e4d366022ff577ec6404b89b3c95ccb96e9284edf9ce528013018478354f515",
+      "model_git_revision": "28cc7d9ecaf99e8c7ea8ac20a9ba9760efefa8b0",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H02",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 28,
+        "SELL": 23
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "volume_strength": 17,
+        "None": 23
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 40
+      },
+      "f4_reached": 0,
+      "f4_recommendations": {},
+      "f4_vetoes": 0,
+      "f7_reached": 23,
+      "f7_p_hat_range": [
+        0.4080891717333382,
+        0.42866721956485376
+      ],
+      "equity_sha256": "cb65c5243c649508fcf4b9e87868890d35d0fc7d3069e6ae4ba4fd674d4ab571",
+      "model_sha256": "c1e691ba8fdab51b9fe6f0dd9b333fe346aa59b86e419531550c7c4559e7cdaa",
+      "model_git_revision": "28cc7d9ecaf99e8c7ea8ac20a9ba9760efefa8b0",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H03",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 11,
+        "SELL": 40
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "None": 40
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 32,
+        "BUY": 4,
+        "SELL": 4
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 32,
+        "detected candlestick pattern 'bullish_engulfing'": 3,
+        "detected candlestick pattern 'bearish_engulfing'": 4,
+        "detected candlestick pattern 'hammer'": 1
+      },
+      "f4_reached": 0,
+      "f4_recommendations": {},
+      "f4_vetoes": 0,
+      "f7_reached": 40,
+      "f7_p_hat_range": [
+        0.40819539305789115,
+        0.4287619728389235
+      ],
+      "equity_sha256": "a0adba94de3fa1c641db6a50d8dded59a7e8f78ff9d73a4f1b68761ab13072ae",
+      "model_sha256": "63b169960b8cefede8dcf041af19cb4e238aff035a8479dbec3fbf4a2d26c145",
+      "model_git_revision": "28cc7d9ecaf99e8c7ea8ac20a9ba9760efefa8b0",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H04",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 28,
+        "SELL": 23
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "volume_strength": 17,
+        "None": 23
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 32,
+        "BUY": 4,
+        "SELL": 4
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 32,
+        "detected candlestick pattern 'bullish_engulfing'": 3,
+        "detected candlestick pattern 'bearish_engulfing'": 4,
+        "detected candlestick pattern 'hammer'": 1
+      },
+      "f4_reached": 0,
+      "f4_recommendations": {},
+      "f4_vetoes": 0,
+      "f7_reached": 23,
+      "f7_p_hat_range": [
+        0.40819539305789115,
+        0.4287619728389235
+      ],
+      "equity_sha256": "cb65c5243c649508fcf4b9e87868890d35d0fc7d3069e6ae4ba4fd674d4ab571",
+      "model_sha256": "cfc00a3bafa77d51574d5086757a9076d7d049e1b9abc2ccb07d0cc5172778ff",
+      "model_git_revision": "28cc7d9ecaf99e8c7ea8ac20a9ba9760efefa8b0",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H05",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 11,
+        "SELL": 40
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "None": 40
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 40
+      },
+      "f4_reached": 40,
+      "f4_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f4_vetoes": 0,
+      "f7_reached": 40,
+      "f7_p_hat_range": [
+        0.38989818073135857,
+        0.43616877940037835
+      ],
+      "equity_sha256": "a0adba94de3fa1c641db6a50d8dded59a7e8f78ff9d73a4f1b68761ab13072ae",
+      "model_sha256": "c4999c00c36b404555a2845bec0006f8ee5f6cc7b12bb05892a5f69bad6e60b1",
+      "model_git_revision": "de34647e955679a6ca734074cf6f46621f742bcf-dirty",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H06",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 28,
+        "SELL": 23
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "volume_strength": 17,
+        "None": 23
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 40
+      },
+      "f4_reached": 40,
+      "f4_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f4_vetoes": 0,
+      "f7_reached": 23,
+      "f7_p_hat_range": [
+        0.38989818073135857,
+        0.43616877940037835
+      ],
+      "equity_sha256": "cb65c5243c649508fcf4b9e87868890d35d0fc7d3069e6ae4ba4fd674d4ab571",
+      "model_sha256": "7806bb31bc97958dd5b3b6424579aec94642c82bd7ce96be07e35bddc578e393",
+      "model_git_revision": "de34647e955679a6ca734074cf6f46621f742bcf-dirty",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H07",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 11,
+        "SELL": 40
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "None": 40
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 32,
+        "BUY": 4,
+        "SELL": 4
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 32,
+        "detected candlestick pattern 'bullish_engulfing'": 3,
+        "detected candlestick pattern 'bearish_engulfing'": 4,
+        "detected candlestick pattern 'hammer'": 1
+      },
+      "f4_reached": 40,
+      "f4_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f4_vetoes": 0,
+      "f7_reached": 40,
+      "f7_p_hat_range": [
+        0.3899173378963772,
+        0.43620352839555004
+      ],
+      "equity_sha256": "a0adba94de3fa1c641db6a50d8dded59a7e8f78ff9d73a4f1b68761ab13072ae",
+      "model_sha256": "90b7bae9f19cec7af9408d8c0ec51213d2d3c1379f08ae1fa30a5ee684dd4b8e",
+      "model_git_revision": "4636ce7753703ebe50b4a609c257cbd268b27ac5",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    },
+    {
+      "reference": "H08",
+      "decisions": 51,
+      "first": "2015-09-16 20:00:00+00:00",
+      "last": "2015-09-30 20:00:00+00:00",
+      "final_decisions": {
+        "NO_TRADE": 28,
+        "SELL": 23
+      },
+      "vetoed_by": {
+        "F1_trend": 11,
+        "volume_strength": 17,
+        "None": 23
+      },
+      "f3_reached": 40,
+      "f3_recommendations": {
+        "ABSTAIN": 32,
+        "BUY": 4,
+        "SELL": 4
+      },
+      "f3_reasons": {
+        "no pattern detected this bar": 32,
+        "detected candlestick pattern 'bullish_engulfing'": 3,
+        "detected candlestick pattern 'bearish_engulfing'": 4,
+        "detected candlestick pattern 'hammer'": 1
+      },
+      "f4_reached": 40,
+      "f4_recommendations": {
+        "ABSTAIN": 40
+      },
+      "f4_vetoes": 0,
+      "f7_reached": 23,
+      "f7_p_hat_range": [
+        0.3899173378963772,
+        0.43620352839555004
+      ],
+      "equity_sha256": "cb65c5243c649508fcf4b9e87868890d35d0fc7d3069e6ae4ba4fd674d4ab571",
+      "model_sha256": "c401871d3d586e8d0c5efb6b4f6de1df6e665b7c070e09533e99ccc9e63b525e",
+      "model_git_revision": "4636ce7753703ebe50b4a609c257cbd268b27ac5",
+      "rows": {
+        "test": 214,
+        "total": 805,
+        "train": 475,
+        "validation": 114
+      }
+    }
+  ]
+}

@@ -153,8 +153,6 @@ Hybrid v1 failed for this infrastructure reason, not a parameter-selection resul
 Keep it unchanged and report the retry separately. Baseline v1 already had successful
 parent/cell manifests and a passing final immutable-input check before exhaustion.
 
-### Publishing
-
 ### Perception gate wiring and final coverage
 
 After the experimental snapshots had completed, the `check-perception` target was
@@ -183,6 +181,32 @@ as specified by the pre-existing gate. This is not a claim of complete branch or
 mutation coverage. **The full mutation campaign was not rerun in this takeover.**
 
 ### Publishing results
+
+All three raw matrix directories (accepted baseline v1, failed hybrid v1, accepted
+hybrid v2) are preserved in
+[`h4-run-artifacts-20260928T011114Z.tar.gz`](evidence/h4-run-artifacts-20260928T011114Z.tar.gz).
+SHA-256: `7bdc1ef9a4ee56706cb74a9c0e8ca0ee27ce24eea79c8afebe76780a78c1cf2c`.
+It contains the actual model bytes, effective settings, engine/decision/ledger/equity
+outputs, execution logs and integrity manifests—not just screenshots or summaries.
+No market/news source dataset is duplicated. `tar -dzf` against the original three
+directories verifies archive contents. This archive survives `/tmp` cleanup when
+the pushed repository is restored. Extract only into a **fresh directory**, inspect
+its relative member names first, and do not execute archived absolute-path commands
+blindly; they describe the original run locations, not the extraction destination.
+
+Evidence scripts use workspace source resolution for their isolated strict typing:
+
+```sh
+MYPYPATH=algo-analyze/src:algo-backtest/src:algo-core/src \
+  .venv/bin/mypy --strict --follow-imports=silent \
+  docs/stories/in-progress/13-pattern-volume-experiments/evidence/snapshot_h4_results.py \
+  docs/stories/in-progress/13-pattern-volume-experiments/evidence/render_h4_figures.py
+```
+
+This passes for both files. Without these paths, mypy reports editable-package stub
+discovery errors, not missing runtime libraries. TA-Lib is declared and locked in
+the project; no ad hoc Torch/Transformers installation or unsupported NLP input was
+introduced. The combined evidence BDD suite currently has **seven passing scenarios**.
 
 Append new result snapshots; do not replace the predecessor evidence. Include full
 parameter joins, model/code/input hashes and failures. Report reused-window results
