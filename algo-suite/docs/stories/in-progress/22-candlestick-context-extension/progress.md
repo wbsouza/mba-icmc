@@ -454,3 +454,60 @@ step fails solely because the Makefile's hardcoded coverage command doesn't yet 
 the new `test_candle_*.py`/`test_f3_policy_modes.py` files, a structural item for the
 integration lane. `git -C /tmp/mba-impl-22 status --short`: clean (all six commits
 pushed to `origin/feat/22-candlestick-rules`).
+
+## 2026-09-28 — Cleaner phase 1 review (no code changes)
+
+Independent review of `05bbdad..d20f152` on `feat/22-candlestick-rules`
+(scope: `git diff ef0111d..HEAD -- algo-backtest/src tools/perception_quality.py`).
+
+| File | ruff C901/PLR0912/PLR0915 | mypy --strict | Coverage (lines+branches) | Max CRAP (function) | Actions |
+| --- | --- | --- | --- | --- | --- |
+| `perception/candle_contract.py` | clean | clean | 96% — 9 lines / 8 branches uncovered, all in `__post_init__`/`_validated_hits`/`CandleHistory.config` invariant guards (never exercised by an invalid-construction scenario) | `CandleEvidence.__post_init__` ≈8.11 (cc=8, borderline; matches the coder's own T5 note of 8.125) | none — see findings |
+| `perception/candle_catalog.py` | clean | clean | 100% | all ≤8 | none |
+| `perception/candle_context.py` | clean | clean | 99% — `ContextEvaluator.history` property getter (line 148) untested | ≤2 | none |
+| `perception/candle_sequence.py` | clean | clean | 94% — `ScheduledClosure`/`CalendarPolicy` invariant guards (lines 65, 69, 84) and one branch of `_expected_next_close`'s no-match path uncovered | `ScheduledClosure.__post_init__` ≈5.6 | none |
+| `chain/filters/f3_pattern.py` | clean | clean | 98% — missing lines 142/144 are in the pre-existing `_validate_detector` (unchanged by this diff, not new mode-handling code); all new `_evaluate`/`_candidates`/`_satisfied`/`_apply_evidence` lines are 100% covered | `_evaluate` radon cc=9 (ruff's actual C901 gate, max-complexity 8, passes clean — reviewed the function: five linear guard-clause returns, judged readable, not split) | none |
+| `tools/perception_quality.py` (registration diff) | clean | clean | n/a (10-line diff, not itself a coverage target) | n/a | none |
+
+Findings (report-only, no refactor applied):
+- The four new modules' uncovered lines are all dataclass `__post_init__`
+  fail-fast invariant guards ("repair the producer/evaluator" raises) plus one
+  untested public accessor (`ContextEvaluator.history`) — a test-coverage gap,
+  not a complexity or duplication problem. Splitting the flagged functions
+  would not raise coverage (the same branches would just be measured in a
+  smaller, still-uncovered function, worsening that function's own CRAP) and
+  writing new invalid-construction scenarios is Specifier/Hardener scope per
+  `STAGES.md`, not Cleaner's, so none were added here. Recommend the Hardener
+  stage's mutation pass (or a Coder follow-up) add scenarios that construct
+  invalid `ScheduledClosure`/`CalendarPolicy`/`CandleEvidence`/etc. and read
+  `ContextEvaluator.history`, which will also resolve the one borderline CRAP
+  (`CandleEvidence.__post_init__`) without any production-code change.
+- Confirmed duplication: `_price()` (OHLC scalar validator) in
+  `candle_contract.py:478` is functionally identical to the legacy
+  `candlestick.py:60` `_price()`, and both files contain an OHLC-ordering
+  check with the same invariant. Per brief guidance, not merged: the legacy
+  version types `value: float` while the new one deliberately types
+  `value: object` (validating pre-normalization input), and the ordering
+  check is packaged differently (legacy's separate `_validated_candle`
+  normalizer vs. the new module's inline check in `validate_bar`) — merging
+  would mean designing a new shared validation module and touching the
+  perception architecture boundaries, not a trivial change. Left as a
+  candidate for a dedicated future task, untouched.
+- Confirmed code-22b's observation: `Makefile`'s `check-perception:` target
+  (the pytest --cov line) hardcodes a pre-Story-22 step-file list and was
+  never extended to `test_candle_contract.py`, `test_candle_catalog.py`,
+  `test_candle_context.py`, `test_candle_sequence.py`,
+  `test_f3_policy_modes.py`. This is integration-lane scope (already recorded
+  in the T6 entry above); not fixed here.
+- No missing docstrings (AST-checked, every function/method in all five
+  files). No dead code or duplicate-import findings from a full
+  `uv run ruff check` (all rules, not just C901) on the six files. Naming
+  reviewed against `spec.md`/`candlestick-extension.md` (no `design.md`
+  exists for Story 22 in this worktree); no conflicts found.
+- `make check-perception-architecture check-inference-architecture`: both
+  PASS, unchanged.
+
+No production or test code was modified — every check passed or the only
+gaps found require new test scenarios outside Cleaner's authorized scope
+(STAGES.md reserves scenario-writing for Specifier/Hardener). This entry is
+committed standalone as `docs(candles): record cleaner review for phase 1`.
