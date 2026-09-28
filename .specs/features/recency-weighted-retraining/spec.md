@@ -157,11 +157,11 @@ not profitability. Do not fabricate market or training data.
 | RWT-08 | P1 training | T6 | Implemented (T6) |
 | RWT-09 | P1 training | T3, T9 | Implemented (T3) |
 | RWT-10 | P1 training | T8 | In Tasks |
-| RWT-11 | P1 replay | T7, T9, T14 | In Tasks |
+| RWT-11 | P1 replay | T7, T9, T14 | Implemented (T7) |
 | RWT-12 | P1 replay | T11, T12 | In Tasks |
 | RWT-13 | P1 replay | T12 | In Tasks |
 | RWT-14 | P1 replay | T12 | In Tasks |
-| RWT-15 | P1 replay | T7, T11, T14 | In Tasks |
+| RWT-15 | P1 replay | T7, T11, T14 | Implemented (T7) |
 | RWT-16 | P1 replay | T13 | In Tasks |
 | RWT-17 | P1 replay | T5, T6, T12 | Implemented (T5, T6) |
 | RWT-18 | P2 evidence | T1, T15, T18 | Implemented (T1) |

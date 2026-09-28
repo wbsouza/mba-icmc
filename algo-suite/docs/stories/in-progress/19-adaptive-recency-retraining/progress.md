@@ -52,7 +52,7 @@ convention; update both in the same tested task commit.
 - [x] T4: Implement exponential weights and feasibility checks.
 - [x] T5: Pass weights through family-model fitting.
 - [x] T6: Pass independent weights through combiner fitting.
-- [ ] T7: Publish immutable epoch bundles.
+- [x] T7: Publish immutable epoch bundles.
 - [ ] T8: Implement separate-span threshold calibration.
 - [ ] T9: Orchestrate one epoch's weighted training.
 - [ ] T10: Implement the full adaptive-cycle coordinator.
@@ -463,3 +463,60 @@ either kind observed; the "zero total weight leaves one class" scenario is a
 spec-precision case the specifier flagged, covered by its own scenario and
 message-fragment assertions. `split.test` independence reconfirmed by the
 differing-test-rows scenario.
+
+### 2026-09-28 T7: Publish immutable epoch bundles (Claude coder, Lane A, Phase 2)
+
+What changed and why: new `retraining/bundle.py` wraps `f7_model_io`'s portable model
+document in a content-addressed, atomic registry entry. `publish(model, description,
+registry, *, clock, host)` computes the model document's bytes with empty
+`f7_model_io` provenance (so `hashes.model_sha256`, the semantic payload hash RWT-30,
+depends only on the fitted booster/coefficients, never on policy or thresholds),
+builds the identity manifest (schema_version, policy, seed, families, spans, stage
+provenance, thresholds, hashes, runtime — every field design.md's "EpochBundle" lists
+except the three volatile ones), hashes its canonical sorted-key/no-whitespace JSON
+into `bundle_id`, stages both files into `.staging-<bundle_id>-<nonce>`, reloads and
+re-checksums the staged model to validate it reproduces the in-memory model's p_hat on
+a probe set, then renames the staging directory into `<bundle_id>` in one atomic
+`os.replace` (RWT-11). An existing `bundle_id` on disk with matching model bytes is
+returned as a reuse (untouched); mismatched bytes are a conflict, left as found,
+never repaired (RWT-15). `load(registry, bundle_id, *, strategy_families=None)`
+checks `schema_version`, every required field's presence, `model.json`'s sha256, the
+manifest's own bundle_id (content-hash self-check), and the manifest's `families`
+against the model document's own — each with its own named failure — before an
+optional `f7_model_io.require_families` check against a caller's declared strategy.
+`list_bundles` lists published (non-staging) bundle ids only. Two private write/rename
+seams (`_write_model_file`, `_rename`) exist solely so tests can inject staged
+corruption and rename failure without touching the public API — the same pattern
+`ingestion.py`'s atomic write already uses implicitly via `os.replace`.
+
+Steps in `tests/steps/test_retraining_bundle.py`, training a small trend+indicator
+meta-learner on seeded synthetic rows and exercising every scenario against a real
+`tmp_path` registry (no mocks of the filesystem itself).
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_bundle.py -q
+  -p no:cacheprovider`: 21 passed (task asked for >=8; the feature's 15 scenarios plus
+  outline Examples rows total 21).
+- `uv run pytest algo-backtest/tests/steps/test_f7_model_io.py
+  test_f7_meta_learner.py test_f7_combiner_weights.py test_f7_family_weights.py -q
+  -p no:cacheprovider`: 99 passed, 0 failed (regression, unaffected by this task).
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on the new
+  module and step file: clean. `uv run mypy --strict algo-backtest`: clean, 69 source
+  files.
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider`: `1767/1820 tests
+  collected (53 deselected)`, exactly baseline 1727 + T6's 19 + T7's 21, none removed.
+  `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1767 passed, 53
+  deselected, 0 failed (75.6 s).
+
+Adequacy: RWT-11 by the round-trip scenario (identical predictions/thresholds/family
+order after reload), the manifest-completeness scenario (every table field present and
+non-null, spot-checked values) and the content-addressing scenario (`model_sha256`
+recomputed from bytes, `bundle_id` recomputed from the canonical non-volatile
+manifest); RWT-15 by the six missing/corrupt/incompatible load-failure scenarios (each
+asserting its own named fragment: "missing", "sha256", "bundle_id", "schema_version",
+the removed field's own dotted name, "families", "meta_learner.families") plus the two
+publish-time failure scenarios (interrupted rename, failed staged validation) proving
+no partial artifact is ever listed or loadable. Identical-reuse and conflict are each
+their own scenario with byte-level "file bytes (un)changed" assertions. No existing
+scenario was changed; no shared file outside the new module was touched.
