@@ -103,3 +103,48 @@ a same-side pattern strengthens the bullish side at the low (59 % at 4 h, n = 32
 small and the 24-h "sell at the high" figure benefits from the euro's decline in the last months.
 This is why story 21 puts support/resistance at the start of the chain (location) and at the end
 (targets), and why story 16's contest keeps it as a component.
+
+## The calibration month was an outlier (checked 2026-09-28)
+
+Hourly event intensity by month (H1 decision bars), 2015-03..2017-02, with the share of bars beyond
+the two session-2 rule cuts (low −0.0046, high 0.6294, both January-2016 quantiles):
+
+| month | bars | min | 10 % | median | 90 % | max | ≤ low cut | ≥ high cut |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2015-03 | 720 | 0.346 | 0.456 | 0.542 | 0.653 | 0.729 | 0.0 % | 20.0 % |
+| 2015-04 | 720 | 0.288 | 0.371 | 0.558 | 0.647 | 0.677 | 0.0 % | 20.0 % |
+| 2015-05 | 744 | 0.341 | 0.377 | 0.637 | 0.704 | 0.765 | 0.0 % | 51.6 % |
+| 2015-06 | 720 | 0.192 | 0.425 | 0.594 | 0.683 | 0.752 | 0.0 % | 23.3 % |
+| 2015-07 | 744 | 0.249 | 0.343 | 0.538 | 0.711 | 0.792 | 0.0 % | 29.0 % |
+| 2015-08 | 744 | 0.141 | 0.269 | 0.434 | 0.539 | 0.554 | 0.0 % | 0.0 % |
+| 2015-09 | 720 | 0.530 | 0.575 | 0.716 | 0.814 | 0.903 | 0.0 % | 86.7 % |
+| 2015-10 | 744 | 0.129 | 0.182 | 0.483 | 0.653 | 0.739 | 0.0 % | 16.1 % |
+| 2015-11 | 720 | 0.125 | 0.208 | 0.429 | 0.694 | 0.744 | 0.0 % | 23.3 % |
+| 2015-12 | 744 | 0.124 | 0.237 | 0.464 | 0.577 | 0.624 | 0.0 % | 0.0 % |
+| **2016-01** | 744 | **−0.337** | **−0.005** | 0.398 | 0.629 | 0.742 | **9.7 %** | 12.9 % |
+| 2016-02 | 696 | 0.302 | 0.322 | 0.574 | 0.644 | 0.672 | 0.0 % | 17.2 % |
+| 2016-03 | 744 | 0.057 | 0.284 | 0.507 | 0.595 | 0.633 | 0.0 % | 3.2 % |
+| 2016-04 | 720 | 0.268 | 0.474 | 0.592 | 0.729 | 0.749 | 0.0 % | 33.3 % |
+| 2016-05 | 744 | 0.151 | 0.346 | 0.510 | 0.670 | 0.723 | 0.0 % | 19.4 % |
+| 2016-06 | 720 | 0.023 | 0.274 | 0.470 | 0.583 | 0.787 | 0.0 % | 6.7 % |
+| 2016-07 | 744 | 0.021 | 0.061 | 0.335 | 0.478 | 0.573 | 0.0 % | 0.0 % |
+| 2016-08 | 744 | 0.035 | 0.143 | 0.306 | 0.448 | 0.565 | 0.0 % | 0.0 % |
+| 2016-09 | 720 | 0.186 | 0.379 | 0.575 | 0.660 | 0.712 | 0.0 % | 20.0 % |
+| 2016-10 | 744 | 0.199 | 0.345 | 0.529 | 0.593 | 0.667 | 0.0 % | 3.2 % |
+| 2016-11 | 720 | 0.259 | 0.427 | 0.586 | 0.704 | 0.802 | 0.0 % | 36.7 % |
+| 2016-12 | 744 | 0.125 | 0.330 | 0.533 | 0.696 | 0.716 | 0.0 % | 38.7 % |
+| 2017-01 | 744 | 0.041 | 0.261 | 0.576 | 0.709 | 0.859 | 0.0 % | 41.9 % |
+| 2017-02 | 672 | 0.276 | 0.321 | 0.488 | 0.615 | 0.647 | 0.0 % | 7.1 % |
+
+GDELT partition sizes are uniform (399–549 MB per month, every `.done` marker present), so January
+2016 is not a coverage gap: it is the one month in twenty-four whose event mix pushed the intensity
+below zero (the Saudi–Iran rupture, the Korean nuclear test, the Istanbul and Jakarta attacks fall in
+it). Every absolute threshold of the news arms was calibrated on that month. Consequences:
+- the rule's low cut was never reached again, so the registered-sign cell was long-only and the
+  reversed-sign cell short-only in effect (session 1 and session 2 alike);
+- the share of bars above the high cut swings between 0 % and 87 % month to month: the intensity is a
+  slow, regime-like series, and an absolute cut on it is a regime bet, not a bar-level trigger;
+- the learned news-only models had their p̂ thresholds calibrated on an unrepresentative month.
+
+Hence story 21's trigger uses trailing-window quantiles recomputed monthly, and any future calibration
+month is checked against this table before use.
