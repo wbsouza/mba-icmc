@@ -235,7 +235,12 @@ def terminal_decision(config: StrategyChainConfig) -> TerminalDecision:
             f"strategy {config.name!r} lists no f7_meta_learner and names no terminal_filter — "
             "load it through load_strategy_chain_config, which requires one of the two"
         )
-    return LastFilterTerminalDecision(config.terminal_filter)
+    # `config.terminal_filter` is the canonical (YAML) name; `strategies.py` already
+    # proved it is a `DIRECTION_FILTERS` member, so `_VOTER_NAME_MAP` always has it.
+    # F1/F2/F3's runtime `FilterResult.filter_name` differs in case from their YAML
+    # key (F4/constant_direction's don't, which is why this went unnoticed until a
+    # non-F7 chain first named F3 its terminal_filter).
+    return LastFilterTerminalDecision(_VOTER_NAME_MAP[config.terminal_filter])
 
 
 _T = TypeVar("_T")
