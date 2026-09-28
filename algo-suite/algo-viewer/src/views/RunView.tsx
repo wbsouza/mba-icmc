@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import type { ApiClient } from "../api/client";
 import { Pending, useAsync } from "../api/useAsync";
-import type { DecisionSummaryRow, EquitySample, MonthlyReturn, ParameterRow, RunRow, TradeRow } from "../model/types";
-import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDecimals, signedPct, when } from "../model/format";
+import type { DecisionSummaryRow, EquitySample, MonthlyReturn, OpenPosition, ParameterRow, RunRow, TradeRow } from "../model/types";
+import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDecimals, signedMoney, signedPct, when } from "../model/format";
 import { LineChart } from "../charts/LineChart";
 import { MonthlyBarsChart } from "../charts/MonthlyBars";
 import { ChainWorkflow } from "./ChainWorkflow";
@@ -34,20 +34,22 @@ interface Loaded {
   params: ParameterRow[];
   trades: TradeRow[];
   funnel: DecisionSummaryRow[];
+  open: OpenPosition[];
 }
 
 export function RunView({ api, run, dark, onSelectTrade }: Props) {
   const state = useAsync<Loaded>(async () => {
-    const [samples, months, params, tradeRows, funnel] = await Promise.all([
-      api.equity(run.run_id), api.monthly(run.run_id), api.parameters(run.run_id), api.trades(run.run_id), api.decisionSummary(run.run_id),
+    const [samples, months, params, tradeRows, funnel, open] = await Promise.all([
+      api.equity(run.run_id), api.monthly(run.run_id), api.parameters(run.run_id), api.trades(run.run_id), api.decisionSummary(run.run_id), api.openPositions(run.run_id),
     ]);
-    return { samples, months, params, trades: tradeRows, funnel };
+    return { samples, months, params, trades: tradeRows, funnel, open };
   }, [api, run.run_id]);
   const samples = useMemo(() => state.data?.samples ?? [], [state.data]);
   const months = state.data?.months ?? [];
   const params = useMemo(() => groupParameters(state.data?.params ?? []), [state.data]);
   const tradeRows = useMemo(() => state.data?.trades ?? [], [state.data]);
   const funnel = state.data?.funnel ?? [];
+  const open = state.data?.open ?? [];
   const decimals = priceDecimals(tradeRows[0]?.entry_price ?? 1);
   const equitySeries = useMemo(
     () => [{ id: "equity", label: "Equity", color: "#1f6feb", points: samples.map((s) => ({ time: s.time, value: s.equity })) }],
@@ -69,6 +71,8 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
         <Kpi label="Trades" value={String(run.closed_trades)} />
         <Kpi label="Win rate" value={pct(run.win_rate, 0)} />
         <Kpi label="Final equity" value={money(last?.equity ?? null)} />
+        <Kpi label="Realized" value={money(run.balance)} />
+        <Kpi label="Floating P/L" value={run.floating_pl === null ? "n/a" : `${signedMoney(run.floating_pl)} (${open.length} open)`} tone={run.floating_pl === null ? undefined : run.floating_pl >= 0 ? "up" : "down"} />
       </div>
       <section className="panel" aria-label="Equity">
         <h2>Equity</h2>
@@ -80,7 +84,7 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
       </section>
       <div className="two-col">
         <section className="panel" aria-label="Monthly returns table">
-          <h2>Month by month</h2>
+          <h2>Month by month <span className="muted">(mark-to-market equity, open positions included)</span></h2>
           <table className="grid">
             <thead><tr><th>Month</th><th className="num">Start</th><th className="num">End</th><th className="num">Return</th><th className="num">Trades</th></tr></thead>
             <tbody>
@@ -114,6 +118,33 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
           </dl>
         </section>
       </div>
+      <section className="panel" aria-label="Open positions">
+        <h2>Open positions at the end of the run <span className="muted">(still open on {run.end}; their floating P/L is in the equity curve, not in the trades table)</span></h2>
+        {open.length === 0 ? (
+          <p className="muted" data-testid="open-positions-empty">No position was open at the end of the run: realized and final equity agree.</p>
+        ) : (
+          <table className="grid" data-testid="open-positions">
+            <thead>
+              <tr><th>Ticket</th><th>Side</th><th className="num">Lots</th><th>Opened</th><th className="num">Open price</th><th className="num">Stop</th><th>Targets</th><th className="num">Mark price</th><th className="num">Floating P/L</th></tr>
+            </thead>
+            <tbody>
+              {open.map((o) => (
+                <tr key={o.ticket} data-ticket={o.ticket}>
+                  <td className="mono">{o.ticket}</td>
+                  <td><span className={`badge ${o.direction}`}>{o.direction}</span></td>
+                  <td className="num">{lots(o.lots)}</td>
+                  <td>{when(o.open_time)}</td>
+                  <td className="num">{price(o.open_price, decimals)}</td>
+                  <td className="num">{price(o.stop_loss, decimals)}</td>
+                  <td>{o.take_profits.length === 0 ? "none" : o.take_profits.map((t, i) => `T${i + 1} ${price(t, decimals)}`).join(" · ")}</td>
+                  <td className="num">{price(o.mark_price, decimals)}</td>
+                  <td className={`num ${o.floating_pl >= 0 ? "up" : "down"}`}>{money(o.floating_pl)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
       <section className="panel" aria-label="Decision log">
         <h2>Decision log <span className="muted">(one row per bar; consecutive identical vetoes collapsed; click a row for that bar's chain)</span></h2>
         <DecisionLog api={api} runId={run.run_id} parameters={state.data.params} />
@@ -138,10 +169,10 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
         ))}
       </section>
       <section className="panel" aria-label="Trades">
-        <h2>Trades <span className="muted">(click one to see why the chain entered it; Equity = account equity after this trade closed)</span></h2>
+        <h2>Trades <span className="muted">(click one to see why the chain entered it; Realized equity = cash plus the net P/L of the trades closed so far)</span></h2>
         <table className="grid" data-testid="trades-table">
           <thead>
-            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num" title="account equity after this trade closed: starting cash plus the net P/L accumulated in closing order">Equity</th></tr>
+            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num" title="cash plus the net P/L of the trades closed so far, in closing order; positions still open at the end are not included (see Open positions)">Realized equity</th></tr>
           </thead>
           <tbody>
             {tradeRows.map((t: TradeRow) => (
@@ -164,7 +195,7 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" | undefined }) {
   return (
     <div className="kpi">
       <div className="label">{label}</div>

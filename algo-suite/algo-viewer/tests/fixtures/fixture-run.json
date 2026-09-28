@@ -562,5 +562,25 @@
    "hours": 7,
    "base_bid": 1.13
   }
+ ],
+ "statement": [
+  "## Open Trades:",
+  "",
+  "| Ticket | Open Time | Type | Lots | Item | Price | S / L | T / P | Price | Commission | R/O Swap | Trade P/L |",
+  "|---|---|---|---|---|---|---|---|---|---|---|---|",
+  "| 9 | 2016.04.29 10:00 | buy | 0.50 | EURUSD | 1.13000 | 1.12500 | 1.14000 / 1.15000 | 1.13100 | 0.00 | 0.00 | 50.00 |",
+  "| **Total** |  |  |  |  |  |  |  |  | 0.00 | 0.00 | 50.00 |",
+  "",
+  "Floating P/L: 50.00",
+  "",
+  "## A/C Summary:",
+  "",
+  "|  |  |  |  |",
+  "|---|---|---|---|",
+  "| Previous Ledger Balance | 10,000.00 | Floating P/L | 50.00 |",
+  "| Closed Trade P/L | 400.00 | Total Credit Facility | 0.00 |",
+  "| Deposit/Withdrawal | 0.00 | Equity | 10,450.00 |",
+  "| Balance | 10,400.00 | Margin Requirement | 0.00 |",
+  ""
  ]
 }

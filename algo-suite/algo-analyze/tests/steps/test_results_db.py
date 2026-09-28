@@ -73,6 +73,7 @@ class SyntheticRun:
         self.orders: dict[str, dict[str, Any]] = {}
         self.plans: list[dict[str, Any]] | None = None
         self.config: dict[str, Any] | None = None
+        self.statement_sections: list[str] = []
         self.provenance: dict[str, str] = {}
         self.decisions: list[DecisionRow] = []
         self.log_lines: list[str] = []
@@ -135,7 +136,8 @@ class SyntheticRun:
         (self.run_dir / "metrics.json").write_text(json.dumps(self.metrics))
         (self.run_dir / "trades.json").write_text(json.dumps(self.trades))
         (self.run_dir / "main.json").write_text(json.dumps({"orders": self.orders}))
-        (self.run_dir / "statement.md").write_text("# Account Statement\n")
+        statement = "\n".join(["# Account Statement", *self.statement_sections]) + "\n"
+        (self.run_dir / "statement.md").write_text(statement)
         (self.run_dir / "report.html").write_text("<html></html>\n")
         if self.plans is not None:
             (self.run_dir / "trade-plans.json").write_text(json.dumps(self.plans))
@@ -258,6 +260,35 @@ def _model(rctx: dict[str, Any], digest: str) -> None:
 @given("its equity samples are:")
 def _equity(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
     _current(rctx).equity = [(time, float(value)) for time, value in datatable[1:]]
+
+
+@given("its statement lists the open trades:")
+def _open_trades(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    header = ("| Ticket | Open Time | Type | Lots | Item | Price | S / L | T / P | Price | "
+              "Commission | R/O Swap | Trade P/L |")
+    lines = ["## Open Trades:", "", header, "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for ticket, open_time, side, lots, price, stop, targets, mark, profit in datatable[1:]:
+        lines.append(
+            f"| {ticket} | {open_time} | {side} | {lots} | EURUSD | {price} | {stop} | {targets} "
+            f"| {mark} | 0.00 | 0.00 | {profit} |"
+        )
+    totals = "| **Total** |  |  |  |  |  |  |  |  | 0.00 | 0.00 | 0.00 |"
+    lines += [totals, "", "Floating P/L: 0.00", ""]
+    _current(rctx).statement_sections.append("\n".join(lines))
+
+
+@given(parsers.parse(
+    "its statement's account summary is balance {balance}, floating P/L {floating} "
+    "and equity {equity}"
+))
+def _account_summary(rctx: dict[str, Any], balance: str, floating: str, equity: str) -> None:
+    _current(rctx).statement_sections.append("\n".join([
+        "## A/C Summary:", "", "|  |  |  |  |", "|---|---|---|---|",
+        f"| Previous Ledger Balance | 10,000.00 | Floating P/L | {floating} |",
+        "| Closed Trade P/L | 0.00 | Total Credit Facility | 0.00 |",
+        f"| Deposit/Withdrawal | 0.00 | Equity | {equity} |",
+        f"| Balance | {balance} | Margin Requirement | 0.00 |", "",
+    ]))
 
 
 @given("its closed trades are:")
@@ -509,6 +540,16 @@ def _assert_rows(actual: list[tuple[Any, ...]], datatable: list[list[str]]) -> N
 def _monthly(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
     columns = ", ".join(datatable[0])
     _assert_rows(_query(rctx, f"SELECT {columns} FROM monthly_returns ORDER BY month"), datatable)  # noqa: S608
+
+
+@then("the open positions of the run are:")
+def _open_positions(rctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    columns = datatable[0]
+    rows = _query(rctx, f"SELECT {', '.join(columns)} FROM open_positions ORDER BY ticket")  # noqa: S608
+    assert len(rows) == len(datatable) - 1, rows
+    for actual, expected in zip(rows, datatable[1:], strict=True):
+        for column, a, e in zip(columns, actual, expected, strict=True):
+            assert _close(a, e), f"{column}: {a!r} != {e!r}"
 
 
 @then("the trades of the run are:")

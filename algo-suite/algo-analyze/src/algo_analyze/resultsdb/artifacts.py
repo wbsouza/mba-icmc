@@ -7,7 +7,9 @@ finished run: `run.json`, `metrics.json`, `trades.json`, `equity.csv` (written b
 `decisions.parquet`. `log.txt` (the engine log with the `<TAG>_PLAN|`, `_TRAIL|`,
 `_OCO_CANCEL|`, `_STOP_RESIZE|` and `_MODEL_SHA256=` lines) is required as soon as the
 ledger has a trade — exit kinds and trail moves are classified from it. Optional:
-`trade-plans.json`, `strategy-config.yaml`, `strategy-provenance.json`.
+`trade-plans.json`, `strategy-config.yaml`, `strategy-provenance.json`, and `statement.md`,
+read for the positions still open at the end of the run and the account summary (balance,
+floating P/L, equity) that reconciles the realized ledger with the mark-to-market curve.
 """
 
 from __future__ import annotations
@@ -23,6 +25,8 @@ from typing import Any
 
 import pyarrow.parquet as pq
 import yaml
+
+from algo_analyze.resultsdb.statement import StatementFacts, read_statement
 
 RUN_FILE = "run.json"
 METRICS_FILE = "metrics.json"
@@ -70,6 +74,7 @@ class RunArtifacts:
     decisions: list[Mapping[str, Any]]
     log: list[LogRecord]
     model_sha256: str | None
+    statement: StatementFacts
 
 
 def missing_message(name: str, run_dir: Path, remedy: str) -> str:
@@ -235,6 +240,7 @@ def load_run_artifacts(run_dir: Path) -> RunArtifacts:
     )
     log, model = _log(run_dir, len(trades))
     return RunArtifacts(
+        statement=read_statement(run_dir, STATEMENT_FILE),
         run_dir=run_dir, run=run, metrics=_metrics(run_dir), trades=trades,
         plans=_optional_json(run_dir / PLANS_FILE, list), equity=_equity(run_dir),
         config=_config(run_dir), provenance=_optional_json(run_dir / PROVENANCE_FILE, dict),
