@@ -180,3 +180,50 @@ Feature: Bounded exploratory SpockFX signal experiments
     When all training and backtest children succeed in the runner harness
     And execution is requested again
     Then the second execution is rejected before launching a process
+
+  Scenario Outline: Input files follow the plan's span
+    Given the registered plan <plan>
+    And synthetic inputs for M1 months <m1_months>, the plan's evaluation weekdays, GDELT months <gdelt_months> and sentiment months <sentiment_months>
+    When the plan's hybrid input files are derived
+    Then the derived input files are exactly the synthetic inputs
+    And exactly <zips> LEAN weekday zips are required
+
+    Examples:
+      | plan                   | m1_months        | zips | gdelt_months     | sentiment_months |
+      | plan.yaml              | 2015-02..2015-09 | 22   | 2015-02..2015-10 | 2015-09..2015-10 |
+      | plan-broad-window.yaml | 2015-03..2016-11 | 197  | 2015-03..2016-12 | 2016-03..2016-12 |
+
+  Scenario: The trainer's --test-end is the plan's heldout_end
+    Given the tracked SpockFX experiment setup
+    And explicit temporary input and SpockFX source directories
+    And a plan copied from plan.yaml with heldout_end '2015-08-31'
+    When a fresh experiment output directory is prepared from the copied plan
+    Then every archived training command passes --test-end 2015-08-31 while LEAN keeps 2015-09-01 to 2015-09-30
+    And no training or backtest process was launched
+
+  Scenario Outline: Refuse a plan whose held-out span or date order is not registered
+    Given the tracked SpockFX experiment setup
+    And explicit temporary input and SpockFX source directories
+    And a plan copied from plan.yaml with <change>
+    When preparation is requested from the copied plan
+    Then preparation fails before launching a process with "<expected>"
+
+    Examples:
+      | change                         | expected                                                                                                                                             |
+      | heldout_end removed            | Plan is missing required key heldout_end; add heldout_end: 'YYYY-MM-DD' (the trainer's held-out partition end) to the plan and prepare again.        |
+      | train_start '2015-06-30'       | Plan dates out of order: train_start 2015-06-30 must be before train_end 2015-06-30; fix the plan.                                                   |
+      | calibration_start '2015-06-30' | Plan dates out of order: train_end 2015-06-30 must be before calibration_start 2015-06-30; fix the plan.                                             |
+      | calibration_end '2015-06-30'   | Plan dates out of order: calibration_start 2015-07-01 must be on or before calibration_end 2015-06-30; fix the plan.                                 |
+      | heldout_end '2015-07-31'       | Plan dates out of order: calibration_end 2015-07-31 must be before heldout_end 2015-07-31; fix the plan.                                             |
+      | test_start '2015-07-31'        | Plan dates out of order: calibration_end 2015-07-31 must be before test_start 2015-07-31; fix the plan.                                              |
+      | heldout_end '2015-10-01'       | Plan dates out of order: heldout_end 2015-10-01 must be on or before test_end 2015-09-30; fix the plan.                                              |
+      | test_start '2015-10-01'        | Plan dates out of order: test_start 2015-10-01 must be on or before test_end 2015-09-30; fix the plan.                                               |
+
+  Scenario: Preparing the broad-window plan archives the plan path and hash
+    Given the registered plan plan-broad-window.yaml
+    And synthetic inputs for M1 months 2015-03..2016-11, the plan's evaluation weekdays, GDELT months 2015-03..2016-12 and sentiment months 2016-03..2016-12
+    When the runner command line prepares with --plan plan-broad-window.yaml
+    Then the manifest archives the plan path and its SHA-256 beside the XML sources
+    And every archived training command passes --test-end 2016-02-29 while LEAN keeps 2016-03-01 to 2016-11-30
+    And no training or backtest process was launched
+    And the input files are unchanged

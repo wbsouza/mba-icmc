@@ -223,6 +223,55 @@ Each run also contains `source-mapping.md`, copies of all three XML files in
 setting; the mapping explains original values, research choices and unsupported
 semantics. News availability and hashes are recorded per run in `provenance.json`.
 
+## Second registered plan: the broader window (`--plan`)
+
+`prepare --plan PATH` selects a registered plan document; omitting it keeps the
+bundled pilot `plan.yaml`. The chosen path and its SHA-256 are archived in the
+manifest's `plan_source` beside the XML sources, the file is copied to the output
+root as `plan.yaml`, and the immutable checks re-verify it before and after every
+batch. Nothing in the pilot's plan or output changes when `--plan` is omitted.
+
+Every input span is derived from the plan rather than hard-coded: M1 Parquet
+months from the month of `train_start` through the month of `test_end`; a LEAN
+minute zip for every weekday from `test_start` through `test_end` (plus any other
+zips already present for those months, hashed as today); hybrid GDELT feature
+months from the month of `train_start` through the month **after** `test_end`,
+because the last bar's decision minute lands there; optional `lm` sentiment months
+for the evaluation months plus that following month. For the pilot this yields
+exactly the previous lists (2015-02..09 M1, the 22 September zips, GDELT
+2015-02..10, sentiment September/October).
+
+`heldout_end` is a required plan key: the trainer's `--test-end` is now the
+registered held-out end rather than the evaluation end, so the trainer's unused
+held-out partition stops where the protocol says it does. In the pilot it equals
+`test_end` (`2015-09-30`), preserving the archived commands byte for byte. A
+plan without the key is refused by name, as is any misordered window:
+`train_start < train_end < calibration_start <= calibration_end < heldout_end <= test_end`
+and `calibration_end < test_start <= test_end`. The held-out span may end before
+the evaluation window (broad plan) or overlap it (pilot).
+
+`plan-broad-window.yaml` registers the broader protocol from the Story 13 progress
+notes with the same family, symbol, cash, broker, variants, model policy and
+resource budget as the pilot: fit 2015-03-02 through 2015-12-31, calibrate January
+2016, hold out through 2016-02-29, evaluate 2016-03-01 through 2016-11-30 as one
+continuous LEAN run per cell; training timeout 14400 s, LEAN timeout 21600 s.
+Its `registration` block records the timestamp, the pre-registered primary
+comparison (hybrid vs baseline, TA-Lib on, activity off, paired daily equity
+difference), the eight-cell trial count, the identical 59-bar warm-up exclusion
+and `confirmatory_months: ['2016-11']`. March–October 2016 remains exploratory
+because the M1 one-year outcomes on that span were read; November 2016 is the only
+untouched month. Prepare it against a data root holding 2015-03..2016-11 M1
+partitions, every 2016-03..2016-11 weekday zip and, for hybrid, GDELT 2015-03..2016-12:
+
+```sh
+.venv/bin/python experiments/spockfx-signals/runner.py prepare \
+  --plan experiments/spockfx-signals/plan-broad-window.yaml \
+  --mode baseline \
+  --input-root /path/to/broad-window-data-root \
+  --output-root /path/to/fresh/output/root \
+  --spockfx-conf /home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf
+```
+
 ## Input/output isolation and current integration boundary
 
 `algo-backtest run` currently has neither `--run-id` nor `--results-dir`; it
