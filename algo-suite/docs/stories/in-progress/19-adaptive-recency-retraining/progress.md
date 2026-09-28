@@ -828,3 +828,51 @@ Integration handoff notes for Phase 3:
   checkpoints/<stage>/`, documented in `cycle.py`'s module docstring; treat that
   layout as part of this module's contract, not an implementation detail, since T10's
   own tests read it directly (matching how T7's tests read bundle manifests).
+
+## Cleaner phase 2 (2026-09-28)
+
+Baseline: `82d3908..c6a5553` (T6-T10) on `feat/19-adaptive-retraining`, worktree
+`/tmp/mba-impl-19`. Scope: `bundle.py`, `cycle.py`, `thresholds.py`, `trainer.py`, the
+T9 `ingestion.py` additions (`Ledger.row`/`.rows`/`.visible_partitions`), and the T6
+`f7_meta_learner.py` diff, plus their six step files.
+
+| File | ruff C901/PLR0912/PLR0915 | mypy --strict | coverage (branch) | CRAP max | Action |
+| --- | --- | --- | --- | --- | --- |
+| `retraining/bundle.py` | clean | clean | 98% (245, 251, 263 uncovered: two validation-failure raises inside `_validate_staged`, and `_default_clock`) | 9 (`load`, radon CC 9; ruff C901 reports it within the max-8 gate) | none — `load` is a flat sequence of five independent fail-fast checks, each already a self-contained raise; splitting it would add indirection (multi-parameter helpers over `model_bytes`/`identity`/`model`) without reducing real complexity |
+| `retraining/cycle.py` | clean | clean | 96% (67, 282, 452-454, 465->462, 504 uncovered: `_default_clock`, `eligible_bundle`'s "no cycle recorded" raise, `_run_publish`'s already-completed-checkpoint read path, and `_records_for`'s no-match branches) | 8 (`_records_for` after refactor) | refactored: extracted `_records_for` to remove duplicate directory-scan/filter logic between `_require_no_boundary_conflict` and `_find_by_policy_boundary` (radon CC 9 before, both call sites now thinner); tightened `_run_fit`/`_run_validate`'s model type from `Any` to `TrainedMetaLearner` (was accepted but unused type-safety loosening — `f7_model_io.load_model` already returns the concrete type) |
+| `retraining/thresholds.py` | clean | clean | 100% | 6 | none |
+| `retraining/trainer.py` | clean | clean | 98% (119 uncovered: `_watermark_at_cutoff`'s "no row visible" raise) | 6 | none |
+| `retraining/ingestion.py` (T9 additions) | clean | clean | 100% | n/a (`row`/`rows`/`visible_partitions` all CC 1-2) | none |
+| `chain/filters/f7_meta_learner.py` (T6 diff) | clean | clean | covered by `test_f7_meta_learner.py`/`test_f7_combiner_weights.py` (full suite green, no per-function gap found) | 6 max (`_validated_stage_weights`, `_require_two_combiner_classes`) | none |
+
+Checked the duplication the brief flagged explicitly: `cycle.py`'s `_watermark_after`
+(handles a `None` starting watermark across several batches, since `source_watermark`
+is `None` for the first epoch) versus `Ledger.consume`'s `self._watermark =
+iso_utc(max(row.available_at for row in new_rows))` (never needs `None`-handling,
+since `_require_watermark_order` already guarantees every new row is at or after the
+existing watermark). Confirmed by hand the two are mathematically equivalent
+wherever their preconditions overlap; did not merge them into a shared helper since
+their invariants differ enough (one must tolerate an absent watermark, the other
+never does) that forcing a shared abstraction would add a parameter and a branch to
+the simpler call site for no behavioural gain.
+
+Coverage gaps recorded above were flagged, not closed — per the cleaner's brief, this
+role reports uncovered lines and refactors on CRAP/complexity, it does not author new
+Gherkin scenarios (that is the hardener's job, or a coder follow-up); none of the
+gaps found are logic that ships silently wrong (each is either a fail-fast raise with
+an obvious repro, or a real-clock default that tests correctly bypass by injection).
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_f7_combiner_weights.py
+  test_retraining_bundle.py test_retraining_thresholds.py test_retraining_trainer.py
+  test_retraining_cycle.py test_retraining_ingestion.py test_f7_meta_learner.py
+  test_f7_model_io.py -q -p no:cacheprovider --cov=algo_backtest.retraining
+  --cov-branch`: 191 passed, 96% branch coverage on `algo_backtest.retraining`.
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check
+  algo-backtest/src/algo_backtest/retraining/cycle.py`: already formatted.
+  `uv run mypy --strict algo-backtest`: clean, 72 source files (cache removed after).
+- `make check-perception-architecture check-inference-architecture`: both PASS.
+- `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1827 passed, 53
+  deselected, 0 failed (79.5 s) — unchanged from the coder's Phase 2 closure count,
+  confirming the `cycle.py` refactor is behavior-preserving.

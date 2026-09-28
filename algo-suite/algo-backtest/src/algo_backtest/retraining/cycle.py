@@ -44,13 +44,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from algo_backtest.chain.filters import f7_model_io
+from algo_backtest.chain.filters.f7_meta_learner import TrainedMetaLearner
 from algo_backtest.retraining import bundle as bundle_module
 from algo_backtest.retraining.bundle import BundleDescription, StagedBundle
 from algo_backtest.retraining.ingestion import Batch, Ledger, consume
@@ -363,7 +364,7 @@ class Coordinator:
         completed: list[str],
         checkpoints_dir: Path,
         started_at: datetime,
-    ) -> tuple[Any, BundleDescription]:
+    ) -> tuple[TrainedMetaLearner, BundleDescription]:
         self._check_timeout(started_at, "fit")
         fit_dir = checkpoints_dir / "fit"
         if "fit" not in completed:
@@ -389,7 +390,7 @@ class Coordinator:
 
     def _run_validate(
         self,
-        model: Any,
+        model: TrainedMetaLearner,
         description: BundleDescription,
         completed: list[str],
         checkpoints_dir: Path,
@@ -458,19 +459,11 @@ class Coordinator:
     def _require_no_boundary_conflict(self, request: CycleRequest, cycle_id: str) -> None:
         """A different cycle_id that already succeeded for this (policy, boundary) is a
         conflict: the boundary already ran (RWT-25)."""
-        if not self._cycles_dir.exists():
-            return
         boundary_iso = iso_utc(request.activation_boundary)
-        for entry in self._cycles_dir.iterdir():
-            if entry.name == cycle_id or not entry.is_dir():
-                continue
-            record = self._read_record(entry.name)
-            if (
-                record is not None
-                and record.get("status") == "ok"
-                and record.get("policy") == request.policy
-                and record.get("activation_boundary") == boundary_iso
-            ):
+        for record in self._records_for(
+            request.policy, request.activation_boundary, exclude_cycle_id=cycle_id
+        ):
+            if record.get("status") == "ok":
                 raise ValueError(
                     f"{_MODULE}: policy {request.policy!r} at {boundary_iso} already has a "
                     "successful cycle under a different request; the boundary already ran"
@@ -506,11 +499,22 @@ class Coordinator:
     def _find_by_policy_boundary(
         self, policy: str, activation_boundary: datetime
     ) -> dict[str, Any] | None:
+        """The first on-disk record for `policy` at `activation_boundary`, if any."""
+        for record in self._records_for(policy, activation_boundary):
+            return record
+        return None
+
+    def _records_for(
+        self, policy: str, activation_boundary: datetime, *, exclude_cycle_id: str | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """Every on-disk cycle record for `policy` at `activation_boundary`, skipping
+        `exclude_cycle_id` (RWT-25's boundary-conflict check and the eligibility lookup
+        share this scan; each filters or consumes the result differently)."""
         if not self._cycles_dir.exists():
-            return None
+            return
         boundary_iso = iso_utc(activation_boundary)
         for entry in self._cycles_dir.iterdir():
-            if not entry.is_dir():
+            if entry.name == exclude_cycle_id or not entry.is_dir():
                 continue
             record = self._read_record(entry.name)
             if (
@@ -518,8 +522,7 @@ class Coordinator:
                 and record.get("policy") == policy
                 and record.get("activation_boundary") == boundary_iso
             ):
-                return record
-        return None
+                yield record
 
     def _append_attempt(
         self,
