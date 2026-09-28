@@ -45,8 +45,8 @@ grains/yields/producers as lagged context, monthly fertilizer and food indices a
 context only), the NPK input chain, and a commodity-currency follow-up (USD/CAD,
 AUD/USD). Status: **planned**; nothing downloaded, coded or simulated.
 
-[Story 19 — session 2: clean trading-year re-run, BUY and SELL in one simulation](in-progress/19-session-2-clean-rerun/spec.md)
-(renumbered from 15 to resolve the clash with the Miner story) re-ran the reported
+[Story 20 — session 2: clean trading-year re-run, BUY and SELL in one simulation](in-progress/20-session-2-clean-rerun/spec.md)
+(renumbered from 15 to resolve the clash with the Miner story; 19 is the adaptive retraining story) re-ran the reported
 year after the confidentiality rename: twelve retrained models identical outside
 provenance, fifteen cells byte-identical to session 1, the primary test reproduced
 (p = 0.149); every both-sides cell negative; the reversed-sign rule statistically

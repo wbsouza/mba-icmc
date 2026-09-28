@@ -1,4 +1,4 @@
-# Story 19 — progress
+# Story 20 — progress
 
 - [x] 2026-09-28 07:25 UTC — all session-1 jobs stopped (`stop-all-jobs.sh`), 19 job directories and the
   run root (832 MB) moved to `experiment-test-archives/pre-rename-session-1/`; viewer database archived.

@@ -1,4 +1,4 @@
-# Story 19 — session 2: brand-new trading-year run after the confidentiality rename (registered 2026-09-28 07:40 UTC, before any cell ran)
+# Story 20 — session 2: brand-new trading-year run after the confidentiality rename (registered 2026-09-28 07:40 UTC, before any cell ran)
 
 ## Question
 
