@@ -230,8 +230,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] BUY and SELL configurations emit only their named vote; invalid direction fails; both remain subject to real F5/F6 vetoes; neither reads news or an F7 model.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] BUY and SELL configurations emit only their named vote; invalid direction fails; both remain subject to real F5/F6 vetoes; neither reads news or an F7 model.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_controls.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_controls.py` in this task; at least 4 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_controls.py`; Build and applicable Regression before handoff.

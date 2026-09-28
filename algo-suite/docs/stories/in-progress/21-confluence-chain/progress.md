@@ -377,3 +377,49 @@ Story-21-private module besides `time_exit.py`.
 Next: T7 (`chain/filters/constant_direction.py`, the drift-control filter).
 Blockers: none. Agent: coder (Claude Sonnet 5). Branch
 `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit `0c4d612`.
+
+## 2026-09-28 — Coder phase 2, T7
+
+Implemented `chain/filters/constant_direction.py` (`ConstantDirectionFilter`,
+`FILTER_NAME = "constant_direction"`): the sole voter behind the always-short
+and always-long drift-control arms (CC-23, D9). Constructor parameter
+`direction: Literal["BUY", "SELL"]`; any other value (including "HOLD",
+"NEUTRAL", "ABSTAIN", lower case, or empty) is refused at construction. `apply`
+reads nothing from `state.features` and always returns the same configured
+`Recommendation`, no veto, no enrichment. Canonical voter id and runtime
+`filter_name` are both `"constant_direction"` (pinned choice from the
+specifier's gap list #1, since this is a new addition rather than a legacy
+F-numbered filter).
+
+Proved the control is not a risk-management bypass with the real chain: the
+real `RiskGuardFilter`/`CapitalMgmtFilter` (parsed the same way
+`test_confluence_agreement.py` proves T1's F5/F6 vetoes) plus the real
+`AgreementTerminalDecision` requiring `"constant_direction"`, run through the
+real `FilterChain.run` — gates pass and the constant vote trades; F5 vetoes on
+portfolio-at-risk; F6 vetoes on margin. No deviation from the specifier's
+`confluence_controls.feature`; one step (`a constant-direction filter
+configured for "" is built and fails`) needed `parsers.re` instead of
+`parsers.parse` for the empty-quoted-cell case, matching the same fix already
+used in `test_confluence_agreement.py`'s empty-required-filters step (a step-file
+parsing detail, not a feature-file or production-code change).
+
+Gate (cwd `algo-suite`): `uv run pytest
+algo-backtest/tests/steps/test_confluence_controls.py -q` → 16 passed (16
+collected, matches the QA procedure's Phase 2 count); `uv run ruff check` →
+clean; `uv run ruff format --check` → clean; `uv run mypy --strict
+algo-backtest/src/algo_backtest/chain/filters/constant_direction.py` → clean.
+Regression (the eleven Phase-1/legacy step files plus
+`test_confluence_time_exit.py` and `test_confluence_controls.py` together) →
+521 passed, 0 failed. No existing test was modified, skipped or deleted.
+
+Files touched: `algo-backtest/src/algo_backtest/chain/filters/constant_direction.py`
+(new), `algo-backtest/tests/steps/test_confluence_controls.py` (new),
+`.specs/features/confluence-chain/tasks.md` (T7 checkboxes),
+`.specs/features/confluence-chain/spec.md` (CC-23 status). Not touched:
+`confluence_controls.feature` (specifier's file, no deviation needed), any
+integration-owned file, or any other Story-21-private module.
+
+Next: T8 (`experiments/confluence-chain/rederive_horizon.py`, the horizon
+evidence-unit re-derivation tool). Blockers: none. Agent: coder (Claude Sonnet
+5). Branch `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base
+commit `3bbbbf8`.
