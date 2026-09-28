@@ -451,3 +451,5 @@ reviewed (mark satisfied triggers), and — critically — **this file's §1 sta
 table updated** so the next agent (human or autonomous) reading this plan sees
 current reality, not a stale snapshot. A spec is not done until the next agent
 can read `00-PLAN.md` alone and know it's done.
+
+The [experiment registry](../experiments/registry.md) lists every experiment session and job run so far, with protocol status, key result and evidence pointers; add a row there when a job is registered or launched.
