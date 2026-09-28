@@ -1,0 +1,882 @@
+{
+ "PRIMARY hybrid vs price-only, H1 q10 (both sides) | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0001586217261059166,
+  "confidence_interval": [
+   -0.0014505063314957174,
+   0.0011332628792838843
+  ],
+  "p_value": 0.806,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "PRIMARY hybrid vs price-only, H1 q10 (both sides) | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0001586217261059166,
+  "confidence_interval": [
+   -0.0014426598625866018,
+   0.0011254164103747686
+  ],
+  "p_value": 0.808,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "PRIMARY hybrid vs price-only, H1 q10 (both sides) | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.0005012591815478066,
+  "confidence_interval": [
+   -0.00043679134443576914,
+   0.0014393097075313824
+  ],
+  "p_value": 0.307,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "PRIMARY hybrid vs price-only, H1 q10 (both sides) | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.0005012591815478066,
+  "confidence_interval": [
+   -0.00041888512988391767,
+   0.0014214034929795308
+  ],
+  "p_value": 0.295,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q05 (both sides) | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0006144881180223919,
+  "confidence_interval": [
+   -0.0017517865184949514,
+   0.0005228102824501676
+  ],
+  "p_value": 0.292,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q05 (both sides) | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0006144881180223919,
+  "confidence_interval": [
+   -0.001801475422295246,
+   0.000572499186250462
+  ],
+  "p_value": 0.281,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q05 (both sides) | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": -0.00032987089198517936,
+  "confidence_interval": [
+   -0.0011210708971041573,
+   0.0004613291131337986
+  ],
+  "p_value": 0.429,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q05 (both sides) | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": -0.00032987089198517936,
+  "confidence_interval": [
+   -0.0011626558684319336,
+   0.000502914084461575
+  ],
+  "p_value": 0.431,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q10 gated | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": 0.0005716408167048095,
+  "confidence_interval": [
+   -3.865374309878133e-05,
+   0.0011819353765084003
+  ],
+  "p_value": 0.071,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q10 gated | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": 0.0005716408167048095,
+  "confidence_interval": [
+   -0.00012613751435193725,
+   0.0012694191477615562
+  ],
+  "p_value": 0.097,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q10 gated | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.0007825043938458346,
+  "confidence_interval": [
+   -0.00016642866890724918,
+   0.0017314374565989183
+  ],
+  "p_value": 0.099,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H1 q10 gated | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.0007825043938458346,
+  "confidence_interval": [
+   -0.00012716764828637984,
+   0.001692176435978049
+  ],
+  "p_value": 0.092,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H4 q10 (both sides) | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0001015255036978561,
+  "confidence_interval": [
+   -0.0007762846591456884,
+   0.0005732336517499762
+  ],
+  "p_value": 0.772,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H4 q10 (both sides) | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0001015255036978561,
+  "confidence_interval": [
+   -0.0007754546432919146,
+   0.0005724036358962024
+  ],
+  "p_value": 0.764,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H4 q10 (both sides) | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": -2.876911617872193e-05,
+  "confidence_interval": [
+   -0.0004815376085641382,
+   0.00042399937620669437
+  ],
+  "p_value": 0.898,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "hybrid vs price-only, H4 q10 (both sides) | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": -2.876911617872193e-05,
+  "confidence_interval": [
+   -0.0004363506674112693,
+   0.0003788124350538255
+  ],
+  "p_value": 0.883,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H1 q10 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0010603955362941944,
+  "confidence_interval": [
+   -0.0043975800688344745,
+   0.002276788996246086
+  ],
+  "p_value": 0.521,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H1 q10 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0010603955362941944,
+  "confidence_interval": [
+   -0.004701595577665229,
+   0.00258080450507684
+  ],
+  "p_value": 0.563,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H1 q10 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.0001314681457621996,
+  "confidence_interval": [
+   -0.002531192057541586,
+   0.002794128349065985
+  ],
+  "p_value": 0.913,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H1 q10 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.0001314681457621996,
+  "confidence_interval": [
+   -0.0025042092126402256,
+   0.002767145504164625
+  ],
+  "p_value": 0.915,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H4 q10 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0002180037768694428,
+  "confidence_interval": [
+   -0.002581816311912355,
+   0.0021458087581734692
+  ],
+  "p_value": 0.851,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H4 q10 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0002180037768694428,
+  "confidence_interval": [
+   -0.0024946780511605382,
+   0.0020586704974216523
+  ],
+  "p_value": 0.859,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H4 q10 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": -0.0005204623225887254,
+  "confidence_interval": [
+   -0.0019756472822813837,
+   0.000934722637103933
+  ],
+  "p_value": 0.464,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "news-only vs price-only, H4 q10 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": -0.0005204623225887254,
+  "confidence_interval": [
+   -0.0019245667104493213,
+   0.0008836420652718704
+  ],
+  "p_value": 0.469,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H1 q10 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0002773033050408343,
+  "confidence_interval": [
+   -0.003286221396670745,
+   0.0027316147865890767
+  ],
+  "p_value": 0.869,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H1 q10 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0002773033050408343,
+  "confidence_interval": [
+   -0.003604477447433446,
+   0.0030498708373517774
+  ],
+  "p_value": 0.856,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H1 q10 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.001710317171111949,
+  "confidence_interval": [
+   -0.0004282574251187844,
+   0.0038488917673426826
+  ],
+  "p_value": 0.13,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H1 q10 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.001710317171111949,
+  "confidence_interval": [
+   -0.000645489165210495,
+   0.004066123507434393
+  ],
+  "p_value": 0.15,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H1 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.00010203053383654829,
+  "confidence_interval": [
+   -0.0019377832700610575,
+   0.001733722202387961
+  ],
+  "p_value": 0.92,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H1 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.00010203053383654829,
+  "confidence_interval": [
+   -0.0020996062875081652,
+   0.0018955452198350688
+  ],
+  "p_value": 0.914,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H1 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.000401758936624476,
+  "confidence_interval": [
+   -0.0014850123151348852,
+   0.002288530188383837
+  ],
+  "p_value": 0.645,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H1 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.000401758936624476,
+  "confidence_interval": [
+   -0.0015045533509191824,
+   0.0023080712241681347
+  ],
+  "p_value": 0.705,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H4 q10 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": 8.082709740408201e-05,
+  "confidence_interval": [
+   -0.001632786596386235,
+   0.0017944407911943993
+  ],
+  "p_value": 0.929,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H4 q10 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": 8.082709740408201e-05,
+  "confidence_interval": [
+   -0.001661556458403261,
+   0.001823210653211425
+  ],
+  "p_value": 0.925,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H4 q10 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 0.0001617040980355162,
+  "confidence_interval": [
+   -0.0009198811737656585,
+   0.001243289369836691
+  ],
+  "p_value": 0.763,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs price-only, H4 q10 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 0.0001617040980355162,
+  "confidence_interval": [
+   -0.0009472327010821909,
+   0.0012706408971532234
+  ],
+  "p_value": 0.77,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H4 | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -4.8757809505674726e-05,
+  "confidence_interval": [
+   -0.0010509719440341524,
+   0.000953456325022803
+  ],
+  "p_value": 0.921,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H4 | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -4.8757809505674726e-05,
+  "confidence_interval": [
+   -0.000926279396658449,
+   0.0008287637776470996
+  ],
+  "p_value": 0.919,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H4 | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 9.265937683345253e-06,
+  "confidence_interval": [
+   -0.000980795455365592,
+   0.0009993273307322826
+  ],
+  "p_value": 0.975,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "rule sign -1 vs always-short control, H4 | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 9.265937683345253e-06,
+  "confidence_interval": [
+   -0.0009706936974006465,
+   0.000989225572767337
+  ],
+  "p_value": 0.979,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "REPRODUCTION session-1 primary: hybrid vs price-only, H1 fixed | untouched Nov 2016-Feb 2017 | block 4": {
+  "effect": -0.0004792953890984969,
+  "confidence_interval": [
+   -0.0011474347901749512,
+   0.0001888440119779575
+  ],
+  "p_value": 0.149,
+  "reject_null": false,
+  "block_length": 4,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 30.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "REPRODUCTION session-1 primary: hybrid vs price-only, H1 fixed | untouched Nov 2016-Feb 2017 | block 2": {
+  "effect": -0.0004792953890984969,
+  "confidence_interval": [
+   -0.0012188813699083706,
+   0.00026029059171137693
+  ],
+  "p_value": 0.186,
+  "reject_null": false,
+  "block_length": 2,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 120,
+  "expected_blocks": 60.0,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "REPRODUCTION session-1 primary: hybrid vs price-only, H1 fixed | full year Mar 2016-Feb 2017 | block 5": {
+  "effect": 1.1410661236953019e-05,
+  "confidence_interval": [
+   -0.0003059619514670893,
+   0.0003287832739409953
+  ],
+  "p_value": 0.938,
+  "reject_null": false,
+  "block_length": 5,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 72.8,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ },
+ "REPRODUCTION session-1 primary: hybrid vs price-only, H1 fixed | full year Mar 2016-Feb 2017 | block 3": {
+  "effect": 1.1410661236953019e-05,
+  "confidence_interval": [
+   -0.0003071500657648855,
+   0.0003299713882387915
+  ],
+  "p_value": 0.956,
+  "reject_null": false,
+  "block_length": 3,
+  "n_resamples": 999,
+  "seed": 42,
+  "n_observations": 364,
+  "expected_blocks": 121.33333333333333,
+  "alpha": 0.05,
+  "method": "paired_stationary_bootstrap",
+  "estimand": "mean daily net return: challenger minus baseline",
+  "null": "mean difference equals zero",
+  "sidedness": "two-sided",
+  "assumptions": "stationary weak dependence; finite moments; prespecified block length"
+ }
+}

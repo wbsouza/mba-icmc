@@ -1,0 +1,14 @@
+h4-baseline exit=0
+h1-baseline exit=0
+m5-baseline exit=0
+h4-hybrid exit=0
+h1-hybrid exit=0
+news-only-h1 exit=1
+m15-baseline exit=0
+news-only-h4 exit=1
+m30-baseline exit=0
+m5-hybrid exit=0
+m15-hybrid exit=0
+m30-hybrid exit=0
+news-only-h1 exit=0 (retrained)
+news-only-h4 exit=0 (retrained)
