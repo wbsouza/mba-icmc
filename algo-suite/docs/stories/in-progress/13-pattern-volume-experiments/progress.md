@@ -299,7 +299,7 @@ disk-backed output root and basetemp, `df -i` checked first. Not launched in thi
 - `2026-09-28-h1-open`: permissive H1 family (activity gate off, `ema_higher_tf` 9 vs slow 8 retrain,
   thresholds fixed/q05/q10, relaxed risk guard), 8 cells, 2016-03..12.
 - `2026-09-28-h1-grid`: 216-cell H1 grid (thresholds x activity x HTF rule x plan x risk x family),
-  6 LEAN slots x 3 CPUs, queued behind the two jobs above; `cpu-monitor.log` records load.
+  6 LEAN slots x 3 CPUs, queued behind the two jobs above; `cpu-monitor.log` records load. January 2017 GDELT completed 04:15 UTC; features built through 2017-02-01 and the grid retargeted to 2016-03-01..2017-01-31 before it started.
 - Monograph Chapter 4 §registered-followups states the three designs and the trial count (275)
   before any result; results land in a later evidence file.
 - Observed while rendering: `statement.py` prints prices with float noise (1.1225400000000001);
