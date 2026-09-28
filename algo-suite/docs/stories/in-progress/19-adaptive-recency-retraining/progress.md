@@ -48,7 +48,7 @@ convention; update both in the same tested task commit.
 
 - [x] T1: Register the adaptive comparison protocol.
 - [x] T2: Build the incremental data and label-maturity adapter.
-- [ ] T3: Implement exact-UTC epoch planning.
+- [x] T3: Implement exact-UTC epoch planning.
 - [ ] T4: Implement exponential weights and feasibility checks.
 - [ ] T5: Pass weights through family-model fitting.
 - [ ] T6: Pass independent weights through combiner fitting.
@@ -152,7 +152,46 @@ mid-batch-failure scenarios (watermark asserted from a reopened ledger);
 RWT-24 by late outcome, maturation, as-of cutoff and `label_time None`
 rejection; RWT-02 by the timestamp outline, duplicate key, ordering and
 declared-count scenarios. Every scenario maps to one of those or to the
-retry/idempotency and prefix-invariance dimensions of spec.md. Next: T3.
+retry/idempotency and prefix-invariance dimensions of spec.md. Commit
+`3fbf939`, pushed. Next: T3.
+
+### 2026-09-28 T3: Implement exact-UTC epoch planning (Claude coder, Lane A)
+
+What changed and why: `retraining/schedule.py` with `Span` (half-open UTC
+interval, validated on construction), `Epoch` (deployment month plus the
+schedule's first D), `StageSpans`, `POLICIES`, `EXPANDING_START`,
+`monthly_epochs(start, end)`, `epoch_starting(epochs, D)`,
+`stage_spans(epoch, policy)` and `select_rows(rows, span)`. F and Q anchor
+their family/combiner spans on the schedule's initial epoch; only Q's threshold
+span moves with D (pinned reading 5). `select_rows` takes ingestion's
+`SourceRow`, so bucket-start timestamps and trade context cannot reach the
+selector (RWT-09); a `None` label_time is rejected (RWT-24); an empty
+selection is returned, feasibility being `check_support`'s job (pinned
+reading 4). The UTC helpers moved from `ingestion.py` into
+`retraining/utc.py` so both modules share one public check; ingestion's
+behaviour is unchanged (its 22 scenarios still pass). `walk_forward_split`
+is untouched; the feature's regression scenario runs it on the same rows.
+Steps in `tests/steps/test_retraining_schedule.py`. No scenario was changed.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_schedule.py -q
+  -p no:cacheprovider`: 41 passed (11 scenarios plus 30 Examples rows).
+- `uv run pytest` on `test_retraining_ingestion.py`, `test_f7_meta_learner.py`,
+  `test_f7_model_io.py`, `test_training_family_contract.py`: 108 passed
+  (22 + 86, the F7 baseline count unchanged).
+- `uv run ruff check algo-backtest`: clean after one import-order fix.
+  `uv run ruff format --check` on the retraining package and the two
+  retraining step files: clean. `uv run mypy --strict algo-backtest`: clean,
+  67 source files.
+
+Adequacy: RWT-03 by the twelve-epoch coverage, contiguity/union and the
+month/year/leap outline; RWT-02 by the invalid-span outlines for planning and
+selection and the unregistered epoch/policy outline; RWT-01 by the half-open
+availability, bucket-start, leaking-label and missing-history scenarios plus
+the legacy day-end contrast; RWT-09 by the trade-context scenario; the
+per-policy stage-span outlines pin the temporal contract's exact instants.
+Next: T4.
 
 ## Earlier planning verification (before this amendment)
 

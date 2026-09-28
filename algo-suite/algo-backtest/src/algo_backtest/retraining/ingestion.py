@@ -26,11 +26,13 @@ import json
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pyarrow.parquet as pq
+
+from algo_backtest.retraining.utc import iso_utc, require_utc
 
 LEDGER_FILE = "ledger.json"
 _SCHEMA_VERSION = 1
@@ -80,38 +82,24 @@ class PartitionRecord:
     row_count: int
 
 
-def _iso(value: datetime) -> str:
-    """A UTC instant as `YYYY-MM-DDTHH:MM:SSZ` (microseconds kept when present)."""
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
 def _parse(text: str) -> datetime:
-    """The inverse of `_iso`."""
+    """The inverse of `iso_utc`."""
     return datetime.fromisoformat(text)
-
-
-def _require_utc(value: datetime, *, what: str) -> None:
-    """Reject naive or non-UTC timestamps: every ledger instant is an explicit UTC instant."""
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise ValueError(
-            f"{_MODULE}: {what} must be a UTC instant (tz-aware, offset 0), got {value!r}; "
-            "convert the source timestamps with .astimezone(UTC) before consuming"
-        )
 
 
 def _validate_row(row: SourceRow) -> None:
     """One row's timestamp contract: UTC, known maturity, label after availability."""
-    _require_utc(row.available_at, what=f"row {row.key!r} available_at")
+    require_utc(row.available_at, what=f"row {row.key!r} available_at")
     if row.label_time is None:
         raise ValueError(
             f"{_MODULE}: row {row.key!r} has label_time None; unknown maturity is not "
             "maturity in the adaptive path (RWT-24), supply the horizon bar's close"
         )
-    _require_utc(row.label_time, what=f"row {row.key!r} label_time")
+    require_utc(row.label_time, what=f"row {row.key!r} label_time")
     if row.label_time <= row.available_at:
         raise ValueError(
-            f"{_MODULE}: row {row.key!r} label_time {_iso(row.label_time)} must be after "
-            f"its availability {_iso(row.available_at)}; a label cannot be knowable before "
+            f"{_MODULE}: row {row.key!r} label_time {iso_utc(row.label_time)} must be after "
+            f"its availability {iso_utc(row.available_at)}; a label cannot be knowable before "
             "the features it labels"
         )
 
@@ -134,8 +122,8 @@ def _require_ordered(rows: Sequence[SourceRow]) -> None:
         if later.available_at < earlier.available_at:
             raise ValueError(
                 f"{_MODULE}: batch rows must be ordered by available_at, row {later.key!r} "
-                f"({_iso(later.available_at)}) follows {earlier.key!r} "
-                f"({_iso(earlier.available_at)}); sort the delivery by bar close"
+                f"({iso_utc(later.available_at)}) follows {earlier.key!r} "
+                f"({iso_utc(earlier.available_at)}); sort the delivery by bar close"
             )
 
 
@@ -161,8 +149,8 @@ def _record(row: SourceRow, partition: str) -> dict[str, Any]:
     """The JSON-ready persisted form of one validated row."""
     assert row.label_time is not None  # validated by `_validate_row`
     return {
-        "available_at": _iso(row.available_at),
-        "label_time": _iso(row.label_time),
+        "available_at": iso_utc(row.available_at),
+        "label_time": iso_utc(row.label_time),
         "label": row.label,
         "partition": partition,
     }
@@ -232,7 +220,7 @@ class Ledger:
             "row_count": self._partitions.get(batch.partition, {}).get("row_count", 0)
             + len(new_rows),
         }
-        self._watermark = _iso(max(row.available_at for row in new_rows))
+        self._watermark = iso_utc(max(row.available_at for row in new_rows))
         self._write()
         return self
 
@@ -269,7 +257,7 @@ class Ledger:
         if self._watermark is not None and earliest < _parse(self._watermark):
             raise ValueError(
                 f"{_MODULE}: batch would regress the watermark: its earliest new row "
-                f"{new_rows[0].key!r} is available at {_iso(earliest)}, before the "
+                f"{new_rows[0].key!r} is available at {iso_utc(earliest)}, before the "
                 f"persisted watermark {self._watermark}; consume partitions in order"
             )
 
@@ -302,8 +290,8 @@ class Ledger:
 
     def _keys_where(self, cutoff: datetime, *, mature_only: bool) -> tuple[str, ...]:
         """Keys visible at `cutoff`, optionally only the mature ones, ordered by availability."""
-        _require_utc(cutoff, what="cutoff")
-        bound = _iso(cutoff)
+        require_utc(cutoff, what="cutoff")
+        bound = iso_utc(cutoff)
         chosen = [
             (record["available_at"], key)
             for key, record in self._records.items()
