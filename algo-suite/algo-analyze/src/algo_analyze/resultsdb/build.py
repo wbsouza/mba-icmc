@@ -341,8 +341,8 @@ def write_run(
             [(rows.run_id, *row) for row in rows.parameters],
         )
         connection.executemany(
-            "INSERT INTO equity_samples VALUES (?,?,?,?)",
-            [(rows.run_id, *row) for row in rows.equity],
+            "INSERT INTO equity_samples VALUES (?,?,?,?,?)",
+            [(rows.run_id, seq, *row) for seq, row in enumerate(rows.equity)],
         )
         connection.executemany(
             "INSERT INTO monthly_returns VALUES (?,?,?,?,?,?)",

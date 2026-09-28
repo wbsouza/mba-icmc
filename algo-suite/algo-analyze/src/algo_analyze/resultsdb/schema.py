@@ -2,7 +2,10 @@
 
 Every table carries `run_id` (the run directory's name, e.g. `20260928T022009-934c0d9e00bf`)
 so a re-ingest can replace one run atomically: `delete_run()` removes its rows from every
-table, then the builder inserts the fresh ones in the same transaction.
+table, then the builder inserts the fresh ones in the same transaction. The two bulk
+tables (`equity_samples`, `entry_bars`) are clustered on their `run_id`-led primary key
+(`WITHOUT ROWID`) instead of carrying a second index: the file is loaded whole into the
+browser, so every megabyte counts.
 """
 
 from __future__ import annotations
@@ -58,11 +61,12 @@ CREATE TABLE IF NOT EXISTS run_parameters (
 );
 CREATE TABLE IF NOT EXISTS equity_samples (
     run_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
     time TEXT NOT NULL,
     equity REAL NOT NULL,
-    drawdown_pct REAL NOT NULL
-);
-CREATE INDEX IF NOT EXISTS equity_samples_run ON equity_samples (run_id);
+    drawdown_pct REAL NOT NULL,
+    PRIMARY KEY (run_id, seq)
+) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS monthly_returns (
     run_id TEXT NOT NULL,
     month TEXT NOT NULL,
@@ -149,7 +153,7 @@ CREATE TABLE IF NOT EXISTS entry_bars (
     low REAL NOT NULL,
     close REAL NOT NULL,
     PRIMARY KEY (run_id, trade_id, offset)
-);
+) WITHOUT ROWID;
 """
 
 

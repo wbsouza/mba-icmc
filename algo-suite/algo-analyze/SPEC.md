@@ -198,7 +198,7 @@ Schema (table `schema_version` = 1; every table carries `run_id`):
 |---|---|---|
 | `runs` | run | `run_id, job, run_dir, strategy, symbol, start, end, cash, bar_minutes, model_sha256, code_revision, success, closed_trades, total_return, sharpe, max_drawdown, hit_rate, statement_path, report_path, equity_png_path, ingested_at` — `bar_minutes` from `price_features.bar_minutes` (engine default when the config omits it), `model_sha256` from the `<TAG>_MODEL_SHA256=` log line, `code_revision` from `run.json` when recorded (NULL otherwise), the four metrics from `metrics.json` |
 | `run_parameters` | config leaf + `--param` | `key, value (JSON), source` — every leaf of `strategy-config.yaml` with the `config.yaml` that set it (`strategy-provenance.json`, `unknown` when unrecorded), then `run.json` `params` with source `--param` |
-| `equity_samples` | `equity.csv` row | `time, equity, drawdown_pct` |
+| `equity_samples` | `equity.csv` row | `seq, time, equity, drawdown_pct` (clustered on `run_id, seq`) |
 | `monthly_returns` | month | `month, start_equity, end_equity, return_pct, trades` (same rule as `report.html`: a month starts at the previous month's last sample) |
 | `trades` | closed trade | `trade_id (= entry order id), entry_order_id, direction, lots, quantity, entry_time, entry_price, exit_time, exit_price, profit, fees, is_win, exit_kind, exit_order_id, exit_order_type, holding_minutes` — lots from the plan, else quantity / `capital_mgmt.lot_notional_units`, else NULL |
 | `trade_plans` | planned entry | `stop_loss, stop_pips, targets_json, trail_steps_json, spread_pips` from `trade-plans.json`; `stop_pips` = \|entry − stop\| / pip when the plan does not record it |
