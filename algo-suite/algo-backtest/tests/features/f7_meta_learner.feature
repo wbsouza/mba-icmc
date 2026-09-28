@@ -184,21 +184,24 @@ Feature: F7 — threshold-rule (meta-learner) filter
       Then the parsed F7 config has label_horizon_minutes <horizon>
 
       Examples:
-        | case            | value  | horizon |
-        | absent: default | absent | 15      |
-        | one hour        | 60     | 60      |
+        | case                    | value  | horizon |
+        | absent: default         | absent | 15      |
+        | one hour                | 60     | 60      |
+        | one bar (the minimum)   | 1      | 1       |
 
     Scenario Outline: an invalid label_horizon_minutes fails fast (<case>)
       Given a meta_learner section with theta_high 0.55, theta_low 0.45 and regime_gate false
       And the meta_learner section sets label_horizon_minutes to <value>
       When parsing the F7 config for strategy "baseline" fails
-      Then the F7 config failure names "label_horizon_minutes"
+      Then the F7 config failure names "strategy 'baseline': meta_learner.label_horizon_minutes must be a positive integer number of bars, got <got>"
 
       Examples:
-        | case        | value |
-        | zero        | 0     |
-        | fractional  | 7.5   |
-        | string      | hour  |
+        | case        | value | got    |
+        | zero        | 0     | 0      |
+        | negative    | -5    | -5     |
+        | fractional  | 7.5   | 7.5    |
+        | string      | hour  | 'hour' |
+        | boolean     | true  | True   |
 
     Scenario Outline: a missing meta_learner key fails fast naming the key and the strategy (<key>)
       Given a meta_learner section missing "<key>"

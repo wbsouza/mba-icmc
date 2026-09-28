@@ -165,6 +165,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       And "bad" adds a "<section>" section <section_yaml>
       When loading strategy "bad" fails
       Then the failure names "<names>"
+      And the failure names "strategy 'bad'"
 
       Examples:
         | case                        | section        | section_yaml                | names        |
@@ -176,8 +177,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "gap" filters "<filter>" and families "trend"
       And "gap" drops its "<section>" section
       When loading strategy "gap" fails
-      Then the failure names "<section>"
-      And the failure names "<filter>"
+      Then the failure names "strategy 'gap' lists '<filter>' but has no '<section>:' section"
 
       Examples:
         | filter          | section      |
@@ -189,14 +189,25 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "gap" filters "f7_meta_learner" and families "trend"
       And "gap" drops meta_learner key "theta_high"
       When loading strategy "gap" fails
-      Then the failure names "theta_high"
+      Then the failure names "strategy 'gap': meta_learner.theta_high is missing"
+
+    Scenario Outline: a listed filter's section missing <key> fails fast through the loader
+      Given a strategy config directory with "gapkey" filters "<filter>" and families "trend"
+      And "gapkey" drops "<section>" key "<key>"
+      When loading strategy "gapkey" fails
+      Then the failure names "strategy 'gapkey': <section>.<key> is missing"
+
+      Examples:
+        | filter          | section      | key                            |
+        | f4_news_context | news_context | event_intensity_veto_threshold |
+        | f5_risk_guard   | risk_guard   | max_leverage                   |
+        | f6_capital_mgmt | capital_mgmt | risk_per_trade                 |
 
     Scenario Outline: a <section> section for a filter that is not listed fails fast
       Given a strategy config directory with "stray" filters "f1_trend" and families "trend"
       And "stray" adds a "<section>" section anyway
       When loading strategy "stray" fails
-      Then the failure names "<section>"
-      And the failure names "<filter>"
+      Then the failure names "strategy 'stray' declares a '<section>:' section but does not list '<filter>'"
 
       Examples:
         | filter          | section      |
@@ -210,20 +221,22 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "odd" filters "<filter>" and families "trend"
       And "odd" replaces its "<section>" section with a scalar
       When loading strategy "odd" fails
-      Then the failure names "<section>"
+      Then the failure names "strategy 'odd': '<section>' must be a mapping (got 'str')"
 
       Examples:
-        | filter          | section      |
-        | f4_news_context | news_context |
-        | f5_risk_guard   | risk_guard   |
-        | f6_capital_mgmt | capital_mgmt |
+        | filter          | section        |
+        | f1_trend        | price_features |
+        | f4_news_context | news_context   |
+        | f5_risk_guard   | risk_guard     |
+        | f6_capital_mgmt | capital_mgmt   |
 
     Scenario Outline: F7 keys in meta_learner without f7_meta_learner listed fail fast (<key>)
       Given a strategy config directory with "strayf7" filters "f1_trend" and families "trend"
       And "strayf7" adds meta_learner key "<key>" with value <value>
       When loading strategy "strayf7" fails
       Then the failure names "<key>"
-      And the failure names "f7_meta_learner"
+      And the failure names "strategy 'strayf7': meta_learner declares"
+      And the failure names "'f7_meta_learner' in filters"
 
       Examples:
         | key         | value |
@@ -236,7 +249,7 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario Outline: an unknown filter name fails fast at load time (<filter>)
       Given a strategy config directory with "typo" filters "f1_trend,<filter>" and families "trend"
       When loading strategy "typo" fails
-      Then the failure names "<filter>"
+      Then the failure names "strategy 'typo': unknown filters ['<filter>'] in filters"
       And the failure names "known filters"
 
       Examples:
@@ -251,14 +264,15 @@ Feature: Strategy-chain config loading (Spec 04h)
       Given a strategy config directory with "old" filters "f1_trend" and families "trend"
       And "old" sets schema_version to <schema_version>
       When loading strategy "old" fails
-      Then the failure names "schema_version"
+      Then the failure names "strategy 'old': schema_version must be the integer 2 (got <got>)"
 
       Examples:
-        | case            | schema_version |
-        | version 1       | 1              |
-        | version 3       | 3              |
-        | string "2"      | "2"            |
-        | missing         | absent         |
+        | case            | schema_version | got  |
+        | version 1       | 1              | 1    |
+        | version 3       | 3              | 3    |
+        | string "2"      | "2"            | '2'  |
+        | boolean         | true           | True |
+        | missing         | absent         | None |
 
   Rule: extends chains of any depth compose base-first, like compose override files (2026-09-27)
 
@@ -280,16 +294,16 @@ Feature: Strategy-chain config loading (Spec 04h)
       When loading strategy "a" fails
       Then the failure names "extends cycle a -> b -> a"
 
-    Scenario Outline: an extends that is not a strategy name fails fast (<extends>)
+    Scenario Outline: an extends value that is not a strategy name fails fast (<case>)
       Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
-      And "odd" sets extends to <extends>
+      And "odd" sets extends to <value>
       When loading strategy "odd" fails
-      Then the failure names "'extends' must be a strategy name"
+      Then the failure names "strategy 'odd': 'extends' must be a strategy name, got <got>"
 
       Examples:
-        | extends            |
-        | 7                  |
-        | [baseline, hybrid] |
+        | case    | value      | got          |
+        | integer | 7          | 7            |
+        | list    | [baseline] | ['baseline'] |
 
   Rule: An unknown strategy fails fast, naming the missing config path
 
@@ -382,7 +396,7 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario: a scalar meta_learner value fails fast
       Given a strategy config directory with "odd" filters "f1_trend" and a scalar meta_learner
       When loading strategy "odd" fails
-      Then the failure names "meta_learner"
+      Then the failure names "strategy 'odd': 'meta_learner' must be a mapping (got 'str')"
 
     Scenario: a scalar meta_learner overriding a dict base still fails fast
       Given a strategy config directory with "baseline" filters "f1_trend" and families "trend"
@@ -395,7 +409,12 @@ Feature: Strategy-chain config loading (Spec 04h)
     Scenario: meta_learner.families as a bare string fails fast, not "tuple(str)" char-splat
       Given a strategy config directory with "typo" filters "f1_trend" and meta_learner.families as the scalar "trend"
       When loading strategy "typo" fails
-      Then the failure names "meta_learner.families"
+      Then the failure names "strategy 'typo': 'meta_learner.families' must be a list"
+
+    Scenario: filters as a bare string fails fast, not "tuple(str)" char-splat
+      Given a strategy config directory with "typo" filters as the scalar "f1_trend"
+      When loading strategy "typo" fails
+      Then the failure names "strategy 'typo': 'filters' must be a list"
 
     Scenario: meta_learner.families as a mapping fails fast, not "list(dict)" silent key-splat
       Given a strategy config directory with "oddmap" filters "f1_trend" and meta_learner.families as a mapping
@@ -415,11 +434,26 @@ Feature: Strategy-chain config loading (Spec 04h)
       When strategy "hybrid" is loaded
       And the loaded strategy is dumped to a resolved YAML file and loaded back as "hybrid"
       Then the reloaded strategy equals the loaded one apart from its extends provenance
+      And the reloaded strategy's parameter "filters" comes from "strategy.yaml"
+      And the reloaded strategy's parameter "risk_guard.max_leverage" comes from "strategy.yaml"
 
     Scenario: a resolved file still carrying extends is rejected
       Given a resolved strategy file for "leaf" that still declares extends
       When loading the resolved strategy file as "leaf" fails
       Then the failure names "extends"
+
+  Rule: The F1 perception source is typed into the loaded config
+
+    Scenario Outline: perception_source resolves to the declared source (<source>)
+      Given a strategy config directory with "seen" filters "f1_trend" and families "trend"
+      And "seen" sets perception_source to <source>
+      When strategy "seen" is loaded
+      Then the loaded strategy's perception source is "<source>"
+
+      Examples:
+        | source                      |
+        | double_smoothed_heikin_ashi |
+        | ema                         |
 
   Rule: A child in an external directory may extend a bundled base
 

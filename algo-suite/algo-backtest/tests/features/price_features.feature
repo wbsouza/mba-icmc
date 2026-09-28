@@ -26,6 +26,7 @@ Feature: Price-feature parameters come from the strategy config.yaml price_featu
         | wider MACD              | macd_slow     | 35    | macd_fast   | 12            |
         | longer ATR              | atr_period    | 20    | rsi_period  | 14            |
         | four-hour swing         | swing_lookback_bars | 240 | atr_period | 14          |
+        | one-bar fast EMA        | ema_fast      | 1     | ema_slow    | 8             |
 
   Rule: Invalid periods fail fast naming the key and the strategy
 

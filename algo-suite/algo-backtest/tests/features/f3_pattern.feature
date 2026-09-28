@@ -68,15 +68,17 @@ Feature: F3 pattern filter
     Scenario Outline: an invalid pattern section fails fast (<case>)
       Given a pattern section <section>
       When parsing the pattern config for strategy "baseline" fails
-      Then the pattern config failure names "<names>"
+      Then the pattern config failure names "<failure>"
 
       Examples:
-        | case                         | section                                                      | names             |
-        | a name in both lists         | {bullish_patterns: [hammer], bearish_patterns: [hammer]}     | hammer            |
-        | empty bullish list           | {bullish_patterns: []}                                       | bullish_patterns  |
-        | scalar instead of list       | {bearish_patterns: shooting_star}                            | bearish_patterns  |
-        | unknown key                  | {neutral_patterns: [doji]}                                   | neutral_patterns  |
-        | a non-string entry           | {bullish_patterns: [hammer, 7]}                              | only strings      |
+        | case                         | section                                                      | failure                                                                               |
+        | a name in both lists         | {bullish_patterns: [hammer], bearish_patterns: [hammer]}     | strategy 'baseline': pattern lists ['hammer'] as both bullish and bearish             |
+        | empty bullish list           | {bullish_patterns: []}                                       | strategy 'baseline': pattern.bullish_patterns must be a non-empty list of pattern names, got [] |
+        | scalar instead of list       | {bearish_patterns: shooting_star}                            | strategy 'baseline': pattern.bearish_patterns must be a non-empty list of pattern names, got 'shooting_star' |
+        | mapping instead of list      | {bullish_patterns: {hammer: true}}                           | strategy 'baseline': pattern.bullish_patterns must be a non-empty list of pattern names |
+        | integer instead of list      | {bearish_patterns: 5}                                        | strategy 'baseline': pattern.bearish_patterns must be a non-empty list of pattern names, got 5 |
+        | non-string entry             | {bullish_patterns: [hammer, 7]}                              | strategy 'baseline': pattern.bullish_patterns must contain only strings                |
+        | unknown key                  | {neutral_patterns: [doji]}                                   | strategy 'baseline': pattern has unknown keys ['neutral_patterns']                   |
 
     Scenario Outline: the configured vocabulary drives the recommendation (<case>)
       Given a pattern section <section>

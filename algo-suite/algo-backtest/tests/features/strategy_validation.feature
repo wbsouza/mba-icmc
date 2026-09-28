@@ -200,6 +200,40 @@ Feature: Strategy parameter validation
         | pre-amendment model without the key    | absent                 | passes            | validation passes                         |
         | different fast EMA                     | {ema_fast: 5}          | expecting failure | validation fails naming "price_features"  |
         | different RSI period                   | {rsi_period: 21}       | expecting failure | validation fails naming "rsi_period"      |
+        | the mismatch names the strategy        | {ema_fast: 5}          | expecting failure | validation fails naming "but strategy 'baseline' declares" |
+        | invalid provenance names the model     | {ema_fast: 0}          | expecting failure | validation fails naming "strategy 'model model.json': price_features.ema_fast must be a positive integer" |
+        | non-mapping provenance counts as defaults | scalar              | passes            | validation passes                         |
+
+    Scenario Outline: the model's label horizon must match the strategy's (<case>)
+      Given a baseline-family model file trained with a <horizon>-minute label horizon
+      When I validate the run inputs for strategy "baseline" with that model <outcome>
+      Then <assertion>
+
+      Examples:
+        | case             | horizon | outcome           | assertion |
+        | matching horizon | 15      | passes            | validation passes |
+        | longer horizon   | 30      | expecting failure | validation fails naming "trained with a 30-minute label horizon but strategy 'baseline' declares meta_learner.label_horizon_minutes=15" |
+
+    Scenario Outline: a model whose families differ from the strategy's fails naming the model file (<case>)
+      Given a baseline-family model file whose families are "<families>"
+      When I validate the run inputs for strategy "baseline" with that model expecting failure
+      Then validation fails naming "model.json"
+
+      Examples:
+        | case            | families                        |
+        | one family only | trend                           |
+        | extra family    | trend, indicator, pattern, news |
+
+    Scenario: a model path that is not a file fails fast before any container starts
+      Given a baseline-family model path that does not exist
+      When I validate the run inputs for strategy "baseline" with that model expecting failure
+      Then validation fails naming "is not a file"
+
+    Scenario: --model is rejected for a strategy without an F7 model
+      Given a baseline-family model file whose provenance price_features is {ema_fast: 3}
+      And strategy "buyhold" with params size=0.5
+      When I validate the run inputs for strategy "buyhold" with that model expecting failure
+      Then validation fails naming "--model only applies to the config.yaml chain strategies, not 'buyhold'"
 
     Scenario Outline: model provenance vs strategy label horizon and provenance shape (<case>)
       Given a baseline-family model file whose provenance strategy_config is <strategy_config> and horizon_minutes is <horizon>
@@ -239,3 +273,4 @@ Feature: Strategy parameter validation
       Then the resolution failure names "nope"
       And the resolution failure names "buyhold"
       And the resolution failure names "tight"
+      And the resolution failure names the external strategies directory
