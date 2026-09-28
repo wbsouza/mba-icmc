@@ -1,7 +1,7 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 01:23 UTC (September 27, America/Vancouver).
-Owner: Codex. User stopped Claude and authorized implementation, experiments,
+Updated: 2026-09-28 02:00 UTC (September 27, America/Vancouver).
+Owner: Claude (integration and next protocol); Codex implementation and eight-run experiment complete. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
 ## Claude handoff — implementation and eight-run experiment complete
@@ -206,6 +206,74 @@ The broad test retry completed (504 passed) using the fresh **disk-backed** base
 
 No force-push, branch deletion, worktree removal, merge to main, or PR merge has been
 performed by this takeover. Existing jobs are not promised indefinite monitoring.
+
+## Claude integration record (2026-09-28, 01:35–02:00 UTC)
+
+Owner: Claude (`mba-main` session). Takeover per `claude-handoff-prompt.md`; the user
+authorized merging the open PRs into `main` and consolidating all work.
+
+### State found
+
+- No Codex or Claude agent running; no LEAN container running; `/tmp` at 74 % inodes
+  (771,771 of 1,048,576), `/home` at 3 %. All three predecessor job scripts finished with
+  `exit_code=0` (17:31–18:09 PT). Story 13 `1dbbef8` == `origin`, clean, contains story 12
+  `7165308` and `origin/main` `5d3c8e8`.
+- Outstanding Claude branches, all off `7165308`: `wave4/hardener` (1 commit `3d8b169`,
+  story-12 mutation kills; its worktree also held an uncommitted, unverified draft — a
+  temporary mutmut test-selection key plus new statement scenarios — saved as a patch, not
+  merged), `wave4/qa` (2 commits: story-12 `qa-procedure.md`, `qa_check.py`, 39 scenarios),
+  `wave4/docs` (4 commits: README/SPEC/PRD/architecture/debt sync, TD-66..68), `wave4/pattern`
+  (no commits; superseded by story 13's TA-Lib detector; worktree left in place). Open PRs:
+  #52 `docs/ch04-pilot-results` (3 commits off `main`), #53 `test/09-hardener-kills`
+  (1 commit off `main`), #54 `feat/12-execution-realism`.
+
+### Integration branch `integrate/story-12-13` (worktree `/tmp/mba-integrate`, from `1dbbef8`)
+
+| Commit | Merge / change | Conflicts and resolution |
+| --- | --- | --- |
+| `dfc658e` | `wave4/hardener` | none |
+| `4bb7b06` | `wave4/qa` | none |
+| `bf3b5b8` | `wave4/docs` | `algo-backtest/README.md`, `SPEC.md`: union, story-13 TA-Lib wording kept, one-year loss stated |
+| `c4e8a22` | `test/09-hardener-kills` (PR #53) | `f3_pattern.feature`, `strategies.feature`: exact-failure-text outlines kept; `price_features.feature`: both row sets; `test_strategy_validation.py`: keyword `_write_model`, story-13 callers adapted, duplicate step removed |
+| `574b3d4` | follow-up | `buyhold` model-rejection scenario passes `cash` (controls take `cash` since story 12) |
+| `e9b4abe` | `docs/ch04-pilot-results` (PR #52) | Chapter 4 resolved by union and evidence: pilot diagnosis, calibration, machinery verification, execution model and one-year protocol from #52; predecessor snapshot, sweeps and H4 matrix from story 13; `\pending` tables filled from the finished run directories; `img/equity-consolidated{,-2015q4}.png` from `algo-analyze equity-curves` |
+| `b8213c7` | evidence + Chapter 5 | `evidence/predecessor-final-20260928T013528Z.{md,json}`; conclusion no longer calls R19/R20 unfinished |
+
+Nothing was reset, force-pushed or deleted; `mba-main` stays dirty on `feat/09-…` (its
+diff is exactly PR #53's content); shared-agent commits were not re-applied.
+
+### Final predecessor outcomes (see the evidence file for definitions and run ids)
+
+R08/R13 Sept −52.6/−52.8 %; R09/R14 Oct −53.4/−51.4 %; R10/P01 Nov −50.5/−52.8 %;
+R19/R20 Mar–Oct 2016 −88.4/−87.5 % (1,029 trades each, every month negative). Sweeps:
+R02 gated 0 trades; R01/R04/R05 −0.8/−3.8/−17.7 %; R03/R15/R16 −55.3/−53.5/−42.2 %;
+R17/R18 0 trades. Monograph rebuilt: 106 pages, no undefined references.
+
+### Data-coverage audit for the next protocol (read-only, 2026-09-28 01:45 UTC)
+
+- EUR/USD M1 Parquet: every month 2015-01 → 2019-05 present; 2016 months hold 28,910–33,133
+  rows each with continuous month boundaries.
+- GDELT canonical events: `.done` for 2015-02 → 2016-11 (2016-11: 9,559,316 rows, 30
+  distinct days); 2016-12 partial (8 days, no marker). Event features exist only per job
+  data root; a new root must build them for its own span (+1 day for the last decision minute).
+- Windows already consumed by a decision or a read outcome: Sept 2015 (gate, sweeps, H4
+  matrix), Jan–Feb 2016 (calibration grids), Mar–Oct 2016 (R19/R20 outcomes read).
+  **November 2016 is the only complete month no decision or reported outcome has touched.**
+
+### Proposed broader-window protocol (to register before any outcome is viewed)
+
+Same 2×2 pattern (disabled / TA-Lib) × activity (off / on) for baseline and hybrid, Dragon08 H4
+clock, common capital/costs/risk, six canonical patterns, activity lookback 20 / threshold 1.0,
+thresholds 0.55/0.45 gate off. Splits: fit 2015-03-02 → 2015-12-31, calibrate 2016-01,
+hold out 2016-02, evaluate 2016-03-01 → 2016-11-30 as one continuous run per cell.
+Classification: Mar–Oct 2016 **exploratory** (the M1 one-year outcomes on that span have been
+read, though by a different model family and clock); **November 2016 confirmatory-eligible**
+for the pre-registered primary comparison (hybrid vs baseline, TA-Lib on / activity off, paired
+daily equity difference; block length set from the actual daily sample before viewing;
+eight cells declared as the trial count). Warm-up: prime indicators from prior causal history
+(February 2016) if the runner supports it; otherwise exclude the first 59 H4 bars identically
+in every cell. Budget: six LEAN slots, 4 CPU / 8 GiB per container, two workers, fresh
+disk-backed output root and basetemp, `df -i` checked first. Not launched in this session.
 
 ## Story completion checklist
 
