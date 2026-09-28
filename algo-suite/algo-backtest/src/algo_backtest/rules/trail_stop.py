@@ -1,5 +1,5 @@
-"""Target / trail-stop level math (specs.md §14.5, ported from fx-manager's
-`StrategyMoneyManagementFacadeBean`):
+"""Target / trail-stop level math (specs.md §14.5, ported from the EJB version's
+strategy money-management façade):
 
     target_level_N        = entry ± (|entry - SL| * target_factor_N
                                       + (target_factor_N + 1) * spread)
@@ -8,9 +8,9 @@
     trail_stop_to_level_N = entry ± (|entry - SL| * trail_stop_to_level_factor_N + spread)
 
 The legacy "±" is resolved by trade direction **the same way for all three formulas** —
-confirmed against the real fx-manager source (`StrategyMoneyManagementFacadeBean.java`,
+confirmed against the EJB version's real source (its strategy money-management façade,
 both the original JavaEE/EJB version and its later Spring reimplementation in
-the author's later Heikin-Ashi trading manager agree): each formula computes a `diff` and returns
+the author's Spring version agree): each formula computes a `diff` and returns
 `entry + sign * diff`, where `sign` is `+1` for BUY and `-1` for SELL. There is no
 separate "loss-side" case — `trail_stop_to_level_factor` is a **signed** config value
 (specs.md §14.9.4's canonical sample carries it as `-0.66`), and it is that sign, not a
@@ -25,7 +25,7 @@ checkout; that flipped the sign of the `spread` term relative to the legacy form
 Fixed here to match the confirmed source exactly.
 
 `trail_stop_at_level` was also missing its `(factor + 1) * spread` term entirely — the
-real source (the later Heikin-Ashi trading manager's money-management calculator, its
+real source (the Spring version's money-management calculator, its
 trail-stop arming-level computation) carries the same `(ratio + 1) * spread` shape as
 `target_level`. Added here to match.
 """
@@ -77,7 +77,7 @@ def trail_stop_at_level(
     """Price that must be reached to arm the trailing stop.
 
     Same `entry + sign*(SL_distance*factor + (factor+1)*spread)` shape as `target_level`
-    (specs.md §14.9.4; the later trading manager's trail-stop arming level agrees).
+    (specs.md §14.9.4; the Spring version's trail-stop arming level agrees).
     """
     distance = _sl_distance(entry, stop_loss)
     offset = distance * trail_stop_at_level_factor + (trail_stop_at_level_factor + 1) * spread

@@ -1,7 +1,7 @@
 # Lessons learned — Spec 04i (trail_stop_to_level formula fix)
 
 **What the spec didn't anticipate:** the formula fix itself was straightforward once the real
-fx-manager and later-trading-manager source was in hand. What the spec's original draft got wrong was
+the EJB and Spring versions' source was in hand. What the spec's original draft got wrong was
 diagnosing a *local environment* problem as an *unresolved code/test defect* — the spec's first
 version stated the test suite was "failing" and "untrusted," reproduced twice (once via `uv run`,
 once bypassing it with the venv's `pytest` binary directly), and treated that as strong enough
@@ -24,7 +24,7 @@ hypothesis earlier, before writing up a multi-hypothesis debugging plan as if th
 framework were suspect. `rm -rf .venv && uv sync` is a five-second check that should come before,
 not after, drafting a systematic-debugging story for a test-runner mystery.
 
-**Also corrected during review:** the original spec cited the fx-manager and later-trading-manager formula
+**Also corrected during review:** the original spec cited the EJB and Spring versions' formula
 source only in prose, with no path/line/commit reference a future reader could verify — added
 exact commit SHAs and approximate line numbers per reviewer feedback. And the zero-factor/
 zero-spread edge-case scenarios were originally BUY-only, breaking this test file's own

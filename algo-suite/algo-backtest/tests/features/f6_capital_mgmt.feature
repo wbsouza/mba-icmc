@@ -1,11 +1,11 @@
 Feature: F6 — capital-management filter
-  Builds the fx-manager trade plan (specs.md §14.5–14.7, Strategy A05) for the bar and
+  Builds the reference trade plan (specs.md §14.5–14.7, the reference strategy) for the bar and
   enriches `state.features` with it for the executor: the stop distance per side (fixed
   pips, ATR × multiplier or the structural swing level; shrunk toward entry by
   `stop_loss_shrink`; floored at `max(min_stop_pips, min_stop_factor × broker stop
   level)`), the fixed-fractional lot from `rules/risk_math.py`, every target and trailing
   step in pips with the spread added exactly as `rules/trail_stop.py` (the formulas
-  confirmed against the fx-manager source and the author's later trading manager), and the reward:risk ratio.
+  confirmed against the author's EJB and Spring versions), and the reward:risk ratio.
   It vetoes when the plan's reward:risk falls below `min_reward_risk` or the lot would
   need more margin than is available. Every number traces to a `capital_mgmt` or
   `execution` YAML key or to a market feature; nothing is a code constant.
@@ -25,11 +25,11 @@ Feature: F6 — capital-management filter
   "close_fraction"}], "trail_stops": [{"at_pips", "to_pips"}], "reward_risk"}, "short":
   {…same…}}.
 
-  `risk_per_trade` (specs.md §14.7: 3% for Strategy A05) and the sizing economics the
+  `risk_per_trade` (specs.md §14.7: 3% for the reference strategy) and the sizing economics the
   chain feeds F6 (stop distance, pip value, lot notional, assumed leverage) are F6's own
   `capital_mgmt` section of the strategy config.yaml (2026-09-27 amendment, story 09),
   never code constants. Story 12 (execution realism) grows the same section with the
-  fx-manager A05 trade-plan keys (specs.md §14.5–14.7): `stop_loss_shrink`,
+  the reference trade-plan keys (specs.md §14.5–14.7): `stop_loss_shrink`,
   `min_stop_pips`, `min_stop_factor`, `targets[]`, `trail_stops[]`, `min_reward_risk`,
   `stop_distance_source` (`fixed`, `atr` or `swing`) and `atr_multiplier`. Each has a default so a pre-story-12 section keeps loading; the
   effective values are written back into the resolved config via `capital_mgmt_mapping`.
@@ -60,7 +60,7 @@ Feature: F6 — capital-management filter
 
       Examples: fixed source, shrunk toward entry and floored
         | case                                   | source | stop | shrink | min_stop | min_factor | broker | atr_mult | atr_pips | swing_low | swing_high | long_stop | short_stop | lot        |
-        | A05 shrink of 20% above the floor      | fixed  | 20   | 0.2    | 5        | 1.0        | 0      | 2.0      | -        | -         | -          | 16        | 16         | 0.625      |
+        | reference shrink of 20% above the floor      | fixed  | 20   | 0.2    | 5        | 1.0        | 0      | 2.0      | -        | -         | -          | 16        | 16         | 0.625      |
         | no shrink keeps the configured stop    | fixed  | 20   | 0      | 0        | 1.0        | 0      | 2.0      | -        | -         | -          | 20        | 20         | 0.5        |
         | min_stop_pips floors an over-shrunk stop | fixed | 20   | 0.8    | 5        | 1.0        | 0      | 2.0      | -        | -         | -          | 5         | 5          | 2          |
         | broker stop level × factor floors it   | fixed  | 20   | 0.8    | 0        | 1.2        | 5      | 2.0      | -        | -         | -          | 6         | 6          | 1.6666667  |
@@ -96,7 +96,7 @@ Feature: F6 — capital-management filter
       Then applying F6 fails naming "stop_distance_source: atr"
       And applying F6 fails naming "min_stop_pips"
 
-  Rule: Targets and trailing steps are pips from entry with the spread added as fx-manager does
+  Rule: Targets and trailing steps are pips from entry with the spread added as the EJB version does
 
     Background:
       Given a complete five-key capital_mgmt section
@@ -122,8 +122,8 @@ Feature: F6 — capital-management filter
         | no spread: pure multiples of the stop   | long  | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 0      | 40          | 10      | 0       | 2.0         |
         | one pip of spread on a 20-pip stop      | long  | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 1      | 43          | 11.5    | 1       | 2.15        |
         | 2.5 pips of spread, same plan           | short | 20   | 0      | 2.0    | 1.0   | 0.5      | 0.0      | 2.5    | 47.5        | 13.75   | 2.5     | 2.375       |
-        | A05 plan on the shrunk 16-pip stop      | long  | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
-        | A05 plan is symmetric for the short side| short | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
+        | reference plan on the shrunk 16-pip stop      | long  | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
+        | reference plan is symmetric for the short side| short | 20   | 0.2    | 2.0    | 0.5   | 0.5      | -0.66    | 1      | 35          | 9.5     | -9.56   | 2.1875      |
         | positive to-ratio locks in profit       | long  | 20   | 0      | 1.5    | 1.0   | 1.0      | 0.1      | 1      | 32.5        | 22      | 3       | 1.625       |
 
     Scenario: the reason digests the whole plan: source, per-side stops, lot, spread and reward:risk
@@ -341,17 +341,17 @@ Feature: F6 — capital-management filter
 
       Examples:
         | case                        | key                  | value                                                                                   | other            | other_default |
-        | A05 stop shrink             | stop_loss_shrink     | 0.2                                                                                     | min_stop_pips    | 0.0           |
+        | reference stop shrink             | stop_loss_shrink     | 0.2                                                                                     | min_stop_pips    | 0.0           |
         | five-pip stop floor         | min_stop_pips        | 5.0                                                                                     | stop_loss_shrink | 0.0           |
         | two targets, half each      | targets              | [{at_level_ratio: 1.0, close_fraction: 0.5}, {at_level_ratio: 2.0, close_fraction: 0.5}] | trail_stops      | []            |
         | no target at all            | targets              | []                                                                                      | min_reward_risk  | null          |
-        | A05 trail to breakeven side | trail_stops          | [{at_level_ratio: 0.5, to_level_ratio: -0.66}]                                          | atr_multiplier   | 2.0           |
+        | reference trail to breakeven side | trail_stops          | [{at_level_ratio: 0.5, to_level_ratio: -0.66}]                                          | atr_multiplier   | 2.0           |
         | two trail steps             | trail_stops          | [{at_level_ratio: 0.5, to_level_ratio: -0.66}, {at_level_ratio: 1.0, to_level_ratio: 0.0}] | targets       | [{at_level_ratio: 2.0, close_fraction: 1.0}] |
         | reward:risk floor           | min_reward_risk      | 2.0                                                                                     | stop_loss_shrink | 0.0           |
         | reward:risk floor below one | min_reward_risk      | 0.5                                                                                     | stop_loss_shrink | 0.0           |
         | reward:risk explicitly off  | min_reward_risk      | null                                                                                    | atr_multiplier   | 2.0           |
         | ATR-derived stop            | stop_distance_source | atr                                                                                     | atr_multiplier   | 2.0           |
-        | structural swing stop (A05) | stop_distance_source | swing                                                                                   | min_stop_factor  | 1.0           |
+        | structural swing stop (reference) | stop_distance_source | swing                                                                                   | min_stop_factor  | 1.0           |
         | wider ATR multiple          | atr_multiplier       | 3.5                                                                                     | min_stop_pips    | 0.0           |
 
     Scenario: the effective mapping parses back into the same config (YAML-safe lists, not tuples)

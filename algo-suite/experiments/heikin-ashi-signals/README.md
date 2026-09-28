@@ -1,7 +1,7 @@
 # Heikin-Ashi signal ablation — exploratory H4 pilot
 
 This is an **exploratory, previously inspected 2015 window**, not a confirmatory
-test, reproduction of the author's earlier Heikin-Ashi trading manager, or
+test, reproduction of the author's Spring version, or
 walk-forward thesis result. The initial matrix contains exactly four EURUSD
 Heikin-Ashi H4 **template proxies**:
 
@@ -38,8 +38,8 @@ F4 gate/opinion and news late fusion; it is not a pure F7-family-only ablation.
 
 ## Reference template settings
 
-The Heikin-Ashi H4 template is the H4 configuration of the author's earlier
-Heikin-Ashi trading manager (unpublished). Only its risk and exit settings are
+The Heikin-Ashi H4 template is the H4 configuration of the author's Spring
+version (unpublished). Only its risk and exit settings are
 carried over, as the YAML values below; `plan.yaml` and the variant YAMLs hold
 every value, and the runner copies, hashes or reads nothing else from that
 system. These are historical configuration values, not evidence that the
@@ -82,7 +82,7 @@ Unsupported template semantics, never silently mapped onto this matrix:
 
 The 1R/2R template (1R/50 %, trail 1R -> 0R, final 2R), a 2R/50 % variant with
 risk offset (trail 2R -> 0.1R with risk offset, final 4R), and an against-trend
-variant also exist in the earlier system. They are outside this matrix; no
+variant also exist in the Spring version. They are outside this matrix; no
 unsupported options are silently mapped onto the Heikin-Ashi H4 template.
 
 ## Explicit research assumptions

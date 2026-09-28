@@ -4,7 +4,7 @@ LEAN-free and typed, so the economics of a fill are unit-tested from
 ``tests/features/fill_costs.feature`` without the container; the LEAN adapters in
 ``engine/fill_models.py`` only call these functions. Every rate is a caller-supplied
 parameter sourced from the strategy YAML's ``execution`` section (specs.md §14.5–14.7,
-strategy A05) — this module carries no default spread, commission or lot size.
+the reference strategy) — this module carries no default spread, commission or lot size.
 
 Conventions:
 

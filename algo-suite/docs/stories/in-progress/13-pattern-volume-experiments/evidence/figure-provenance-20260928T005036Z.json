@@ -2,14 +2,18 @@
   "checked_static_artifact_hashes": 88,
   "files": [
     {
-      "path": "figures/a05-sweep-september-dark.png",
-      "sha256": "3e7ac2e1c57c9225d8526117be52e62209f7850b038c1caebf107e4de49bdcff",
-      "bytes": 246871
+      "path": "figures/reference-sweep-september-dark.png",
+      "sha256": "bb7c1248505a8e91514151ef02fbe393c04a352d423a06037bd1e746795dac86",
+      "bytes": 265412,
+      "regenerated_utc": "2026-09-28",
+      "note": "re-rendered after variant-name sanitization; same source samples"
     },
     {
-      "path": "figures/a05-sweep-september-print.pdf",
-      "sha256": "f64efd1bceb6422a1077a0204092e286130568da803176906783deab353f31af",
-      "bytes": 170801
+      "path": "figures/reference-sweep-september-print.pdf",
+      "sha256": "f5325033d82279138356a0362e06a75adaf42b3a636a98ec5d7e672b8d71ed58",
+      "bytes": 170593,
+      "regenerated_utc": "2026-09-28",
+      "note": "re-rendered after variant-name sanitization; same source samples"
     },
     {
       "path": "figures/execution-october-dark.png",
@@ -66,7 +70,7 @@
       "R09",
       "R14"
     ],
-    "a05-sweep-september": [
+    "reference-sweep-september": [
       "R01",
       "R03",
       "R04",

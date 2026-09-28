@@ -31,7 +31,7 @@ Models: R08–R10/R13/R14/P01 use the frozen 2026-09-26 six-month pilot models (
 `a6dda4c2effc`); R19/R20 use the one-year models (`0b41fd39ebf3`, `b67ac32e1fc5`, fitted
 2015-03-02..2015-12-31, calibrated on January 2016, February 2016 held out). Code revision
 `7165308` for all. Effective filter parameters: the baseline `config.yaml` values recorded in
-`per-run-parameters-20260928T003601Z.md` (F6 A05 plan: risk 0.03, swing stop, shrink 0.20,
+`per-run-parameters-20260928T003601Z.md` (F6 reference plan: risk 0.03, swing stop, shrink 0.20,
 min 5 pips, target 2R/50 %, trail 0.5R→−0.66R, min R:R 2; F7 0.55/0.45, gate off, 15-minute
 label; execution spread 1 pip, commission 0, close_on_veto false; F5 caps −0.05/−0.15,
 2 concurrent, leverage 30).
@@ -52,11 +52,11 @@ per trade was about 0.8 % of the deposit, not the configured 3 %.
 
 | Ref. | Variant | Closed trades | Return | Max DD |
 | --- | --- | ---: | ---: | ---: |
-| R01 | a05-conservative | 3 | -0.81% | 10.8% |
-| R02 | a05-gated | 0 | 0.00% | 0.0% |
-| R03 | a05-risk1 | 552 | -55.28% | 55.4% |
-| R04 | a05-selective | 6 | -3.76% | 5.6% |
-| R05 | a05-wide-stop | 14 | -17.65% | 21.5% |
+| R01 | reference-conservative | 3 | -0.81% | 10.8% |
+| R02 | reference-gated | 0 | 0.00% | 0.0% |
+| R03 | reference-risk1 | 552 | -55.28% | 55.4% |
+| R04 | reference-selective | 6 | -3.76% | 5.6% |
+| R05 | reference-wide-stop | 14 | -17.65% | 21.5% |
 | R15 | ha-h1-template | 144 | -53.47% | 55.8% |
 | R16 | ha-h1-template-atr | 437 | -42.16% | 50.1% |
 | R17 | ha-1r2r-template | 0 | 0.00% | 0.0% |

@@ -250,7 +250,7 @@ strategy's `config.yaml` — one section per filter (`price_features`, `indicato
 — with `extends:` chains of any depth and per-parameter provenance (`explain-strategy`,
 the run's `strategy-config.{json,yaml}` and `strategy-provenance.json`; keys tabulated in
 `algo-backtest/SPEC.md` §6.4.1). The F5/F6 placeholders are gone: F6 builds the
-fx-manager A05 trade plan (structural or ATR stop, shrink and floors, 3 % risk sizing,
+reference trade plan (structural or ATR stop, shrink and floors, 3 % risk sizing,
 partial-close targets, trailing steps, reward:risk veto) and the executor places its
 stop-market and limit orders with a configured spread and commission on every fill.
 The F7 regime gate is off (the pilot's model was anti-aligned with F1's regime) and every

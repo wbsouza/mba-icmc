@@ -95,7 +95,7 @@ infer that an old worktree represents unmerged work.
   scenarios now pass. Trainer family compatibility is checked before input loading.
 - Fixed exploratory 2×2 pattern on/off × activity on/off matrix, separately for
   baseline and hybrid. The Heikin-Ashi H4 template's risk/exit settings are mapped explicitly;
-  EMA/swing entry logic remains a proxy, not an exact reproduction of the earlier system.
+  EMA/swing entry logic remains a proxy, not an exact reproduction of the Spring version.
 - Each runner cell archives effective filter settings, config/code/input/model
   hashes, exact commands, resource budget, status, logs and results. Immutable input
   checks bracket batches; failed cells stop subsequent batches.
@@ -347,7 +347,7 @@ later snapshot when integrating these final predecessor outcomes.
 
 | Prior reference | Run/window | Closed trades | Return | Engine max drawdown |
 | --- | --- | ---: | ---: | ---: |
-| R02 | a05-gated, September 2015 | 0 | 0.00% | 0.0% |
+| R02 | reference-gated, September 2015 | 0 | 0.00% | 0.0% |
 | R10 | Baseline, November 2015 | 107 | −50.47% | 51.6% |
 | P01 | Hybrid, November 2015 | 132 | −52.82% | 53.3% |
 | R19 | Baseline, March–October 2016 | 1,029 | −88.41% | 88.8% |

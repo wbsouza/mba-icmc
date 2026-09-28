@@ -488,7 +488,7 @@ The strategy is a two-stage pipeline. The first stage is the
 perception layer (non-deterministic, cached). The second stage is a
 configurable chain of layers --- conceptually similar to the
 interceptor pattern used by Java EE application servers (and to the
-legacy fxmanager-ejb's `TradePlanOrderProcessInterceptor`) --- that
+EJB version's trade-plan process interceptor) --- that
 decides BUY / SELL / HOLD.
 
 ```
@@ -532,8 +532,8 @@ reproducible, and configurable without engine code changes.
 ### 11.3 The filter chain
 
 **Naming.** The chain pattern is borrowed from Java EE
-*interceptors* (the legacy fxmanager-ejb uses the same idea via
-`TradePlanOrderProcessInterceptor`), but we adopt FX-industry
+*interceptors* (the EJB version uses the same idea via
+its trade-plan process interceptor), but we adopt FX-industry
 terminology inside the project:
 
 - *Filter* --- one unit in the chain. The term is standard FX
@@ -656,7 +656,7 @@ either passed or vetoed, and the executor's job is to interpret the
 accumulated context and either place an order, manage an existing
 position, or stand aside.
 
-#### 11.3.2 Filters of the TCC's first chain (Strategy A05)
+#### 11.3.2 Filters of the TCC's first chain (the reference strategy)
 
 | # | Filter | Source of input | Recommendation behaviour |
 |---|---|---|---|
@@ -685,7 +685,7 @@ literal-and-friendly statement of the strategy's deterministic logic;
 edits to `config.yaml` are reflected in the diagram, and the diagram
 is the single most-useful artefact for code-review of a strategy.
 
-The reference diagram for Strategy A05:
+The diagram for the reference strategy:
 
 ```mermaid
 flowchart TB
@@ -870,12 +870,12 @@ only after individual verification from copyright pages.
 
 ## 14. Legacy code reference
 
-### 14.1 fx-manager (Java, ~2010)
+### 14.1 The EJB version (Java, ~2010)
 
 The author's earlier algorithmic-trading system, originally developed
-around 2010 to interface with the MetaTrader platform, is hosted at:
-
-- <https://git.disposalqueen.com/algo-trading/fx-manager>
+around 2010 to interface with the MetaTrader platform, is unpublished
+and covered by a confidentiality agreement; this document cites it by
+component role only, never by module, class or file name.
 
 The codebase is **Java**, not MQL4 (the MetaTrader integration sat on
 top of a Java middleware layer). The components to be ported into the
@@ -907,7 +907,7 @@ block; it is not re-derived in this work.
 
 ### 14.5 Java module map: what to port, what to drop
 
-After reading the fx-manager READMEs (which are notably thorough — module
+After reading the EJB version's READMEs (which are notably thorough — module
 boundaries, sequence diagrams, formula line numbers, and an explicit
 "experimental vs.\ production" labelling are all in place), the port
 scope decomposes as follows.
@@ -916,55 +916,54 @@ scope decomposes as follows.
 
 | Java location | What it provides | Python target |
 |---|---|---|
-| `fxmanager-ejb/MoneyManagementFacadeBean` | lot-size formula, leverage, reward-risk ratios | `RiskMath` class |
-| `fxmanager-ejb/StrategyMoneyManagementFacadeBean` | stop-level stretching, target-by-factor, trail-stop math | `StrategyMath` class |
-| `fxmanager-ejb/OpenByArrowOrderFacadeBean` (rule logic) | OPEN_BY_ARROW entry rule | direct entry in LEAN `OnData` |
-| `fxmanager-ejb/TrailStopOrderFacadeBean` (rule logic) | trailing-stop trigger and destination math | `TrailStop` class |
-| `fxmanager-ejb/ClosePortionOrderFacadeBean` (rule logic) | partial-close laddering | `PartialClose` class |
-| `fxmanager-ejb` runtime circuit-breakers (`OrderFailure.DEFAULT_MAX_ATTEMPTS = 5`, `LastArrowCache`, `OpenByArrowOrder.maxLimit = 2`, margin-failure-on-current-candle) | per-trade safeguards | `RiskGuard` class |
-| `fxmanager-commons/strategy/*` (`Strategy`, `StrategyOrder`, `SymbolDeployment`) | strategy abstraction tree | `StrategyConfig` dataclass tree |
-| `fxmanager-commons` Spring XML (`bean-templates.xml`, `has-strategies-group-a.xml`, `strategy-configuration.xml`) | risk/factor parameters, account-symbol-strategy mapping | YAML config in `backtests/strategies/A05.yaml` |
-| `fxmanager-simulator/Strategy01–05` | reference offline-backtest implementations of trend-trading variants | port A01--A05 as Python classes; A05 is the production one |
+| legacy money-management façade | lot-size formula, leverage, reward-risk ratios | `RiskMath` class |
+| legacy strategy money-management façade | stop-level stretching, target-by-factor, trail-stop math | `StrategyMath` class |
+| legacy arrow-entry rule | arrow-signal entry rule | direct entry in LEAN `OnData` |
+| legacy trail-stop rule | trailing-stop trigger and destination math | `TrailStop` class |
+| legacy partial-close rule | partial-close laddering | `PartialClose` class |
+| legacy runtime circuit-breakers (maximum order attempts 5, last-arrow cache, per-strategy open-trade limit 2, margin-failure-on-current-candle) | per-trade safeguards | `RiskGuard` class |
+| legacy strategy abstraction classes (strategy, strategy order, symbol deployment) | strategy abstraction tree | `StrategyConfig` dataclass tree |
+| legacy Spring XML templates (bean templates, strategy group, strategy configuration) | risk/factor parameters, account-symbol-strategy mapping | YAML config in `backtests/strategies/reference.yaml` |
+| legacy simulator strategies (five trend-trading variants) | reference offline-backtest implementations of trend-trading variants | port the variants as Python classes; the fifth, the reference strategy, is the production one |
 
 **Out of scope --- replaced or made redundant by LEAN:**
 
 | Java location | Why we skip |
 |---|---|
 | EJB / JBoss / EAR / JPA / JMS / AspectJ interceptors | LEAN's `QCAlgorithm` interface replaces this entire infrastructure layer |
-| `fxmanager-jpa/` Hibernate entities | LEAN exposes `Trade`/`Order` objects natively; no DB persistence needed in the algorithm |
-| `fxmanager-web` + `fxmetatrader-web` (HTTP servlets, long-poll) | LEAN has its own data feed and broker bridge |
-| `fxmanager-metatrader` (TCP-socket RPC adapter) | superseded; LEAN's brokerage is OANDA |
-| `fxmanager-gui` (Swing) and `trendtrader-manager` (JSF tile system) | no UI in the TCC |
-| `fxmanager-monitor-web` (heartbeat WAR) | LEAN's runner handles process health |
-| `fxmanager-jobs` (JBoss scheduler-plugin jobs) | LEAN's `Schedule.On()` replaces scheduled tasks |
-| `MetatraderFacadeBean`, `FXMetatraderFacadeBean` (MT4 RPC façades) | replaced by `Lean.Brokerages.Oanda` |
-| MetaTrader-side `metatrader/experts/`, `metatrader/fxmanager/`, `http51.dll` | not used; data comes from Dukascopy, execution from OANDA |
-| `cpp/httpclient`, `cpp/jmetatrader` | flagged "experimental, never deployed" in the top-level README |
-| `java/jmetatrader-module`, `java/jtrendtrader-module`, `java/jsendkeys`, `java/fxmetatrader-module` | flagged "experimental research track" or superseded; not part of the live build |
+| legacy Hibernate entities | LEAN exposes `Trade`/`Order` objects natively; no DB persistence needed in the algorithm |
+| legacy HTTP servlets (long-poll) | LEAN has its own data feed and broker bridge |
+| legacy TCP-socket RPC adapter | superseded; LEAN's brokerage is OANDA |
+| legacy Swing GUI and JSF tile system | no UI in the TCC |
+| legacy heartbeat WAR | LEAN's runner handles process health |
+| legacy JBoss scheduler jobs | LEAN's `Schedule.On()` replaces scheduled tasks |
+| legacy MT4 RPC façades | replaced by `Lean.Brokerages.Oanda` |
+| legacy MetaTrader-side experts and bridge DLL | not used; data comes from Dukascopy, execution from OANDA |
+| legacy C++ HTTP client and MetaTrader bridge | flagged "experimental, never deployed" in the top-level README |
+| legacy experimental Java modules | flagged "experimental research track" or superseded; not part of the live build |
 
-**Key parameters preserved verbatim** (from `bean-templates.xml`,
-`has-strategies-group-a.xml`, `strategy-configuration.xml`):
+**Key parameters preserved verbatim** (from the legacy Spring XML templates):
 
 - `risk = 0.03` (3 % of balance per trade).
-- `STOP_LEVEL_FACTOR = 1.2` (minimum SL distance multiplier vs.\ broker
-  stop level; in `StrategyMoneyManagementFacadeBean.java:21`).
-- `OrderFailure.DEFAULT_MAX_ATTEMPTS = 5`.
-- `OpenByArrowOrder.maxLimit = 2` (max concurrent arrow trades per
+- stop-level factor = 1.2 (minimum SL distance multiplier vs.\ broker
+  stop level).
+- maximum order attempts = 5.
+- open-trade limit = 2 (max concurrent arrow trades per
   strategy).
-- `LastArrowFacade.isCandleNotUsed()` dedup (one trade per
+- last-arrow candle dedup (one trade per
   symbol/strategy/candle).
 
-**Lot-size formula** (from `MoneyManagementFacadeBean.java:577`):
+**Lot-size formula** (from the legacy money-management façade):
 $$
 \mathrm{lotSize} \;=\; \frac{\mathrm{accountBalance} \times \mathrm{risk}}{\mathrm{pipValue} \times \mathrm{stopLossPips}}
 $$
 
 **Strategy-money-management formulas** (from
-`StrategyMoneyManagementFacadeBean`):
+the legacy strategy money-management façade):
 
 - $\mathrm{targetLevel}_N = \mathrm{entry} \pm \big(|\mathrm{entry} - \mathrm{SL}| \times \mathrm{targetFactor}_N + (\mathrm{targetFactor}_N + 1) \times \mathrm{spread}\big)$
-- $\mathrm{trailStopAtLevel}_N = \mathrm{entry} \pm |\mathrm{entry} - \mathrm{SL}| \times \mathrm{trailStopAtLevelFactor}_N$
-- $\mathrm{trailStopToLevel}_N = \mathrm{entry} \pm \big(|\mathrm{entry} - \mathrm{SL}| \times \mathrm{trailStopToLevelFactor}_N + \mathrm{spread}\big)$
+- $\mathrm{trailStopAtLevel}_N = \mathrm{entry} \pm |\mathrm{entry} - \mathrm{SL}| \times \mathrm{atLevelFactor}_N$
+- $\mathrm{trailStopToLevel}_N = \mathrm{entry} \pm \big(|\mathrm{entry} - \mathrm{SL}| \times \mathrm{toLevelFactor}_N + \mathrm{spread}\big)$
 
 ### 14.6 State-machine collapse
 
@@ -988,37 +987,33 @@ states. Concretely:
 - `WAITING_FEEDBACK` ProcessStatus → not needed; LEAN events are
   synchronous from the strategy's point of view.
 
-### 14.7 Strategy A05 (production) --- concrete parameter set
+### 14.7 The reference strategy (production) --- concrete parameter set
 
-From `strategy-configuration.xml` and `has-strategies-group-a.xml`,
-production runs `strategyA05` on H4 (timeframe = 240) across:
-
-- `EURUSD!`, `USDJPY!`, `AUDUSD!`, `GBPUSD!`
-- Two MT4 accounts: `1129185`, `1127362`
-
-With per-trade rules:
+From the legacy Spring XML templates, production ran the reference
+trend strategy on H4 (timeframe = 240) across EURUSD, USDJPY, AUDUSD and
+GBPUSD on two live accounts, with per-trade rules:
 
 | Parameter | Value | Source |
 |---|---|---|
-| Risk per trade | 3 % of account balance | `bean-templates.xml`: `standardSymbolDeployment.risk` |
-| Maximum concurrent arrow trades per strategy | 2 | `openOrderByHasArrow.maxLimit` |
-| Stop-loss decrease | 20 % below template | `openOrderByHasArrowOnTrend80SL.stopLossDecrease` |
-| Final target | 2.0 × SL distance, close 50 % | `finalTargetFactor`, `finalTargetLotPercentage` |
-| Trail-stop arming | at 50 % of way to SL | `trailStopAtLevelFactor` |
-| Trail-stop destination | entry $-$ 66 % × SL distance | `trailStopToLevelFactor` |
-| Intermediate partial close | 50 % | `closePortionOrder1.lotPercentage` |
-| Minimum SL distance | $1.2 \times$ broker `STOP_LEVEL` | `STOP_LEVEL_FACTOR = 1.2` |
+| Risk per trade | 3 % of account balance | symbol-deployment risk |
+| Maximum concurrent arrow trades per strategy | 2 | per-strategy open-trade limit |
+| Stop-loss decrease | 20 % below template | entry-rule stop-loss decrease |
+| Final target | 2.0 × SL distance, close 50 % | final target factor and lot percentage |
+| Trail-stop arming | at 50 % of way to SL | trail-stop at-level factor |
+| Trail-stop destination | entry $-$ 66 % × SL distance | trail-stop to-level factor |
+| Intermediate partial close | 50 % | partial-close lot percentage |
+| Minimum SL distance | $1.2 \times$ broker `STOP_LEVEL` | stop-level factor 1.2 |
 
-USD/JPY has a per-account override that adds `closeByArrowOrder`
+USD/JPY has a per-account override that adds close-by-arrow
 activation when the open arrow closes; this is the only documented
 deviation from the symmetric configuration.
 
-The TCC port targets `strategyA05` first as the canonical production
-strategy. A01--A04 may be ported later as ablations, time permitting.
+The TCC port targets the reference strategy first as the canonical production
+strategy. The four earlier variants may be ported later as ablations, time permitting.
 
 ### 14.8 Risk gaps in the legacy system to address in the port
 
-The fxmanager-ejb README explicitly lists what the legacy system does
+The EJB version's README explicitly lists what the legacy system does
 **not** enforce. The Python port closes those gaps via a `RiskGuard`
 class whose every threshold is a parameter in `config.yaml`. No
 threshold is hard-coded in the Python source. Every parameter in the
@@ -1046,13 +1041,13 @@ risk-management rules any production trading system needs. Chapter 03
 §3.10 (Threats to Validity / Reproducibility) documents them as a
 methodology contribution rather than an inherited behaviour.
 
-**Amendment, 2026-09-26:** the risk provider of the author's later
-Heikin-Ashi trading manager (a Spring-based rewrite, also production-deployed)
+**Amendment, 2026-09-26:** the risk provider of the author's Spring
+version (a Spring-based rewrite, also production-deployed)
 *did* implement a portfolio-level risk cap, risk-offset-aware (it sums the
 risk% of open trades, excluding any trade whose risk-offset flag is set
 once a stop trails past breakeven, and
 refuses a new trade past a configured portfolio risk limit). This gap
-was specific to fx-manager, not universal to the author's prior systems.
+was specific to the EJB version, not universal to the author's prior systems.
 `RiskGuard`'s `portfolio_at_risk_cap` remains a from-scratch Python
 implementation, not a port of that risk provider's Java (that source
 was read only after `RiskGuard` already existed) --- no code change
@@ -1111,7 +1106,7 @@ YAML file. For each parameter it shows:
   to the formula or rule that consumes it.
 - **Effect of increasing.**
 - **Effect of decreasing.**
-- **Legacy value** where applicable (the value `strategyA05` used in
+- **Legacy value** where applicable (the value the reference strategy used in
   the original Java code).
 - **Recommended range** with a brief rationale for the bounds.
 - **Disable sentinel** where applicable (`null`).
@@ -1140,7 +1135,7 @@ class ParameterSpec:
     can_be_null: bool              # is the explicit-disable sentinel valid?
     null_means: str                # human-readable label when null is used
     default: Any | None            # only meaningful for operational
-    legacy_value: Any | None       # value used by strategyA05 if any
+    legacy_value: Any | None       # value used by the reference strategy if any
     description: str
     increase_effect: str
     decrease_effect: str
@@ -1161,7 +1156,7 @@ The same module is read by:
 
 ```yaml
 schema_version: 1
-strategy: a05
+strategy: reference
 description: Trend-following with arrow-signal entry
 
 universe:
@@ -1169,8 +1164,8 @@ universe:
   timeframe: H4
 
 risk_math:
-  risk_per_trade: 0.03         # legacy A05
-  stop_level_factor: 1.2       # legacy A05
+  risk_per_trade: 0.03         # legacy reference value
+  stop_level_factor: 1.2       # legacy reference value
 
 strategy_math:
   final_target_factor: 2.0
@@ -1188,8 +1183,8 @@ risk_guard:
 
 circuit_breakers:
   order_max_attempts: 5        # legacy DEFAULT_MAX_ATTEMPTS
-  max_open_arrows_per_strategy: 2  # legacy openOrderByHasArrow.maxLimit
-  one_trade_per_candle: true   # legacy LastArrowFacade dedup
+  max_open_arrows_per_strategy: 2  # legacy open-trade limit
+  one_trade_per_candle: true   # legacy last-arrow dedup
 
 operational:
   log_level: INFO              # default; logged as USING DEFAULT
@@ -1213,16 +1208,16 @@ in to a feature the parent disables, the child sets a concrete
 value.
 
 ```yaml
-# strategies/a05_aggressive/config.yaml
+# strategies/reference_aggressive/config.yaml
 schema_version: 1
-strategy: a05_aggressive
-extends: a05
-description: A05 with looser portfolio risk caps for aggressive deployment
+strategy: reference_aggressive
+extends: reference
+description: The reference strategy with looser portfolio risk caps for aggressive deployment
 
 risk_guard:
-  portfolio_at_risk_cap: 0.10        # was 0.06 in a05
-  max_leverage: 50.0                  # was null (disabled) in a05
-# every other parameter inherited from a05/config.yaml
+  portfolio_at_risk_cap: 0.10        # was 0.06 in reference
+  max_leverage: 50.0                  # was null (disabled) in reference
+# every other parameter inherited from reference/config.yaml
 ```
 
 The child YAML stores only the differences; this keeps strategy
@@ -1258,14 +1253,14 @@ parentheses where overrides apply, so a code-reviewer can see at a
 glance what is unique about a given variant.
 
 ```
-=== Strategy: a05_aggressive — startup ===
+=== Strategy: reference_aggressive — startup ===
 
-  ─── from a05_aggressive (overrides parent) ───
-    risk_guard.portfolio_at_risk_cap = 0.10           (was 0.06 in a05)
-    risk_guard.max_leverage = 50.0                    (was null/EXPLICITLY DISABLED in a05)
-    description = "A05 with looser portfolio risk caps..."
+  ─── from reference_aggressive (overrides parent) ───
+    risk_guard.portfolio_at_risk_cap = 0.10           (was 0.06 in reference)
+    risk_guard.max_leverage = 50.0                    (was null/EXPLICITLY DISABLED in reference)
+    description = "The reference strategy with looser portfolio risk caps..."
 
-  ─── inherited from a05 ───
+  ─── inherited from reference ───
     risk_math.risk_per_trade = 0.03
     risk_math.stop_level_factor = 1.2
     strategy_math.final_target_factor = 2.0
@@ -1304,12 +1299,12 @@ reproducible.
 ```
 backtests/
 ├── strategies/
-│   └── a05/
+│   └── reference/
 │       ├── strategy.py        # LEAN QCAlgorithm subclass — Initialize + OnData + OnOrderEvent
-│       ├── risk_math.py       # ported from MoneyManagementFacadeBean
-│       ├── strategy_math.py   # ported from StrategyMoneyManagementFacadeBean
-│       ├── trail_stop.py      # ported from TrailStopOrderFacadeBean rule logic
-│       ├── close_portion.py   # ported from ClosePortionOrderFacadeBean rule logic
+│       ├── risk_math.py       # ported from the legacy money-management façade
+│       ├── strategy_math.py   # ported from the legacy strategy money-management façade
+│       ├── trail_stop.py      # ported from the legacy trail-stop rule logic
+│       ├── close_portion.py   # ported from the legacy partial-close rule logic
 │       ├── risk_guard.py      # NEW: portfolio-level guards (§14.8 gaps)
 │       └── config.yaml        # generated by tools/config_generator.py
 ├── tools/
@@ -1339,9 +1334,9 @@ documented tolerance, same trail-stop trigger conditions.
 
 ### 14.11 Open items
 
-- [ ] Confirm that A05 is the only strategy variant we port for the
-      TCC, or whether A01--A04 ablations are also in scope. *Default:
-      A05 only; A01--A04 deferred to chapter 04 ablation if time
+- [ ] Confirm that the reference strategy is the only variant we port for the
+      TCC, or whether the four earlier variants are also in scope. *Default:
+      the reference strategy only; the earlier variants deferred to chapter 04 ablation if time
       permits.*
 - [ ] Implement `tools/config_schema.py` with one `ParameterSpec`
       entry per parameter from §14.5, §14.7 and §14.8.
@@ -1350,13 +1345,12 @@ documented tolerance, same trail-stop trigger conditions.
       `null` as explicit-disable, schema-version check).
 - [ ] Implement `tools/config_generator.py` with interactive prompts,
       `--upgrade` mode, and validation against the schema.
-- [ ] Translate `bean-templates.xml`, `has-strategies-group-a.xml`,
-      `strategy-configuration.xml` into the schema, then run
+- [ ] Translate the legacy Spring XML templates into the schema, then run
       `config_generator` to emit the canonical
-      `backtests/strategies/a05/config.yaml`.
+      `backtests/strategies/reference/config.yaml`.
 - [ ] Capture regression-test fixtures from any Java unit tests that
       exist (the parent POM disables surefire, but tests under
-      `trendtrader-test/` may still be readable as reference inputs).
+      the legacy test module may still be readable as reference inputs).
 - [ ] Decide the **recommended ranges** the CLI shows for each
       `RiskGuard` parameter during prompting (the user picks the
       value; the recommended range guides the choice).
@@ -1533,8 +1527,7 @@ XML is avoided in new code.
 - LEAN's `lean.json` is JSON (the engine's native format); it is
   acceptable because it is the engine's own configuration and is not
   produced by this project.
-- The legacy `bean-templates.xml`, `has-strategies-group-a.xml` and
-  `strategy-configuration.xml` from fxmanager are translated to a
+- The legacy Spring XML templates from the EJB version are translated to a
   single YAML during the port (§14.5, §14.9.4, §14.11).
 
 Rationale: YAML is more readable than XML at the project's scale,

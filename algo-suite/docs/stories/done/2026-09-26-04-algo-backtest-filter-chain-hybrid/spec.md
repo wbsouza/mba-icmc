@@ -16,7 +16,7 @@ Gherkin) **and** [`specs.md`](../../../../specs.md) §6 (execution-engine choice
 official OANDA broker adapter, Python algorithms) and §11 (the full
 architectural rationale — agentic perception vs. deterministic execution, the
 F1–F7 filter table §11.3.2, the per-strategy Mermaid-diagram convention
-§11.3.3, the audit-trail format §11.3.4, the fx-manager port map §14 for the
+§11.3.3, the audit-trail format §11.3.4, the legacy port map §14 for the
 risk/capital-management filters' formulas).
 
 **User directive this spec exists to satisfy explicitly:** "one of the first
@@ -41,7 +41,7 @@ Three deliverables, in this order:
    `Decision`, `FilterChain`, and the F1–F7 filters as pluggable classes,
    config-driven (YAML, per [`specs.md`](../../../../specs.md) §14.9), with the audit trail persisted
    as `decisions.parquet` (§11.3.4).
-3. **Strategy A05 / "hybrid"** (§5) — the concrete filter-chain wiring
+3. **the reference strategy / "hybrid"** (§5) — the concrete filter-chain wiring
    described in [`specs.md`](../../../../specs.md) §11.3.2/§11.3.3, terminating in the order-execution
    engine from §3.
 
@@ -76,7 +76,7 @@ that:
    wired, §14.5) — inside the `QCAlgorithm` subclass.
 3. Handles the **asynchronous order-event callback**, `OnOrderEvent`, which is
    how LEAN reports fills/rejections back to the algorithm — this collapses
-   the legacy `fx-manager` state machine's "waiting for MT4 reply" states
+   the EJB version's legacy state machine's "waiting for MT4 reply" states
    ([`specs.md`](../../../../specs.md) §14.6: `ORDER_SEND_REQUESTED`/`ORDER_INFO_REQUESTED` →
    collapsed into `self.MarketOrder(...)` + `OnOrderEvent`; `WAITING_FEEDBACK`
    → gone, LEAN events are synchronous from the strategy's point of view).
@@ -191,9 +191,9 @@ around it:
 2. **F1–F3 (price-derived: trend, indicator, pattern).** Consume TA features
    LEAN computes natively. No new external data dependency — buildable and
    testable immediately.
-3. **F5/F6 (risk guard, capital management).** Port from `fx-manager` per
+3. **F5/F6 (risk guard, capital management).** Port from the EJB version per
    `specs.md` §14.5–§14.8 (lot-size formula, trail-stop math, the `RiskGuard`
-   gap-closing parameters — `risk=0.03`, `STOP_LEVEL_FACTOR=1.2`, etc., all
+   gap-closing parameters — `risk=0.03`, `stop_level_factor=1.2`, etc., all
    given verbatim). A regression test should verify the Python port reproduces
    the legacy decisions on identical synthetic input (§14.3's stated
    discipline). Independent of news data — buildable in parallel with step 2.

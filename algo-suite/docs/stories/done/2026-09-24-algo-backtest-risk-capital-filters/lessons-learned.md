@@ -1,10 +1,10 @@
 # Lessons learned — Spec 04d: algo-backtest risk & capital-management filters (F5/F6)
 
 **This is formula implementation + unit-level proof, not a legacy-code port.** The
-original spec framed this story as "port `fx-manager`'s ... into `rules/`" and its DoD
-said "reproduces legacy decisions on identical synthetic input" — but the `fx-manager`
-Java repo is not present in this checkout, only a URL reference (specs.md §14.5,
-`https://git.disposalqueen.com/algo-trading/fx-manager`). `progress.md`'s own correction
+original spec framed this story as "port the EJB version's ... into `rules/`" and its DoD
+said "reproduces legacy decisions on identical synthetic input" — but the EJB version's
+Java repo is not present in this checkout, only a reference (specs.md §14.5,
+private repository). `progress.md`'s own correction
 note (already recorded before this session started) flagged this and redirected the
 work to implementing the formulas/constants specs.md states verbatim (§14.5–§14.8) with
 hand-computed Gherkin expected values proving the arithmetic, rather than a diff against
@@ -19,14 +19,14 @@ here per the team-lead's explicit instruction to say so plainly.
 specs.md §14.5 writes `entry ± (...)` identically for `target_level`,
 `trail_stop_at_level`, and `trail_stop_to_level`, which reads at first as "one sign,
 resolved by trade direction, applied the same way to all three." But §14.7's own worked
-description of Strategy A05 ("trail-stop destination: entry − 66% × SL distance" for a
+description of the reference strategy ("trail-stop destination: entry − 66% × SL distance" for a
 presumed long/BUY trade) only makes trading sense if `trail_stop_to_level` moves in the
 *loss* direction from entry (a tightened stop-loss, still below entry for a BUY) while
 `target_level` and `trail_stop_at_level` move in the *profit* direction (the take-profit
 price, and the price excursion needed to arm the trail). Implemented with an explicit
 `Direction` enum and a `_profit_sign()` helper, with the asymmetry documented in
 `trail_stop.py`'s module docstring — this is an interpretive call against an ambiguous
-notation, not something the (inaccessible) fx-manager source could disambiguate, so it's
+notation, not something the (inaccessible) EJB version's source could disambiguate, so it's
 recorded here rather than asserted as fact.
 
 **Config resolution has a latent cross-schema gap this story didn't fix.**

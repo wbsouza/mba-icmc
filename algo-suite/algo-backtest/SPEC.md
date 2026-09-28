@@ -316,8 +316,8 @@ algo_backtest/
 │   │                       #   trail_stop.py, Spec 04d)
 │   ├── trail_stop.py       # IMPLEMENTED — target / trail-stop-arm / trail-stop-destination
 │   │                       #   level math (Spec 04d). Sign convention + `spread`-term formula
-│   │                       #   for all three functions confirmed against the real fx-manager/
-│   │                       #   later-trading-manager source in Spec 04i (docs/stories/done/2026-09-26-
+│   │                       #   for all three functions confirmed against the real EJB-version/
+│   │                       #   Spring-version source in Spec 04i (docs/stories/done/2026-09-26-
 │   │                       #   trail-stop-formula-fix/spec.md §2/§4) — treat that story, not the
 │   │                       #   older ambiguous "±" wording in the archived root specs.md §14.5/
 │   │                       #   §14.7, as current for this module's formulas.
@@ -642,7 +642,7 @@ disables one cap. Any breached cap vetoes the bar (NO_TRADE, `vetoed_by = f5_ris
 | `portfolio_at_risk_cap` | fraction of equity | 0.10 | open unrealised loss / portfolio value. |
 | `daily_drawdown_limit` | PnL fraction, ≤ 0 (`−0.05` = a 5 % loss) | −0.05 | today's PnL relative to the day's opening equity may not fall below it; a positive value is rejected. |
 | `weekly_drawdown_limit` | PnL fraction, ≤ 0 | −0.15 | the same for the trading week. |
-| `max_concurrent_trades_per_account` | integer | 2 | open positions (A05 `maxLimit`; the executor holds one planned position at a time). |
+| `max_concurrent_trades_per_account` | integer | 2 | open positions (the reference open-trade limit; the executor holds one planned position at a time). |
 | `max_leverage` | multiple of equity | 30 | unsigned holdings value / portfolio value. |
 
 **`capital_mgmt`** — F6; section **required** when listed. The five sizing keys are
@@ -659,13 +659,13 @@ and trailing steps in pips → reward:risk.
 | `pip_value_per_lot` | account currency per pip per 1.0 lot | required | 10 | The `pip_value` sizing input (EURUSD convention ≈ $10 per 100 000-unit lot). |
 | `lot_notional_units` | base-currency units per 1.0 lot | required | 100000 | Converts lots to order units; margin per lot = units × price / `assumed_leverage`; the commission's pro-rata base; the statement's "Lots" column. |
 | `assumed_leverage` | multiple, > 0 | required | 30 | Derives margin per lot for the margin veto (`lot × margin_per_lot > available_margin` → NO_TRADE). |
-| `stop_loss_shrink` | fraction, [0, 1) | 0.0 | 0.20 | The base stop distance is multiplied by `1 − shrink` (A05 `stopLossDecrease`). |
+| `stop_loss_shrink` | fraction, [0, 1) | 0.0 | 0.20 | The base stop distance is multiplied by `1 − shrink` (the reference stop-loss decrease). |
 | `min_stop_pips` | pips, ≥ 0 | 0.0 | 5.0 | Absolute floor on the shrunk stop distance. |
-| `min_stop_factor` | multiplier, ≥ 1 | 1.0 | 1.2 | Second floor: `min_stop_factor × execution.broker_stop_level_pips` (A05 `STOP_LEVEL_FACTOR`). The effective floor is the larger of the two. |
+| `min_stop_factor` | multiplier, ≥ 1 | 1.0 | 1.2 | Second floor: `min_stop_factor × execution.broker_stop_level_pips` (the reference stop-level factor). The effective floor is the larger of the two. |
 | `targets` | list of `{at_level_ratio > 0, close_fraction ∈ (0, 1]}`; ratios strictly increasing; fractions sum ≤ 1 | `[{2.0, 1.0}]` | `[{2.0, 0.5}]` | One take-profit limit order per entry: distance = `stop × ratio + (ratio + 1) × spread` pips (`rules/trail_stop`), closing that fraction of the position; the remainder rides the trailing stop. `[]` = no target order. |
 | `trail_stops` | list of `{at_level_ratio > 0, to_level_ratio}` (signed); ratios strictly increasing | `[]` | `[{0.5, −0.66}]` | A step arms once price has moved `stop × at + (at + 1) × spread` pips in the trade's favour and moves the stop to `stop × to + spread` pips from entry (negative = still a loss, 0 = break-even plus spread, positive = locked-in profit); the stop only ever tightens. |
 | `min_reward_risk` | ratio, > 0, or `null` | `null` | 2.0 | Veto the bar when first-target pips / stop pips on either side falls below it (F6 runs before the direction is known). Needs at least one target. |
-| `stop_distance_source` | `fixed` \| `atr` \| `swing` | `fixed` | `swing` | Base stop distance: `stop_loss_pips`; `atr_multiplier × atr_pips`; or the distance to the rolling swing low (long) / swing high (short) over `price_features.swing_lookback_bars` — A05's structural template stop. A missing source feature is a hard stop naming the key. |
+| `stop_distance_source` | `fixed` \| `atr` \| `swing` | `fixed` | `swing` | Base stop distance: `stop_loss_pips`; `atr_multiplier × atr_pips`; or the distance to the rolling swing low (long) / swing high (short) over `price_features.swing_lookback_bars` — the reference strategy's structural template stop. A missing source feature is a hard stop naming the key. |
 | `atr_multiplier` | multiple, > 0 | 2.0 | 2.0 | ATR multiple for the `atr` source. |
 
 **`meta_learner`** — the F7 feature-family list plus the terminal rule's parameters.
@@ -691,7 +691,7 @@ assumptions it rests on.
 | `commission_per_lot` | account currency per 1.0 lot per side, ≥ 0 | 0.0 | 0.0 | Charged pro rata on the absolute filled quantity against `capital_mgmt.lot_notional_units` (`PerLotFeeModel`). `0` keeps the adapter's fee model. |
 | `min_hold_bars` | integer bars, ≥ 0 | 0 | 0 | An opposite F7 signal may reverse the position only once this many bars have passed since the entry bar (`HOLD_GUARD` log line otherwise); a same-side signal never adds to the position. Stops, targets and trailing exits are not delayed by it. |
 | `broker_stop_level_pips` | pips, ≥ 0 | 0.0 | 0.0 | The broker's minimum distance between price and a stop/target order (LEAN does not expose OANDA's, so it is declared). Enters the stop floor through `capital_mgmt.min_stop_factor`. |
-| `close_on_veto` | boolean | `false` | `false` | `true`: a NO_TRADE (any filter veto) while a position is open closes it at once, cancelling its stop and targets. `false` (A05's behaviour): the veto only blocks new entries; the stop, targets, trailing steps and `min_hold_bars` govern the exit. |
+| `close_on_veto` | boolean | `false` | `false` | `true`: a NO_TRADE (any filter veto) while a position is open closes it at once, cancelling its stop and targets. `false` (the reference strategy's behaviour): the veto only blocks new entries; the stop, targets, trailing steps and `min_hold_bars` govern the exit. |
 
 **Run parameters** are separate from the YAML: a chain strategy accepts exactly one,
 `--param cash=<starting deposit>` (> 0); its orders are sized by F6's plan, never by a
@@ -806,7 +806,7 @@ variation × 10 live and `Instrument.unit_size` offline — for F6's stop distan
 disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `capital_mgmt` (F6: `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`,
 `lot_notional_units`, `assumed_leverage` — the sizing inputs `account_features`
-feeds F6 — plus, since story 12 (execution realism, 2026-09-27), the fx-manager A05
+feeds F6 — plus, since story 12 (execution realism, 2026-09-27), the reference
 trade plan with defaults for every key: `stop_loss_shrink` in [0, 1), `min_stop_pips`,
 `min_stop_factor` (≥ 1, × `execution.broker_stop_level_pips`; the floor is the larger),
 `targets[]` of `{at_level_ratio, close_fraction}` with strictly increasing levels and

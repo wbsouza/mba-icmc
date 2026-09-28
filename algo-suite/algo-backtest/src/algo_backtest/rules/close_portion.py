@@ -1,6 +1,6 @@
-"""Partial-close ladder (specs.md §14.5, ported from fx-manager's
-`ClosePortionOrderFacadeBean` rule logic): an ordered sequence of rungs, each closing a
-fraction ("portion") of the *original* lot size. Strategy A05's specific two-rung ladder
+"""Partial-close ladder (specs.md §14.5, ported from the EJB version's
+partial-close rule logic): an ordered sequence of rungs, each closing a
+fraction ("portion") of the *original* lot size. The reference strategy's specific two-rung ladder
 (50% intermediate close, 50% final-target close — specs.md §14.7) is a caller-supplied
 list of portions, never hardcoded here; this module only proves the general laddering
 mechanic and its running-remainder bookkeeping.
@@ -38,7 +38,7 @@ def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> C
     (the running remainder) rather than trusting `original_lot_size * portion` —
     independent per-rung percentages are not guaranteed to sum to exactly 1.0 after
     floating-point rounding, so that rung derives its size from what's actually left
-    instead of risking a residual under-close (the later Heikin-Ashi trading manager's
+    instead of risking a residual under-close (the Spring version's
     target-level calculation, specs.md §14.8 amendment 2026-09-26). A ladder whose portions sum
     to strictly less than 1.0 is a valid *partial* close (e.g. scaling out of most of a
     position while leaving a runner) — every rung, including the last, closes exactly its

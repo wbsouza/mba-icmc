@@ -121,7 +121,7 @@ uv run algo-backtest run --strategy random      --symbol EURUSD --from 2015-09-0
 #   run parameters too: no behaviour number is a literal in any bundled algorithm.
 #   Every filter's own parameters live in strategies/<name>/config.yaml, not here:
 #   price_features (EMA/RSI/MACD periods), indicator (F2), pattern (F3), news_context
-#   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the A05 trade plan), meta_learner (F7
+#   (F4), risk_guard (F5), capital_mgmt (F6 sizing + the reference trade plan), meta_learner (F7
 #   thresholds, regime_gate, label horizon), execution (spread, commission, min hold,
 #   close_on_veto). A new
 #   strategy is a new YAML, never a code change: drop
@@ -182,7 +182,7 @@ listed; every other key defaults and the effective value is written back into th
 | `news_context` (F4, req.) | `event_intensity_veto_threshold` (Goldstein mean, ≤ it vetoes; `hybrid` −0.5), `sentiment_direction_threshold` (polarity magnitude; 0.15); `null` disables a half. `direction_source` `sentiment` (default) \| `intensity`; under `intensity`: `intensity_buy_threshold` / `intensity_sell_threshold` (req., buy > sell; `news-rule` placeholders 0.9 / 0.3), `intensity_sign` 1 \| −1 |
 | `terminal_filter` (top level) | required iff `f7_meta_learner` is absent: the last direction-emitting filter, whose recommendation is the decision (`news-rule`: `f4_news_context`); gates after it may veto |
 | `risk_guard` (F5, req.) | `portfolio_at_risk_cap 0.10`, `daily_drawdown_limit −0.05`, `weekly_drawdown_limit −0.15` (PnL floors, ≤ 0), `max_concurrent_trades_per_account 2`, `max_leverage 30`; `null` disables a cap; a breach vetoes |
-| `capital_mgmt` (F6, req.) | sizing (req.): `risk_per_trade 0.03`, `stop_loss_pips 20`, `pip_value_per_lot 10`, `lot_notional_units 100000`, `assumed_leverage 30`; A05 trade plan (defaulted): `stop_loss_shrink 0.20` (default 0), `min_stop_pips 5` (0), `min_stop_factor 1.2` (1, × `execution.broker_stop_level_pips`), `targets [{at_level_ratio 2.0, close_fraction 0.5}]` (default one full close at 2.0), `trail_stops [{at_level_ratio 0.5, to_level_ratio −0.66}]` ([]), `min_reward_risk 2.0` (null = no veto), `stop_distance_source swing` (`fixed`), `atr_multiplier 2.0` |
+| `capital_mgmt` (F6, req.) | sizing (req.): `risk_per_trade 0.03`, `stop_loss_pips 20`, `pip_value_per_lot 10`, `lot_notional_units 100000`, `assumed_leverage 30`; reference trade plan (defaulted): `stop_loss_shrink 0.20` (default 0), `min_stop_pips 5` (0), `min_stop_factor 1.2` (1, × `execution.broker_stop_level_pips`), `targets [{at_level_ratio 2.0, close_fraction 0.5}]` (default one full close at 2.0), `trail_stops [{at_level_ratio 0.5, to_level_ratio −0.66}]` ([]), `min_reward_risk 2.0` (null = no veto), `stop_distance_source swing` (`fixed`), `atr_multiplier 2.0` |
 | `meta_learner` (F7) | `families [trend, indicator, pattern]` (+ `news` in `hybrid`; `[news]` alone in `news-only` — any non-empty subset of the four, with `news` for the hybrid trainer); req. with F7: `theta_high 0.55`, `theta_low 0.45`, `regime_gate false`; `label_horizon_minutes 15` |
 | `execution` (always resolved) | `spread_pips 1.0` (default 0; half per fill, also inside F6's target/trail levels), `commission_per_lot 0` (per side, pro rata on lot units), `min_hold_bars 0` (bars before an opposite signal may reverse), `broker_stop_level_pips 0`, `close_on_veto false` (a veto only blocks entries; `true` closes the open position at once) |
 
@@ -253,8 +253,8 @@ trained offline by `scripts/train_*_meta_learner.py` over LEAN's delivered bar s
 The bundled models were trained on EUR/USD 2015-02-02 → 2015-07-31 (train +
 validation), holding out 2015-08-01 → 2016-01-31. Since stories 09 and 12 (2026-09-27)
 every filter parameter is a `config.yaml` section with provenance, F5's caps and F6's
-economics come from the YAML (no placeholder constants remain), F6 builds the fx-manager
-A05 trade plan (stop, lot, targets, trailing steps, reward:risk veto) and the executor
+economics come from the YAML (no placeholder constants remain), F6 builds the reference
+trade plan (stop, lot, targets, trailing steps, reward:risk veto) and the executor
 places it as stop-market and limit orders with configured spread and commission on every
 fill (`engine/trade_plan.py`, `engine/costs.py`). Since story 13 the F3 pattern input can
 be populated by the TA-Lib detector (`pattern.detector: talib`, disabled for frozen legacy

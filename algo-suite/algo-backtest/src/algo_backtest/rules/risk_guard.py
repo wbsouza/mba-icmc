@@ -1,4 +1,4 @@
-"""RiskGuard: closes the risk gaps the fx-manager README documents as unenforced
+"""RiskGuard: closes the risk gaps the EJB version's README documents as unenforced
 (specs.md §14.8) — no portfolio-level capital cap, no daily/weekly drawdown limit, no
 per-account concurrent-trade cap, no leverage cap. Every cap is a key of the `risk_guard`
 section of the strategy's `config.yaml` (`parse_risk_guard_caps`, 2026-09-27 amendment,

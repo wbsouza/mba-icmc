@@ -1,6 +1,6 @@
 Feature: Fill costs — pip-spread slippage and per-lot commission
   Story 12 item C. Every fill pays a configured half-spread per side and a per-lot
-  commission pro rata on the filled quantity (specs.md §14.5–14.7, strategy A05). The
+  commission pro rata on the filled quantity (specs.md §14.5–14.7, the reference strategy). The
   numbers come from the strategy's `execution` section (`spread_pips`,
   `commission_per_lot`), never from code constants; zero means "leave LEAN's default
   model in place". The math is a pure, typed module (`engine/costs.py`); the LEAN

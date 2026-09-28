@@ -26,7 +26,7 @@ APPENDIX = "per-run-parameters-20260928T003601Z.md"
 GROUPS = {
     "execution-september": ("Execution model / September 2015", ("R08", "R13")),
     "execution-october": ("Execution model / October 2015", ("R09", "R14")),
-    "a05-sweep-september": ("A05 exploratory sweep / September 2015", ("R01", "R03", "R04", "R05")),
+    "reference-sweep-september": ("reference-plan sweep / September 2015", ("R01", "R03", "R04", "R05")),
     "plan-sweep-september": (
         "Template-derived M1 sweep / September 2015", ("R15", "R16", "R17", "R18")
     ),

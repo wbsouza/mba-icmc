@@ -173,7 +173,7 @@
           "sha256": "63a28eadadf84c44492b7e0e3a89e8baf011b0826b6c0f73a5a842defcd0f1e3",
           "bytes": 2513,
           "mtime_utc": "2026-09-27T22:19:24.419Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 execution-realism rerun of September 2015 (then October\u2013November) with the\n# fx-manager A05 plan from strategies/baseline/config.yaml: risk-based lots, stop and\n# target orders, trailing stop, partial close, 1-pip spread, $10,000 account.\n# Frozen 2026-09-26 models; the chain strategies now take only --param cash.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 LOKY_MAX_CPU_COUNT=4\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" \"$PILOT/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n# October\u2013December canonical event months into the pilot data root (completed .done only),\n# then event features for 2015-10-01..2015-12-01 so the November hybrid run has its last\n# bar's decision minute (2015-12-01 00:00 UTC) covered.\nstage link-event-months\nfor month in 10 11 12; do\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=2015/month=$month\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015/month=$month\"\ndone\nstage build-event-features-oct-nov\nuv run algo-score events --kind gdelt --from 2015-10-01 --to 2015-12-01 > \"$JOB/event-features.log\" 2>&1\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\nfor window in \"2015-09-01 2015-09-30\" \"2015-10-01 2015-10-31\" \"2015-11-01 2015-11-30\"; do\n  set -- $window; from=$1; to=$2; tag=${from:0:7}\n  for strategy in baseline hybrid; do\n    stage \"$strategy-$tag\"\n    uv run algo-backtest run --strategy $strategy --symbol EURUSD --from $from --to $to \\\n      --param cash=10000 --model \"$PILOT/$strategy-f7.json\" --timeout 14400 \\\n      > \"$JOB/$strategy-$tag.log\" 2>&1\n  done\ndone\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 execution-realism rerun of September 2015 (then October\u2013November) with the\n# reference plan from strategies/baseline/config.yaml: risk-based lots, stop and\n# target orders, trailing stop, partial close, 1-pip spread, $10,000 account.\n# Frozen 2026-09-26 models; the chain strategies now take only --param cash.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 LOKY_MAX_CPU_COUNT=4\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" \"$PILOT/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n# October\u2013December canonical event months into the pilot data root (completed .done only),\n# then event features for 2015-10-01..2015-12-01 so the November hybrid run has its last\n# bar's decision minute (2015-12-01 00:00 UTC) covered.\nstage link-event-months\nfor month in 10 11 12; do\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=2015/month=$month\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015/month=$month\"\ndone\nstage build-event-features-oct-nov\nuv run algo-score events --kind gdelt --from 2015-10-01 --to 2015-12-01 > \"$JOB/event-features.log\" 2>&1\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\nfor window in \"2015-09-01 2015-09-30\" \"2015-10-01 2015-10-31\" \"2015-11-01 2015-11-30\"; do\n  set -- $window; from=$1; to=$2; tag=${from:0:7}\n  for strategy in baseline hybrid; do\n    stage \"$strategy-$tag\"\n    uv run algo-backtest run --strategy $strategy --symbol EURUSD --from $from --to $to \\\n      --param cash=10000 --model \"$PILOT/$strategy-f7.json\" --timeout 14400 \\\n      > \"$JOB/$strategy-$tag.log\" 2>&1\n  done\ndone\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism/status.txt",
@@ -284,8 +284,8 @@
       "name": "2026-09-27-variant-sweep-sept",
       "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept",
       "files": {
-        "a05-conservative-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-conservative-2015-09.log",
+        "reference-conservative-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-conservative-2015-09.log",
           "status": "present",
           "sha256": "507e3db4b952533022900fecb835d23badcbfd60e19f8c3c9a7359fb43718c46",
           "bytes": 5977,
@@ -295,51 +295,51 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 9,919.45",
             "statement: Equity (engine-reported): 9,919.46",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/report.html"
           ],
           "identity_lines": [
-            "run[a05-conservative]: success=True closed_trades=3 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/main.json"
+            "run[reference-conservative]: success=True closed_trades=3 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/main.json"
           ]
         },
-        "a05-conservative-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-conservative-parameters.txt",
+        "reference-conservative-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-conservative-parameters.txt",
           "status": "present",
           "sha256": "fc42eb958f0b3fca9025f729d5b70165bc4400ae44ccd64ee3a2ceb11a4a371d",
           "bytes": 2841,
           "mtime_utc": "2026-09-27T23:56:37.158Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # a05-conservative/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # a05-conservative/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # a05-conservative/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # a05-conservative/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.0  # a05-conservative/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 15  # a05-conservative/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.6  # a05-conservative/config.yaml\nmeta_learner.theta_low = 0.4  # a05-conservative/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # a05-conservative/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # reference-conservative/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # reference-conservative/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # reference-conservative/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # reference-conservative/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.0  # reference-conservative/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 15  # reference-conservative/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.6  # reference-conservative/config.yaml\nmeta_learner.theta_low = 0.4  # reference-conservative/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # reference-conservative/config.yaml\n"
         },
-        "a05-gated-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-gated-2015-09.log",
+        "reference-gated-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-gated-2015-09.log",
           "status": "present",
           "sha256": "21dc55f639437951da8b1e14e822f608171861487e3f04ee9977b88072904bf9",
           "bytes": 4228,
           "mtime_utc": "2026-09-27T23:56:38.304Z",
           "tail": [
-            "strategy[a05-gated] price_features.rsi_period = 14  # baseline/config.yaml",
-            "strategy[a05-gated] price_features.swing_lookback_bars = 60  # baseline/config.yaml",
-            "strategy[a05-gated] risk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml",
-            "strategy[a05-gated] risk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml",
-            "strategy[a05-gated] risk_guard.max_leverage = 30  # baseline/config.yaml",
-            "strategy[a05-gated] risk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml",
-            "strategy[a05-gated] risk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml",
-            "strategy[a05-gated] schema_version = 2  # a05-gated/config.yaml"
+            "strategy[reference-gated] price_features.rsi_period = 14  # baseline/config.yaml",
+            "strategy[reference-gated] price_features.swing_lookback_bars = 60  # baseline/config.yaml",
+            "strategy[reference-gated] risk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml",
+            "strategy[reference-gated] risk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml",
+            "strategy[reference-gated] risk_guard.max_leverage = 30  # baseline/config.yaml",
+            "strategy[reference-gated] risk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml",
+            "strategy[reference-gated] risk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml",
+            "strategy[reference-gated] schema_version = 2  # reference-gated/config.yaml"
           ],
           "identity_lines": []
         },
-        "a05-gated-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-gated-parameters.txt",
+        "reference-gated-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-gated-parameters.txt",
           "status": "present",
           "sha256": "d5009558bc081af090fa14b019d47ef312fbe76ba816552a51d321a91114f7f3",
           "bytes": 2772,
           "mtime_utc": "2026-09-27T23:56:36.062Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = true  # a05-gated/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # a05-gated/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = true  # reference-gated/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # reference-gated/config.yaml\n"
         },
-        "a05-risk1-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-risk1-2015-09.log",
+        "reference-risk1-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-risk1-2015-09.log",
           "status": "present",
           "sha256": "82a54bf35221bff2de4699ade54f80d1a4bbbde3ea136fdf0f47b8bd98e00764",
           "bytes": 5573,
@@ -349,25 +349,25 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 4,471.52",
             "statement: Equity (engine-reported): 4,471.51",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/report.html"
           ],
           "identity_lines": [
-            "run[a05-risk1]: success=True closed_trades=552 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/main.json"
+            "run[reference-risk1]: success=True closed_trades=552 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/main.json"
           ]
         },
-        "a05-risk1-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-risk1-parameters.txt",
+        "reference-risk1-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-risk1-parameters.txt",
           "status": "present",
           "sha256": "53e25116ec964b47cbf60c264e6440399b224b336301b7b101870505f4d2b5aa",
           "bytes": 2773,
           "mtime_utc": "2026-09-27T23:56:32.635Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # a05-risk1/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # a05-risk1/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # reference-risk1/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # reference-risk1/config.yaml\n"
         },
-        "a05-selective-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-selective-2015-09.log",
+        "reference-selective-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-selective-2015-09.log",
           "status": "present",
           "sha256": "8c0083a0a53b6fe7b31e0c25b6d105a353f6b3e359f0161464329d4c4b5ca133",
           "bytes": 5776,
@@ -377,25 +377,25 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 9,623.57",
             "statement: Equity (engine-reported): 9,623.58",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/report.html"
           ],
           "identity_lines": [
-            "run[a05-selective]: success=True closed_trades=6 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/main.json"
+            "run[reference-selective]: success=True closed_trades=6 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/main.json"
           ]
         },
-        "a05-selective-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-selective-parameters.txt",
+        "reference-selective-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-selective-parameters.txt",
           "status": "present",
           "sha256": "c388515414fdf7f60f17ee1ecf58dcffddd5be3dce3fbea4796006f8c01da2bd",
           "bytes": 2784,
           "mtime_utc": "2026-09-27T23:56:34.897Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.6  # a05-selective/config.yaml\nmeta_learner.theta_low = 0.4  # a05-selective/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # a05-selective/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.2  # baseline/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.6  # reference-selective/config.yaml\nmeta_learner.theta_low = 0.4  # reference-selective/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # reference-selective/config.yaml\n"
         },
-        "a05-wide-stop-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-wide-stop-2015-09.log",
+        "reference-wide-stop-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-wide-stop-2015-09.log",
           "status": "present",
           "sha256": "1acf3b1b40f6d6ac5982b883b68d8f4156a6f7520c28bd885f8e9cd6755b9a72",
           "bytes": 5790,
@@ -405,22 +405,22 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 8,234.67",
             "statement: Equity (engine-reported): 8,234.67",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/report.html"
           ],
           "identity_lines": [
-            "run[a05-wide-stop]: success=True closed_trades=14 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/main.json"
+            "run[reference-wide-stop]: success=True closed_trades=14 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/main.json"
           ]
         },
-        "a05-wide-stop-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/a05-wide-stop-parameters.txt",
+        "reference-wide-stop-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/reference-wide-stop-parameters.txt",
           "status": "present",
           "sha256": "0e207a0ebdbae368b0fb85bd17dcda5684cfa270ca6fe1bec40f86d0b17a30eb",
           "bytes": 2795,
           "mtime_utc": "2026-09-27T23:56:33.819Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # a05-wide-stop/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # a05-wide-stop/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # a05-wide-stop/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.0  # a05-wide-stop/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # a05-wide-stop/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # reference-wide-stop/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # baseline/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # reference-wide-stop/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # reference-wide-stop/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.0  # reference-wide-stop/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # baseline/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": -0.66}]  # baseline/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # reference-wide-stop/config.yaml\n"
         },
         "git-revision.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/git-revision.txt",
@@ -455,7 +455,7 @@
           "sha256": "ad2e56bf5fa22cea8a3457b63667bae9676b31ac1e42e8d0cf821e177220ae43",
           "bytes": 1583,
           "mtime_utc": "2026-09-27T23:56:23.056Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 September-2015 variant sweep: five YAML variants extending baseline (each one\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 September-2015 variant sweep: five YAML variants extending baseline (each one\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in reference-risk1 reference-wide-stop reference-selective reference-gated reference-conservative; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in reference-risk1 reference-wide-stop reference-selective reference-gated reference-conservative; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/status.txt",
@@ -467,45 +467,45 @@
         }
       },
       "strategies": {
-        "a05-conservative": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/a05-conservative/config.yaml",
+        "reference-conservative": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/reference-conservative/config.yaml",
           "status": "present",
           "sha256": "ff444f6be434350c8b330980ac167698ea52750cfa93c3203903ce4e2c204451",
           "bytes": 465,
           "mtime_utc": "2026-09-27T23:56:23.050Z",
-          "text": "# a05-conservative: 1% risk + ATR stop floor 10 pips + thresholds 0.60/0.40 + 15-bar minimum hold: the combination.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 2.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.0\nmeta_learner:\n  theta_high: 0.60\n  theta_low: 0.40\nexecution:\n  min_hold_bars: 15\n"
+          "text": "# reference-conservative: 1% risk + ATR stop floor 10 pips + thresholds 0.60/0.40 + 15-bar minimum hold: the combination.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 2.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.0\nmeta_learner:\n  theta_high: 0.60\n  theta_low: 0.40\nexecution:\n  min_hold_bars: 15\n"
         },
-        "a05-gated": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/a05-gated/config.yaml",
+        "reference-gated": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/reference-gated/config.yaml",
           "status": "present",
           "sha256": "67961729987871b48c98631b017a6f7c0b881094f4fdfdc1f6afbbdc9baec8ac",
           "bytes": 263,
           "mtime_utc": "2026-09-27T23:56:23.050Z",
-          "text": "# a05-gated: Baseline with the dissertation's regime gate on: BUY needs F1 bull, SELL F1 bear.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\nmeta_learner:\n  regime_gate: true\n"
+          "text": "# reference-gated: Baseline with the dissertation's regime gate on: BUY needs F1 bull, SELL F1 bear.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\nmeta_learner:\n  regime_gate: true\n"
         },
-        "a05-risk1": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/a05-risk1/config.yaml",
+        "reference-risk1": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/reference-risk1/config.yaml",
           "status": "present",
           "sha256": "eb3c3b7b0e90037f48c997a34b48fd1879070d9d19c3617f8e44b7b53fe602ce",
           "bytes": 266,
           "mtime_utc": "2026-09-27T23:56:23.050Z",
-          "text": "# a05-risk1: Baseline A05 plan with 1% risk per trade instead of 3%: isolates position sizing.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n"
+          "text": "# reference-risk1: Baseline reference plan with 1% risk per trade instead of 3%: isolates position sizing.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n"
         },
-        "a05-selective": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/a05-selective/config.yaml",
+        "reference-selective": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/reference-selective/config.yaml",
           "status": "present",
           "sha256": "f6f2623a08f612f9d0a1c7cb8070d08c8b7e192a5491c0189d3c3a56e97fd06b",
           "bytes": 278,
           "mtime_utc": "2026-09-27T23:56:23.050Z",
-          "text": "# a05-selective: Baseline with tighter F7 thresholds 0.60/0.40: isolates signal selectivity.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\nmeta_learner:\n  theta_high: 0.60\n  theta_low: 0.40\n"
+          "text": "# reference-selective: Baseline with tighter F7 thresholds 0.60/0.40: isolates signal selectivity.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\nmeta_learner:\n  theta_high: 0.60\n  theta_low: 0.40\n"
         },
-        "a05-wide-stop": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/a05-wide-stop/config.yaml",
+        "reference-wide-stop": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies/reference-wide-stop/config.yaml",
           "status": "present",
           "sha256": "644c8fbff0aa1d22682309da6b67d390855c046d2c86a379e629ddae82c06a34",
           "bytes": 347,
           "mtime_utc": "2026-09-27T23:56:23.050Z",
-          "text": "# a05-wide-stop: Baseline with an ATR stop (2 x ATR14, floor 10 pips, no shrink): isolates stop width.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_distance_source: atr\n  atr_multiplier: 2.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.0\n"
+          "text": "# reference-wide-stop: Baseline with an ATR stop (2 x ATR14, floor 10 pips, no shrink): isolates stop width.\n# Variant sweep, September 2015, frozen pilot baseline model (story 12 selectivity experiments).\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_distance_source: atr\n  atr_multiplier: 2.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.0\n"
         }
       }
     },
@@ -686,7 +686,7 @@
           "sha256": "a97cfc138bd0dc89446354361c3a28761857d6c488c0580ea8836cc02b98f3bf",
           "bytes": 624,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# ha-h1-template: the Heikin-Ashi H1 template plan on the M1 chain: stop cut 50%, no middle target, trail 1.0R -> -0.66R then 1.5R -> breakeven, final target 3R closes all, entry deviation guard absent (not a YAML key yet).\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
+          "text": "# ha-h1-template: the Heikin-Ashi H1 template plan on the M1 chain: stop cut 50%, no middle target, trail 1.0R -> -0.66R then 1.5R -> breakeven, final target 3R closes all, entry deviation guard absent (not a YAML key yet).\n# Source: the Spring version's templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
         },
         "ha-h1-template-atr": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-h1-template-atr/config.yaml",
@@ -694,7 +694,7 @@
           "sha256": "181d4228524e377d92fb64211096352658fda29812f294fd6f7d0988491598c4",
           "bytes": 616,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# ha-h1-template-atr: the Heikin-Ashi H1 template plan with an ATR stop (2 x ATR14, floor 10 pips) before the 50% cut, 1% risk: the H4-like stop width on M1.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 4.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
+          "text": "# ha-h1-template-atr: the Heikin-Ashi H1 template plan with an ATR stop (2 x ATR14, floor 10 pips) before the 50% cut, 1% risk: the H4-like stop width on M1.\n# Source: the Spring version's templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 4.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
         },
         "ha-1r2r-template": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-1r2r-template/config.yaml",
@@ -702,7 +702,7 @@
           "sha256": "89844318226adf766b8b7e11b3f9189a0fd4d228b2faa01350572e67ac9e1274",
           "bytes": 534,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# ha-1r2r-template: the 1R/2R template plan on the M1 chain: stop cut 50%, middle target 1R closes 50%, trail 1.0R -> breakeven, final target 2R.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 2.0, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: 0.0}\n  min_reward_risk: 2.0\n"
+          "text": "# ha-1r2r-template: the 1R/2R template plan on the M1 chain: stop cut 50%, middle target 1R closes 50%, trail 1.0R -> breakeven, final target 2R.\n# Source: the Spring version's templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 2.0, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: 0.0}\n  min_reward_risk: 2.0\n"
         },
         "ha-setup-template": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-setup-template/config.yaml",
@@ -710,7 +710,7 @@
           "sha256": "99793c50052a030d36163555b5abdb09c9a1e107a4629225e42091236ebb2ba0",
           "bytes": 532,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# ha-setup-template: the setup template plan on the M1 chain: middle target 1R closes 50%, trail 0.5R -> breakeven, final target 1.5R; stop cut 50%.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 1.5, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 0.5, to_level_ratio: 0.0}\n  min_reward_risk: 1.5\n"
+          "text": "# ha-setup-template: the setup template plan on the M1 chain: middle target 1R closes 50%, trail 0.5R -> breakeven, final target 1.5R; stop cut 50%.\n# Source: the Spring version's templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 1.5, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 0.5, to_level_ratio: 0.0}\n  min_reward_risk: 1.5\n"
         }
       }
     },
@@ -871,7 +871,7 @@
           "sha256": "0850699e6f591729ba6a61f0773f5ac297add14282246c8c88c01a40755eb234",
           "bytes": 3882,
           "mtime_utc": "2026-09-27T23:53:07.998Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 main experiment \u2014 one-year training protocol (registered 2026-09-27 with the user):\n#   family fitting     2015-03-02 .. 2015-12-31  (GDELT 2.0 collection starts 2015-02-18; March is the first full month)\n#   combiner calibration 2016-01-01 .. 2016-01-31   (thresholds checked here, before simulation)\n#   held-out partition 2016-02-01 .. 2016-02-29   (trainer only, no replay)\n#   simulation         2016-03-01 .. 2016-10-31   one continuous run per strategy, $10,000, A05 plan\n#   (October 2016 finished ingesting 2026-09-27 evening and was added before the job's first stage completed)\n# Isolated data root: completed canonical GDELT months 2015-03..2016-10 linked in, own features.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol\nexport ALGO_DATA_ROOT=\"$JOB/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 LOKY_MAX_CPU_COUNT=6\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\n\nstage link-data\nmkdir -p \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2016\"\nln -sfn \"$SUITE_DATA/parquet/forex\" \"$ALGO_DATA_ROOT/parquet/forex\"\nln -sfn \"$SUITE_DATA/lean-data\" \"$ALGO_DATA_ROOT/lean-data\"\nfor ym in 2015-03 2015-04 2015-05 2015-06 2015-07 2015-08 2015-09 2015-10 2015-11 2015-12 \\\n          2016-01 2016-02 2016-03 2016-04 2016-05 2016-06 2016-07 2016-08 2016-09 2016-10; do\n  y=${ym%-*}; m=${ym#*-}\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=$y/month=$m\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=$y/month=$m\"\ndone\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n\nstage build-event-features\n# Through 2016-11-01 so the last October bar's decision minute (2016-11-01 00:00 UTC) is covered;\n# month 2016-11 is a partial feature partition (one minute of 2016-11-01), never a training input.\nuv run algo-score events --kind gdelt --from 2015-03-01 --to 2016-11-01 > \"$JOB/event-features.log\" 2>&1\n\nstage train-baseline+hybrid\nuv run python algo-backtest/scripts/train_baseline_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/baseline-f7.json\" > \"$JOB/baseline-training.log\" 2>&1 &\nuv run python algo-backtest/scripts/train_hybrid_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/hybrid-f7.json\" > \"$JOB/hybrid-training.log\" 2>&1 &\nwait\nsha256sum \"$JOB/baseline-f7.json\" \"$JOB/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\n\nstage calibrate-thresholds-jan2016\n# Pre-registered rule: keep theta 0.55/0.45 with the gate off unless the January-2016 validation\n# hit rate at 0.55/0.45 is below 0.5; the grid is recorded either way and never uses 2016 data.\nCALIB_JOB=\"$JOB\" uv run python \"$JOB/calibrate_thresholds.py\" \"$JOB/threshold-calibration.json\" > \"$JOB/calibration.log\" 2>&1\n\nstage \"baseline+hybrid-2016-03..10\"\nfor strategy in baseline hybrid; do\n  uv run algo-backtest run --strategy $strategy --symbol EURUSD --from 2016-03-01 --to 2016-10-31 \\\n    --param cash=10000 --model \"$JOB/$strategy-f7.json\" --timeout 43200 \\\n    > \"$JOB/$strategy-simulation.log\" 2>&1 &\ndone\nwait\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 main experiment \u2014 one-year training protocol (registered 2026-09-27 with the user):\n#   family fitting     2015-03-02 .. 2015-12-31  (GDELT 2.0 collection starts 2015-02-18; March is the first full month)\n#   combiner calibration 2016-01-01 .. 2016-01-31   (thresholds checked here, before simulation)\n#   held-out partition 2016-02-01 .. 2016-02-29   (trainer only, no replay)\n#   simulation         2016-03-01 .. 2016-10-31   one continuous run per strategy, $10,000, reference plan\n#   (October 2016 finished ingesting 2026-09-27 evening and was added before the job's first stage completed)\n# Isolated data root: completed canonical GDELT months 2015-03..2016-10 linked in, own features.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol\nexport ALGO_DATA_ROOT=\"$JOB/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 LOKY_MAX_CPU_COUNT=6\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\n\nstage link-data\nmkdir -p \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2016\"\nln -sfn \"$SUITE_DATA/parquet/forex\" \"$ALGO_DATA_ROOT/parquet/forex\"\nln -sfn \"$SUITE_DATA/lean-data\" \"$ALGO_DATA_ROOT/lean-data\"\nfor ym in 2015-03 2015-04 2015-05 2015-06 2015-07 2015-08 2015-09 2015-10 2015-11 2015-12 \\\n          2016-01 2016-02 2016-03 2016-04 2016-05 2016-06 2016-07 2016-08 2016-09 2016-10; do\n  y=${ym%-*}; m=${ym#*-}\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=$y/month=$m\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=$y/month=$m\"\ndone\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n\nstage build-event-features\n# Through 2016-11-01 so the last October bar's decision minute (2016-11-01 00:00 UTC) is covered;\n# month 2016-11 is a partial feature partition (one minute of 2016-11-01), never a training input.\nuv run algo-score events --kind gdelt --from 2015-03-01 --to 2016-11-01 > \"$JOB/event-features.log\" 2>&1\n\nstage train-baseline+hybrid\nuv run python algo-backtest/scripts/train_baseline_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/baseline-f7.json\" > \"$JOB/baseline-training.log\" 2>&1 &\nuv run python algo-backtest/scripts/train_hybrid_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/hybrid-f7.json\" > \"$JOB/hybrid-training.log\" 2>&1 &\nwait\nsha256sum \"$JOB/baseline-f7.json\" \"$JOB/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\n\nstage calibrate-thresholds-jan2016\n# Pre-registered rule: keep theta 0.55/0.45 with the gate off unless the January-2016 validation\n# hit rate at 0.55/0.45 is below 0.5; the grid is recorded either way and never uses 2016 data.\nCALIB_JOB=\"$JOB\" uv run python \"$JOB/calibrate_thresholds.py\" \"$JOB/threshold-calibration.json\" > \"$JOB/calibration.log\" 2>&1\n\nstage \"baseline+hybrid-2016-03..10\"\nfor strategy in baseline hybrid; do\n  uv run algo-backtest run --strategy $strategy --symbol EURUSD --from 2016-03-01 --to 2016-10-31 \\\n    --param cash=10000 --model \"$JOB/$strategy-f7.json\" --timeout 43200 \\\n    > \"$JOB/$strategy-simulation.log\" 2>&1 &\ndone\nwait\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol/status.txt",
@@ -1366,8 +1366,8 @@
   ],
   "runs": [
     {
-      "key": "2026-09-26-six-month-pilot/a05-conservative/20260927T235638-8b7718142b17",
-      "run_id": "a05-conservative/20260927T235638-8b7718142b17",
+      "key": "2026-09-26-six-month-pilot/reference-conservative/20260927T235638-8b7718142b17",
+      "run_id": "reference-conservative/20260927T235638-8b7718142b17",
       "job": "2026-09-27-variant-sweep-sept",
       "status": "successful",
       "model_sha256_engine": [
@@ -1382,13 +1382,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/run.json",
           "status": "present",
           "sha256": "3d8856722db39fd6fe3f520b448e9523126233e1b2827b7548cabd7d80283289",
           "bytes": 312,
           "mtime_utc": "2026-09-28T00:26:19.330Z",
           "value": {
-            "strategy": "a05-conservative",
+            "strategy": "reference-conservative",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -1402,7 +1402,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/metrics.json",
           "status": "present",
           "sha256": "547333f8dab715d740cf1e214194bb47bb562a6c9ab9c7bf616e6d8035fecb52",
           "bytes": 95,
@@ -1415,7 +1415,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/strategy-config.json",
           "status": "present",
           "sha256": "ad0dd6643e351ae2ba60aa423114391a34bba042e8eed10ff5e423ebefc2b5d7",
           "bytes": 1813,
@@ -1510,7 +1510,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/strategy-config.yaml",
           "status": "present",
           "sha256": "1c9664ee2f852143dda68aad384f5338906320ea10216b8ebd2c4a85e945b1a0",
           "bytes": 1348,
@@ -1518,29 +1518,29 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 10.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.0\n  targets:\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: -0.66\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 15\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.6\n  theta_low: 0.4\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/strategy-provenance.json",
           "status": "present",
           "sha256": "833ef66fb508f6da57bacefd8cf85172829e67d9f88b275cea7740f6e4f50159",
           "bytes": 2488,
           "mtime_utc": "2026-09-27T23:56:38.371Z",
           "value": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "a05-conservative/config.yaml",
+            "capital_mgmt.atr_multiplier": "reference-conservative/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
             "capital_mgmt.min_reward_risk": "baseline/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "a05-conservative/config.yaml",
+            "capital_mgmt.min_stop_pips": "reference-conservative/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "a05-conservative/config.yaml",
-            "capital_mgmt.stop_distance_source": "a05-conservative/config.yaml",
+            "capital_mgmt.risk_per_trade": "reference-conservative/config.yaml",
+            "capital_mgmt.stop_distance_source": "reference-conservative/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "a05-conservative/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "reference-conservative/config.yaml",
             "capital_mgmt.targets": "baseline/config.yaml",
             "capital_mgmt.trail_stops": "baseline/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
-            "execution.min_hold_bars": "a05-conservative/config.yaml",
+            "execution.min_hold_bars": "reference-conservative/config.yaml",
             "execution.spread_pips": "baseline/config.yaml",
             "filters": "baseline/config.yaml",
             "indicator.macd_hist_threshold": "baseline/config.yaml",
@@ -1548,8 +1548,8 @@
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
             "meta_learner.regime_gate": "baseline/config.yaml",
-            "meta_learner.theta_high": "a05-conservative/config.yaml",
-            "meta_learner.theta_low": "a05-conservative/config.yaml",
+            "meta_learner.theta_high": "reference-conservative/config.yaml",
+            "meta_learner.theta_low": "reference-conservative/config.yaml",
             "pattern.bearish_patterns": "baseline/config.yaml",
             "pattern.bullish_patterns": "baseline/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
@@ -1566,11 +1566,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "a05-conservative/config.yaml"
+            "schema_version": "reference-conservative/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -1588,7 +1588,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/main-log.txt",
           "status": "present",
           "sha256": "3d28ffe4db7605bd4d3529a452b07a2905833264262279cd5d9a5d875a98edc0",
           "bytes": 365104,
@@ -1609,7 +1609,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/log.txt",
           "status": "present",
           "sha256": "b3c91be85e6a054dfd284b78938758f5b1f0f5a1efb6b39e18c459c2dc349c1e",
           "bytes": 602135,
@@ -1630,49 +1630,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/equity.csv",
           "status": "present",
           "sha256": "e8ef6e15c265321b65bbb8803e2724c2b69793a7df0caeca066ecee82888333e",
           "bytes": 159009,
           "mtime_utc": "2026-09-28T00:26:19.815Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/trades.json",
           "status": "present",
           "sha256": "4bd6ea3c1fafd92a81293134ac51fedb6e06a5eb479b5ca4f6cebcad385add6b",
           "bytes": 1802,
           "mtime_utc": "2026-09-28T00:26:19.330Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/trade-plans.json",
           "status": "present",
           "sha256": "a3fb2cd690536abf8a0a3ca6e7a0b7b828a7294e93c511866ff17c5546d0f00e",
           "bytes": 1709,
           "mtime_utc": "2026-09-28T00:26:12.945Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/main.json",
           "status": "present",
           "sha256": "73f245d6827c8b009b8396cedf4e146db5135f1d677dbd9f9b0f1f51dad0e2f0",
           "bytes": 211112,
           "mtime_utc": "2026-09-28T00:26:13.078Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/main-summary.json",
           "status": "present",
           "sha256": "74c5abf8d8bb2de79544405c759b657090f03f19370ad5ea8f7367b7db7ed9d1",
           "bytes": 4888,
           "mtime_utc": "2026-09-28T00:26:12.976Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/statement.md",
           "status": "present",
           "sha256": "1e8b06b897977c0642714fc5b3e5c5a5f689355d6d93038a4ac9f1ea205ce0f7",
           "bytes": 5113,
           "mtime_utc": "2026-09-28T00:26:19.806Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-conservative/20260927T235638-8b7718142b17/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-conservative/20260927T235638-8b7718142b17/decisions.parquet",
           "status": "present",
           "sha256": "6ca9f1820ce6b847856e205ff376d80057b9bb3816c9dc6c523806ab4d838825",
           "bytes": 5503720,
@@ -1800,16 +1800,16 @@
           "missing_values": [],
           "provenance": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "a05-conservative/config.yaml",
+            "capital_mgmt.atr_multiplier": "reference-conservative/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
             "capital_mgmt.min_reward_risk": "baseline/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "a05-conservative/config.yaml",
+            "capital_mgmt.min_stop_pips": "reference-conservative/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "a05-conservative/config.yaml",
-            "capital_mgmt.stop_distance_source": "a05-conservative/config.yaml",
+            "capital_mgmt.risk_per_trade": "reference-conservative/config.yaml",
+            "capital_mgmt.stop_distance_source": "reference-conservative/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "a05-conservative/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "reference-conservative/config.yaml",
             "capital_mgmt.targets": "baseline/config.yaml",
             "capital_mgmt.trail_stops": "baseline/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
@@ -1835,8 +1835,8 @@
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
             "meta_learner.regime_gate": "baseline/config.yaml",
-            "meta_learner.theta_high": "a05-conservative/config.yaml",
-            "meta_learner.theta_low": "a05-conservative/config.yaml"
+            "meta_learner.theta_high": "reference-conservative/config.yaml",
+            "meta_learner.theta_low": "reference-conservative/config.yaml"
           }
         },
         "shared_execution": {
@@ -1852,7 +1852,7 @@
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
-            "execution.min_hold_bars": "a05-conservative/config.yaml",
+            "execution.min_hold_bars": "reference-conservative/config.yaml",
             "execution.spread_pips": "baseline/config.yaml"
           }
         },
@@ -1865,8 +1865,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/a05-gated/20260927T235638-8b7715be556a",
-      "run_id": "a05-gated/20260927T235638-8b7715be556a",
+      "key": "2026-09-26-six-month-pilot/reference-gated/20260927T235638-8b7715be556a",
+      "run_id": "reference-gated/20260927T235638-8b7715be556a",
       "job": "2026-09-27-variant-sweep-sept",
       "status": "running_no_final_manifest",
       "model_sha256_engine": [
@@ -1879,19 +1879,19 @@
         "link_basis": "job script --model, matching engine hash when available; not inferred from current strategy defaults"
       },
       "processes": [
-        "1117094 1116350    2364 uv run algo-backtest run --strategy a05-gated --strategies-dir /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/baseline-f7.json --timeout 14400"
+        "1117094 1116350    2364 uv run algo-backtest run --strategy reference-gated --strategies-dir /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/baseline-f7.json --timeout 14400"
       ],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/run.json",
           "status": "missing"
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/metrics.json",
           "status": "missing"
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/strategy-config.json",
           "status": "present",
           "sha256": "d5039f5b05fa716e2202e29f85ab8e7dde99bd0241029bbbe78f631567574cb4",
           "bytes": 1814,
@@ -1986,7 +1986,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/strategy-config.yaml",
           "status": "present",
           "sha256": "5ea0edcd61d6f12a954fab8155331a3cfe28a6332d4ec67d2ddbcd55294b3cd7",
           "bytes": 1349,
@@ -1994,7 +1994,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.2\n  targets:\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: -0.66\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: true\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/strategy-provenance.json",
           "status": "present",
           "sha256": "88fd38e798785fac0a24e8c46912f4642697ccd93967c61d9fa11474e0f684ea",
           "bytes": 2418,
@@ -2023,7 +2023,7 @@
             "indicator.rsi_midline": "baseline/config.yaml",
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
-            "meta_learner.regime_gate": "a05-gated/config.yaml",
+            "meta_learner.regime_gate": "reference-gated/config.yaml",
             "meta_learner.theta_high": "baseline/config.yaml",
             "meta_learner.theta_low": "baseline/config.yaml",
             "pattern.bearish_patterns": "baseline/config.yaml",
@@ -2042,19 +2042,19 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "a05-gated/config.yaml"
+            "schema_version": "reference-gated/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/inference-inputs.json",
           "status": "missing"
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/main-log.txt",
           "status": "missing"
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/log.txt",
           "status": "present",
           "sha256": "62dd04254b8df1e1a2d8c1491cc9b0b1a101919631d567a8b1b5b9468457a7ac",
           "bytes": 194091,
@@ -2075,34 +2075,34 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/equity.csv",
           "status": "missing"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/trades.json",
           "status": "missing"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/trade-plans.json",
           "status": "missing"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/main.json",
           "status": "present",
           "sha256": "a214d2889392a2bae1bcff7a0a2261cdc37bf20dcb6364377a3a3e78d0c04787",
           "bytes": 69926,
           "mtime_utc": "2026-09-28T00:35:54.148Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/main-summary.json",
           "status": "missing"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/statement.md",
           "status": "missing"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-gated/20260927T235638-8b7715be556a/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-gated/20260927T235638-8b7715be556a/decisions.parquet",
           "status": "missing"
         }
       },
@@ -2261,7 +2261,7 @@
           "provenance": {
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
-            "meta_learner.regime_gate": "a05-gated/config.yaml",
+            "meta_learner.regime_gate": "reference-gated/config.yaml",
             "meta_learner.theta_high": "baseline/config.yaml",
             "meta_learner.theta_low": "baseline/config.yaml"
           }
@@ -2290,8 +2290,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/a05-risk1/20260927T235638-8b7718193cae",
-      "run_id": "a05-risk1/20260927T235638-8b7718193cae",
+      "key": "2026-09-26-six-month-pilot/reference-risk1/20260927T235638-8b7718193cae",
+      "run_id": "reference-risk1/20260927T235638-8b7718193cae",
       "job": "2026-09-27-variant-sweep-sept",
       "status": "successful",
       "model_sha256_engine": [
@@ -2306,13 +2306,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/run.json",
           "status": "present",
           "sha256": "2eb9c244e944763486165dd7bc34c653e1273efc787f66719bbd03fbac8767ca",
           "bytes": 307,
           "mtime_utc": "2026-09-28T00:10:29.066Z",
           "value": {
-            "strategy": "a05-risk1",
+            "strategy": "reference-risk1",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -2326,7 +2326,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/metrics.json",
           "status": "present",
           "sha256": "db59a7d8050c10abb954eca19f3eaff0cb726152ede16dfb5f898abbda365cbf",
           "bytes": 97,
@@ -2339,7 +2339,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/strategy-config.json",
           "status": "present",
           "sha256": "eeaf99617c766d8d9f273957b83360dc875794cb1be69bb2b331f2c683e76b62",
           "bytes": 1815,
@@ -2434,7 +2434,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/strategy-config.yaml",
           "status": "present",
           "sha256": "f8b3e953e069b78120d1dc4fed117410210a54322733fd89f0ca51f8a67486dc",
           "bytes": 1350,
@@ -2442,7 +2442,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.01\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.2\n  targets:\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: -0.66\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/strategy-provenance.json",
           "status": "present",
           "sha256": "9724d62cd6fafb1ce65a6020f203ce692acee6016f4d36a4e7ec9471c06e4c80",
           "bytes": 2418,
@@ -2455,7 +2455,7 @@
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "a05-risk1/config.yaml",
+            "capital_mgmt.risk_per_trade": "reference-risk1/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
             "capital_mgmt.stop_loss_shrink": "baseline/config.yaml",
@@ -2490,11 +2490,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "a05-risk1/config.yaml"
+            "schema_version": "reference-risk1/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -2512,7 +2512,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/main-log.txt",
           "status": "present",
           "sha256": "c5a7a70f4c4468d17f1d125ed5c4550e058d54d8d3f8c9066fed81763c53fab7",
           "bytes": 433760,
@@ -2533,7 +2533,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/log.txt",
           "status": "present",
           "sha256": "aaf38e86150ef9b2b6c3b84cd47f88a5b2bd6cd29d557deae7c6dd7b9bfedb7c",
           "bytes": 693183,
@@ -2554,49 +2554,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/equity.csv",
           "status": "present",
           "sha256": "436a6c5b886f9782c3036da26a3fdb810ed62bc5a41ab5c3683a7d6b87450974",
           "bytes": 157559,
           "mtime_utc": "2026-09-28T00:10:29.628Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/trades.json",
           "status": "present",
           "sha256": "b25c9cf65ed8f164e649a1120cd338d489f17d5bbe0fac3089593c27bf05d4a9",
           "bytes": 332520,
           "mtime_utc": "2026-09-28T00:10:29.065Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/trade-plans.json",
           "status": "present",
           "sha256": "5b7a126578cc618dfce43ba56fede29511492a5e7d6346543998107c5f9fccd8",
           "bytes": 310696,
           "mtime_utc": "2026-09-28T00:10:22.784Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/main.json",
           "status": "present",
           "sha256": "dfd8df59328bdaf89ea7046f5227a9b6a5ca01212e9aa10bafb41b09f735f3a7",
           "bytes": 2058832,
           "mtime_utc": "2026-09-28T00:10:22.944Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/main-summary.json",
           "status": "present",
           "sha256": "436416b60117d073153664b8df28e271e1198923d655685e54f9cc9c6585602f",
           "bytes": 4915,
           "mtime_utc": "2026-09-28T00:10:22.826Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/statement.md",
           "status": "present",
           "sha256": "e6494422b8bffe20a0c4510f8e5a035667b0a5fdbf3ae7011893f492049ae0ec",
           "bytes": 101395,
           "mtime_utc": "2026-09-28T00:10:29.620Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-risk1/20260927T235638-8b7718193cae/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-risk1/20260927T235638-8b7718193cae/decisions.parquet",
           "status": "present",
           "sha256": "1dfd80697e2d8aa0c72f1055b99b2d1e82ef8fb3727b35769709470bbeda423e",
           "bytes": 5736871,
@@ -2730,7 +2730,7 @@
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "a05-risk1/config.yaml",
+            "capital_mgmt.risk_per_trade": "reference-risk1/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
             "capital_mgmt.stop_loss_shrink": "baseline/config.yaml",
@@ -2789,8 +2789,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/a05-selective/20260927T235638-8b7712414b28",
-      "run_id": "a05-selective/20260927T235638-8b7712414b28",
+      "key": "2026-09-26-six-month-pilot/reference-selective/20260927T235638-8b7712414b28",
+      "run_id": "reference-selective/20260927T235638-8b7712414b28",
       "job": "2026-09-27-variant-sweep-sept",
       "status": "successful",
       "model_sha256_engine": [
@@ -2805,13 +2805,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/run.json",
           "status": "present",
           "sha256": "d2ac3fff4ea24414ff308706c95499ddb2a065570611b2f9a5657e61cce0cf11",
           "bytes": 309,
           "mtime_utc": "2026-09-28T00:06:53.240Z",
           "value": {
-            "strategy": "a05-selective",
+            "strategy": "reference-selective",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -2825,7 +2825,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/metrics.json",
           "status": "present",
           "sha256": "6117b64dd8ce7ec120cd3963aa08a85a2d0a6504d2d607d4dfe68b14c65c382f",
           "bytes": 97,
@@ -2838,7 +2838,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/strategy-config.json",
           "status": "present",
           "sha256": "e6d4fdb82649994d396bc6cdce10d78bba7902fbb741fe4aa413b3d865dc588b",
           "bytes": 1813,
@@ -2933,7 +2933,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/strategy-config.yaml",
           "status": "present",
           "sha256": "effb98bb845c3447ffbd927458c6bb3848f7f8a1371e26963bc8c54fd95ebf9f",
           "bytes": 1348,
@@ -2941,7 +2941,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.2\n  targets:\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: -0.66\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.6\n  theta_low: 0.4\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/strategy-provenance.json",
           "status": "present",
           "sha256": "749a40cd6514af13d80f2dd158bcd1ce0af068138b3316d435979417335e6bb6",
           "bytes": 2431,
@@ -2971,8 +2971,8 @@
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
             "meta_learner.regime_gate": "baseline/config.yaml",
-            "meta_learner.theta_high": "a05-selective/config.yaml",
-            "meta_learner.theta_low": "a05-selective/config.yaml",
+            "meta_learner.theta_high": "reference-selective/config.yaml",
+            "meta_learner.theta_low": "reference-selective/config.yaml",
             "pattern.bearish_patterns": "baseline/config.yaml",
             "pattern.bullish_patterns": "baseline/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
@@ -2989,11 +2989,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "a05-selective/config.yaml"
+            "schema_version": "reference-selective/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -3011,7 +3011,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/main-log.txt",
           "status": "present",
           "sha256": "69d22574d3d1c6aa2191e84c013ce34c20adc1ace4e26ecfd9709165918b9211",
           "bytes": 236221,
@@ -3032,7 +3032,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/log.txt",
           "status": "present",
           "sha256": "5a592af37c91d359be1ef8d4c1858389a4b0c552960cba37f6f39b2e61cf2fd2",
           "bytes": 392495,
@@ -3053,49 +3053,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/equity.csv",
           "status": "present",
           "sha256": "baa9c40835b6f48f0b191a607828dc47147c42d7234581cc1b11d7e2be16258e",
           "bytes": 157539,
           "mtime_utc": "2026-09-28T00:06:53.724Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/trades.json",
           "status": "present",
           "sha256": "e19d70458947d0af75806bad3167a87c54dd4435cd0f5498167573aed1156e08",
           "bytes": 3609,
           "mtime_utc": "2026-09-28T00:06:53.239Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/trade-plans.json",
           "status": "present",
           "sha256": "2a3041a409410235921f281c949555203318fcce865d1a5cb387f8e5ca60bc84",
           "bytes": 3438,
           "mtime_utc": "2026-09-28T00:06:47.023Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/main.json",
           "status": "present",
           "sha256": "3261dd3235b488af2e9ee56b1355851a0ccee8a4ec5b858c7f5b364d6a63d665",
           "bytes": 208950,
           "mtime_utc": "2026-09-28T00:06:47.153Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/main-summary.json",
           "status": "present",
           "sha256": "a77b3249f7bb107ec037d6a224e7aa360e0d87bb11b0338dc1efbd8457cb8969",
           "bytes": 4878,
           "mtime_utc": "2026-09-28T00:06:47.060Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/statement.md",
           "status": "present",
           "sha256": "0590028591eab1b6da8e15461fcb90d8138b2b7498255a5b559e6a5f725609ac",
           "bytes": 5583,
           "mtime_utc": "2026-09-28T00:06:53.714Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-selective/20260927T235638-8b7712414b28/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-selective/20260927T235638-8b7712414b28/decisions.parquet",
           "status": "present",
           "sha256": "45866584056b590b47529affacefcff67a9ba6e0f5536f33cccd197c1cb241f3",
           "bytes": 6861473,
@@ -3258,8 +3258,8 @@
             "meta_learner.families": "baseline/config.yaml",
             "meta_learner.label_horizon_minutes": "baseline/config.yaml",
             "meta_learner.regime_gate": "baseline/config.yaml",
-            "meta_learner.theta_high": "a05-selective/config.yaml",
-            "meta_learner.theta_low": "a05-selective/config.yaml"
+            "meta_learner.theta_high": "reference-selective/config.yaml",
+            "meta_learner.theta_low": "reference-selective/config.yaml"
           }
         },
         "shared_execution": {
@@ -3288,8 +3288,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/a05-wide-stop/20260927T235638-8b771e83f1e0",
-      "run_id": "a05-wide-stop/20260927T235638-8b771e83f1e0",
+      "key": "2026-09-26-six-month-pilot/reference-wide-stop/20260927T235638-8b771e83f1e0",
+      "run_id": "reference-wide-stop/20260927T235638-8b771e83f1e0",
       "job": "2026-09-27-variant-sweep-sept",
       "status": "successful",
       "model_sha256_engine": [
@@ -3304,13 +3304,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/run.json",
           "status": "present",
           "sha256": "0d9f659db389fbb39605f4f6724d7f5daef2a8c92a9a819b74764b5cf2ad9608",
           "bytes": 310,
           "mtime_utc": "2026-09-28T00:07:30.008Z",
           "value": {
-            "strategy": "a05-wide-stop",
+            "strategy": "reference-wide-stop",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -3324,7 +3324,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/metrics.json",
           "status": "present",
           "sha256": "9be3490221d41bf4d58e1c5c422131b26823da80f61d4117e702a2cd2f757d29",
           "bytes": 97,
@@ -3337,7 +3337,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/strategy-config.json",
           "status": "present",
           "sha256": "cf1e82705755338bc5146e76f76a1f2712d458a7d0bd2528b6de4b256633efb2",
           "bytes": 1814,
@@ -3432,7 +3432,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/strategy-config.yaml",
           "status": "present",
           "sha256": "f11354891b3dd851777b5890bac72b2bbec9949df96c74abedb3cc029f885210",
           "bytes": 1349,
@@ -3440,23 +3440,23 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 10.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: atr\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.0\n  targets:\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: -0.66\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/strategy-provenance.json",
           "status": "present",
           "sha256": "7536422bf2f31f931bc1c3a2564be94c9f3d39ab9e2184b1f92fffaae469ac67",
           "bytes": 2441,
           "mtime_utc": "2026-09-27T23:56:38.481Z",
           "value": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "a05-wide-stop/config.yaml",
+            "capital_mgmt.atr_multiplier": "reference-wide-stop/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
             "capital_mgmt.min_reward_risk": "baseline/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "a05-wide-stop/config.yaml",
+            "capital_mgmt.min_stop_pips": "reference-wide-stop/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
-            "capital_mgmt.stop_distance_source": "a05-wide-stop/config.yaml",
+            "capital_mgmt.stop_distance_source": "reference-wide-stop/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "a05-wide-stop/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "reference-wide-stop/config.yaml",
             "capital_mgmt.targets": "baseline/config.yaml",
             "capital_mgmt.trail_stops": "baseline/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
@@ -3488,11 +3488,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "a05-wide-stop/config.yaml"
+            "schema_version": "reference-wide-stop/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -3510,7 +3510,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/main-log.txt",
           "status": "present",
           "sha256": "0dbe5aaadec312faf31a292ea1d1140bb22d5e1f2e3832ff0cd43def0eee1c21",
           "bytes": 9953,
@@ -3531,7 +3531,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/log.txt",
           "status": "present",
           "sha256": "a953288ca90be3f8330c1c21aa8f59c41313beccad4f0e5ee1af4dd8df25e5c4",
           "bytes": 23115,
@@ -3552,49 +3552,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/equity.csv",
           "status": "present",
           "sha256": "b74718255da9ad216a179b6a69557809059d961c838b01e363e6b597fbd2251c",
           "bytes": 156784,
           "mtime_utc": "2026-09-28T00:07:30.506Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/trades.json",
           "status": "present",
           "sha256": "e9ba4b15f7e42cd6450c19f6ab1ad0f6d09492abb9ac91ac59d0469865065d0c",
           "bytes": 8428,
           "mtime_utc": "2026-09-28T00:07:30.008Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/trade-plans.json",
           "status": "present",
           "sha256": "c18fefd75418092ac88bdaaa2b8786e84cb6d30009237d79e3c39a0dac7b59da",
           "bytes": 8527,
           "mtime_utc": "2026-09-28T00:07:23.781Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/main.json",
           "status": "present",
           "sha256": "24ad0aabd5cd02ac2831ff01d836f5d94c4cd002f37fed48c99b4d3d0b153691",
           "bytes": 234608,
           "mtime_utc": "2026-09-28T00:07:23.923Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/main-summary.json",
           "status": "present",
           "sha256": "77681088ab7fdb0499555004047d903009770fac9d501804b59e55b5b4d6df2e",
           "bytes": 4915,
           "mtime_utc": "2026-09-28T00:07:23.822Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/statement.md",
           "status": "present",
           "sha256": "956531dc9dd51461be7abe9ae32dbfde99b18070ba90441c4434096cb120db58",
           "bytes": 7008,
           "mtime_utc": "2026-09-28T00:07:30.497Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/a05-wide-stop/20260927T235638-8b771e83f1e0/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/reference-wide-stop/20260927T235638-8b771e83f1e0/decisions.parquet",
           "status": "present",
           "sha256": "91ec26db81d51239530a0811cf2d4467db81db7bad16333d3c977b1deaf2db0a",
           "bytes": 5256187,
@@ -3722,16 +3722,16 @@
           "missing_values": [],
           "provenance": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "a05-wide-stop/config.yaml",
+            "capital_mgmt.atr_multiplier": "reference-wide-stop/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
             "capital_mgmt.min_reward_risk": "baseline/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "a05-wide-stop/config.yaml",
+            "capital_mgmt.min_stop_pips": "reference-wide-stop/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
-            "capital_mgmt.stop_distance_source": "a05-wide-stop/config.yaml",
+            "capital_mgmt.stop_distance_source": "reference-wide-stop/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "a05-wide-stop/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "reference-wide-stop/config.yaml",
             "capital_mgmt.targets": "baseline/config.yaml",
             "capital_mgmt.trail_stops": "baseline/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
@@ -10019,7 +10019,7 @@
     "1113474 1113472    2573 bash /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol/run.sh",
     "1116348    6424    2370 bash -c /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/run.sh > /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/nohup.log 2>&1; echo exit=$? >> /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/nohup.log",
     "1116350 1116348    2370 bash /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/run.sh",
-    "1117094 1116350    2364 uv run algo-backtest run --strategy a05-gated --strategies-dir /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/baseline-f7.json --timeout 14400",
+    "1117094 1116350    2364 uv run algo-backtest run --strategy reference-gated --strategies-dir /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/strategies --symbol EURUSD --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/baseline-f7.json --timeout 14400",
     "1125527 1113474    2085 uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2016-03-01 --to 2016-10-31 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol/baseline-f7.json --timeout 43200",
     "1125528 1113474    2085 uv run algo-backtest run --strategy hybrid --symbol EURUSD --from 2016-03-01 --to 2016-10-31 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol/hybrid-f7.json --timeout 43200",
     "1139259 1110414    1205 uv run algo-backtest run --strategy baseline --symbol EURUSD --from 2015-11-01 --to 2015-11-30 --param cash=10000 --model /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/baseline-f7.json --timeout 14400"

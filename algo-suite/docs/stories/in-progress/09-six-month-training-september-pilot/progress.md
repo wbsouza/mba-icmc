@@ -23,7 +23,7 @@ Decisions taken with the user after the zero-trade diagnosis below:
    algorithm), `extends:` chains of any depth compose like compose override files, and
    every parameter records its source (`<name>/config.yaml` or `default`): printed at run
    bootstrap, `algo-backtest explain-strategy`, and `strategy-provenance.json` per run. Modelled on the reference engine's per-component parameter maps with parent
-   inheritance (the author's later Heikin-Ashi trading manager's deployment and strategy configuration).
+   inheritance (the Spring version's deployment and strategy configuration).
 2. **F7 regime gate off** (`regime_gate: false` in both bundled configs). The gated rule
    cannot fire with these models (diagnosis below); the gate stays available as a switch.
 3. **Thresholds calibrated on the July-2015 validation span**, per the methodology

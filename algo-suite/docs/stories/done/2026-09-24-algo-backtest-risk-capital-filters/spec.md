@@ -10,14 +10,14 @@
 
 ## Objective
 
-Port `fx-manager`'s lot-size formula, trail-stop math, and `RiskGuard` gap-closing parameters
-(`risk=0.03`, `STOP_LEVEL_FACTOR=1.2`, etc.) into `rules/`, then wire F5 (risk guard) and F6
+Port the EJB version's lot-size formula, trail-stop math, and `RiskGuard` gap-closing parameters
+(`risk=0.03`, `stop_level_factor=1.2`, etc.) into `rules/`, then wire F5 (risk guard) and F6
 (capital management) filters on top. Regression test: the Python port must reproduce the legacy
 decisions on identical synthetic input (`specs.md` §14.3's stated discipline). Independent of news
 data — buildable in parallel with 04c.
 
 ## Definition of done
 
-- `rules/*.py` reproduces legacy `fx-manager` decisions on synthetic input (regression test).
+- `rules/*.py` reproduces the EJB version's legacy decisions on synthetic input (regression test).
 - F5/F6 filters implement the `Filter` interface, VETO/ABSTAIN scenarios covered.
 - `make check` green.

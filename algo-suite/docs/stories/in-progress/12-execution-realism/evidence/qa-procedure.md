@@ -2,7 +2,7 @@
 
 You are a person operating `algo-backtest` and `algo-analyze` from a shell. Prove that a
 backtest run from the CLI (a) shows every parameter it will trade with and where each came
-from before it starts, (b) turns F7 signals into fx-manager-style trade plans — a stop, a
+from before it starts, (b) turns F7 signals into reference-style trade plans — a stop, a
 lot sized from `risk_per_trade`, a partial take-profit, a trailing step, a spread on every
 fill — that LEAN actually books, (c) leaves behind a run directory a stranger can audit
 without re-running anything, and (d) produces a statement, an equity series and a
@@ -22,7 +22,7 @@ root. Every command below is run from `algo-suite/` after `uv sync --all-package
     uv run algo-backtest explain-strategy hybrid
 
 Look at: one line per resolved parameter, `key = value  # <source>`, sorted by key. For
-`baseline` the `capital_mgmt.*` lines must show the A05 plan — `risk_per_trade = 0.03`,
+`baseline` the `capital_mgmt.*` lines must show the reference plan — `risk_per_trade = 0.03`,
 `stop_loss_shrink = 0.2`, `min_stop_pips = 5.0`, `min_stop_factor = 1.2`,
 `targets = [{"at_level_ratio": 2.0, "close_fraction": 0.5}]`,
 `trail_stops = [{"at_level_ratio": 0.5, "to_level_ratio": -0.66}]`, `min_reward_risk = 2.0`,

@@ -142,7 +142,7 @@ is calculated here. Historical pilots are not promoted to OOS confirmation.
 
 ## The reference templates versus the M1 adaptations
 
-The reference is the author's earlier Heikin-Ashi trading manager
+The reference is the author's Spring version
 (unpublished). Its template settings are recorded as YAML values in the
 experiment plan; the snapshot embeds no copies of its configuration files.
 
@@ -154,7 +154,7 @@ experiment plan; the snapshot embeds no copies of its configuration files.
 | ATR variant R16 | no proof of an equivalent H4 setting | archived multiplier 4.0, shrink 0.5, minimum 10 pips, risk 0.01; comment says 2 x ATR14 |
 
 The comparison is a partial plan adaptation, not a reproduction of the full
-reference system. No inference about the earlier trading manager's profitability follows.
+reference system. No inference about the Spring version's profitability follows.
 The legacy F3 names in the configurations coexist with
 `candlestick_pattern=None` in the inspected predecessor wiring.
 
@@ -182,7 +182,7 @@ engine maximum drawdown can differ due to sampling/rounding.
 | --- | --- | --- | --- |
 | September execution model | R08/R13 | [screen](figures/execution-september-dark.png) | [print](figures/execution-september-print.pdf) |
 | October execution model | R09/R14 | [screen](figures/execution-october-dark.png) | [print](figures/execution-october-print.pdf) |
-| Completed A05 sweep | R01/R03/R04/R05 | [screen](figures/a05-sweep-september-dark.png) | [print](figures/a05-sweep-september-print.pdf) |
+| Completed reference-plan sweep | R01/R03/R04/R05 | [screen](figures/reference-sweep-september-dark.png) | [print](figures/reference-sweep-september-print.pdf) |
 | Completed template-derived sweep | R15/R16/R17/R18 | [screen](figures/plan-sweep-september-dark.png) | [print](figures/plan-sweep-september-print.pdf) |
 
 Legend R references link to their parameter appendix entries in standalone

@@ -37,7 +37,7 @@ flowchart TB
 | `meta_learner.families` | trend, indicator, pattern, news | `[news]`: p̂ comes from `news_event_intensity` (+ `news_sentiment_score` when present) |
 | `meta_learner.regime_gate` | false | false, and must stay so — F1's `trend_score` does not exist in this chain |
 | Decision bar / label horizon | M1 / 15 min | H1 / 60 min (`news-only-h4`: H4 / 240 min) |
-| `risk_guard`, `capital_mgmt` | baseline's A05 plan | the Heikin-Ashi H4 template's values: 18 % account-risk cap, swing stop shrunk 50 %, targets at 4R and 6R closing half each, one trail step armed at 2R to +0.1R, 2.0 reward:risk floor |
+| `risk_guard`, `capital_mgmt` | baseline's reference plan | the Heikin-Ashi H4 template's values: 18 % account-risk cap, swing stop shrunk 50 %, targets at 4R and 6R closing half each, one trail step armed at 2R to +0.1R, 2.0 reward:risk floor |
 | `news_context`, `execution`, `price_features` periods | — | inherited unchanged (F4 thresholds −0.5 / 0.15; 1-pip spread; the swing look-back F6's stop still needs) |
 
 The engine computes the ATR and swing readings on every bar whatever the filter list, so

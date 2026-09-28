@@ -1,14 +1,14 @@
 Feature: Partial-close ladder
-  Ports fx-manager's `ClosePortionOrderFacadeBean` laddering rule logic (specs.md §14.5):
+  Ports the EJB version's partial-close laddering rule logic (specs.md §14.5):
   an ordered sequence of rungs, each closing a fraction ("portion") of the *original* lot
-  size. Strategy A05 (specs.md §14.7) uses a two-rung ladder — an intermediate 50% close,
+  size. The reference strategy (specs.md §14.7) uses a two-rung ladder — an intermediate 50% close,
   then a final-target 50% close — that together fully close the position; the ladder here
-  is the general mechanic, with A05's specific percentages supplied by the caller/config,
+  is the general mechanic, with the reference strategy's specific percentages supplied by the caller/config,
   never hardcoded in this module.
 
   Rule: Each rung closes its portion of the original lot size, tracking what remains
 
-    Scenario: Strategy A05's two-rung ladder (50% then 50%) fully closes a 1.0 lot
+    Scenario: the reference strategy's two-rung ladder (50% then 50%) fully closes a 1.0 lot
       Given an original lot size of 1.0
       And a close-portion ladder of 0.5, 0.5
       When I build the close ladder
