@@ -24,6 +24,8 @@ from typing import Any
 import pyarrow.parquet as pq
 import yaml
 
+from algo_analyze.resultsdb.statement import StatementFacts, read_statement
+
 RUN_FILE = "run.json"
 METRICS_FILE = "metrics.json"
 TRADES_FILE = "trades.json"
@@ -70,6 +72,7 @@ class RunArtifacts:
     decisions: list[Mapping[str, Any]]
     log: list[LogRecord]
     model_sha256: str | None
+    statement: StatementFacts
 
 
 def missing_message(name: str, run_dir: Path, remedy: str) -> str:
@@ -235,6 +238,7 @@ def load_run_artifacts(run_dir: Path) -> RunArtifacts:
     )
     log, model = _log(run_dir, len(trades))
     return RunArtifacts(
+        statement=read_statement(run_dir, STATEMENT_FILE),
         run_dir=run_dir, run=run, metrics=_metrics(run_dir), trades=trades,
         plans=_optional_json(run_dir / PLANS_FILE, list), equity=_equity(run_dir),
         config=_config(run_dir), provenance=_optional_json(run_dir / PROVENANCE_FILE, dict),

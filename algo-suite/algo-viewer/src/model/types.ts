@@ -1,6 +1,6 @@
 /** Row shapes of the results database (algo-analyze `results-db build`, schema version 1). */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface RunRow {
   run_id: string;
@@ -25,6 +25,25 @@ export interface RunRow {
   equity_png_path: string | null;
   /** Fraction of winning trades from the `trades` table, null when the run has none. */
   win_rate: number | null;
+  /** Statement A/C summary: cash plus closed P/L (null when the statement has no summary). */
+  balance: number | null;
+  /** Statement A/C summary: floating P/L of the positions still open at the end. */
+  floating_pl: number | null;
+  /** Statement A/C summary: balance plus floating P/L. */
+  equity_end: number | null;
+}
+
+/** A position the run left open, as its statement's "Open Trades" table reports it. */
+export interface OpenPosition {
+  ticket: number;
+  open_time: string;
+  direction: string;
+  lots: number | null;
+  open_price: number;
+  stop_loss: number | null;
+  take_profits: number[];
+  mark_price: number | null;
+  floating_pl: number;
 }
 
 export interface EquitySample {

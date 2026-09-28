@@ -1,4 +1,5 @@
-"""The results database schema (version 1) and its connection helper.
+"""The results database schema (version 2: open positions, account summary) and its
+connection helper.
 
 Every table carries `run_id` (the run directory's name, e.g. `20260928T022009-934c0d9e00bf`)
 so a re-ingest can replace one run atomically: `delete_run()` removes its rows from every
@@ -13,7 +14,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 EXIT_KINDS: tuple[str, ...] = (
     "stop", "target", "trail_stop", "liquidation", "reversal", "unknown",
@@ -22,7 +23,8 @@ EXIT_KINDS: tuple[str, ...] = (
 # Tables that hold per-run rows, in the order a run is deleted (children first).
 RUN_TABLES: tuple[str, ...] = (
     "decision_filters", "decisions", "decision_summary", "entry_bars", "trail_moves",
-    "trade_plans", "trades", "monthly_returns", "equity_samples", "run_parameters", "runs",
+    "open_positions", "trade_plans", "trades", "monthly_returns", "equity_samples",
+    "run_parameters", "runs",
 )
 
 _DDL = """
@@ -50,7 +52,10 @@ CREATE TABLE IF NOT EXISTS runs (
     statement_path TEXT,
     report_path TEXT,
     equity_png_path TEXT,
-    ingested_at TEXT NOT NULL
+    ingested_at TEXT NOT NULL,
+    balance REAL,
+    floating_pl REAL,
+    equity_end REAL
 );
 CREATE TABLE IF NOT EXISTS run_parameters (
     run_id TEXT NOT NULL,
@@ -105,6 +110,19 @@ CREATE TABLE IF NOT EXISTS trade_plans (
     trail_steps_json TEXT NOT NULL,
     spread_pips REAL,
     PRIMARY KEY (run_id, trade_id)
+);
+CREATE TABLE IF NOT EXISTS open_positions (
+    run_id TEXT NOT NULL,
+    ticket INTEGER NOT NULL,
+    open_time TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    lots REAL,
+    open_price REAL NOT NULL,
+    stop_loss REAL,
+    take_profits_json TEXT NOT NULL,
+    mark_price REAL,
+    floating_pl REAL NOT NULL,
+    PRIMARY KEY (run_id, ticket)
 );
 CREATE TABLE IF NOT EXISTS decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
