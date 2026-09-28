@@ -9,7 +9,8 @@ filter owns a section of the same file — `news_context` for F4, `risk_guard` f
 `capital_mgmt` for F6 and `meta_learner.theta_high/theta_low/regime_gate` for F7 — parsed
 by that filter's own `parse_*_config`, and a filter listed without its section, or a
 section without its filter, is a hard stop). `baseline` and `hybrid` are the two Spec 04 variants
-(`docs/experiments.md` §1: "hybrid extends baseline adding F4"), composed via
+(`docs/experiments.md` §1: "hybrid extends baseline adding F4"); `news-only` extends
+baseline keeping F4–F7 alone on the news family — all composed via
 ``extends:`` chains of any depth (2026-09-27: `base → variant → sub-variant`, like
 docker-compose override files or the reference engine's Spring `parent=` beans), walked
 base-first with cycle detection; a base is looked up in the same directory first and then
@@ -23,7 +24,12 @@ top-level keys — including ``filters:`` — replace the base's wholesale; nest
 (e.g. ``meta_learner:``) merge key-by-key, child wins. A strategy's ``filters:`` list is
 always written out in full (not a diff/insert against the base) — an explicit complete
 list is easier to audit in a review (and in the Mermaid diagram it drives) than a
-positional "insert F4 after F3" DSL would be.
+positional "insert F4 after F3" DSL would be. A child drops an inherited top-level
+section by setting it to ``null`` (``pattern: null`` — the compose-file ``!reset`` idea):
+the merged document then has no such section, so a variant that removes a filter from
+the chain can also remove the filter's section instead of tripping the section-without-
+filter hard stop. Only a *top-level* key is dropped this way; a ``null`` inside a
+section keeps its per-key meaning (e.g. ``risk_guard.max_leverage: null`` disables a cap).
 """
 
 from __future__ import annotations
@@ -60,7 +66,7 @@ from algo_backtest.chain.filters.f6_capital_mgmt import (
     capital_mgmt_mapping,
     parse_capital_mgmt_config,
 )
-from algo_backtest.chain.filters.f7_meta_learner import F7Config, parse_f7_config
+from algo_backtest.chain.filters.f7_meta_learner import F7Config, FeatureFamily, parse_f7_config
 from algo_backtest.chain.filters.volume_strength import VolumeConfig, parse_volume_config
 from algo_backtest.chain.price_features import (
     PriceFeatureConfig,
@@ -94,6 +100,8 @@ _SECTION_FOR_FILTER: dict[str, str] = {
     "volume_strength": "volume_strength",
 }
 _DEFAULTABLE_FILTERS = frozenset({"f2_indicator", "f3_pattern"})
+# Every feature family `meta_learner.families` may name (F7 fits one sub-model per family).
+KNOWN_FAMILIES: tuple[str, ...] = tuple(family.value for family in FeatureFamily)
 _F7_KEYS = ("theta_high", "theta_low", "regime_gate")
 
 
@@ -298,6 +306,21 @@ def _require_known_filters(name: str, filters: tuple[str, ...]) -> None:
         )
 
 
+def _require_known_families(name: str, families: tuple[str, ...]) -> None:
+    """Fail fast on a feature family F7 cannot fit (a typo would otherwise surface only
+    when a trainer or a run coerces the name into `FeatureFamily`).
+
+    Raises:
+        ValueError: naming the unknown entries and the known families.
+    """
+    unknown = [family for family in families if family not in KNOWN_FAMILIES]
+    if unknown:
+        raise ValueError(
+            f"strategy {name!r}: unknown meta_learner.families {unknown!r} — known families: "
+            f"{list(KNOWN_FAMILIES)}; use only those in its config.yaml"
+        )
+
+
 def _reject_stray_f7_keys(
     name: str, filters: tuple[str, ...], meta_learner: Mapping[str, Any]
 ) -> None:
@@ -422,8 +445,9 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
             filter name is unknown, `schema_version` is not the current integer,
             `meta_learner:` is present but not a mapping (a malformed config type,
             distinct from the section being absent entirely — that legitimately
-            resolves to no feature families), or a configurable filter's own section
-            is missing, stray or invalid (`_filter_section` and each `parse_*_config`).
+            resolves to no feature families), a family name F7 does not know, or a
+            configurable filter's own section is missing, stray or invalid
+            (`_filter_section` and each `parse_*_config`).
     """
     resolved_root = root if root is not None else strategies_root()
     chain = _extends_chain(resolved_root, name)
@@ -431,10 +455,20 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
     provenance: dict[str, str] = {}
     for document_name, document in reversed(chain):
         own = {k: v for k, v in document.items() if k != "extends"}
-        merged = _deep_merge(merged, own)
+        dropped = [key for key, value in own.items() if value is None]
+        merged = _deep_merge(merged, {k: v for k, v in own.items() if k not in dropped})
         provenance.update(dict.fromkeys(_leaf_paths(own), f"{document_name}/config.yaml"))
+        for key in dropped:
+            _drop_section(merged, provenance, key)
     base_name = chain[0][1].get("extends")
     return _from_merged(name, merged, base_name, provenance)
+
+
+def _drop_section(merged: dict[str, Any], provenance: dict[str, str], key: str) -> None:
+    """Remove an inherited top-level section a child set to ``null``, and its provenance."""
+    merged.pop(key, None)
+    for path in [p for p in provenance if p == key or p.startswith(f"{key}.")]:
+        del provenance[path]
 
 
 def _extends_chain(root: Path, name: str) -> list[tuple[str, dict[str, Any]]]:
@@ -510,6 +544,7 @@ def _from_merged(
         )
     families_raw = meta_learner.get("families", ())
     families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
+    _require_known_families(name, families)
     typed = _typed_sections(name, merged, filters, meta_learner)
     _validate_clock(typed, parse_perception_config(merged))
     for path in _leaf_paths(merged):

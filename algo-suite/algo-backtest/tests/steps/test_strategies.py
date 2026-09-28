@@ -188,6 +188,12 @@ def _make_extend(strategies_ctx: _StrategiesCtx, name: str, base: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__("extends", base))
 
 
+@given(parsers.parse('"{name}" sets its "{section}" section to null'))
+def _null_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> None:
+    """A child's explicit top-level `null`: the loader drops the inherited section."""
+    _amend_config(strategies_ctx.root, name, lambda b: b.__setitem__(section, None))
+
+
 @given(parsers.parse('"{name}" drops its "{section}" section'))
 def _drop_section(strategies_ctx: _StrategiesCtx, name: str, section: str) -> None:
     _amend_config(strategies_ctx.root, name, lambda b: b.pop(section))
@@ -467,6 +473,22 @@ def _raw_records(strategies_ctx: _StrategiesCtx, section: str, key: str, value: 
     """Effective (possibly defaulted) values must appear in `raw`, hence in strategy-config.json."""
     assert strategies_ctx.loaded is not None
     assert strategies_ctx.loaded.raw[section][key] == yaml.safe_load(value)
+
+
+@then(parsers.parse('the loaded strategy\'s raw config has no "{section}" section'))
+def _raw_lacks_section(strategies_ctx: _StrategiesCtx, section: str) -> None:
+    """A dropped section is absent from `raw`, hence from strategy-config.{json,yaml}."""
+    assert strategies_ctx.loaded is not None
+    assert section not in strategies_ctx.loaded.raw, sorted(strategies_ctx.loaded.raw)
+
+
+@then(parsers.parse('the loaded strategy records no provenance under "{prefix}"'))
+def _no_provenance_under(strategies_ctx: _StrategiesCtx, prefix: str) -> None:
+    """Neither the dropped section nor any key inside it keeps a provenance entry."""
+    assert strategies_ctx.loaded is not None
+    provenance = strategies_ctx.loaded.provenance
+    stale = [k for k in provenance if k == prefix or k.startswith(f"{prefix}.")]
+    assert stale == [], stale
 
 
 @then(parsers.parse('the loaded strategy has a typed "{section}" config'))

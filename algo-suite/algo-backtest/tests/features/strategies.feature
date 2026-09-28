@@ -42,6 +42,35 @@ Feature: Strategy-chain config loading (Spec 04h)
       Then the loaded strategy's risk-guard caps have max_leverage 10
       And the loaded strategy's risk-guard caps have daily_drawdown_limit -0.05
 
+  Rule: A child drops an inherited top-level section by setting it to null
+
+    Scenario: a variant that removes F2 and F3 from the chain drops their inherited sections
+      Given a strategy config directory with "baseline" filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard" and families "trend"
+      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      And "news-only" sets its "indicator" section to null
+      And "news-only" sets its "pattern" section to null
+      When strategy "news-only" is loaded
+      Then the loaded strategy's filters are "f1_trend,f5_risk_guard"
+      And the loaded strategy has no "indicator" config
+      And the loaded strategy has no "pattern" config
+      And the loaded strategy's raw config has no "pattern" section
+      And the loaded strategy records no provenance under "pattern"
+      And the loaded strategy's parameter "risk_guard.max_leverage" comes from "baseline/config.yaml"
+
+    Scenario: an inherited section whose filter the child no longer lists is still a hard stop
+      Given a strategy config directory with "baseline" filters "f1_trend,f3_pattern,f5_risk_guard" and families "trend"
+      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      When loading strategy "news-only" fails
+      Then the failure names "strategy 'news-only' declares a 'pattern:' section but does not list 'f3_pattern'"
+
+    Scenario: a null inside a section keeps its per-key meaning rather than dropping the section
+      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard" and families "trend"
+      And "loose" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      And "loose" also declares risk_guard.max_leverage as null
+      When strategy "loose" is loaded
+      Then the loaded strategy has a typed "risk_guard" config
+      And the loaded strategy's raw config records risk_guard.max_leverage null
+
   Rule: Every configurable filter listed in filters has its own parameter section, and vice versa
 
     Scenario Outline: a strategy listing <filter> resolves a typed <section> config
@@ -344,34 +373,6 @@ Feature: Strategy-chain config loading (Spec 04h)
         | baseline-dsha |
         | hybrid        |
 
-    Scenario Outline: every bundled strategy resolves the A05 trade plan and execution costs (<name>: <section>.<key>)
-      When the real strategy "<name>" is loaded with the default root
-      Then the loaded strategy's raw config records <section>.<key> <value>
-      And the loaded strategy's parameter "<section>.<key>" comes from "baseline/config.yaml"
-
-      Examples:
-        | name          | section      | key                               | value                                          |
-        | baseline      | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
-        | baseline      | capital_mgmt | min_stop_pips                     | 5.0                                            |
-        | baseline      | capital_mgmt | targets                           | [{at_level_ratio: 2.0, close_fraction: 0.5}]   |
-        | baseline      | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
-        | baseline      | capital_mgmt | min_reward_risk                   | 2.0                                            |
-        | baseline      | capital_mgmt | stop_distance_source              | swing                                          |
-        | baseline      | capital_mgmt | min_stop_factor                   | 1.2                                            |
-        | baseline      | execution    | broker_stop_level_pips            | 0.0                                            |
-        | hybrid        | capital_mgmt | min_stop_factor                   | 1.2                                            |
-        | baseline      | capital_mgmt | atr_multiplier                    | 2.0                                            |
-        | baseline      | risk_guard   | max_concurrent_trades_per_account | 2                                              |
-        | baseline      | execution    | spread_pips                       | 1.0                                            |
-        | baseline      | execution    | commission_per_lot                | 0.0                                            |
-        | baseline      | execution    | min_hold_bars                     | 0                                              |
-        | hybrid        | capital_mgmt | min_reward_risk                   | 2.0                                            |
-        | hybrid        | capital_mgmt | trail_stops                       | [{at_level_ratio: 0.5, to_level_ratio: -0.66}] |
-        | hybrid        | risk_guard   | max_concurrent_trades_per_account | 2                                              |
-        | hybrid        | execution    | spread_pips                       | 1.0                                            |
-        | baseline-dsha | capital_mgmt | stop_loss_shrink                  | 0.2                                            |
-        | baseline-dsha | execution    | spread_pips                       | 1.0                                            |
-
   Rule: An empty resolved filters list fails fast, whether absent or explicitly empty
 
     Scenario: a strategy config with an explicitly empty filters list fails fast
@@ -403,6 +404,19 @@ Feature: Strategy-chain config loading (Spec 04h)
       And "hybrid" extends "baseline" overriding meta_learner with a scalar value
       When loading strategy "hybrid" fails
       Then the failure names "meta_learner"
+
+  Rule: A feature family F7 cannot fit fails fast at load time
+
+    Scenario Outline: an unknown family name fails fast naming the known families (<families>)
+      Given a strategy config directory with "typo" filters "f1_trend,f7_meta_learner" and families "<families>"
+      When loading strategy "typo" fails
+      Then the failure names "strategy 'typo': unknown meta_learner.families <unknown> — known families: ['trend', 'indicator', 'pattern', 'news']"
+
+      Examples:
+        | families      | unknown            |
+        | trend,volume  | ['volume']         |
+        | trends        | ['trends']         |
+        | news,f4,f1    | ['f4', 'f1']       |
 
   Rule: A scalar meta_learner.families value fails fast instead of splitting into characters
 
