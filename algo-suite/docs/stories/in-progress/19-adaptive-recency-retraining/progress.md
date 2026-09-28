@@ -47,7 +47,7 @@ This checklist mirrors those IDs for the repository's per-story progress
 convention; update both in the same tested task commit.
 
 - [x] T1: Register the adaptive comparison protocol.
-- [ ] T2: Build the incremental data and label-maturity adapter.
+- [x] T2: Build the incremental data and label-maturity adapter.
 - [ ] T3: Implement exact-UTC epoch planning.
 - [ ] T4: Implement exponential weights and feasibility checks.
 - [ ] T5: Pass weights through family-model fitting.
@@ -105,7 +105,54 @@ Docs gate (cwd `/tmp/mba-impl-19`):
 
 Data root access: read-only listing and `sha256sum` on
 `/home/wellington/workspace/mba-agents/mba-main/algo-suite/data`; nothing
-written there. Commit: recorded in the git log under the T1 subject. Next: T2.
+written there. Commit `cc0e10a`, pushed to `origin/feat/19-adaptive-retraining`.
+Next: T2.
+
+### 2026-09-28 T2: Build the incremental data and label-maturity adapter (Claude coder, Lane A)
+
+What changed and why: new `algo_backtest.retraining` package with
+`ingestion.py`: `SourceRow`, `Batch`, `PartitionRecord`, `validate_batch`,
+`Ledger` (`open`, `consume`, `watermark`, `row_count`, `partitions`,
+`maturity`, `visible_keys`, `mature_keys`), the module-level `consume(directory,
+batch)`, `read_partition(path, partition=...)` and `file_sha256`. The ledger is
+one `ledger.json` per directory, written atomically (temp file plus rename) and
+only when a batch adds rows, so identical retries leave the bytes untouched.
+Maturity is inclusive (`label_time <= cutoff`, pinned reading 2); as-of
+visibility is inclusive on availability; new rows may not precede the
+watermark; a re-delivered key with different content or a re-identified
+partition with a different sha256 is a conflict; nothing is persisted from a
+rejected batch. Steps in `tests/steps/test_retraining_ingestion.py`.
+
+Scenario changes (feature is the spec; recorded per the brief):
+
+- Corrected "The persisted ledger reopens with the same watermark and row
+  state": it asserted `bar-003` pending after the watermark reached its
+  `label_time` (14:00), contradicting pinned reading 2 and the sibling scenario
+  "A pending label matures when a later batch carries the watermark to its
+  label_time (label_time <= cutoff)". Now asserts `bar-003` mature and
+  `bar-005` pending.
+- Added "An as-of query with a naive cutoff is refused rather than read as
+  local time (RWT-02)" and "The same partition path with different bytes but
+  identical rows is still a conflict" (spec.md retry/idempotency: same identity
+  with different bytes rejected) so every branch of the adapter has a covering
+  scenario. Two unrequested branches (ledger schema-version check, unknown-key
+  message) were removed instead of tested.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_ingestion.py -q
+  -p no:cacheprovider`: 22 passed (18 scenarios plus 4 Examples rows),
+  0 failed, 0 skipped.
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on
+  the three touched Python files: clean. `uv run mypy --strict algo-backtest`:
+  clean, 65 source files.
+
+Adequacy: RWT-23 covered by the two-batch watermark, regression, and
+mid-batch-failure scenarios (watermark asserted from a reopened ledger);
+RWT-24 by late outcome, maturation, as-of cutoff and `label_time None`
+rejection; RWT-02 by the timestamp outline, duplicate key, ordering and
+declared-count scenarios. Every scenario maps to one of those or to the
+retry/idempotency and prefix-invariance dimensions of spec.md. Next: T3.
 
 ## Earlier planning verification (before this amendment)
 
