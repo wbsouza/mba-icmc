@@ -231,7 +231,7 @@ Feature: Strategy parameter validation
 
     Scenario: --model is rejected for a strategy without an F7 model
       Given a baseline-family model file whose provenance price_features is {ema_fast: 3}
-      And strategy "buyhold" with params size=0.5,cash=10000
+      And strategy "buyhold" with params size=0.5 cash=10000
       When I validate the run inputs for strategy "buyhold" with that model expecting failure
       Then validation fails naming "--model only applies to the config.yaml chain strategies, not 'buyhold'"
 
