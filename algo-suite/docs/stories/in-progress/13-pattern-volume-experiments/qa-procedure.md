@@ -67,8 +67,8 @@ three new scenarios passed, eight legacy scenarios failed because their probe
 initializers lacked `_economics`. Preserve those failure logs. After repair,
 `--basetemp=build/legacy-parity-fixed` passed all eight legacy scenarios. New signal
 parity also previously passed in `build/closed-signal-native-v2`.
-The order-chain batch uses `build/chain-native-final` and is still running at this
-handoff. Never reuse these basetemp directories: pytest may clear them. Let pytest
+The order-chain batch used `build/chain-native-final`: **9 passed, 16 deselected**
+in 1,162.82 seconds. Never reuse these basetemp directories: pytest may clear them. Let pytest
 choose a fresh default or choose a new uniquely named directory.
 
 Final offline backtest rerun: **1,364 passed, 53 deselected**. Native combined 3;
@@ -76,7 +76,8 @@ legacy 8; risk calendar 4; targeted runner/activity/trainer batch 54. These over
 **do not sum them into a unique test total**. Final full rerun adds the trainer scenarios.
 Scoped lint/type/architecture/audit pass. Whole-workspace lint/type still report
 pre-existing BigQuery/tooling failures; they are not silently excluded from a claim
-of global success. A non-backtest workspace pytest check is separately running.
+of global success. The disk-backed non-backtest retry passed **504 scenarios**,
+with four deselected; its failed inode-exhausted predecessor remains archived.
 
 ## Current real experiments
 
@@ -153,6 +154,35 @@ Keep it unchanged and report the retry separately. Baseline v1 already had succe
 parent/cell manifests and a passing final immutable-input check before exhaustion.
 
 ### Publishing
+
+### Perception gate wiring and final coverage
+
+After the experimental snapshots had completed, the `check-perception` target was
+extended to include the new bar-clock, candle and activity tests in host coverage,
+plus native closed-signal/calendar tests. Otherwise the old DSHA-only host command
+would report the newly introduced modules as untested. No model or research setting
+changed. The old DSHA `source_wiring.py` receiver also lacked Story 12 ATR/Minimum/
+Maximum, pip/account fields and Story 13 minute hooks; supplying those unrelated
+collaborators repaired its isolated wiring probe without adding production fallbacks.
+
+Preserved first failure: `build/story13-perception-native` (all nine scenarios used
+one failed initializer). Fixed retry: `build/story13-perception-native-fixed`,
+**9 passed, 29 deselected in 17.63 seconds**. Host coverage command in the Makefile:
+**283 passed, nine deselected**. Merge/check command:
+
+```sh
+uv run python tools/perception_quality.py \
+  --coverage build/perception-host-coverage.json \
+  --native-lines-dir build/story13-perception-native-fixed \
+  --merged-coverage build/story13-perception-coverage.json
+```
+
+Result: architecture/CRAP **PASS**; all scored perception functions have **100% line
+coverage**, maximum CC/CRAP **7**. Host and traced-native coverage are merged exactly
+as specified by the pre-existing gate. This is not a claim of complete branch or
+mutation coverage. **The full mutation campaign was not rerun in this takeover.**
+
+### Publishing results
 
 Append new result snapshots; do not replace the predecessor evidence. Include full
 parameter joins, model/code/input hashes and failures. Report reused-window results

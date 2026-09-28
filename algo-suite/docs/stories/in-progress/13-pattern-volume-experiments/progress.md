@@ -93,9 +93,13 @@ infer that an old worktree represents unmerged work.
 - Trainer-family/provenance/runner targeted regression batch: **54 passed**.
 - Scoped backtest/runner Ruff and strict mypy: pass (64 checked source files).
 - Perception and inference architecture checks: pass.
+- Extended perception host coverage: **283 passed**; native DSHA probe: **9 passed**
+  after repairing its stale receiver. Merged perception coverage/CRAP gate passes:
+  every scored function 100% line coverage, max CC/CRAP 7. Full mutations not rerun.
 - `make audit`: no known dependency vulnerabilities; editable workspace packages
   skipped by the scanner as configured.
-- Execution-chain integration suite still running; final result not yet claimed.
+- Execution-chain integration suite: **9 passed, 16 deselected** in 1,162.82 seconds.
+- Broad non-backtest suite on disk-backed retry: **504 passed, four deselected**.
 - Whole-workspace checks have unrelated pre-existing lint/type failures; the scoped
   passes above do not imply `make check` is globally green.
 - Monograph `make verify`: **94 pages**, no undefined citations/references.
@@ -140,7 +144,8 @@ pushed.
 `28cc7d9` — closed-bar signals, canonical activity provenance, immutable runner and
 both independent-review fixes; pushed. `de34647` — detailed test/handoff procedure;
 pushed. `4636ce7` — baseline outcome and inode-safe retry record; pushed.
-Full execution-chain tests are still running.
+`1f6b16f` — eight completed experiments and threshold diagnostics; pushed.
+Full execution-chain tests and the disk-backed broad retry are now green.
 
 ### Experiment execution and infrastructure incident
 
@@ -165,9 +170,9 @@ All eight accepted runs therefore have successful parent/cell and integrity reco
 Hybrid returns/trade counts/drawdowns match the baseline at these fixed settings.
 The failed v1 archive is
 preserved; its stale running statuses do not mean processes are still executing.
-The broad test retry uses the fresh **disk-backed** basetemp
+The broad test retry completed (504 passed) using the fresh **disk-backed** basetemp
 `/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-recheck-20260928`
-(session 94754). See [qa-procedure.md](qa-procedure.md) for exact tests and takeover.
+(session 94754, exit 0). See [qa-procedure.md](qa-procedure.md) for tests and takeover.
 
 1. Risk-calendar/trainer regressions and implementation freeze are complete and pushed.
 2. Both fresh matrices completed; failed hybrid v1 is preserved separately.
@@ -191,7 +196,7 @@ Check an implementation item only after its changes are committed and tests pass
 - [x] Wire identical closed-bar signals into offline training and LEAN execution.
 - [x] Reject models trained with an incompatible signal/family contract.
 - [x] Map SpockFX parameters and register controlled exploratory comparisons.
-- [ ] Verify native/offline parity, offline gates and dependency audit.
+- [x] Verify native/offline parity, offline gates and dependency audit.
 - [ ] Train separate models, execute experiments and archive all outcomes.
 - [ ] Update monograph and parameter/result evidence for the new comparisons.
 
