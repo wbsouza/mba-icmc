@@ -86,6 +86,8 @@ def comparable_pairs(experiment):
         assert raw.pop("news_context") == {
             "event_intensity_veto_threshold": -0.5,
             "sentiment_direction_threshold": 0.15,
+            "direction_source": "sentiment",  # the recorded defaults (story 14)
+            "intensity_sign": 1,
         }
         assert "f4_news_context" in raw["filters"]
         raw["filters"].remove("f4_news_context")

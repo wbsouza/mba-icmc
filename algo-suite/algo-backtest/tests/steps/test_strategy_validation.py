@@ -48,6 +48,26 @@ def _validate_failing(vctx: dict[str, Any]) -> None:
     vctx["error"] = str(exc_info.value)
 
 
+@when(parsers.parse('I validate the run inputs with outcome "{outcome}"'))
+def _validate_outline(vctx: dict[str, Any], outcome: str) -> None:
+    """An outline cell: `passes` = expect success, `expecting failure` = capture the error."""
+    if outcome == "expecting failure":
+        _validate_failing(vctx)
+    else:
+        assert outcome == "passes", outcome
+        _validate(vctx)
+
+
+@then(parsers.parse('the resolved strategy "{name}" loads no F7 model'))
+def _no_model_file(name: str) -> None:
+    assert resolve_strategy(name).model_file is None
+
+
+@then(parsers.parse('the resolved strategy "{name}" loads the F7 model "{file}"'))
+def _model_file(name: str, file: str) -> None:
+    assert resolve_strategy(name).model_file == file
+
+
 @then("validation passes")
 def _passes(vctx: dict[str, Any]) -> None:
     assert vctx.get("ok") is True

@@ -34,8 +34,8 @@ _STATEMENT_OUT_OPTION = typer.Option(
 _MODEL_OPTION = typer.Option(
     None,
     "--model",
-    help="F7 model JSON to use instead of the strategy's bundled one (baseline/hybrid "
-    "only); the algorithm logs its SHA-256.",
+    help="F7 model JSON to use instead of the strategy's bundled one (config.yaml chain "
+    "strategies listing f7_meta_learner only); the algorithm logs its SHA-256.",
 )
 
 
@@ -155,7 +155,7 @@ def _print_strategy_parameters(strategy: str, strategies_dir: Path | None) -> No
     from algo_backtest.run import resolve_strategy
     from algo_backtest.strategies import explain_lines, load_strategy_chain_config
 
-    if resolve_strategy(strategy, strategies_root=strategies_dir).model_file is None:
+    if not resolve_strategy(strategy, strategies_root=strategies_dir).chain_config:
         return
     for line in explain_lines(load_strategy_chain_config(strategy, root=strategies_dir)):
         typer.echo(f"strategy[{strategy}] {line}")
@@ -315,7 +315,7 @@ def explain_strategy(
 
     try:
         spec = resolve_strategy(name, strategies_root=strategies_dir)
-        if spec.model_file is None:
+        if not spec.chain_config:
             raise ValueError(f"{name!r} is a code-registered strategy without a config.yaml")
         config = load_strategy_chain_config(name, root=strategies_dir)
     except ValueError as exc:

@@ -24,8 +24,12 @@ from algo_backtest.chain.model import (
     Recommendation,
     TerminalDecision,
 )
-from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
-from algo_backtest.chain.wiring import build_filters
+from algo_backtest.chain.terminal import (
+    F7TerminalDecision,
+    LastFilterTerminalDecision,
+    decision_to_order_action,
+)
+from algo_backtest.chain.wiring import build_filters, terminal_decision
 from algo_backtest.strategies import load_strategy_chain_config
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -440,14 +444,73 @@ def _meta_learner_p_hat(chain_ctx: _ChainCtx, value: float) -> None:
 
 
 def _build_real_filters(chain_ctx: _ChainCtx) -> list[Filter]:
-    """The named strategy's real chain via the production wiring, with a stub predictor."""
+    """The named strategy's real chain via the production wiring, with a stub predictor
+    when the scenario gave a p_hat (a chain without F7 gives none and gets no model)."""
     assert chain_ctx.real_strategy is not None, "no strategy config named in the scenario"
-    assert chain_ctx.real_meta_learner_p_hat is not None, "no p_hat given in the scenario"
+    config = load_strategy_chain_config(chain_ctx.real_strategy, root=chain_ctx.strategies_root)
+    p_hat = chain_ctx.real_meta_learner_p_hat
+    assert p_hat is not None or "f7_meta_learner" not in config.filters, "no p_hat given"
+    stub = _StubMetaLearnerPredictor(p_hat=p_hat) if p_hat is not None else None
     return build_filters(
-        load_strategy_chain_config(chain_ctx.real_strategy, root=chain_ctx.strategies_root),
-        meta_learner=_StubMetaLearnerPredictor(p_hat=chain_ctx.real_meta_learner_p_hat),  # type: ignore[arg-type]
+        config,
+        meta_learner=stub,  # type: ignore[arg-type]
         news_index=chain_ctx.news_index,
     )
+
+
+@given(
+    parsers.parse(
+        'the real chain built from the "{strategy}" strategy config, terminated by the rule '
+        "its config selects"
+    )
+)
+def _real_selected_terminal(chain_ctx: _ChainCtx, strategy: str) -> None:
+    """The terminal rule `wiring.terminal_decision` picks for the loaded config (F7's own
+    when F7 is listed, else the `terminal_filter`'s)."""
+    chain_ctx.real_strategy = strategy
+    chain_ctx.real_terminal = terminal_decision(
+        load_strategy_chain_config(strategy, root=chain_ctx.strategies_root)
+    )
+
+
+@given(
+    parsers.parse(
+        'a chain of a PASS filter "{name}" only, terminated by LastFilterTerminalDecision for '
+        '"{terminal}"'
+    )
+)
+def _single_pass_filter_last_terminal(chain_ctx: _ChainCtx, name: str, terminal: str) -> None:
+    """A deliberately-broken chain: the configured terminal filter never runs."""
+    chain_ctx.filters = [_pass_filter(chain_ctx, name)]
+    chain_ctx.use_staged_filters = True
+    chain_ctx.real_terminal = LastFilterTerminalDecision(terminal)
+
+
+@given(
+    parsers.parse('an empty chain terminated by LastFilterTerminalDecision for "{terminal}"')
+)
+def _empty_chain_last_terminal(chain_ctx: _ChainCtx, terminal: str) -> None:
+    chain_ctx.filters = []
+    chain_ctx.use_staged_filters = True
+    chain_ctx.real_terminal = LastFilterTerminalDecision(terminal)
+
+
+@given(
+    parsers.parse(
+        'a chain of a "{recommendation}" filter "{name}" then a PASS gate "{gate}", terminated '
+        'by LastFilterTerminalDecision for "{terminal}"'
+    )
+)
+def _voting_filter_then_gate(
+    chain_ctx: _ChainCtx, recommendation: str, name: str, gate: str, terminal: str
+) -> None:
+    """The terminal filter votes as the outline says; a non-veto gate runs after it."""
+    voter = _StubFilter(
+        name=name, recommendation=Recommendation(recommendation), call_log=chain_ctx.call_log,
+    )
+    chain_ctx.filters = [voter, _pass_filter(chain_ctx, gate)]
+    chain_ctx.use_staged_filters = True
+    chain_ctx.real_terminal = LastFilterTerminalDecision(terminal)
 
 
 def _staged_or_real_filters(chain_ctx: _ChainCtx) -> list[Filter]:
