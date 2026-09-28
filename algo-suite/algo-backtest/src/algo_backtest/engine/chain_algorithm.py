@@ -253,7 +253,10 @@ class ChainAlgorithm(ExecutionAlgorithm):
     def _configure_signals(self, config) -> None:
         """Preserve canonical tick counts via a separate read-only source, never quote sizes."""
         self._bar_clock = ClosedBarClock(config.price_features.bar_minutes)
-        self._signals = MarketSignals(config.pattern, config.volume_strength)
+        self._signals = MarketSignals(
+            config.pattern, config.volume_strength,
+            bar_minutes=config.price_features.bar_minutes, pair=str(self._symbol),
+        )
         self._signal_features = {}
         self._tick_activity = None
         if config.volume_strength is not None:

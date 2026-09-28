@@ -137,9 +137,16 @@ def parse_pattern_config(section: Mapping[str, Any], *, strategy: str) -> Patter
 
 
 def _validate_detector(detector: str, bullish: frozenset[str], bearish: frozenset[str]) -> None:
-    """Enabled TA-Lib uses the closed six-pattern vocabulary shared with F7."""
-    if detector not in ("disabled", "talib"):
-        raise ValueError("pattern.detector must be disabled or talib; fix the strategy config")
+    """Enabled TA-Lib uses the closed six-pattern vocabulary shared with F7.
+
+    ``expanded`` (Story 22/23) drives the shared candle_catalog/context/sequence
+    producer instead — advisory/required_entry read its ``candle_evidence``, not
+    ``bullish_patterns``/``bearish_patterns``, so no vocabulary restriction applies.
+    """
+    if detector not in ("disabled", "talib", "expanded"):
+        raise ValueError(
+            "pattern.detector must be disabled, talib or expanded; fix the strategy config"
+        )
     if detector == "talib" and (bullish != _BULLISH_DEFAULT or bearish != _BEARISH_DEFAULT):
         raise ValueError(
             "TA-Lib requires the default six-pattern vocabulary; restore pattern names"
