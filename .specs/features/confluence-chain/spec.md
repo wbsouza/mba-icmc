@@ -183,13 +183,13 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1, T2, T4, T5) |
 | CC-21 | P1 exits | F6/config | T5, T10, T11 | 1–3 | Implemented (T5, T10) |
 | CC-22 | P1 exits | F6/config | T5 | 1 | Implemented (T5) |
-| CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | Implemented (T7, T10) |
+| CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | Implemented (T7, T10, T16) |
 | CC-24 | P1 protocol | Availability gate | T9, T17 | 2, 4 | Implemented (T9) |
 | CC-25 | P1 evidence | Re-derivation | T8, T19, T20 | 2, 4 | Implemented (T8) |
 | CC-26 | P1 evidence | Archive preservation | T8, T19 | 2, 4 | Implemented (T8) |
-| CC-27 | P1 evidence | Registration/report | T16, T18, T19, T20, T21 | 4 | In Tasks |
-| CC-28 | P1 protocol | Clock contract | T2, T6, T10, T16, T20 | 1, 2, 4 | Implemented (T2, T6, T10) |
-| CC-29 | P1 inference | Comparison | T16, T18 | 4 | In Tasks |
+| CC-27 | P1 evidence | Registration/report | T16, T18, T19, T20, T21 | 4 | Implemented (T16) |
+| CC-28 | P1 protocol | Clock contract | T2, T6, T10, T16, T20 | 1, 2, 4 | Implemented (T2, T6, T10, T16) |
+| CC-29 | P1 inference | Comparison | T16, T18 | 4 | Implemented (T16) |
 | CC-30 | P1 inference | Prediction endpoint | T18 | 4 | In Tasks |
 | CC-31 | P1 audit | Audit/recorder | T3, T4, T6, T14, T15, T19, T22 | 1–4 | Implemented (T3, T4, T6) |
 | CC-32 | P1 failures | Preflight/report | T9, T17, T18, T19 | 2, 4 | Implemented (T9) |

@@ -405,11 +405,27 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Record accepted D1–D11, exact 14 IDs/config hashes, exploratory labels for every cell/window, H1/H4 horizons, main and secondary contrasts, bootstrap settings, population source, costs, no model dependency, one initial attempt per cell and no automatic outcome-based retry. Record main's global resource cap/timeout and source revision; no invented approval or resource values.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Record accepted D1–D11, exact 14 IDs/config hashes, exploratory labels for every cell/window, H1/H4 horizons, main and secondary contrasts, bootstrap settings, population source, costs, no model dependency, one initial attempt per cell and no automatic outcome-based retry. Record main's global resource cap/timeout and source revision; no invented approval or resource values.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Document contract review; one recorded checklist covering each mapped requirement, referenced parameter/path and unsupported-claim check; not runtime-test deferral.
 **Gate**: Docs as defined above; record actual outcomes before task completion.
+
+**Verification record** (Docs gate, run from repo root):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| CC-23 (14 cell IDs, arms, clocks) | reviewed against `make_cells.py`'s `ARMS`/`CLOCK_LOOKBACK`/`_cell_id` | 14 IDs listed match generator exactly |
+| CC-27 (exploratory labels) | reviewed against source spec.md and `context.md`'s "Companion Qualifications" | full year and Nov–Feb both labeled exploratory/already-inspected |
+| CC-28 (clock contract) | reviewed against `design.md`'s momentum/horizon paragraphs | L=480/120, 4-bar horizon = 4h/16h scheduled, stated |
+| CC-29 (primary contrast/bootstrap) | reviewed against spec.md D7 | H1 A vs T-only Nov–Feb, block 4/sensitivity 2/999/seed 42/alpha .05, stated |
+| Population/cost source check | cross-checked against `algo-suite/PRD.md` §7 and `make_cells.py`'s `_OANDA_EXECUTION` | corrected: price population is Dukascopy tick data, not OANDA; OANDA is cost/broker-floor only |
+| Intensity-relative gap | cross-checked against integration branch `feat/integrate-19-21-22` Phase 3 log and `preflight.py`'s `_NEWS_REQUIRED_ARMS`/`_NO_NEWS_ARMS` | 8 of 14 cells (A/B/A-plan/T-only × H1/H4) recorded UNAVAILABLE pending GDELT `available_at`; 6 cells (M-only, always-short, always-long × H1/H4) recorded launch-ready |
+| `close_on_veto` conflict check | reviewed `make_cells.py`'s `_execution_for` | all 14 cells set `close_on_veto: false`; conflict does not affect this manifest |
+| `validate_tasks.py --strict` | `python3 /home/wellington/.claude/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/confluence-chain/tasks.md --strict` | see commit gate output |
+| `git diff --check` | `git diff --check` | clean |
+
+No gate is blocked; no completion is claimed beyond what these checks cover.
 
 #### T17: Build a bounded fourteen-cell launch harness
 
