@@ -9,6 +9,12 @@ still recorded in `state.filter_results`, feeding the audit trail per §11.3.4) 
 `F7TerminalDecision` here just reads its own `FilterResult.recommendation` back out and
 maps it onto `chain.model.Decision`.
 
+`LastFilterTerminalDecision` (story 14) is the same rule for a chain that runs no F7: the
+strategy's `terminal_filter` key names the last direction-emitting filter, and that
+filter's recommendation *is* the decision — BUY/SELL as they are, HOLD/ABSTAIN/NEUTRAL all
+HOLD; the gates listed after it (F5, F6) can only veto. The rule-only news strategy
+(`news-rule`, F4 → F5 → F6 with `terminal_filter: f4_news_context`) uses it.
+
 `decision_to_order_action` is the second half of the join point: `engine.order_executor`
 defines its own `Decision` StrEnum (same four string values, but a separate type — that
 module is importable outside the LEAN container and has no dependency on `chain.model`)
@@ -19,6 +25,8 @@ per its own docstring) — callers inside a LEAN algorithm import both and use
 """
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 from algo_backtest.chain.model import Decision, ExecutionState, Recommendation
 
@@ -61,6 +69,35 @@ class F7TerminalDecision:
                 f"{_F7_FILTER_NAME!r} — check config.yaml's filter order; F7 must be last"
             )
         return _RECOMMENDATION_TO_DECISION[last.recommendation]
+
+
+@dataclass(frozen=True)
+class LastFilterTerminalDecision:
+    """`TerminalDecision` for a chain without F7: the named filter's vote is the decision.
+
+    `filter_name` is the strategy's `terminal_filter` (`strategies.py` checks it is the
+    last direction-emitting entry of `filters`; only gates may follow it). BUY/SELL map
+    as F7's do; HOLD, ABSTAIN and NEUTRAL are all HOLD — a filter with nothing to say
+    leaves the position alone, it never opens one.
+    """
+
+    filter_name: str
+
+    def decide(self, state: ExecutionState) -> Decision:
+        """Map the terminal filter's `FilterResult.recommendation` onto the chain's `Decision`.
+
+        Raises:
+            ValueError: no result of the configured terminal filter is in
+                `state.filter_results` — a chain misconfiguration to fail fast on.
+        """
+        results = [r for r in state.filter_results if r.filter_name == self.filter_name]
+        if not results:
+            ran = [r.filter_name for r in state.filter_results]
+            raise ValueError(
+                f"LastFilterTerminalDecision: the terminal filter {self.filter_name!r} did not "
+                f"run (filters that ran: {ran}) — check config.yaml's filters and terminal_filter"
+            )
+        return _RECOMMENDATION_TO_DECISION[results[-1].recommendation]
 
 
 def decision_to_order_action(decision: Decision) -> str:

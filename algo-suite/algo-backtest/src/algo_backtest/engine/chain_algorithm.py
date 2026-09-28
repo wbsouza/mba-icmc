@@ -53,7 +53,7 @@ from algo_backtest.chain.filters.f7_model_io import load_model, require_families
 from algo_backtest.chain.market_signals import MarketSignals
 from algo_backtest.chain.model import ChainOutcome, ExecutionState, FilterChain
 from algo_backtest.chain.price_features import PriceFeatureConfig
-from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
+from algo_backtest.chain.terminal import decision_to_order_action
 from algo_backtest.chain.wiring import (
     AccountSnapshot,
     PnlWindows,
@@ -63,6 +63,7 @@ from algo_backtest.chain.wiring import (
     parse_yyyymmdd,
     pip_size_from_price_variation,
     price_features,
+    terminal_decision,
 )
 from algo_backtest.container_paths import DECISIONS_FILE, TRADE_PLANS_FILE
 from algo_backtest.engine.trade_plan import (
@@ -155,11 +156,15 @@ class ChainAlgorithm(ExecutionAlgorithm):
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
         write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
-        meta_learner = load_model(self.model_path)
-        self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
-        require_families(
-            meta_learner.families, config.meta_learner_families, where=str(self.model_path)
-        )
+        meta_learner = None
+        if config.f7 is not None:  # a chain without F7 (terminal_filter) loads no model
+            meta_learner = load_model(self.model_path)
+            self.debug(f"{self.log_tag}_MODEL_SHA256={file_sha256(self.model_path)}")
+            require_families(
+                meta_learner.families, config.meta_learner_families, where=str(self.model_path)
+            )
+        else:
+            self.debug(f"{self.log_tag}_TERMINAL_FILTER={config.terminal_filter}")
         self._economics = config.capital_mgmt
         if self._economics is None:
             raise ValueError(
@@ -179,7 +184,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             meta_learner=meta_learner,
             news_index=self._news_index(symbol, start, end),
         )
-        self._chain = FilterChain(filters=filters, terminal=F7TerminalDecision())
+        self._chain = FilterChain(filters=filters, terminal=terminal_decision(config))
         self._decisions = DecisionRecorder()
         self._pnl = PnlWindows()
 

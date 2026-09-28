@@ -27,7 +27,7 @@ from algo_backtest.chain.model import (
     FilterChain,
     FilterResult,
 )
-from algo_backtest.chain.terminal import F7TerminalDecision
+from algo_backtest.chain.terminal import F7TerminalDecision, LastFilterTerminalDecision
 from algo_backtest.chain.wiring import (
     AccountSnapshot,
     PnlWindows,
@@ -35,6 +35,7 @@ from algo_backtest.chain.wiring import (
     build_filters,
     pip_size_from_price_variation,
     price_features,
+    terminal_decision,
 )
 from algo_backtest.rules.risk_guard import RiskGuardCaps
 from algo_backtest.strategies import StrategyChainConfig, load_strategy_chain_config
@@ -66,6 +67,7 @@ class _WiringCtx:
     config: StrategyChainConfig | None = None
     model: TrainedMetaLearner | None = None
     outcome: ChainOutcome | None = None
+    terminal: object | None = None
 
 
 @pytest.fixture
@@ -505,3 +507,45 @@ def _news_only_audit(wiring_ctx: _WiringCtx, intensity: float, last_filter: str)
     assert results[0].filter_name == "f4_news_context"
     assert results[0].enrichment["news_event_intensity"] == pytest.approx(intensity)
     assert results[-1].filter_name == last_filter
+
+
+@when(
+    parsers.parse(
+        'the terminal rule is selected for a hand-built config with filters "{names}" and '
+        "terminal_filter {terminal}"
+    )
+)
+def _select_terminal(wiring_ctx: _WiringCtx, names: str, terminal: str) -> None:
+    """`none` = no terminal_filter; otherwise the quoted filter name."""
+    config = StrategyChainConfig(
+        name="handbuilt", filters=tuple(n.strip() for n in names.split(",")),
+        meta_learner_families=(), extends=None, raw={},
+        terminal_filter=None if terminal == "none" else terminal.strip('"'),
+    )
+    try:
+        wiring_ctx.terminal = terminal_decision(config)
+    except ValueError as exc:
+        wiring_ctx.error = exc
+
+
+@then(parsers.parse("the selected terminal rule is {rule}"))
+def _selected_terminal(wiring_ctx: _WiringCtx, rule: str) -> None:
+    assert wiring_ctx.error is None, wiring_ctx.error
+    if rule == "F7TerminalDecision":
+        assert isinstance(wiring_ctx.terminal, F7TerminalDecision)
+        return
+    prefix = "LastFilterTerminalDecision for "
+    assert rule.startswith(prefix), rule
+    assert wiring_ctx.terminal == LastFilterTerminalDecision(rule[len(prefix):].strip('"'))
+
+
+@when(parsers.parse('filters "{names}" are built without a meta-learner model'))
+def _named_filters_without_model(wiring_ctx: _WiringCtx, names: str) -> None:
+    config = StrategyChainConfig(
+        name="handbuilt", filters=tuple(name.strip() for name in names.split(",")),
+        meta_learner_families=(), extends=None, raw={},
+    )
+    try:
+        wiring_ctx.filters = build_filters(config, meta_learner=None, news_index=None)
+    except ValueError as exc:
+        wiring_ctx.error = exc

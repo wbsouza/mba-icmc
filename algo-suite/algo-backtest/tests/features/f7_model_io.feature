@@ -27,9 +27,10 @@ Feature: Portable, pickle-free F7 model persistence
   Rule: A model only runs under a strategy whose declared families it was trained on
 
     Scenario: Every bundled chain model matches its strategy's declared families
-      Given the bundled strategies are "baseline, baseline-dsha, hybrid, news-only, news-only-h4"
+      Given the bundled strategies are "baseline, baseline-dsha, hybrid, news-only, news-only-h4, news-rule, news-rule-h4"
       Then the bundled model of each of "baseline, baseline-dsha, hybrid" has exactly its config.yaml meta_learner families
       And the bundled hybrid model is refused for each of "news-only, news-only-h4" naming "meta_learner.families"
+      And each of "news-rule, news-rule-h4" lists no f7_meta_learner and loads no model
 
     Scenario: A family mismatch fails fast naming both family sets
       When families "trend, indicator, pattern" are required to match "trend, indicator, pattern, news"

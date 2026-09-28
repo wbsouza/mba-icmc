@@ -35,8 +35,8 @@ Feature: Strategy-chain config loading (Spec 04h)
       And the loaded strategy's F7 config has theta_high 0.6
 
     Scenario: a child overrides one key of an inherited filter section without restating the rest
-      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard" and families "trend"
-      And "hybrid" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "hybrid" extends "baseline" with filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
       And "hybrid" also declares risk_guard.max_leverage 10
       When strategy "hybrid" is loaded
       Then the loaded strategy's risk-guard caps have max_leverage 10
@@ -45,12 +45,12 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: A child drops an inherited top-level section by setting it to null
 
     Scenario: a variant that removes F2 and F3 from the chain drops their inherited sections
-      Given a strategy config directory with "baseline" filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard" and families "trend"
-      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      Given a strategy config directory with "baseline" filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
       And "news-only" sets its "indicator" section to null
       And "news-only" sets its "pattern" section to null
       When strategy "news-only" is loaded
-      Then the loaded strategy's filters are "f1_trend,f5_risk_guard"
+      Then the loaded strategy's filters are "f1_trend,f5_risk_guard,f7_meta_learner"
       And the loaded strategy has no "indicator" config
       And the loaded strategy has no "pattern" config
       And the loaded strategy's raw config has no "pattern" section
@@ -58,14 +58,14 @@ Feature: Strategy-chain config loading (Spec 04h)
       And the loaded strategy's parameter "risk_guard.max_leverage" comes from "baseline/config.yaml"
 
     Scenario: an inherited section whose filter the child no longer lists is still a hard stop
-      Given a strategy config directory with "baseline" filters "f1_trend,f3_pattern,f5_risk_guard" and families "trend"
-      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      Given a strategy config directory with "baseline" filters "f1_trend,f3_pattern,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "news-only" extends "baseline" with filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
       When loading strategy "news-only" fails
       Then the failure names "strategy 'news-only' declares a 'pattern:' section but does not list 'f3_pattern'"
 
     Scenario: a null inside a section keeps its per-key meaning rather than dropping the section
-      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard" and families "trend"
-      And "loose" extends "baseline" with filters "f1_trend,f5_risk_guard" and families "trend"
+      Given a strategy config directory with "baseline" filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "loose" extends "baseline" with filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
       And "loose" also declares risk_guard.max_leverage as null
       When strategy "loose" is loaded
       Then the loaded strategy has a typed "risk_guard" config
@@ -74,7 +74,7 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: Every configurable filter listed in filters has its own parameter section, and vice versa
 
     Scenario Outline: a strategy listing <filter> resolves a typed <section> config
-      Given a strategy config directory with "typed" filters "<filter>" and families "trend"
+      Given a strategy config directory with "typed" filters "<filter>,f7_meta_learner" and families "trend"
       When strategy "typed" is loaded
       Then the loaded strategy has a typed "<section>" config
 
@@ -88,7 +88,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f7_meta_learner | meta_learner |
 
     Scenario Outline: a strategy not listing <filter> resolves no <section> config
-      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "plain" filters "f1_trend,f7_meta_learner" and families "trend"
       When strategy "plain" is loaded
       Then the loaded strategy has no "<section>" config
 
@@ -99,32 +99,70 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f4_news_context | news_context |
         | f5_risk_guard   | risk_guard   |
         | f6_capital_mgmt | capital_mgmt |
-        | f7_meta_learner | meta_learner |
+
+    Scenario: a strategy not listing f7_meta_learner resolves no meta_learner config and names its terminal filter
+      Given a strategy config directory with "rule" filters "f1_trend,f5_risk_guard" and no feature families
+      And "rule" declares terminal_filter "f1_trend"
+      When strategy "rule" is loaded
+      Then the loaded strategy has no "meta_learner" config
+      And the loaded strategy's terminal filter is "f1_trend"
+
+  Rule: A chain without F7 names the filter whose recommendation is its decision (story 14)
+    F7 is the terminal rule whenever it is listed. Without it, `terminal_filter` names the
+    last direction-emitting filter; the gates listed after it (F5, F6, volume) may still veto.
+
+    Scenario Outline: a valid terminal_filter resolves (<case>)
+      Given a strategy config directory with "rule" filters "<filters>" and no feature families
+      And "rule" declares terminal_filter "<terminal>"
+      When strategy "rule" is loaded
+      Then the loaded strategy's terminal filter is "<terminal>"
+      And the loaded strategy has no "meta_learner" config
+
+      Examples:
+        | case                              | filters                                      | terminal        |
+        | F4 then the two gates (news-rule) | f4_news_context,f5_risk_guard,f6_capital_mgmt | f4_news_context |
+        | a single direction filter         | f1_trend                                     | f1_trend        |
+        | the last of several directions    | f1_trend,f2_indicator,f5_risk_guard          | f2_indicator    |
+
+    Scenario Outline: an invalid terminal_filter contract fails fast (<case>)
+      Given a strategy config directory with "rule" filters "<filters>" and no feature families
+      And "rule" declares terminal_filter <terminal>
+      When loading strategy "rule" fails
+      Then the failure names "<message>"
+
+      Examples:
+        | case                                | filters                                        | terminal          | message                                                                                                                                                                             |
+        | no F7 and no terminal_filter        | f4_news_context,f5_risk_guard,f6_capital_mgmt  | absent            | strategy 'rule': filters list no f7_meta_learner, so the chain needs a 'terminal_filter' key naming the last filter whose recommendation is the decision — add 'terminal_filter: f6_capital_mgmt' or list f7_meta_learner |
+        | a direction filter after it         | f4_news_context,f1_trend,f5_risk_guard         | "f4_news_context" | strategy 'rule': terminal_filter 'f4_news_context' is followed by direction filters ['f1_trend'] whose recommendation would be ignored                                             |
+        | a gate as the terminal              | f4_news_context,f5_risk_guard                  | "f5_risk_guard"   | strategy 'rule': terminal_filter 'f5_risk_guard' emits no direction — choose one of ['f1_trend', 'f2_indicator', 'f3_pattern', 'f4_news_context']                                  |
+        | a filter that is not listed         | f4_news_context,f5_risk_guard                  | "f1_trend"        | strategy 'rule': terminal_filter 'f1_trend' is not in filters ['f4_news_context', 'f5_risk_guard']                                                                                 |
+        | not a filter name                   | f4_news_context,f5_risk_guard                  | 4                 | strategy 'rule': 'terminal_filter' must be a filter name, got 4                                                                                                                     |
+        | declared alongside F7               | f4_news_context,f7_meta_learner                | "f4_news_context" | strategy 'rule': 'terminal_filter' is declared but f7_meta_learner is listed — F7 is the terminal rule; remove the key or drop f7_meta_learner                                       |
 
   Rule: Sections with defaults may be omitted; the effective values are recorded in the resolved config
 
     Scenario: price_features is always resolved, defaulting when the section is absent
-      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "plain" filters "f1_trend,f7_meta_learner" and families "trend"
       When strategy "plain" is loaded
       Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 60, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
       And the loaded strategy's raw config records price_features.ema_fast 3
 
     Scenario: a partial price_features section overrides and the rest defaults
-      Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "custom" filters "f1_trend,f7_meta_learner" and families "trend"
       And "custom" adds a "price_features" section {ema_higher_tf: 240}
       When strategy "custom" is loaded
       Then the loaded strategy's price features are ema_fast 3, ema_slow 8, ema_higher_tf 240, rsi_period 14, macd_fast 12, macd_slow 26, macd_signal 9
       And the loaded strategy's raw config records price_features.ema_higher_tf 240
 
     Scenario: execution is always resolved, defaulting when the section is absent (story 12)
-      Given a strategy config directory with "plain" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "plain" filters "f1_trend,f7_meta_learner" and families "trend"
       When strategy "plain" is loaded
       Then the loaded strategy's execution config is spread_pips 0.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
       And the loaded strategy's raw config records execution.spread_pips 0.0
       And the loaded strategy's parameter "execution.min_hold_bars" comes from "default"
 
     Scenario: a partial execution section overrides, the rest defaults, each with its provenance
-      Given a strategy config directory with "custom" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "custom" filters "f1_trend,f7_meta_learner" and families "trend"
       And "custom" adds a "execution" section {spread_pips: 1.0}
       When strategy "custom" is loaded
       Then the loaded strategy's execution config is spread_pips 1.0, commission_per_lot 0.0, min_hold_bars 0, broker_stop_level_pips 0.0
@@ -133,7 +171,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       And the loaded strategy's parameter "execution.commission_per_lot" comes from "default"
 
     Scenario Outline: a five-key capital_mgmt section resolves the trade-plan default for <key> and records it
-      Given a strategy config directory with "sized" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      Given a strategy config directory with "sized" filters "f1_trend,f6_capital_mgmt,f7_meta_learner" and families "trend"
       When strategy "sized" is loaded
       Then the loaded strategy's raw config records capital_mgmt.<key> <value>
       And the loaded strategy's parameter "capital_mgmt.<key>" comes from "default"
@@ -149,14 +187,14 @@ Feature: Strategy-chain config loading (Spec 04h)
         | min_stop_factor      | 1.0                                          |
 
     Scenario: an explicit trade-plan key keeps its file as provenance
-      Given a strategy config directory with "planned" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      Given a strategy config directory with "planned" filters "f1_trend,f6_capital_mgmt,f7_meta_learner" and families "trend"
       And "planned" also declares capital_mgmt.min_reward_risk as 2.0
       When strategy "planned" is loaded
       Then the loaded strategy's raw config records capital_mgmt.min_reward_risk 2.0
       And the loaded strategy's parameter "capital_mgmt.min_reward_risk" comes from "planned/config.yaml"
 
     Scenario Outline: an invalid <section> trade-plan or execution value fails fast at load (<case>)
-      Given a strategy config directory with "bad" filters "f1_trend,f6_capital_mgmt" and families "trend"
+      Given a strategy config directory with "bad" filters "f1_trend,f6_capital_mgmt,f7_meta_learner" and families "trend"
       And "bad" also declares <section>.<key> as <value>
       When loading strategy "bad" fails
       Then the failure names "<key>"
@@ -172,13 +210,13 @@ Feature: Strategy-chain config loading (Spec 04h)
         | fractional hold          | execution    | min_hold_bars        | 1.5   |
 
     Scenario: an execution section that is not a mapping fails fast
-      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "odd" filters "f1_trend,f7_meta_learner" and families "trend"
       And "odd" replaces its "execution" section with a scalar
       When loading strategy "odd" fails
       Then the failure names "execution"
 
     Scenario Outline: <filter> listed without its optional <section> section resolves defaults and records them
-      Given a strategy config directory with "defaulted" filters "<filter>" and families "trend"
+      Given a strategy config directory with "defaulted" filters "<filter>,f7_meta_learner" and families "trend"
       And "defaulted" drops its "<section>" section
       When strategy "defaulted" is loaded
       Then the loaded strategy has a typed "<section>" config
@@ -190,7 +228,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f3_pattern   | pattern   | bullish_patterns | [bullish_engulfing, hammer, morning_star] |
 
     Scenario Outline: an invalid <section> value fails fast at load (<case>)
-      Given a strategy config directory with "bad" filters "f1_trend,f2_indicator,f3_pattern" and families "trend"
+      Given a strategy config directory with "bad" filters "f1_trend,f2_indicator,f3_pattern,f7_meta_learner" and families "trend"
       And "bad" adds a "<section>" section <section_yaml>
       When loading strategy "bad" fails
       Then the failure names "<names>"
@@ -203,7 +241,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | pattern in both lists       | pattern        | {bullish_patterns: [hammer], bearish_patterns: [hammer]} | hammer |
 
     Scenario Outline: listing <filter> without its <section> section fails fast
-      Given a strategy config directory with "gap" filters "<filter>" and families "trend"
+      Given a strategy config directory with "gap" filters "<filter>,f7_meta_learner" and families "trend"
       And "gap" drops its "<section>" section
       When loading strategy "gap" fails
       Then the failure names "strategy 'gap' lists '<filter>' but has no '<section>:' section"
@@ -221,7 +259,7 @@ Feature: Strategy-chain config loading (Spec 04h)
       Then the failure names "strategy 'gap': meta_learner.theta_high is missing"
 
     Scenario Outline: a listed filter's section missing <key> fails fast through the loader
-      Given a strategy config directory with "gapkey" filters "<filter>" and families "trend"
+      Given a strategy config directory with "gapkey" filters "<filter>,f7_meta_learner" and families "trend"
       And "gapkey" drops "<section>" key "<key>"
       When loading strategy "gapkey" fails
       Then the failure names "strategy 'gapkey': <section>.<key> is missing"
@@ -233,7 +271,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f6_capital_mgmt | capital_mgmt | risk_per_trade                 |
 
     Scenario Outline: a <section> section for a filter that is not listed fails fast
-      Given a strategy config directory with "stray" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "stray" filters "f1_trend,f7_meta_learner" and families "trend"
       And "stray" adds a "<section>" section anyway
       When loading strategy "stray" fails
       Then the failure names "strategy 'stray' declares a '<section>:' section but does not list '<filter>'"
@@ -247,7 +285,7 @@ Feature: Strategy-chain config loading (Spec 04h)
         | f6_capital_mgmt | capital_mgmt |
 
     Scenario Outline: a <section> section that is not a mapping fails fast
-      Given a strategy config directory with "odd" filters "<filter>" and families "trend"
+      Given a strategy config directory with "odd" filters "<filter>,f7_meta_learner" and families "trend"
       And "odd" replaces its "<section>" section with a scalar
       When loading strategy "odd" fails
       Then the failure names "strategy 'odd': '<section>' must be a mapping (got 'str')"
@@ -276,7 +314,7 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: Filter names are checked when the config is loaded, not when the chain is built
 
     Scenario Outline: an unknown filter name fails fast at load time (<filter>)
-      Given a strategy config directory with "typo" filters "f1_trend,<filter>" and families "trend"
+      Given a strategy config directory with "typo" filters "f1_trend,<filter>,f7_meta_learner" and families "trend"
       When loading strategy "typo" fails
       Then the failure names "strategy 'typo': unknown filters ['<filter>'] in filters"
       And the failure names "known filters"
@@ -290,7 +328,7 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: The config schema version is declared and current
 
     Scenario Outline: a config whose schema_version is not 2 fails fast (<case>)
-      Given a strategy config directory with "old" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "old" filters "f1_trend,f7_meta_learner" and families "trend"
       And "old" sets schema_version to <schema_version>
       When loading strategy "old" fails
       Then the failure names "strategy 'old': schema_version must be the integer 2 (got <got>)"
@@ -306,25 +344,25 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: extends chains of any depth compose base-first, like compose override files (2026-09-27)
 
     Scenario: a three-level chain resolves with each level overriding its base
-      Given a strategy config directory with "core" filters "f1_trend,f5_risk_guard" and families "trend"
-      And "mid" extends "core" with filters "f1_trend,f2_indicator,f5_risk_guard" and families "trend"
+      Given a strategy config directory with "core" filters "f1_trend,f5_risk_guard,f7_meta_learner" and families "trend"
+      And "mid" extends "core" with filters "f1_trend,f2_indicator,f5_risk_guard,f7_meta_learner" and families "trend"
       And "mid" also declares risk_guard.max_leverage 10
-      And "leaf" extends "mid" with filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard" and families "trend"
+      And "leaf" extends "mid" with filters "f1_trend,f2_indicator,f3_pattern,f5_risk_guard,f7_meta_learner" and families "trend"
       When strategy "leaf" is loaded
-      Then the loaded strategy's filters are "f1_trend,f2_indicator,f3_pattern,f5_risk_guard"
+      Then the loaded strategy's filters are "f1_trend,f2_indicator,f3_pattern,f5_risk_guard,f7_meta_learner"
       And the loaded strategy's risk-guard caps have max_leverage 10
       And the loaded strategy's risk-guard caps have daily_drawdown_limit -0.05
       And the loaded strategy extends "mid"
 
     Scenario: an extends cycle fails fast naming the chain
-      Given a strategy config directory with "a" filters "f1_trend" and families "trend"
-      And "b" extends "a" with filters "f1_trend" and families "trend"
+      Given a strategy config directory with "a" filters "f1_trend,f7_meta_learner" and families "trend"
+      And "b" extends "a" with filters "f1_trend,f7_meta_learner" and families "trend"
       And "a" is changed to extend "b"
       When loading strategy "a" fails
       Then the failure names "extends cycle a -> b -> a"
 
     Scenario Outline: an extends value that is not a strategy name fails fast (<case>)
-      Given a strategy config directory with "odd" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "odd" filters "f1_trend,f7_meta_learner" and families "trend"
       And "odd" sets extends to <value>
       When loading strategy "odd" fails
       Then the failure names "strategy 'odd': 'extends' must be a strategy name, got <got>"
@@ -383,6 +421,30 @@ Feature: Strategy-chain config loading (Spec 04h)
       And the real loaded strategy extends "news-only"
       And the loaded strategy's raw config records price_features.bar_minutes 240
       And the loaded strategy's raw config records meta_learner.label_horizon_minutes 240
+
+    Scenario: the real news-rule strategy is news-only without F7, F4 deciding from the event intensity
+      When the real strategy "news-rule" is loaded with the default root
+      Then the loaded strategy's filters are "f4_news_context,f5_risk_guard,f6_capital_mgmt"
+      And the loaded strategy's terminal filter is "f4_news_context"
+      And the real loaded strategy extends "news-only"
+      And the real loaded strategy has typed "news_context,risk_guard,capital_mgmt" configs
+      And the real loaded strategy has no "meta_learner" config
+      And the loaded strategy's raw config has no "meta_learner" section
+      And the loaded strategy has no meta-learner families
+      And the loaded strategy's raw config records news_context.direction_source intensity
+      And the loaded strategy's raw config records news_context.intensity_buy_threshold 0.9
+      And the loaded strategy's raw config records news_context.intensity_sell_threshold 0.3
+      And the loaded strategy's raw config records news_context.intensity_sign 1
+      And the loaded strategy's raw config records price_features.bar_minutes 60
+      And the loaded strategy's parameter "capital_mgmt.stop_loss_shrink" comes from "news-only/config.yaml"
+
+    Scenario: the real news-rule-h4 strategy restates only the H4 clock over news-rule
+      When the real strategy "news-rule-h4" is loaded with the default root
+      Then the loaded strategy's terminal filter is "f4_news_context"
+      And the real loaded strategy extends "news-rule"
+      And the loaded strategy's raw config records price_features.bar_minutes 240
+      And the loaded strategy's parameter "price_features.bar_minutes" comes from "news-rule-h4/config.yaml"
+      And the loaded strategy's parameter "news_context.intensity_buy_threshold" comes from "news-rule/config.yaml"
 
     Scenario Outline: every bundled strategy resolves the same F7 thresholds and gate (<name>)
       When the real strategy "<name>" is loaded with the default root
@@ -461,18 +523,19 @@ Feature: Strategy-chain config loading (Spec 04h)
 
     Scenario: a meta_learner dict with no families key resolves to no feature families
       Given a strategy config directory with "sparse" filters "f1_trend" and an empty meta_learner mapping
+      And "sparse" declares terminal_filter "f1_trend"
       When strategy "sparse" is loaded
       Then the loaded strategy has no meta-learner families
 
   Rule: A non-mapping meta_learner section fails fast rather than silently degrading
 
     Scenario: a scalar meta_learner value fails fast
-      Given a strategy config directory with "odd" filters "f1_trend" and a scalar meta_learner
+      Given a strategy config directory with "odd" filters "f1_trend,f7_meta_learner" and a scalar meta_learner
       When loading strategy "odd" fails
       Then the failure names "strategy 'odd': 'meta_learner' must be a mapping (got 'str')"
 
     Scenario: a scalar meta_learner overriding a dict base still fails fast
-      Given a strategy config directory with "baseline" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "baseline" filters "f1_trend,f7_meta_learner" and families "trend"
       And "hybrid" extends "baseline" overriding meta_learner with a scalar value
       When loading strategy "hybrid" fails
       Then the failure names "meta_learner"
@@ -493,7 +556,7 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: A scalar meta_learner.families value fails fast instead of splitting into characters
 
     Scenario: meta_learner.families as a bare string fails fast, not "tuple(str)" char-splat
-      Given a strategy config directory with "typo" filters "f1_trend" and meta_learner.families as the scalar "trend"
+      Given a strategy config directory with "typo" filters "f1_trend,f7_meta_learner" and meta_learner.families as the scalar "trend"
       When loading strategy "typo" fails
       Then the failure names "strategy 'typo': 'meta_learner.families' must be a list"
 
@@ -503,12 +566,12 @@ Feature: Strategy-chain config loading (Spec 04h)
       Then the failure names "strategy 'typo': 'filters' must be a list"
 
     Scenario: meta_learner.families as a mapping fails fast, not "list(dict)" silent key-splat
-      Given a strategy config directory with "oddmap" filters "f1_trend" and meta_learner.families as a mapping
+      Given a strategy config directory with "oddmap" filters "f1_trend,f7_meta_learner" and meta_learner.families as a mapping
       When loading strategy "oddmap" fails
       Then the failure names "meta_learner.families"
 
     Scenario: meta_learner.families with a non-string entry fails fast
-      Given a strategy config directory with "badfamily" filters "f1_trend" and meta_learner.families containing a non-string entry
+      Given a strategy config directory with "badfamily" filters "f1_trend,f7_meta_learner" and meta_learner.families containing a non-string entry
       When loading strategy "badfamily" fails
       Then the failure names "meta_learner.families"
 
@@ -531,7 +594,7 @@ Feature: Strategy-chain config loading (Spec 04h)
   Rule: The F1 perception source is typed into the loaded config
 
     Scenario Outline: perception_source resolves to the declared source (<source>)
-      Given a strategy config directory with "seen" filters "f1_trend" and families "trend"
+      Given a strategy config directory with "seen" filters "f1_trend,f7_meta_learner" and families "trend"
       And "seen" sets perception_source to <source>
       When strategy "seen" is loaded
       Then the loaded strategy's perception source is "<source>"

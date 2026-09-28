@@ -208,6 +208,18 @@ def _bundled_model_refused(names: str, fragment: str) -> None:
             require_families(load_families(path), declared, where=str(path))
 
 
+@then(parsers.parse('each of "{names}" lists no f7_meta_learner and loads no model'))
+def _no_model_strategies(names: str) -> None:
+    """A rule-only chain (terminal_filter, no F7) resolves to no model file at all."""
+    from algo_backtest.run import resolve_strategy
+    from algo_backtest.strategies import load_strategy_chain_config
+
+    for name in (n.strip() for n in names.split(",")):
+        config = load_strategy_chain_config(name)
+        assert "f7_meta_learner" not in config.filters and config.terminal_filter is not None
+        assert resolve_strategy(name).model_file is None, name
+
+
 @when(parsers.parse('families "{trained}" are required to match "{declared}"'))
 def _require_mismatch(io_ctx: _IoCtx, trained: str, declared: str) -> None:
     with pytest.raises(ValueError) as excinfo:

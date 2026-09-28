@@ -24,6 +24,12 @@ Feature: explain-strategy shows the resolved parameters and where each one came 
       | news-only | price_features.swing_lookback_bars        | baseline/config.yaml |
       | news-only-h4 | price_features.bar_minutes             | news-only-h4/config.yaml |
       | news-only-h4 | risk_guard.portfolio_at_risk_cap       | news-only/config.yaml |
+      | news-rule | terminal_filter                           | news-rule/config.yaml |
+      | news-rule | news_context.direction_source             | news-rule/config.yaml |
+      | news-rule | news_context.intensity_buy_threshold      | news-rule/config.yaml |
+      | news-rule | capital_mgmt.targets                      | news-only/config.yaml |
+      | news-rule-h4 | price_features.bar_minutes             | news-rule-h4/config.yaml |
+      | news-rule-h4 | news_context.intensity_sell_threshold  | news-rule/config.yaml |
 
   Scenario: an external variant explains both its own keys and the defaults it inherited
     Given an external strategies directory holding "tight" extending "baseline" with extra "{meta_learner: {theta_high: 0.6}}"

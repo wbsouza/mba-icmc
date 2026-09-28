@@ -168,6 +168,26 @@ Feature: Chain wiring shared by the chain-driven LEAN algorithms and F7 training
       Then building fails naming "has no parsed 'news_context' section"
       And building fails naming "load_strategy_chain_config"
 
+  Rule: The chain's terminal rule follows the config: F7's own, else the terminal_filter's
+
+    Scenario Outline: the terminal rule selected for filters "<filters>" with terminal_filter <terminal> is <rule>
+      When the terminal rule is selected for a hand-built config with filters "<filters>" and terminal_filter <terminal>
+      Then the selected terminal rule is <rule>
+
+      Examples:
+        | filters                                       | terminal          | rule                                          |
+        | f1_trend, f7_meta_learner                     | none              | F7TerminalDecision                            |
+        | f4_news_context, f5_risk_guard, f6_capital_mgmt | "f4_news_context" | LastFilterTerminalDecision for "f4_news_context" |
+
+    Scenario: a hand-built config with neither F7 nor a terminal_filter cannot select a terminal rule
+      When the terminal rule is selected for a hand-built config with filters "f4_news_context, f5_risk_guard" and terminal_filter none
+      Then building fails naming "lists no f7_meta_learner and names no terminal_filter"
+      And building fails naming "load_strategy_chain_config"
+
+    Scenario: F7 listed without a meta-learner model fails fast at build time
+      When filters "f7_meta_learner" are built without a meta-learner model
+      Then building fails naming "lists f7_meta_learner but no meta-learner model was given"
+
   Rule: The bundled risk caps follow RiskGuard's sign contract
 
     Scenario: A flat account at break-even passes F5 under the real baseline risk_guard caps

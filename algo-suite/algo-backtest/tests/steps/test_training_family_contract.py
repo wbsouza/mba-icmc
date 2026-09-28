@@ -24,10 +24,14 @@ def family_cli(tmp_path: Path) -> dict[str, Any]:
 
 def _shape(extends: str, families: list[str]) -> dict[str, Any]:
     """A minimal valid strategy shape isolating the script's own contract: `none` is a
-    self-contained one-filter chain without F7, anything else extends a bundled base."""
+    self-contained one-filter chain without F7 (so it names F1 as its terminal filter),
+    anything else extends a bundled base."""
     meta_learner = {"families": families}
     if extends == "none":
-        return {"schema_version": 2, "filters": ["f1_trend"], "meta_learner": meta_learner}
+        return {
+            "schema_version": 2, "filters": ["f1_trend"], "terminal_filter": "f1_trend",
+            "meta_learner": meta_learner,
+        }
     return {"extends": extends, "meta_learner": meta_learner}
 
 

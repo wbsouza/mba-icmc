@@ -206,13 +206,19 @@ class StrategySpec:
     `hybrid` (Spec 04h), whose algorithm reads it via F4NewsContextFilter.
 
     `model_file`: the F7 model filename the bundled algorithm loads, for strategies that
-    run the meta-learner — the file a run's `--model` override replaces.
+    run the meta-learner — the file a run's `--model` override replaces; `None` for a
+    code-registered strategy and for a config.yaml chain that lists no `f7_meta_learner`
+    (story 14's rule-only `news-rule`), which loads no model at all.
+
+    `chain_config`: whether the strategy is a config.yaml chain (its resolved YAML is
+    shipped into the container and its parameters explained at bootstrap).
     """
 
     algo_dir: str
     validate: Callable[[Params], None]
     needs_news_data: bool = False
     model_file: str | None = None
+    chain_config: bool = False
 
 
 # Adding a strategy is a registry entry + a bundled algorithm, no new run path.
@@ -257,7 +263,8 @@ def resolve_strategy(strategy: str, *, strategies_root: Path | None = None) -> S
 
     A chain strategy's YAML decides everything the run path needs: the LEAN algorithm
     that hosts it (`algos/hybrid` when `f4_news_context` is listed, else `algos/baseline`),
-    whether the news Parquet is mounted, and that it takes the `cash` param alone.
+    whether the news Parquet is mounted, whether an F7 model is loaded (only when
+    `f7_meta_learner` is listed), and that it takes the `cash` param alone.
     `strategies_root` is an external directory searched before the bundled one.
 
     Raises:
@@ -280,7 +287,8 @@ def resolve_strategy(strategy: str, *, strategies_root: Path | None = None) -> S
         algo_dir="hybrid" if news else "baseline",
         validate=partial(_validate_chain_params, strategy=strategy),
         needs_news_data=news,
-        model_file=_F7_MODEL_FILE,
+        model_file=_F7_MODEL_FILE if "f7_meta_learner" in config.filters else None,
+        chain_config=True,
     )
 
 
@@ -331,9 +339,15 @@ def _validate_model(
     """The F7 model a run would load must exist and match the strategy's families.
 
     Checks the `--model` override, or the strategy's bundled model when none is given,
-    so a mismatch fails on the host before any container starts.
+    so a mismatch fails on the host before any container starts. A chain strategy that
+    lists no `f7_meta_learner` loads no model: it needs none and accepts no `--model`.
     """
     if spec.model_file is None:
+        if model is not None and spec.chain_config:
+            raise ValueError(
+                f"--model does not apply to strategy {strategy!r}: its filters list no "
+                "f7_meta_learner, so no F7 model is loaded — drop --model or add the filter"
+            )
         if model is not None:
             raise ValueError(
                 f"--model only applies to the config.yaml chain strategies, not {strategy!r}"
@@ -534,7 +548,7 @@ def run_strategy(
     if model is not None and spec.model_file:
         algo_files[spec.model_file] = model
     with tempfile.TemporaryDirectory(prefix="lean-strategy-") as scratch:
-        if spec.model_file:  # a chain strategy: ship its resolved YAML next to main.py
+        if spec.chain_config:  # a chain strategy: ship its resolved YAML next to main.py
             config = load_strategy_chain_config(strategy, root=strategies_root)
             if config.volume_strength is not None:
                 price_root = data_root / "parquet" / instrument.security_type

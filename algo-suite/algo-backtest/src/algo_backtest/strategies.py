@@ -59,6 +59,7 @@ from algo_backtest.chain.filters.f3_pattern import (
 )
 from algo_backtest.chain.filters.f4_news_context import (
     NewsContextConfig,
+    news_context_mapping,
     parse_news_context_config,
 )
 from algo_backtest.chain.filters.f6_capital_mgmt import (
@@ -100,6 +101,12 @@ _SECTION_FOR_FILTER: dict[str, str] = {
     "volume_strength": "volume_strength",
 }
 _DEFAULTABLE_FILTERS = frozenset({"f2_indicator", "f3_pattern"})
+# The filters whose recommendation carries a direction (BUY/SELL), so one of them may close
+# a chain that runs no F7 as its `terminal_filter`; F5/F6/volume only gate.
+DIRECTION_FILTERS: frozenset[str] = frozenset(
+    {"f1_trend", "f2_indicator", "f3_pattern", "f4_news_context"}
+)
+_TERMINAL_KEY = "terminal_filter"
 # Every feature family `meta_learner.families` may name (F7 fits one sub-model per family).
 KNOWN_FAMILIES: tuple[str, ...] = tuple(family.value for family in FeatureFamily)
 _F7_KEYS = ("theta_high", "theta_low", "regime_gate")
@@ -120,6 +127,9 @@ class StrategyChainConfig:
     meta_learner_families: tuple[str, ...]
     extends: str | None
     raw: Mapping[str, Any]
+    # The last filter whose recommendation is the chain's decision when no F7 is listed
+    # (`chain/terminal.py` LastFilterTerminalDecision); None whenever F7 closes the chain.
+    terminal_filter: str | None = None
     perception: PerceptionConfig = PerceptionConfig()
     price_features: PriceFeatureConfig = PriceFeatureConfig()
     # Fill costs and holding rule (story 12): always resolved, tied to no filter.
@@ -410,17 +420,77 @@ def _typed_sections(
 ) -> dict[str, Any]:
     """Every listed configurable filter's section, parsed by that filter's own parser."""
     _reject_stray_f7_keys(name, filters, meta_learner)
-    news = _filter_section(name, merged, filters, "f4_news_context")
     risk = _filter_section(name, merged, filters, "f5_risk_guard")
     return {
-        "news_context": (
-            parse_news_context_config(news, strategy=name) if news is not None else None
-        ),
+        "news_context": _news_context(name, merged, filters),
         "risk_guard": parse_risk_guard_caps(risk, strategy=name) if risk is not None else None,
         "capital_mgmt": _capital_mgmt(name, merged, filters),
         "volume_strength": _volume_section(name, merged, filters),
         **_defaulted_sections(name, merged, filters, meta_learner),
     }
+
+
+def _news_context(
+    name: str, merged: dict[str, Any], filters: tuple[str, ...]
+) -> NewsContextConfig | None:
+    """F4's section when the filter is listed; the direction-source keys it omits default
+    and the effective values are written back into `merged` (story 14)."""
+    news = _filter_section(name, merged, filters, "f4_news_context")
+    if news is None:
+        return None
+    config = parse_news_context_config(news, strategy=name)
+    merged["news_context"] = news_context_mapping(config)
+    return config
+
+
+def _terminal_filter(name: str, merged: Mapping[str, Any], filters: tuple[str, ...]) -> str | None:
+    """The `terminal_filter` a chain without F7 must declare (and one with F7 must not).
+
+    The named filter's recommendation is the chain's decision, so it must be the last
+    *direction-emitting* filter: gates (F5/F6/volume) may follow it and veto, but another
+    direction filter after it would have its opinion silently ignored.
+
+    Raises:
+        ValueError: F7 is absent and the key is missing; F7 is present alongside the key;
+            the key is not a string, not listed, names a filter that emits no direction,
+            or is followed by another direction-emitting filter.
+    """
+    terminal = merged.get(_TERMINAL_KEY)
+    if "f7_meta_learner" in filters:
+        if terminal is not None:
+            raise ValueError(
+                f"strategy {name!r}: '{_TERMINAL_KEY}' is declared but f7_meta_learner is listed "
+                "— F7 is the terminal rule; remove the key or drop f7_meta_learner"
+            )
+        return None
+    if terminal is None:
+        raise ValueError(
+            f"strategy {name!r}: filters list no f7_meta_learner, so the chain needs a "
+            f"'{_TERMINAL_KEY}' key naming the last filter whose recommendation is the "
+            f"decision — add '{_TERMINAL_KEY}: {filters[-1]}' or list f7_meta_learner"
+        )
+    if not isinstance(terminal, str):
+        raise ValueError(
+            f"strategy {name!r}: '{_TERMINAL_KEY}' must be a filter name, got {terminal!r}"
+        )
+    if terminal not in filters:
+        raise ValueError(
+            f"strategy {name!r}: {_TERMINAL_KEY} {terminal!r} is not in filters {list(filters)} "
+            f"— name one of the listed filters"
+        )
+    if terminal not in DIRECTION_FILTERS:
+        raise ValueError(
+            f"strategy {name!r}: {_TERMINAL_KEY} {terminal!r} emits no direction — choose one of "
+            f"{sorted(DIRECTION_FILTERS)}"
+        )
+    later = [f for f in filters[filters.index(terminal) + 1 :] if f in DIRECTION_FILTERS]
+    if later:
+        raise ValueError(
+            f"strategy {name!r}: {_TERMINAL_KEY} {terminal!r} is followed by direction filters "
+            f"{later!r} whose recommendation would be ignored — the terminal filter must be the "
+            f"last direction-emitting entry of filters; reorder filters or change {_TERMINAL_KEY}"
+        )
+    return terminal
 
 
 def _volume_section(
@@ -447,7 +517,9 @@ def load_strategy_chain_config(name: str, *, root: Path | None = None) -> Strate
             distinct from the section being absent entirely — that legitimately
             resolves to no feature families), a family name F7 does not know, or a
             configurable filter's own section is missing, stray or invalid
-            (`_filter_section` and each `parse_*_config`).
+            (`_filter_section` and each `parse_*_config`), or the `terminal_filter`
+            contract is broken (`_terminal_filter`: required without F7, refused with
+            it, must be the last direction-emitting filter listed).
     """
     resolved_root = root if root is not None else strategies_root()
     chain = _extends_chain(resolved_root, name)
@@ -547,11 +619,13 @@ def _from_merged(
     _require_known_families(name, families)
     typed = _typed_sections(name, merged, filters, meta_learner)
     _validate_clock(typed, parse_perception_config(merged))
+    terminal = _terminal_filter(name, merged, filters)
     for path in _leaf_paths(merged):
         provenance.setdefault(path, "default")
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
-        perception=parse_perception_config(merged), provenance=provenance, **typed,
+        terminal_filter=terminal, perception=parse_perception_config(merged),
+        provenance=provenance, **typed,
     )
 
 

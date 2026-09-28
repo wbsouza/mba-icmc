@@ -4,7 +4,8 @@ Feature: Training entry points reject incompatible strategy feature families bef
   subset of the known families that includes news (all four for `hybrid`, `[news]`
   alone for `news-only`) — and requires the news filter. Every candidate below is an
   external strategy named "candidate" extending a bundled base (`none` = its own
-  one-filter chain without F7), with the families written into its config.yaml.
+  one-filter chain without F7, F1 as its terminal_filter), with the families written
+  into its config.yaml.
 
   Scenario Outline: An incompatible external strategy is rejected before market reads
     Given the <trainer> training CLI selects an external strategy extending <extends> with families <families>
