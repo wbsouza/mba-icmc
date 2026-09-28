@@ -226,3 +226,24 @@ Feature: Incremental data and label-maturity adapter (Story 19, T2)
       Then the ingestion failure names "eurusd/h1/2016-01"
       And the ingestion failure names "sha256"
       And the ledger holds 3 rows
+
+  Rule: A stage selector needs full rows, not just keys (T9)
+
+    Scenario: The full persisted row is available by key, in availability order
+      Given the batch "jan-a" is consumed
+      When the rows "bar-002, bar-001" are fetched by key
+      Then the fetched rows are, in order
+        | key     | available_at         | label_time           | label |
+        | bar-002 | 2016-01-04T10:00:00Z | 2016-01-04T11:00:00Z | 0     |
+        | bar-001 | 2016-01-04T09:00:00Z | 2016-01-04T10:00:00Z | 1     |
+
+    Scenario: A partition consumed after a cutoff does not contribute to that cutoff's visible partitions
+      Given the batch "jan-a" is consumed
+      And the batch "feb-a" from partition "eurusd/h1/2016-02" carries the rows
+        | key     | available_at         | label_time           | label |
+        | bar-101 | 2016-02-01T09:00:00Z | 2016-02-01T10:00:00Z | 1     |
+      And the batch "feb-a" is consumed
+      When querying the visible partitions as of 2016-01-04T11:00:00Z
+      Then the visible partitions are "eurusd/h1/2016-01"
+      When querying the visible partitions as of 2016-02-01T09:00:00Z
+      Then the visible partitions are "eurusd/h1/2016-01, eurusd/h1/2016-02"

@@ -37,6 +37,8 @@ class _IngestCtx:
     remembered_bytes: bytes | None = None
     remembered_records: dict[str, Any] = field(default_factory=dict)
     parquet_path: Path | None = None
+    fetched_rows: tuple[SourceRow, ...] = ()
+    visible_partitions: tuple[str, ...] = ()
 
 
 @pytest.fixture
@@ -157,6 +159,32 @@ def _has_file(ingest_ctx: _IngestCtx) -> None:
 def _has_no_file(ingest_ctx: _IngestCtx) -> None:
     assert not (ingest_ctx.directory / LEDGER_FILE).exists()
     assert list(ingest_ctx.directory.iterdir()) == []
+
+
+@when(parsers.parse('the rows "{keys}" are fetched by key'))
+def _fetch_rows(ingest_ctx: _IngestCtx, keys: str) -> None:
+    requested = tuple(key.strip() for key in keys.split(","))
+    ingest_ctx.fetched_rows = Ledger.open(ingest_ctx.directory).rows(requested)
+
+
+@when(parsers.parse("querying the visible partitions as of {stamp}"))
+def _query_visible_partitions(ingest_ctx: _IngestCtx, stamp: str) -> None:
+    ledger = Ledger.open(ingest_ctx.directory)
+    ingest_ctx.visible_partitions = tuple(
+        sorted(ledger.visible_partitions(datetime.fromisoformat(stamp)))
+    )
+
+
+@then(parsers.parse('the visible partitions are "{names}"'))
+def _visible_partitions_are(ingest_ctx: _IngestCtx, names: str) -> None:
+    expected = tuple(sorted(name.strip() for name in names.split(",")))
+    assert ingest_ctx.visible_partitions == expected
+
+
+@then("the fetched rows are, in order")
+def _fetched_rows_match(ingest_ctx: _IngestCtx, datatable: list[list[str]]) -> None:
+    expected = _rows(datatable)
+    assert ingest_ctx.fetched_rows == expected
 
 
 @then(parsers.parse('the ingestion failure names "{fragment}"'))

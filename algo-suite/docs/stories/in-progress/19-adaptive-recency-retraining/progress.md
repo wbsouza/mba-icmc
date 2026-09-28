@@ -54,7 +54,7 @@ convention; update both in the same tested task commit.
 - [x] T6: Pass independent weights through combiner fitting.
 - [x] T7: Publish immutable epoch bundles.
 - [x] T8: Implement separate-span threshold calibration.
-- [ ] T9: Orchestrate one epoch's weighted training.
+- [x] T9: Orchestrate one epoch's weighted training.
 - [ ] T10: Implement the full adaptive-cycle coordinator.
 - [ ] T11: Implement the on-demand epoch provider.
 - [ ] T12: Integrate adaptive cycles into continuous LEAN replay.
@@ -581,3 +581,106 @@ threshold behavior by the five-case outline exercising the real `F7MetaLearnerFi
 Insufficient-support, non-finite-score and non-increasing/out-of-band rejections each
 have their own scenario asserting the specific named fragment. No shared file outside
 the new module was touched.
+
+### 2026-09-28 T9: Orchestrate one epoch's weighted training (Claude coder, Lane A, Phase 2)
+
+What changed and why: new `retraining/trainer.py` orchestrates T2 (ingestion) -> T3
+(schedule) -> T4 (weights) -> T5/T6 (weighted F7 fit) -> T7 (bundle) -> T8 (thresholds)
+into `train_epoch(policy, epoch, ledger, features, registry, settings)`: reads only
+rows visible/mature at the epoch's own preparation cutoff `C` (`schedule.stage_spans`'s
+own threshold-span end, RWT-01/RWT-24), weights family/combiner stages uniformly or
+(policy E) exponentially to each stage's own span end, checks both stages' support
+before any fit (RWT-06), fits with `split.test=()` (never a future test span, RWT-30),
+scores the threshold span with the freshly fitted model and calibrates, then publishes
+one immutable bundle (RWT-11) via T7. `train_epoch` always refits when called; "freezing"
+policy F for later months is a scheduling decision the caller (T10) makes by simply not
+calling `train_epoch` again — F/Q/U's later-epoch spans are already anchored to the
+first `D` by T3's `schedule.stage_spans`, so a repeated call reproduces byte-identical
+rows, weights and payload hash without any special-casing here.
+
+Two small, covered extensions to T2's `ingestion.py` this task needed: `Ledger.row`/
+`.rows` (full `SourceRow`s by key — T9's stage selectors need more than keys) and
+`Ledger.visible_partitions(cutoff)` (partitions with a row visible at or before
+`cutoff`; a partition consumed later, whose rows are all after `cutoff`, never
+contributed to a fit prepared against it — RWT-30's future-tail independence needs
+this for `hashes.data_sha256`, exactly as it already needed a cutoff-scoped
+`ledger_watermark`, see below). Both got their own `retraining_ingestion.feature`
+scenarios (now 27 scenarios, was 25).
+
+**A real design gap found and fixed while implementing (not a scenario problem):**
+the frozen protocol's manifest table marks `ledger_watermark` and (via
+`hashes.data_sha256`) the consumed partitions as identity fields, described only as
+"the ingestion watermark" / "the consumed partitions' identities" — with no explicit
+statement of whether that means the ledger's raw, ever-advancing internal watermark or
+one scoped to what a specific epoch's cutoff could actually see. Implementing it as
+the ledger's raw `.watermark` (my first attempt) **fails RWT-30's own "future-tail
+mutation invariance" requirement**: consuming a later, unrelated batch (rows dated
+after the epoch's cutoff `C`) would change the epoch's `bundle_id`, even though no
+row it contributed can ever have influenced the fit. Fixed by computing both fields
+capped to the epoch's own cutoff — `trainer._watermark_at_cutoff` (max availability
+among rows visible at or before `C`, via `Ledger.visible_keys`, not `Ledger.watermark`)
+and `Ledger.visible_partitions(cutoff)` for `data_sha256` — verified against every
+watermark value the feature file asserts (first-epoch: 2016-02-25; pending-labels:
+2016-02-28T20:00, which needs the *visible*, not *mature*, watermark since a pending
+row still advances it; later-epoch: 2016-03-26) and against the mutation-invariance
+scenario, which only passes with this fix.
+
+**Two scenario corrections (recorded per COMMON-RULES, not silent changes), both
+found and verified by hand-computing the real production model's output before
+touching the feature file:**
+
+1. The "second epoch" Outline asserted `theta_low`/`theta_high` for policy Q's second
+   epoch "differ from F's first-epoch thresholds" unconditionally. Q's second-epoch
+   model is byte-identical to F's (same family/combiner spans, already correctly
+   asserted via `payload_relation: equals`); scoring it on the March threshold rows
+   happens to reproduce the exact same 0.10/0.90 quantiles as F's February rows
+   (verified independently with a standalone script: both row sets' `trend_direction`
+   pattern maps to the same two p_hat values under this fit, since the tiny fixture's
+   other features don't split the tree). U's second epoch (a genuinely different
+   model) does differ, confirmed the same way. Added a `threshold_relation` Examples
+   column (`equals` for Q, `differs from` for U) instead of the single hard-coded
+   "differ" line, so each policy asserts the value that is actually true of it.
+2. My own test fixture (not the spec): the "Recent DOWN labels outweigh older UP
+   labels" scenario's step for "rows sharing identical features" originally made
+   *every* family column identical across the five replaced rows, including the
+   indicator columns (rsi/macd_hist). That kills the indicator family's learnable
+   variance too (all rows equal on every column the family models ever see), which
+   collapses the combiner and threshold stage to a constant output and makes
+   `calibrate_thresholds` fail on tied quantiles. Fixed by making only the three
+   TREND columns identical (what the scenario's probe actually reads via
+   `family_vector(TREND, ...)`) while keeping each row's original indicator values,
+   restoring a working, non-degenerate fit. No feature-file change needed for this
+   one — it was a step-implementation bug, not a wrong scenario.
+
+Steps in `tests/steps/test_retraining_trainer.py`; the "trend family P(up)" checks
+reload the published bundle (`bundle.load`) rather than trusting the in-memory model,
+so publish/load fidelity is exercised too.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest algo-backtest/tests/steps/test_retraining_trainer.py -q
+  -p no:cacheprovider`: 19 passed (task asked for >=10; the feature's 14 scenarios plus
+  outline Examples rows total 19).
+- `uv run pytest algo-backtest/tests/steps/test_retraining_ingestion.py
+  test_retraining_schedule.py test_retraining_weights.py test_retraining_bundle.py
+  test_retraining_thresholds.py test_f7_meta_learner.py test_f7_combiner_weights.py
+  test_f7_family_weights.py test_f7_model_io.py -q -p no:cacheprovider`: 257 passed,
+  0 failed (regression).
+- `uv run ruff check algo-backtest`: clean. `uv run ruff format --check` on every
+  touched file: clean. `uv run mypy --strict algo-backtest`: clean, 71 source files.
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider`: `1808/1861 tests
+  collected (53 deselected)`, exactly the running total (1787) + T9's 19 + the 2 new
+  ingestion scenarios, none removed. `uv run pytest algo-backtest/tests -q
+  -p no:cacheprovider`: 1808 passed, 53 deselected, 0 failed (81.7 s).
+
+Adequacy: RWT-01/RWT-24 by every row-key scenario (family/combiner/threshold keys
+exactly match hand-derived span membership; pending rows excluded and independently
+confirmed pending/mature via the ledger); RWT-06 by the registered-minima rejection
+(0 LightGBM fits observed, exact "measured/required" message) and the one-class
+combiner-span failure; RWT-09 by the trade-context scenario (flipped vetoed/traded/pnl
+fields change nothing); RWT-11 by "a bundle is published" plus reload-based prediction
+and threshold-quantile checks against the real published artifact; RWT-30 by the
+repeated-fit-into-fresh-registry scenario (same bundle_id/model_sha256/thresholds,
+independently varying wall-clock fields) and the future-tail mutation scenario (the
+watermark/data-sha256 fix above). No shared file outside the `retraining/` package was
+touched; `ingestion.py`'s two additions are backward-compatible pure reads.

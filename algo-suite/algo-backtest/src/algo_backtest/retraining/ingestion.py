@@ -287,9 +287,41 @@ class Ledger:
         assert self._watermark is not None  # a persisted row implies a watermark
         return _MATURE if record["label_time"] <= self._watermark else _PENDING
 
+    def row(self, key: str) -> SourceRow:
+        """The persisted `SourceRow` for `key` (its timestamps and label, not its partition)."""
+        record = self._records[key]
+        return SourceRow(
+            key=key,
+            available_at=_parse(record["available_at"]),
+            label_time=_parse(record["label_time"]),
+            label=record["label"],
+        )
+
+    def rows(self, keys: Sequence[str]) -> tuple[SourceRow, ...]:
+        """The persisted `SourceRow`s for `keys`, in the given order (T9's stage selectors
+        need full rows, not just keys)."""
+        return tuple(self.row(key) for key in keys)
+
     def visible_keys(self, cutoff: datetime) -> tuple[str, ...]:
         """Keys available at or before `cutoff` (inclusive), in availability order."""
         return self._keys_where(cutoff, mature_only=False)
+
+    def visible_partitions(self, cutoff: datetime) -> Mapping[str, PartitionRecord]:
+        """Partitions that contributed at least one row visible at or before `cutoff`.
+
+        A partition consumed after `cutoff` (its rows all available later) contributes
+        nothing to a fit prepared against `cutoff` and must not appear here (T9's
+        future-tail independence: consuming later data must not change an already-decided
+        epoch's provenance).
+        """
+        require_utc(cutoff, what="cutoff")
+        bound = iso_utc(cutoff)
+        names = {
+            record["partition"]
+            for record in self._records.values()
+            if record["available_at"] <= bound
+        }
+        return {name: record for name, record in self.partitions.items() if name in names}
 
     def mature_keys(self, cutoff: datetime) -> tuple[str, ...]:
         """Visible keys whose label_time is at or before `cutoff` (inclusive, RWT-24)."""

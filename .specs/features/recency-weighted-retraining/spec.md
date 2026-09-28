@@ -147,17 +147,17 @@ not profitability. Do not fabricate market or training data.
 
 | Requirement ID | Story | Tasks | Status |
 | --- | --- | --- | --- |
-| RWT-01 | P1 training | T3, T9 | Implemented (T3) |
+| RWT-01 | P1 training | T3, T9 | Implemented (T3, T9) |
 | RWT-02 | P1 training | T3, T4 | Implemented (T3, T4) |
 | RWT-03 | P1 training | T3, T11 | Implemented (T3) |
 | RWT-04 | P1 training | T4 | Implemented (T4) |
 | RWT-05 | P1 training | T4, T5, T6 | Implemented (T4, T5, T6) |
-| RWT-06 | P1 training | T4, T9 | Implemented (T4) |
+| RWT-06 | P1 training | T4, T9 | Implemented (T4, T9) |
 | RWT-07 | P1 training | T5 | Implemented (T5) |
 | RWT-08 | P1 training | T6 | Implemented (T6) |
-| RWT-09 | P1 training | T3, T9 | Implemented (T3) |
+| RWT-09 | P1 training | T3, T9 | Implemented (T3, T9) |
 | RWT-10 | P1 training | T8 | Implemented (T8) |
-| RWT-11 | P1 replay | T7, T9, T14 | Implemented (T7) |
+| RWT-11 | P1 replay | T7, T9, T14 | Implemented (T7, T9) |
 | RWT-12 | P1 replay | T11, T12 | In Tasks |
 | RWT-13 | P1 replay | T12 | In Tasks |
 | RWT-14 | P1 replay | T12 | In Tasks |
@@ -170,13 +170,13 @@ not profitability. Do not fabricate market or training data.
 | RWT-21 | P2 evidence | T1, T16, T17, T18, T19 | Implemented (T1) |
 | RWT-22 | P2 evidence | T17, T19 | In Tasks |
 | RWT-23 | P1 replay | T2, T10 | Implemented (T2) |
-| RWT-24 | P1 replay | T2, T9 | Implemented (T2) |
+| RWT-24 | P1 replay | T2, T9 | Implemented (T2, T9) |
 | RWT-25 | P1 replay | T10, T15 | In Tasks |
 | RWT-26 | P1 replay | T10, T11, T12 | In Tasks |
 | RWT-27 | P1 replay | T10, T15 | In Tasks |
 | RWT-28 | P1 replay | T11 | In Tasks |
 | RWT-29 | P2 evidence | T1, T16 | Implemented (T1) |
-| RWT-30 | P1 replay | T9, T12 | In Tasks |
+| RWT-30 | P1 replay | T9, T12 | Implemented (T9) |
 
 Coverage: 30 requirements, all mapped; the Status column tracks each task. RWT-29/30
 make the review's prediction and repeatability evidence explicit; original IDs
