@@ -1,5 +1,66 @@
 # Global plan — remaining work to TCC final submission
 
+## New planned research stories — September 28, 2026
+
+[Story 19 — adaptive rolling and exponentially weighted retraining](planned/19-adaptive-recency-retraining/spec.md)
+plans the full consume/mature-label/train/validate/publish/load-on-demand cycle.
+Five controlled policies compare frozen, threshold-only, rolling, expanding and
+exponentially weighted training while preserving account and risk state.
+The [19-task plan](../../../.specs/features/recency-weighted-retraining/tasks.md)
+includes Gherkin gates and future Chapter 3/4 updates. Planning only; no models
+or experiments launched. Story 19 avoids the market-context Story 18 allocation.
+
+[Story 13 — planned candlestick extension](in-progress/13-pattern-volume-experiments/candlestick-extension.md)
+adds Bigalow's *High Profit Candlestick Patterns*, the supplied CMT presentation,
+timestamped webinar notes, and Laya as a proposed learned pattern/context
+complement to TA-Lib. The original pattern/volume experiments already exist;
+the extension is **planned**, not implemented or validated. It requires frozen
+model versions, causal inputs, independent recognition review,
+and controlled comparisons. See the updated
+[progress and handoff](in-progress/13-pattern-volume-experiments/progress.md).
+Its [tlc-spec-driven task plan](../../../.specs/features/candlestick-context/tasks.md)
+splits the extension into 24 pending tasks across rules, integration, optional
+learned context, and evaluation/publication. Planning only; execution is deferred.
+
+[Story 15 — Miner-inspired strategy review and adaptation](planned/15-miner-strategy-adaptation/spec.md)
+reviews Robert C. Miner's supplied book against the existing engine, reuses
+compatible filters, and stages causal multi-timeframe setup/entry implementation
+and controlled evaluation. It is **planned**, not implemented or registered for
+execution. It does not change ongoing simulations or existing strategy defaults.
+See its [progress and handoff](planned/15-miner-strategy-adaptation/progress.md).
+
+[Story 16 — Naked Forex filters and a contest of combinations](planned/16-naked-forex-filter-combinations/spec.md)
+adds a separate review/implementation story for reusable price-action filters
+from Alex Nekritin and Walter Peters. It compares registered combinations with
+existing filters and Story 15 concepts, rather than mandating a standalone book
+strategy. Evaluation includes an explicit paper/live-readiness decision, not
+authorization to trade. Status: **planned**. See its
+[progress and handoff](planned/16-naked-forex-filter-combinations/progress.md).
+
+[Story 17 — F5/F6 risk and money-management review](planned/17-risk-money-management-review/spec.md)
+reviews account risk, sizing and execution protection using *Trade Like a Pro*
+and a verified local shortlist of complementary books. It separates correctness
+repairs from experiments comparing management policies with fixed entry logic.
+Status: **planned, high priority**; core risk review gates promotion of new
+combinations, without changing running simulations or live trading. See its
+[reading list](planned/17-risk-money-management-review/reading-list.md) and
+[progress](planned/17-risk-money-management-review/progress.md).
+
+[Story 18 — exogenous market context family](planned/18-market-context-family/spec.md)
+plans a second exogenous F7 family after the news family: intermarket and commodity
+signals from Laïdi (2008) tiered by data horizon (hourly CFDs as features, daily
+grains/yields/producers as lagged context, monthly fertilizer and food indices as
+context only), the NPK input chain, and a commodity-currency follow-up (USD/CAD,
+AUD/USD). Status: **planned**; nothing downloaded, coded or simulated.
+
+[Story 20 — session 2: clean trading-year re-run, BUY and SELL in one simulation](in-progress/20-session-2-clean-rerun/spec.md)
+(renumbered from 15 to resolve the clash with the Miner story; 19 is the adaptive retraining story) re-ran the reported
+year after the confidentiality rename: twelve retrained models identical outside
+provenance, fifteen cells byte-identical to session 1, the primary test reproduced
+(p = 0.149); every both-sides cell negative; the reversed-sign rule statistically
+equal to its always-short control (p = 0.92). Chapter 4 `subsec:session-2`. Status:
+**in progress** (results merged; TD-71 blocks any sub-hour result).
+
 **Statistical correction completed (2026-09-27):**
 [Story 11](done/11-statistical-inference-corrections/spec.md) implements schema-v2
 DSR probability, strict daily portfolio-return inputs, paired stationary-bootstrap
@@ -390,3 +451,5 @@ reviewed (mark satisfied triggers), and — critically — **this file's §1 sta
 table updated** so the next agent (human or autonomous) reading this plan sees
 current reality, not a stale snapshot. A spec is not done until the next agent
 can read `00-PLAN.md` alone and know it's done.
+
+The [experiment registry](../experiments/registry.md) lists every experiment session and job run so far, with protocol status, key result and evidence pointers; add a row there when a job is registered or launched.

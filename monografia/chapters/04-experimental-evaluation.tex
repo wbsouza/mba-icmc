@@ -489,7 +489,7 @@ The six news-only cells have run (evidence \path{news-only-cells-20260928T0545Z.
 
 \subsection{One trading year, all arms} \label{subsec:trading-year}
 
-All ten cells completed (evidence \path{trading-year-cells-20260928T0640Z.md}, \path{trading-year-inference-20260928T0640Z.md}; registration in \path{trading-year-registration.md}). Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
+All ten cells completed (evidence \path{trading-year-cells-20260928T0640Z.md}, \path{trading-year-inference-20260928T0640Z.md}; registration in \path{trading-year-registration.md}). A timestamp audit of that job (appended to \path{trading-year-registration.md}) shows that each stage's cells were fixed in the plan file and strategy configurations seconds before its launch, but that the paragraphs narrating the registration of the first four stages were written after those stages had finished; the pre-specification of the primary comparison therefore rests on the one-year protocol of Section~\ref{subsec:one-year-protocol} and on the plan files, not on the times stated in that README. Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
 
 \begin{table}[htbp]
 \centering
@@ -522,6 +522,50 @@ H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6
 \end{figure}
 
 The four extra months settle what ten could not. The two H1 chains that led through October, price-only and hybrid, gave the whole gain back between November and February and end the year at $-1.2$ and $-0.8\,\%$; the pre-declared primary comparison, hybrid against price-only at H1 on the untouched months, has a mean daily difference of $-0.048\,\%$ with a 95\,\% interval of $[-0.115, +0.019]$ percentage points ($p = 0.15$; block length 4, 999 null-centred stationary-bootstrap resamples, seed 42) and $+0.001\,\%$ per day over the full year ($p = 0.94$). The news family therefore adds nothing measurable to the price chain at either horizon, at H4 likewise ($p = 0.77$ on the untouched months). The learned news-only arm loses 38 and 21\,\% at H1 and H4. The one cell above the deposit is the reversed-sign rule at H1, $+12.2\,\%$ on 39 short trades, positive in three of the four untouched months; its paired difference against price-only is $+0.116\,\%$ per day on those months ($[-0.072, +0.304]$, $p = 0.22$) and $+0.036\,\%$ over the year ($p = 0.67$), and against the hybrid $p = 0.085$ on the untouched months. The two supplementary cells registered with the year, the H4 ATR-stop variant and H1 with the activity gate at 0.8 (the best cells of the earlier sweeps on their development window), end the year at $-0.6$ and $+1.7\,\%$ after $+9.0$ and $+14.8\,\%$ through October. With twelve registered cells and the sign chosen as one of two arms, a single positive cell at these $p$-values is what the null predicts, and the euro's 5\,\% decline over the year remains the simplest explanation of a short-only rule's profit. The control that the reversed-sign rule called for was then registered and run on the same year: a chain identical to the rule except that F4 recommends the short side on every bar, so the account is short whenever it is flat, with the same plan, risk guard and clocks (a first attempt mis-specified the sign and ran long-whenever-flat instead; it is kept as the mirror control, $-29.0\,\%$ at H1 and $-14.5\,\%$ at H4, and it exposed a same-bar stop-and-target double fill recorded in the debt ledger). The always-short control closes 298 trades at H1 and ends the year at $-7.8\,\%$, against the rule's $+12.2\,\%$ on 39; but on the four untouched months the two are the same account: November $+5.7$ against $+5.1\,\%$, and December, January and February identical to the second decimal ($+1.04$, $-3.98$, $+3.44\,\%$). Whenever the rule was flat in those months the next high-intensity bar came within hours, so it was short almost continuously, exactly as the control. The rule's whole advantage over the control therefore lies in March--October, the development window on which its thresholds were calibrated ($+6.3$ against $-13.1\,\%$), where it sat out the months in which the euro rose. On the only months that count, the news timing added nothing to being short; the profit is the euro's decline, and the rule's year is the control's year plus a development-window artefact. The conclusion of Chapter~\ref{cap:conclusion} is unchanged by the full year: no arm demonstrates an edge, and the news signal in the form available here does not improve the price chain.
+
+\subsection{Reproduction of the year and the both-sides cells (session 2)} \label{subsec:session-2}
+
+After the experiment identifiers were renamed, every artefact of the year above was moved aside and the year was run again from scratch, registered before any cell ran (evidence under \path{20-session-2-clean-rerun/}: \path{registration.md}, \path{results.md}, \path{reproduction.md}, \path{paired-inference.md}). The twelve models were retrained from the same splits under new names; the January-2016 calibration was recomputed; twenty-six cells were simulated over the same trading year with the same code apart from comment and documentation changes. Every retrained model is identical to its predecessor outside the provenance block (revision and strategy name), every calibrated threshold agrees to the fourth decimal, and the fifteen cells that have a predecessor reproduce it exactly: same trades, same per-trade profit and loss, byte-identical equity curves, and the primary test of Section~\ref{subsec:trading-year} returns the same $-0.048\,\%$ per day and $p = 0.149$. The execution is therefore deterministic end to end, from training through LEAN to the paired bootstrap.
+
+The second purpose of the session was to report each learned strategy as one simulation that trades both sides. The fixed $0.55/0.45$ thresholds of Table~\ref{tab:trading-year} sit outside the models' probability band, so those cells were in effect long-only; the session-2 cells replace them with symmetric January-2016 quantile thresholds (5 or 10\,\% per side), so BUY and SELL both fire in the same account. Table~\ref{tab:session-2} gives the year and Figure~\ref{fig:equity-session-2} the H1 paths.
+
+\begin{table}[htbp]
+\centering
+\caption{Session 2, both sides in one run: March 1, 2016 to February 28, 2017, \$10,000 per cell, retrained one-year models, symmetric January-2016 quantile thresholds. Untouched months November 2016--February 2017. The H4 cells and the rule cells are the same accounts as in Table~\ref{tab:trading-year} and reproduce it exactly.}
+\label{tab:session-2}
+\small
+\begin{tabular}{llrrrrrrrr}
+\toprule
+\textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
+\midrule
+H1 & price-only, 5\,\% per side & 148 & 36\% & $+3.1$ & $-8.0$ & $-0.3$ & $-11.7$ & $+1.4$ & $-15.3$ \\
+H1 & hybrid, 5\,\% per side & 145 & 34\% & $-1.9$ & $-8.3$ & $-0.3$ & $-8.4$ & $-8.8$ & $-25.1$ \\
+H1 & price-only, 10\,\% per side & 516 & 38\% & $-47.4$ & $-2.6$ & $-2.5$ & $+15.5$ & $-2.5$ & $-43.7$ \\
+H1 & hybrid, 10\,\% per side & 514 & 39\% & $-35.7$ & $-8.0$ & $+1.9$ & $+10.5$ & $+0.7$ & $-32.9$ \\
+H1 & price-only, 10\,\%, regime gate & 106 & 29\% & $-43.3$ & $+5.8$ & $-8.3$ & $-21.7$ & $-0.2$ & $-57.1$ \\
+H1 & hybrid, 10\,\%, regime gate & 94 & 29\% & $-29.1$ & $+5.8$ & $-5.2$ & $-19.2$ & $+0.4$ & $-42.5$ \\
+H4 & price-only, 10\,\% per side & 223 & 36\% & $-8.5$ & $-0.8$ & $+11.7$ & $-1.5$ & $-4.2$ & $-4.5$ \\
+H4 & hybrid, 10\,\% per side & 239 & 38\% & $-8.3$ & $-0.6$ & $+7.3$ & $-1.2$ & $-2.0$ & $-5.5$ \\
+H4 & price-only, 10\,\%, ATR stop & 80 & 45\% & $+9.0$ & $-6.0$ & $+2.3$ & $-6.3$ & $+1.5$ & $-0.6$ \\
+M15 & hybrid, 10\,\% per side & 1804 & 22\% & $-90.3$ & $-32.4$ & $-35.5$ & $-49.4$ & $-22.9$ & $-98.3$ \\
+H1 & news-only, 10\,\% per side & 252 & 27\% & $-35.1$ & $-11.9$ & $+7.7$ & $-2.3$ & $+2.4$ & $-38.4$ \\
+H4 & news-only, 10\,\% per side & 91 & 27\% & $-22.2$ & $+12.2$ & $-1.9$ & $-9.1$ & $+1.7$ & $-21.1$ \\
+H1 & rule, reversed sign & 39 & 28\% & $+6.3$ & $+5.1$ & $+1.0$ & $-4.0$ & $+3.4$ & $+12.2$ \\
+H1 & always-short control & 298 & 23\% & $-13.1$ & $+5.7$ & $+1.0$ & $-4.0$ & $+3.4$ & $-7.8$ \\
+H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6$ & $+2.4$ \\
+H4 & always-short control & 91 & 31\% & $-5.1$ & $+6.6$ & $+0.5$ & $-2.1$ & $+1.8$ & $+1.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-session2-h1.png}{\includegraphics[width=\textwidth]{img/equity-session2-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-session2-h1.png}.}\vspace{2em}}}}
+\caption{Equity of the H1 both-sides cells over the trading year, from \$10,000: price-only and hybrid at 10\,\% per side, the same pair with the regime gate, the reversed-sign rule and its always-short control. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-session-2}
+\end{figure}
+
+Letting the short side fire does not help the learned chains; it multiplies their trades and their losses. At H1 the 10\,\%-per-side pair closes about 515 trades each and ends the year at $-43.7$ and $-32.9\,\%$; the 5\,\% pair at $-15.3$ and $-25.1\,\%$; the regime gate, which halves the trades, leaves $-57.1$ and $-42.5\,\%$. The pre-registered primary comparison of the session, hybrid against price-only at H1 with 10\,\% per side, is $-0.016\,\%$ per day on the untouched months ($[-0.145, +0.113]$, $p = 0.81$) and $+0.050\,\%$ over the year ($p = 0.31$); the 5\,\% pair gives $p = 0.29$ and $0.43$. The gated pair is the only comparison that approaches significance, $+0.057\,\%$ per day on the untouched months ($[-0.004, +0.118]$, $p = 0.071$) and $+0.078\,\%$ over the year ($p = 0.099$), but it ranks a $-42\,\%$ account above a $-57\,\%$ one: the news family loses less, it does not earn. At H4, where the 10\,\% thresholds were already the reported cells, nothing changes ($p = 0.77$ and $0.90$). The rule cells now have the paired test their control called for: the reversed-sign rule against the always-short account is $-0.010\,\%$ per day on the untouched months at H1 ($p = 0.92$) and $-0.005\,\%$ at H4 ($p = 0.92$), $+0.040$ and $+0.001\,\%$ over the year ($p = 0.65$ and $0.98$); the two accounts are statistically the same account, which settles the drift reading of Section~\ref{subsec:trading-year}. The sub-hour clocks add an engineering result rather than a trading one: five of the six M5, M15 and M30 cells completed their simulation but stopped at the statement step, because a strategy that re-enters within minutes of every exit trips the same-bar stop-and-target double fill recorded in the debt ledger (a closed trade without a plan), and the one M15 cell that completed lost $98\,\%$ on 1,804 trades. These cells are reported as failed and left unpatched, as the registration required; the engine limitation is now the blocker for any sub-hour result. The conclusion of Chapter~\ref{cap:conclusion} stands, now on a reproduced year: no arm has an edge on either side of the market, and the news signal in the form available here does not improve the price chain.
 
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 
