@@ -59,3 +59,46 @@ reviewer asks for before T1 freezes the protocol. None of them is applied to `ta
 Monthly cadence; one half-life (60 days), no sweep; one-day embargo; rejection instead of
 last-good-model fallback; no live deployment; exploratory label on the already-inspected year;
 TD-71 out of scope (affected runs fail visibly).
+
+## Amendment — 2026-09-28, after the offline pre-checks (T0 evidence)
+
+Two pre-checks were run on the session-2 rows (H1 price-only cell, same code, same seed, nothing
+traded; scripts `rolling_precheck.py` and `daily_precheck.py` under
+`algo-suite/data/training/2026-09-28-session-2/`, logs beside them). They exist to decide whether the
+retraining machinery is worth building, before T1 freezes the protocol.
+
+### Monthly refit (done): frozen vs rolling 3 / rolling 6 / expanding, one fit per test month
+
+| policy | hit rate (p̂ > 0.5) | log-loss (coin flip 0.6931) | hit on the q10 cut bars | cut bars | months below coin-flip log-loss |
+|---|---:|---:|---:|---:|---:|
+| F frozen (session-2 model) | 0.498 | 0.6948 | 0.502 | 1,103 | 2 / 12 |
+| R3 rolling 3 months | 0.507 | 0.6932 | **0.529** | 1,120 | 5 / 12 |
+| R6 rolling 6 months | 0.503 | 0.6937 | 0.515 | 1,106 | 5 / 12 |
+| U expanding | 0.505 | 0.6934 | 0.514 | 1,219 | 4 / 12 |
+
+R3's edge on the cut bars is concentrated in the last three months (Dec 0.591, Jan 0.562, Feb 0.582
+against 0.494 / 0.586 / 0.459 for F); about two standard errors over the year; exploratory (the year
+was viewed, four policies compared). Enough to register the study, not a result.
+
+### Daily refit (running): windows 15 / 30 / 45 / 60 days, thresholds-only vs full refit
+
+The user's proposal: two months of initial history, then retraining on demand as trades close. Scored
+day by day on the next day; table to be appended here when the run ends.
+
+### Policy changes requested from this evidence
+
+1. **Initial window 60 days, cadence daily.** R3 beat longer windows; the daily pre-check settles
+   whether 60 days holds day to day. The 180-day rolling and expanding arms stay as controls.
+2. **"Retrain when a trade closes" is implemented as daily bundles loaded on demand.** Training
+   data are bars and labels, independent of trades, so the host fits one bundle per day (seconds on
+   these windows) and the engine loads the newest bundle whose cutoff precedes the bar after the
+   close. Same behaviour, no trigger in the trade loop, no LEAN pause, fully reproducible; and it
+   makes the pre-computed path the only sane primary path (review item 1 above).
+3. **Prediction quality per epoch is a registered endpoint** (log-loss, hit on the cut bars), because
+   at coin-flip log-loss the trading endpoint cannot distinguish policies.
+4. **The calibration-month check becomes a gate**: January 2016 was an outlier month for the event
+   intensity (story 21 evidence); any threshold span is checked against the monthly table before use,
+   and the thresholds themselves come from the trailing window of each epoch.
+
+The `.specs/features/recency-weighted-retraining/` documents are Codex's and are being edited in the
+`mba-main` checkout at the time of writing; they must absorb items 1–4 before T1.

@@ -98,3 +98,9 @@ dates is exploratory. No unexamined confirmation dataset or live readiness is
 claimed. TD-71 execution failures remain failures and cannot be patched away in
 the report. Historical replay can pause simulated time during a bounded model
 fit; this is not evidence of meeting a live wall-clock deployment deadline.
+
+## T0 pre-checks — 2026-09-28
+
+- [x] Monthly refit pre-check (frozen / rolling 3 / rolling 6 / expanding): rolling 3-month refit 0.529 vs frozen 0.502 on the q10 cut bars, log-loss 0.6932 vs 0.6948; table and reading in `review.md`.
+- [ ] Daily refit pre-check (15/30/45/60-day windows, thresholds-only and full refit): running; append the table to `review.md`.
+- [ ] Fold the policy changes of the amendment (D60 arm, daily bundles loaded on demand, prediction-quality endpoint, calibration-month gate) into `.specs/features/recency-weighted-retraining/` before T1.
