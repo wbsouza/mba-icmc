@@ -7,4 +7,5 @@
 - [x] Rule-only arm (news-rule, 4 cells) simulated 22:45–22:53 PT: sign +1 −47.0 % / −19.8 %; sign −1 (short-only in practice) +12.9 % H1 on 39 trades, +3.1 % H4 on 10, both positive in Nov and Dec; EUR/USD drift −3.4 % over the span is the confound. `evidence/news-cells-20260928T0600Z.md`
 - [x] Chapter 4 paragraph (registration written 2026-09-28 before any outcome; news-only and rule-only results appended with the drift caveat)
 - [x] Code PR #60 merged; docs on integrate/story-12-13
+- [x] Registered paired inference computed (block 4/2 untouched months, 5/3 full span; 999 resamples, seed 42): primary p = 0.996 (Nov–Dec), rule vs baseline p = 0.24; nothing rejects the null. `evidence/paired-inference-20260928T0615Z.{md,json}`
 - [ ] Follow-up (not registered yet): matched short-only control for the sign −1 rule; a rising-euro window
