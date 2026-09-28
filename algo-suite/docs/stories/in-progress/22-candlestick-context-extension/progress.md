@@ -567,3 +567,139 @@ operators and justifications: `mutation-phase1.md`.
 - Committed as `test(candles): harden phase 1 modules against surviving
   mutants` (feature files, step files and this progress/mutation-report
   update only — no production code touched).
+
+## Phase 2 integration: T7 minimum viable slice + first real backtests (2026-09-28)
+
+Fast-tracked, time-boxed delivery: merged `origin/feat/23-bigalow-extended-signals`
+into the Story 22 Phase 2 launch worktree (`3a525ef`, clean, no conflicts — Story 23
+was branched from Story 22, so this merge brings both stories' catalog/context work,
+`candle_contract.py`/`candle_catalog.py`/`candle_context.py`/`candle_sequence.py`/
+`f3_pattern.py`'s legacy/advisory/required_entry modes, in one step), then implemented
+T7 (`.specs/features/candlestick-context/tasks.md`) as a deliberately reduced minimum
+viable slice, disclosed here:
+
+- `chain/market_signals.py`: `MarketSignals` now builds a `CandleCatalog` +
+  `ContextEvaluator` + `SequenceEvaluator` when `pattern.detector: expanded` is
+  configured, merges their per-bar output into one `CandleEvidence` via
+  `dataclasses.replace` (catalog evidence plus `context`/`confirmation` attached),
+  and publishes it as `state.features["candle_evidence"]` every closed bar —
+  `enabled_rules=ADMITTED_RULES`, i.e. the full ~19+3 catalog (Story 22's 19 plus
+  Story 23's 3). `MarketSignals` now takes `bar_minutes`/`pair`; call sites in
+  `engine/chain_algorithm.py` and `training.py` updated mechanically (training.py
+  itself not otherwise touched — T10 is explicitly deferred, see below).
+- `chain/filters/f3_pattern.py`'s `_validate_detector` now admits `"expanded"`
+  alongside `"disabled"`/`"talib"`.
+- Added the bundled strategy `strategies/candles-expanded/config.yaml`: F1(trend) +
+  F3(pattern, `mode: required_entry`, `detector: expanded`) + F5(risk_guard) +
+  F6(capital_mgmt), no F7 (`terminal_filter: f3_pattern`) — a rule-only chain proving
+  the expanded catalog reaches native signal production without needing a trained
+  model.
+- Found and fixed a real, pre-existing bug surfaced by that no-F7 strategy:
+  `chain/wiring.py`'s `terminal_decision()` built `LastFilterTerminalDecision` from
+  the raw YAML canonical filter name instead of translating it through
+  `_VOTER_NAME_MAP` to the runtime `FilterResult.filter_name` (`AgreementTerminalDecision`
+  already did this translation; `LastFilterTerminalDecision` didn't). Harmless for
+  `f4_news_context`/`constant_direction` (identical canonical/runtime names — the only
+  `terminal_filter` values used before this), fatal for F1/F2/F3 (`f3_pattern` vs.
+  `F3_pattern`). One-line fix (`_VOTER_NAME_MAP[config.terminal_filter]`), verified
+  against the full suite and the native LEAN gate below.
+- Added `tests/features/candles_expanded_integration.feature` (`@integration`): a
+  mandatory native LEAN scenario proving `candles-expanded` runs a real backtest
+  end-to-end in the pinned LEAN container with no `--model`, asserting
+  `BASELINE_DECISION|` actually appears in the container log (the chain really ran,
+  not just "CLI exited 0").
+
+**Scope reduction (disclosed):** T8 (signal_contract fingerprinting for F7
+compatibility), T9 (F7 pattern feature encoder), T10 (training.py candle wiring
+beyond the mechanical constructor-signature change already made), and T11/T12
+(decision_recorder/results-db extensions) are explicitly deferred — this slice's
+runs use no F7 model. Cleaner/Hardener passes on this diff are also deferred
+(disclosed time-boxing tradeoff, not silently skipped).
+
+**Gates, all green:** `uv run pytest algo-backtest/tests -q -p no:cacheprovider`
+(2369 passed, 0 failed), `uv run ruff check algo-backtest tools`, `uv run mypy
+--strict algo-backtest`, `make check-perception-architecture
+check-inference-architecture`. The native `@integration` LEAN scenario above passes.
+
+Committed as `feat(candles): wire the expanded catalog into native signal
+production (minimum viable slice for today's delivery)`.
+
+### Real backtests: full-year 2015 (M1) vs. 2016-03/2017-02 (H1)
+
+Two real runs of `candles-expanded` against real, materialized EUR/USD minute data
+(the real `algo-backtest materialize`/`run` CLIs, the real pinned LEAN container —
+never the main data root itself: parquet copied read-only into an ad-hoc scratch job
+dir per run, lean-data materialized there).
+
+**Full-year 2015 (2015-01-01 to 2015-12-31), M1 (`price_features.bar_minutes: 1`,
+`candles-expanded`'s own default), $10,000 starting cash:**
+
+| Metric | Value |
+| --- | --- |
+| Closed trades | 1,810 |
+| Total return | -99.54% |
+| Sharpe | -1.1498 |
+| Max drawdown | 99.6% |
+| Hit rate | 35.72% |
+| Balance | 10,000.00 → 46.24 |
+
+Ran clean (`success=True`, no `RuntimeError`) — this window did not trip the
+same-bar double-fill condition described below.
+
+**2016-03-01 to 2017-02-28 (the registered cross-story comparison window), $10,000
+starting cash:**
+
+The identical `candles-expanded` config (M1) hit a real, pre-existing bug on this
+window: the CLI's post-run statement build refused with `ValueError: trade-plans.json
+has no plan with entry_order_id 2053 for the closed trade entered at
+2016-09-08T11:46:00+00:00; the executor records one per planned entry, so the run's
+artifacts are inconsistent — re-run the backtest`. This is documented technical debt,
+**TD-71** (`docs/technical-debt.md`): a same-bar stop/target double-fill that LEAN
+can produce before `on_order_event` cancels the sibling order, which `decision_trail`/
+`statement` correctly refuse to report on rather than print an untrustworthy number.
+TD-71 notes this was "never in the reported H1/H4 runs" — `candles-expanded`'s M1
+cadence combined with `required_entry`'s much higher signal churn than any
+previously-tested chain made this window the first to trip it. **Not a Story 22/23
+defect** — a known executor gap that a high-churn M1 chain was always going to expose
+eventually.
+
+To get a real, reportable number for this specific window without fixing TD-71 (a
+nontrivial executor same-bar guard, out of this slice's scope), committed
+`strategies/candles-expanded-h1/config.yaml`: `extends: candles-expanded`, overriding
+only `price_features.bar_minutes: 60` (H1) — the cadence TD-71 says never trips this
+bug. **This is a real, disclosed config change (60x slower decision cadence,
+materially fewer trades), not the identical strategy `candles-expanded` runs at.**
+Disclose this wherever a number from `candles-expanded-h1` is used.
+
+**2016-03-01 to 2017-02-28, H1 (`candles-expanded-h1`), $10,000 starting cash:**
+
+| Metric | Value |
+| --- | --- |
+| Closed trades | 285 |
+| Total return | -32.79% |
+| Sharpe | -0.7851 |
+| Max drawdown | 42.6% |
+| Hit rate | 33.12% |
+| Balance | 10,000.00 → 6,719.60 |
+
+Ran clean (`success=True`, 46s wall clock, well inside the CLI's `--timeout`; run.json/
+statement.md/trade-plans.json/trades.json all present and non-partial).
+
+**Comparison, side by side:**
+
+| Window | Cadence | Trades | Total return | Sharpe | Max DD | Hit rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2015-01-01 .. 2015-12-31 | M1 | 1,810 | -99.54% | -1.1498 | 99.6% | 35.72% |
+| 2016-03-01 .. 2017-02-28 | H1 (TD-71 workaround) | 285 | -32.79% | -0.7851 | 42.6% | 33.12% |
+
+Both windows show the same qualitative result: this untuned, model-free rule-only
+chain (F1 + F3 required_entry/expanded catalog + F5 + F6, no F7) loses money,
+consistent with the Story 12-14 finding that every arm was negative over a full
+trading year. The two runs are not directly comparable as a controlled A/B (different
+windows, different decision cadence) — they are two independent proofs that the
+expanded-catalog wiring produces real, executable per-bar evidence in native LEAN,
+not a performance claim.
+
+Run artifacts (ad-hoc scratch job dirs, not committed, not under the data root):
+- 2015 M1: `/tmp/mba-fast22-job-1790633366/data/runs/candles-expanded/20260928T221502-d48062c34504/`
+- 2016-03/2017-02 H1: `/tmp/mba-fast22-job-1790634602-window2/data/runs/candles-expanded-h1/20260928T224937-d663697c9c3e/`
