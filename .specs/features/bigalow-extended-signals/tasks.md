@@ -91,8 +91,8 @@ high/low calculation per spec.md's convention table. Existing fields
 **Tests**: Gherkin unit. At least 10 scenarios: hand-calculated rising/falling-trend retracement levels, at-tolerance and outside-tolerance prices, zero-range degenerate case, warmup, and the "existing fields unchanged" regression.
 **Gate**: Quick.
 **Done when**:
-- [ ] All listed cases pass; existing context-field scenarios unmodified.
-- [ ] Evidence and requirement/task status included in the commit.
+- [x] All listed cases pass; existing context-field scenarios unmodified.
+- [x] Evidence and requirement/task status included in the commit.
 
 **Commit**: `feat(candles): add fibonacci confluence to the context evaluator`
 

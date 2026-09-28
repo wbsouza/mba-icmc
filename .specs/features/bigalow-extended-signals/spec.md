@@ -20,11 +20,11 @@ architecture.
 
 ## Goals
 
-- [ ] Add three new pattern rules to `candle_catalog.py`'s multilabel table.
-- [ ] Add one new context field (Fibonacci confluence) to `candle_context.py`.
-- [ ] Each new rule keeps a stable ID, source citation and positive/negative/
+- [x] Add three new pattern rules to `candle_catalog.py`'s multilabel table.
+- [x] Add one new context field (Fibonacci confluence) to `candle_context.py`.
+- [x] Each new rule keeps a stable ID, source citation and positive/negative/
       boundary examples, same convention as the existing 18.
-- [ ] Legacy behavior (18-rule catalog, existing context fields) unchanged
+- [x] Legacy behavior (18-rule catalog, existing context fields) unchanged
       when these are not configured/enabled.
 
 ## Out of Scope
@@ -150,17 +150,17 @@ codebase.
 | BEXT-04 | P1 patterns | candle_catalog.py | T1, T2 | Implemented (T2) |
 | BEXT-05 | P1 patterns | candle_catalog.py | T2 | Implemented (T2) |
 | BEXT-06 | P1 patterns | candle_catalog.py | T2 | Implemented (T2) |
-| BEXT-07 | P1 context | candle_context.py | T3 | Pending |
-| BEXT-08 | P1 context | candle_context.py | T3 | Pending |
-| BEXT-09 | P1 context | candle_context.py | T3 | Pending |
-| BEXT-10 | P1 context | candle_context.py | T3 | Pending |
+| BEXT-07 | P1 context | candle_context.py | T3 | Implemented (T3) |
+| BEXT-08 | P1 context | candle_context.py | T3 | Implemented (T3) |
+| BEXT-09 | P1 context | candle_context.py | T3 | Implemented (T3) |
+| BEXT-10 | P1 context | candle_context.py | T3 | Implemented (T3) |
 
 Coverage: 10 requirements, 10 mapped to tasks (T1–T3), 0 unmapped.
 
 ## Success criteria
 
-- [ ] All 10 requirements have passing Gherkin evidence.
-- [ ] Legacy 18-rule catalog and existing context fields byte-identical when
+- [x] All 10 requirements have passing Gherkin evidence.
+- [x] Legacy 18-rule catalog and existing context fields byte-identical when
       the new items are absent/disabled.
-- [ ] Each new rule's source citation (book PDF page + line range) is
+- [x] Each new rule's source citation (book PDF page + line range) is
       recorded in the ledger addendum, same convention as the original 18.

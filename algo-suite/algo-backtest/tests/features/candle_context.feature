@@ -37,6 +37,22 @@ Feature: Causal candlestick context evaluation
       single close c means (open c, high c + 0.5, low c - 0.5, close c) except where the
       stochastic rows fix high and low explicitly.
 
+  Story 23 (BEXT-07, BEXT-08, BEXT-09, BEXT-10) adds an opt-in Fibonacci confluence
+  field, `fibonacci`, `None` unless `ContextConfig.fibonacci_enabled` is true:
+    - swing_high = max(high), swing_low = min(low) over the last
+      `fibonacci_lookback_bars` closed bars (causal, ends at the evaluated bar).
+      WARMUP (both `swing_high`/`swing_low` WARMUP, `level` None) while fewer bars
+      exist.
+    - Whichever extreme is more recent (ties resolve to the high) fixes the leg: high
+      more recent -> rising leg, level = high - ratio * (high - low); low more recent
+      -> falling leg, level = low + ratio * (high - low). ratio in {0.382, 0.5, 0.618}.
+    - "At" a level: abs(close - level) <= 0.10 * range (the current bar's own range,
+      the same tolerance convention as the Counterattack Line). `level` is the nearest
+      ratio within tolerance, else None.
+    - swing_high == swing_low (zero range): status UNDEFINED, level None, but
+      swing_high/swing_low stay READY (each is individually a finite reading).
+    - When disabled, `fibonacci` is None and every other field is unaffected.
+
   Rule: The T-line is an EMA(8) seeded with a running mean
 
     Scenario Outline: EMA(8) over closes 1..10 is hand-calculated (<bars> bars)
@@ -209,3 +225,102 @@ Feature: Causal candlestick context evaluation
       When the context is evaluated after all bars, keeping the evaluator
       Then the context evaluator's history holds 8 bars
       And the ema status is "READY" and its value is 4.5
+
+  Rule: Fibonacci confluence anchors on the causal swing high/low and is opt-in
+
+    Scenario Outline: Fibonacci confluence on a rising leg, high more recent than low (<case>)
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low  | close   |
+        | 950  | 950  | 900  | 950     |
+        | 950  | 960  | 940  | 955     |
+        | 955  | 970  | 945  | 960     |
+        | 960  | 1000 | 950  | 965     |
+        | 965  | 970  | 955  | <close> |
+      When the context is evaluated after all bars
+      Then the fibonacci swing high is 1000 and swing low is 900
+      And the fibonacci status is "READY"
+      And the fibonacci level is <level>
+
+      Examples:
+        | case                                | close | level |
+        | at the 38.2% level (961.8, tol 1.5) | 962   | 0.382 |
+        | clearly outside every level         | 970   | None  |
+
+    Scenario Outline: Fibonacci confluence on a falling leg, low more recent than high (<case>)
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low  | close   |
+        | 950  | 1000 | 945  | 950     |
+        | 950  | 960  | 940  | 945     |
+        | 945  | 955  | 935  | 940     |
+        | 940  | 950  | 900  | 935     |
+        | 955  | 965  | 940  | <close> |
+      When the context is evaluated after all bars
+      Then the fibonacci swing high is 1000 and swing low is 900
+      And the fibonacci status is "READY"
+      And the fibonacci level is <level>
+
+      Examples:
+        | case                                | close | level |
+        | at the 61.8% level (961.8, tol 2.5) | 962   | 0.618 |
+        | clearly outside every level         | 945   | None  |
+
+    Scenario Outline: Fibonacci tolerance boundary at exactly 0.10 of the current bar's range (<case>)
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low  | close   |
+        | 950  | 950  | 900  | 950     |
+        | 950  | 960  | 940  | 955     |
+        | 955  | 970  | 945  | 960     |
+        | 960  | 1000 | 950  | 965     |
+        | 946  | 956  | 946  | <close> |
+      When the context is evaluated after all bars
+      Then the fibonacci level is <level>
+
+      Examples:
+        | case                                       | close | level |
+        | boundary: distance 1 == tolerance 1 (10/10) | 951   | 0.5   |
+        | just past: distance 2 > tolerance 1         | 952   | None  |
+
+    Scenario: A zero-range swing is an explicit degenerate status, never a division by zero
+      Given fibonacci is enabled with a lookback of 3 bars
+      And 3 flat bars (1000, 1000, 1000, 1000)
+      When the context is evaluated after all bars
+      Then the fibonacci status is "UNDEFINED"
+      And the fibonacci level is None
+      And the fibonacci swing high is 1000 and swing low is 1000
+
+    Scenario: Fibonacci is WARMUP before its lookback is reached
+      Given fibonacci is enabled with a lookback of 5 bars
+      And closes 1, 2, 3, 4 as 60-minute bars
+      When the context is evaluated after all bars
+      Then the fibonacci status is "WARMUP"
+      And the fibonacci level is None
+
+    Scenario: The context status is WARMUP while only the Fibonacci field is still warming
+      Given a minimal context configuration with fibonacci enabled and a lookback of 3 bars
+      And closes 1, 2 as 60-minute bars
+      When the context is evaluated after all bars
+      Then the ema status is "READY" and its value is 2
+      And the fibonacci status is "WARMUP"
+      And the context status is "WARMUP"
+
+    Scenario: Fibonacci is absent and every other field is unchanged when disabled
+      Given closes 1, 2, 3, 4, 5, 6, 7, 8 as 60-minute bars
+      When the context is evaluated after all bars
+      Then the context evidence has no fibonacci field
+      And the ema status is "READY" and its value is 4.5
+      And the t_line_position is "ABOVE"
+
+    Scenario: Fibonacci evidence over a prefix is unaffected by what comes after
+      Given fibonacci is enabled with a lookback of 5 bars
+      And the following closed bars, 60-minute UTC from 01:00:
+        | open | high | low  | close |
+        | 950  | 950  | 900  | 950   |
+        | 950  | 960  | 940  | 955   |
+        | 955  | 970  | 945  | 960   |
+        | 960  | 1000 | 950  | 965   |
+        | 965  | 970  | 955  | 962   |
+      When the same prefix is evaluated before a rising suffix and before a falling suffix
+      Then the per-bar context evidence over the prefix is identical under both suffixes

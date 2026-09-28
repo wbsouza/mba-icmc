@@ -127,7 +127,12 @@ def _utc_datetime(value: object, name: str) -> datetime:
 
 @dataclass(frozen=True)
 class ContextConfig:
-    """Context indicator parameters (T-line EMA, stochastic 12,3,3 zones, SMA levels)."""
+    """Context indicator parameters (T-line EMA, stochastic 12,3,3 zones, SMA levels).
+
+    ``fibonacci_enabled`` defaults to ``False`` so the Story 23 Fibonacci confluence
+    field (BEXT-07..10) is opt-in: the T-line, stochastic and level fields stay
+    byte-identical to Story 22 unless it is turned on.
+    """
 
     ema_period: int = 8
     stochastic_k: int = 12
@@ -136,6 +141,8 @@ class ContextConfig:
     overbought: float = 80
     oversold: float = 20
     sma_periods: tuple[int, ...] = (20, 50, 200)
+    fibonacci_enabled: bool = False
+    fibonacci_lookback_bars: int = 60
 
     def __post_init__(self) -> None:
         """Reject non-positive periods, inverted or out-of-range zones and bad SMA lists."""
@@ -143,6 +150,21 @@ class ContextConfig:
             _integer(getattr(self, name), name, 1)
         self._validate_zones()
         object.__setattr__(self, "sma_periods", self._validated_sma_periods())
+        self._validate_fibonacci()
+
+    def _validate_fibonacci(self) -> None:
+        """``fibonacci_enabled`` is a plain bool; the lookback is an integer in 1..MAX_HISTORY."""
+        if not isinstance(self.fibonacci_enabled, bool):
+            raise ValueError(
+                f"fibonacci_enabled must be a boolean, got {self.fibonacci_enabled!r}; "
+                f"{_CONFIG_REMEDY}"
+            )
+        lookback = _integer(self.fibonacci_lookback_bars, "fibonacci_lookback_bars", 1)
+        if lookback > MAX_HISTORY:
+            raise ValueError(
+                f"fibonacci_lookback_bars must be at most {MAX_HISTORY}, got {lookback!r}; "
+                f"{_CONFIG_REMEDY}"
+            )
 
     def _validate_zones(self) -> None:
         """Zones are real numbers in 0..100 with overbought strictly above oversold."""
@@ -181,7 +203,7 @@ class ContextConfig:
     def lookbacks(self) -> list[tuple[int, str]]:
         """Every (bars needed, origin) pair an indicator of this configuration requires."""
         stochastic = self.stochastic_k + self.stochastic_k_smooth + self.stochastic_d - 2
-        return [
+        result = [
             (self.ema_period, f"ema_period {self.ema_period}"),
             (
                 stochastic,
@@ -190,6 +212,10 @@ class ContextConfig:
             ),
             *((period, f"sma_periods {period}") for period in self.sma_periods),
         ]
+        if self.fibonacci_enabled:
+            lookback = self.fibonacci_lookback_bars
+            result.append((lookback, f"fibonacci_lookback_bars {lookback}"))
+        return result
 
 
 @dataclass(frozen=True)
@@ -378,6 +404,47 @@ class LevelEvidence:
             )
 
 
+FIBONACCI_LEVELS: Final[tuple[float, ...]] = (0.382, 0.5, 0.618)
+
+
+@dataclass(frozen=True)
+class FibonacciEvidence:
+    """Retracement confluence between the causal swing high and low (BEXT-07..10).
+
+    ``swing_high``/``swing_low`` are individually READY finite readings even when the
+    overall ``status`` is ``UNDEFINED`` (the swing has zero range; a level would need a
+    division by zero, so none is reported).
+    """
+
+    swing_high: IndicatorValue
+    swing_low: IndicatorValue
+    level: float | None
+    status: str
+
+    def __post_init__(self) -> None:
+        """Closed status vocabulary; a level exists only when READY and is one of the ratios."""
+        _one_of(self.status, "status", (READY, WARMUP, UNDEFINED))
+        if not isinstance(self.swing_high, IndicatorValue) or not isinstance(
+            self.swing_low, IndicatorValue
+        ):
+            raise ValueError(
+                "swing_high and swing_low must be IndicatorValue instances; repair the evaluator"
+            )
+        expected_swing_status = WARMUP if self.status == WARMUP else READY
+        if (
+            self.swing_high.status != expected_swing_status
+            or self.swing_low.status != expected_swing_status
+        ):
+            raise ValueError(
+                f"fibonacci status {self.status} contradicts swing readiness; repair the evaluator"
+            )
+        if self.level is not None and (self.status != READY or self.level not in FIBONACCI_LEVELS):
+            raise ValueError(
+                f"fibonacci level {self.level!r} must be one of {FIBONACCI_LEVELS} and only set "
+                "when READY; repair the evaluator"
+            )
+
+
 @dataclass(frozen=True)
 class ContextEvidence:
     """Separately typed causal context: T-line, stochastic, levels and trend (CND-06)."""
@@ -390,6 +457,7 @@ class ContextEvidence:
     levels: tuple[LevelEvidence, ...]
     trend: str
     status: str
+    fibonacci: FibonacciEvidence | None = None
 
     def __post_init__(self) -> None:
         """Closed vocabularies, UTC availability time and bounded history."""
@@ -398,6 +466,8 @@ class ContextEvidence:
         _one_of(self.t_line_position, "t_line_position", ("ABOVE", "BELOW", "ON", WARMUP))
         _one_of(self.trend, "trend", ("UP", "DOWN", "FLAT", WARMUP))
         _one_of(self.status, "status", (READY, WARMUP))
+        if self.fibonacci is not None and not isinstance(self.fibonacci, FibonacciEvidence):
+            raise ValueError("fibonacci must be a FibonacciEvidence or None; repair the producer")
 
 
 @dataclass(frozen=True)

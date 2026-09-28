@@ -1,4 +1,4 @@
-"""Causal candlestick context over bounded closed bars (Story 22, T4).
+"""Causal candlestick context over bounded closed bars (Story 22, T4; Story 23, T3).
 
 Produces separately typed context evidence (CND-06) from the retained closed bars
 only: the T-line EMA(8) seeded like ``training.ema_series`` (running mean until the
@@ -8,8 +8,12 @@ period, then exponential), the stochastic 12,3,3 with simple smoothing and stric
 indicator reports its own readiness (CND-04); a zero-range stochastic window is
 UNDEFINED rather than NaN. Values are recomputed from the retained window (at most
 256 bars), so evidence at a bar never depends on later bars (CND-05); with k = 2/9
-the weight of any bar older than the window is below 1e-27. Pure: no chain,
-engine or LEAN dependency.
+the weight of any bar older than the window is below 1e-27. Story 23 adds an opt-in
+Fibonacci retracement confluence field (BEXT-07..10): the causal swing high/low over
+``fibonacci_lookback_bars`` anchors 38.2/50/61.8% retracement levels, UNDEFINED on a
+zero-range swing, WARMUP before the lookback is satisfied, and absent (``None``)
+whenever ``ContextConfig.fibonacci_enabled`` is ``False`` so every other field stays
+byte-identical to Story 22. Pure: no chain, engine or LEAN dependency.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from algo_backtest.perception.candle_contract import (
+    FIBONACCI_LEVELS,
     READY,
     UNDEFINED,
     WARMUP,
@@ -25,6 +30,7 @@ from algo_backtest.perception.candle_contract import (
     ClosedBar,
     ContextConfig,
     ContextEvidence,
+    FibonacciEvidence,
     IndicatorValue,
     LevelEvidence,
     StochasticEvidence,
@@ -32,6 +38,7 @@ from algo_backtest.perception.candle_contract import (
 
 _WARMING = IndicatorValue(None, WARMUP)
 _UNDEFINED_VALUE = IndicatorValue(None, UNDEFINED)
+FIB_TOLERANCE_RATIO = 0.10
 
 
 def ema_value(closes: Sequence[float], period: int) -> IndicatorValue:
@@ -113,6 +120,40 @@ def _t_line_position(close: float, ema: IndicatorValue) -> str:
 _TREND = {"ABOVE": "UP", "BELOW": "DOWN", "ON": "FLAT", WARMUP: WARMUP}
 
 
+def fibonacci_evidence(bars: Sequence[ClosedBar], config: ContextConfig) -> FibonacciEvidence:
+    """Retracement confluence between the causal swing high and low (BEXT-07..09).
+
+    The swing is the max high / min low over the last ``fibonacci_lookback_bars`` closed
+    bars, ending at the evaluated bar. Whichever extreme occurred more recently (a tie
+    resolves to the high) fixes the leg: the high more recent means a rising leg (levels
+    descend from the high), the low more recent means a falling leg (levels ascend from
+    the low). ``level`` is the nearest ratio the close is within tolerance of, or
+    ``None``.
+    """
+    lookback = config.fibonacci_lookback_bars
+    if len(bars) < lookback:
+        return FibonacciEvidence(_WARMING, _WARMING, None, WARMUP)
+    window = bars[-lookback:]
+    high = max(bar.high for bar in window)
+    low = min(bar.low for bar in window)
+    swing_high, swing_low = IndicatorValue(high, READY), IndicatorValue(low, READY)
+    if high == low:
+        return FibonacciEvidence(swing_high, swing_low, None, UNDEFINED)
+    high_index = max(index for index, bar in enumerate(window) if bar.high == high)
+    low_index = max(index for index, bar in enumerate(window) if bar.low == low)
+    rising = high_index >= low_index
+    current = bars[-1]
+    tolerance = FIB_TOLERANCE_RATIO * (current.high - current.low)
+    level: float | None = None
+    best_distance: float | None = None
+    for ratio in FIBONACCI_LEVELS:
+        price = high - ratio * (high - low) if rising else low + ratio * (high - low)
+        distance = abs(current.close - price)
+        if distance <= tolerance and (best_distance is None or distance < best_distance):
+            level, best_distance = ratio, distance
+    return FibonacciEvidence(swing_high, swing_low, level, READY)
+
+
 def evaluate_context(bars: Sequence[ClosedBar], config: ContextConfig) -> ContextEvidence:
     """Context evidence for the final bar of ``bars`` (validated, oldest first, non-empty)."""
     closes = [bar.close for bar in bars]
@@ -122,6 +163,9 @@ def evaluate_context(bars: Sequence[ClosedBar], config: ContextConfig) -> Contex
     levels = tuple(level_evidence(closes, period) for period in config.sma_periods)
     statuses = [ema.status, stochastic.raw_k.status, stochastic.slow_k.status, stochastic.d.status]
     statuses.extend(level.sma.status for level in levels)
+    fibonacci = fibonacci_evidence(bars, config) if config.fibonacci_enabled else None
+    if fibonacci is not None:
+        statuses.append(fibonacci.status)
     return ContextEvidence(
         close_time=bars[-1].close_time,
         history_count=len(bars),
@@ -131,6 +175,7 @@ def evaluate_context(bars: Sequence[ClosedBar], config: ContextConfig) -> Contex
         levels=levels,
         trend=_TREND[position],
         status=WARMUP if WARMUP in statuses else READY,
+        fibonacci=fibonacci,
     )
 
 

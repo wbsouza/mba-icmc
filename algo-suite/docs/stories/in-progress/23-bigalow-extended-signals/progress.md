@@ -24,7 +24,15 @@
       proving the three extended ids are admitted but excluded from the
       default; no existing assertion's substance changed. 22 new scenario
       rows added (candle_catalog.feature), all passing.
-- [ ] T3: Add Fibonacci confluence to the context evaluator.
+- [x] 2026-09-28 — T3: added `FibonacciEvidence`/`FIBONACCI_LEVELS` to
+      `candle_contract.py` and `fibonacci_evidence()` to `candle_context.py`,
+      wired through `ContextEvidence.fibonacci` (opt-in via
+      `ContextConfig.fibonacci_enabled`, default `False`, `fibonacci_lookback_bars`
+      default 60). Swing high/low over the lookback, rising/falling leg
+      chosen by which extreme is more recent, 0.10-of-range tolerance,
+      UNDEFINED on zero range, WARMUP before the lookback, `None` field when
+      disabled. 11 new scenarios in `candle_context.feature`, all 53
+      existing scenarios pass unmodified.
 - [ ] T4: Publish the extension summary.
 
 ## Working tree and ownership
