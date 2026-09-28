@@ -211,8 +211,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Accepted bar-open timing (D5: exit at the open of bar t+N, t = the bar during which the entry filled, due at the close of t+N-1, submit at the first event at or after that open) handles exact and mid-bar fills, H1/H4, gaps, partial bars, repeated events, same-side votes, reversal, full/partial stop fills, rejection/retry and end-of-stream pending state; never requests a second live close; no same-event re-entry.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Accepted bar-open timing (D5: exit at the open of bar t+N, t = the bar during which the entry filled, due at the close of t+N-1, submit at the first event at or after that open) handles exact and mid-bar fills, H1/H4, gaps, partial bars, repeated events, same-side votes, reversal, full/partial stop fills, rejection/retry and end-of-stream pending state; never requests a second live close; no same-event re-entry.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_time_exit.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_time_exit.py` in this task; at least 14 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_time_exit.py`; Build and applicable Regression before handoff.

@@ -315,3 +315,65 @@ concurrent lane mid-campaign: `confluence_cells.feature`,
 `confluence_preflight.feature`) was left untouched throughout, per the shared-
 worktree convention. Agent: hardener (Claude Sonnet 5). Branch
 `feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit `c622427`.
+
+## 2026-09-28 — Coder phase 2, T6
+
+Implemented `chain/time_exit.py` (`TimeExitLifecycle`, `ClosureRequest`,
+`ExitRecord`): the pure, LEAN-free bar-count expiry lifecycle behind
+`capital_mgmt.exit_after_bars` (CC-15..CC-19, CC-28, CC-31; D5, D6, D11). Single
+open trade at a time; bar t = the completed-candle bucket containing the entry
+fill (floor to the clock grid, half-open `[start, end)`); due at the close of
+bar t+N-1 (the open of t+N); one closure requested on the first tradable event
+at/after that time; stop fills (full/partial) reconcile before any expiry
+request; same-side signals never reset age; a filled reversal closes the old
+trade with reason "reversal" and starts a new identity from its own bar t; a
+live close order blocks a second request; a rejected/canceled order returns the
+trade to DUE and the retry waits for a strictly later event (idempotency is
+keyed on the last-requested timestamp, so the rejection's own event requests
+nothing); the event that carried a request suppresses new entry on that event
+only; an unresolved trade at end-of-stream is reported, never assumed closed.
+
+Deviations from the specifier's `confluence_time_exit.feature` (both are
+factual corrections of the literal example values against their own stated
+inputs, not reinterpretations of D5/D6/D11 — recorded per COMMON-RULES):
+- "quantity must be nonzero number" → "quantity must be a nonzero number" (the
+  fragment column already read "a nonzero number"; the module message was
+  written to match the Rule-heading prose instead of the table — fixed the
+  code to match the table, the actual spec-anchored assertion).
+- The weekend-gap scenario's elapsed-time assertion said "54 hours 0 minutes 30
+  seconds" from entry fill `2016-03-04T19:00:30Z` to closure request
+  `2016-03-07T01:00:00Z`; the real difference between those two literal
+  timestamps is 53h59m30s (verified independently in Python:
+  `datetime(2016,3,7,1,0,tzinfo=UTC) - datetime(2016,3,4,19,0,30,tzinfo=UTC)
+  == timedelta(days=2, seconds=21570)`). Corrected the feature file's expected
+  value to 53 hours 59 minutes 30 seconds; the scenario's timestamps, due-at
+  assertion and closure-request assertion were all left untouched.
+Also added the `Given "the following happens: {events}"` step (missing from
+the original step file scope; needed by the three end-of-stream Outline rows)
+with a two-entry closed vocabulary ("nothing", or one tradable event followed
+by a close-order submission) matching exactly the two forms the feature uses.
+
+Gate (cwd `algo-suite`): `uv run pytest
+algo-backtest/tests/steps/test_confluence_time_exit.py -q` → 47 passed (47
+collected, matches the QA procedure's Phase 2 count); `uv run ruff check` →
+clean (fixed via `uv run ruff format`); `uv run ruff format --check` → clean;
+`uv run mypy --strict algo-backtest/src/algo_backtest/chain/time_exit.py` →
+clean. Regression (`test_filter_chain_mechanics.py test_f1_trend.py
+test_f4_news_context.py test_f6_capital_mgmt.py test_chain_wiring.py
+test_strategy_explain.py test_decision_recorder.py test_audit.py
+test_bar_clock.py test_order_executor.py test_trade_plan.py`) → 458 passed, 0
+failed. No existing test was modified beyond the one factual scenario-value
+correction above; no test was skipped or deleted.
+
+Files touched: `algo-backtest/src/algo_backtest/chain/time_exit.py` (new),
+`algo-backtest/tests/features/confluence_time_exit.feature` (specifier's file,
+one line corrected), `algo-backtest/tests/steps/test_confluence_time_exit.py`
+(new), `.specs/features/confluence-chain/tasks.md` (T6 checkboxes),
+`.specs/features/confluence-chain/spec.md` (CC-15..CC-19, CC-28, CC-31 status).
+Not touched: any integration-owned file (`strategies.py`, `chain/wiring.py`,
+`engine/*`, `chain/audit.py`, `chain/decision_recorder.py`) or any other
+Story-21-private module besides `time_exit.py`.
+
+Next: T7 (`chain/filters/constant_direction.py`, the drift-control filter).
+Blockers: none. Agent: coder (Claude Sonnet 5). Branch
+`feat/21-confluence-chain`, worktree `/tmp/mba-impl-21`, base commit `0c4d612`.
