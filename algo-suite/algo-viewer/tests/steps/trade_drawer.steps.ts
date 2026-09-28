@@ -3,17 +3,15 @@ import { DataTable, Given, Then, When } from "@cucumber/cucumber";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import assert from "node:assert/strict";
 import { createElement } from "react";
-import { tradeDetail } from "../../src/db/queries";
 import { explainFilter } from "../../src/model/explain";
 import type { FilterRow } from "../../src/model/types";
 import { TradeDrawer } from "../../src/views/TradeDrawer";
-import { fixtureDatabase } from "../support/fixture";
+import { apiClient } from "../support/server";
 
 let filterRow: FilterRow | null = null;
 
 When("I open trade {string} of run {string}", async function (tradeId: string, runId: string) {
-  const detail = tradeDetail(await fixtureDatabase(), runId, tradeId);
-  assert.ok(detail, `no trade ${tradeId} in run ${runId}`);
+  const detail = await apiClient().tradeDetail(runId, tradeId);
   render(createElement(TradeDrawer, { detail, dark: false, onClose: () => undefined }));
 });
 

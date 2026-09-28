@@ -35,7 +35,7 @@ Feature: Compare runs
       | 2016-04 | -1.0 | 3.0 |
       | 2016-05 |      | 0.5 |
 
-  Scenario: the compare view renders the fixture run's months and legend
+  Scenario: the compare view fetches the fixture run's months and legend from the backend
     Given the fixture results database is open
     When I compare the runs 20260928T010000-fixture
     Then the monthly table lists the months 2016-03, 2016-04

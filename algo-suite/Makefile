@@ -4,7 +4,7 @@
 ALLURE_RESULTS := build/allure-results
 ALLURE_REPORT  := build/allure-report
 
-.PHONY: help install lint fmt type test check audit report report-html viewer viewer-dev viewer-fixture viewer-check
+.PHONY: help install lint fmt type test check audit report report-html viewer viewer-dev viewer-serve viewer-fixture viewer-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -42,10 +42,14 @@ report-html: ## Generate a single-file Allure HTML report (opens via file://)
 		&& echo "Open $(ALLURE_REPORT)/index.html (self-contained; or: allure open $(ALLURE_REPORT))" \
 		|| echo "Install the 'allure' CLI to generate the report: https://allurereport.org/docs/install/"
 
-viewer: ## Build the browser results viewer (algo-viewer/dist/, static; drop results.sqlite beside index.html)
+viewer: ## Build the results viewer: page (algo-viewer/dist/) + backend (algo-viewer/dist-server/)
 	cd algo-viewer && npm ci --no-audit --no-fund && npm run build
 
-viewer-dev: ## Run the results viewer with Vite's dev server (reads algo-viewer/public/results.sqlite when present)
+DB ?= results.sqlite
+viewer-serve: ## Serve the built page and its API over a results database: make viewer-serve DB=results.sqlite
+	cd algo-viewer && node --no-warnings=ExperimentalWarning dist-server/server/main.js --db $(abspath $(DB)) --static dist --port 8787
+
+viewer-dev: ## Vite dev server for the page (proxies /api to the backend started with viewer-serve or npm run serve)
 	cd algo-viewer && npm install --no-audit --no-fund && npm run dev
 
 viewer-check: ## Lint, type-check, run the Gherkin suite and build the viewer

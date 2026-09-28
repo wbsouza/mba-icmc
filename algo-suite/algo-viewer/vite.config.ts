@@ -1,11 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// sql.js ships a UMD bundle plus the WASM binary; the binary is imported as an asset
-// (see src/main.tsx) so the built dist/ is self-contained — nothing is fetched from a CDN.
+// The React app only talks to the backend's JSON API (server/). In development Vite
+// proxies /api to it; in production the backend serves dist/ and the API from one origin.
 export default defineConfig({
   base: "./",
   plugins: [react()],
-  optimizeDeps: { exclude: ["sql.js"] },
+  server: { proxy: { "/api": process.env["ALGO_VIEWER_API"] ?? "http://127.0.0.1:8787" } },
   build: { target: "es2022", sourcemap: false },
 });

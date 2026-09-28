@@ -6,16 +6,17 @@
   "description": "Browser results browser for algo-suite backtest runs (sql.js over results.sqlite).",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "serve": "node --no-warnings=ExperimentalWarning --import=tsx server/main.ts",
+    "start": "node --no-warnings=ExperimentalWarning dist-server/server/main.js",
+    "build": "tsc -p tsconfig.json --noEmit && vite build && tsc -p tsconfig.server.json && node -e \"require('fs').writeFileSync('dist-server/package.json', JSON.stringify({type:'module'})+'\\n')\"",
     "preview": "vite preview",
-    "lint": "eslint src tests --max-warnings 0",
-    "test": "NODE_OPTIONS=--import=tsx cucumber-js"
+    "lint": "eslint src server tests --max-warnings 0",
+    "test": "NODE_OPTIONS='--import=tsx --no-warnings=ExperimentalWarning' cucumber-js"
   },
   "dependencies": {
     "lightweight-charts": "^5.0.8",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sql.js": "^1.13.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^11.3.0",
@@ -26,7 +27,6 @@
     "@types/node": "^22.15.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@types/sql.js": "^1.4.9",
     "@vitejs/plugin-react": "^4.6.0",
     "eslint": "^9.30.0",
     "eslint-plugin-react-hooks": "^5.2.0",

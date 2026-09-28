@@ -1,12 +1,12 @@
 import { useMemo } from "react";
-import type { Database } from "sql.js";
-import { decisionSummary, equitySamples, monthlyReturns, parameters, trades } from "../db/queries";
-import type { ParameterRow, RunRow, TradeRow } from "../model/types";
+import type { ApiClient } from "../api/client";
+import { Pending, useAsync } from "../api/useAsync";
+import type { DecisionSummaryRow, EquitySample, MonthlyReturn, ParameterRow, RunRow, TradeRow } from "../model/types";
 import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDecimals, signedPct, when } from "../model/format";
 import { LineChart } from "../charts/LineChart";
 
 interface Props {
-  db: Database;
+  api: ApiClient;
   run: RunRow;
   dark: boolean;
   onSelectTrade: (tradeId: string) => void;
@@ -24,12 +24,26 @@ export function groupParameters(rows: readonly ParameterRow[]): Map<string, Para
   return groups;
 }
 
-export function RunView({ db, run, dark, onSelectTrade }: Props) {
-  const samples = useMemo(() => equitySamples(db, run.run_id), [db, run.run_id]);
-  const months = useMemo(() => monthlyReturns(db, run.run_id), [db, run.run_id]);
-  const params = useMemo(() => groupParameters(parameters(db, run.run_id)), [db, run.run_id]);
-  const tradeRows = useMemo(() => trades(db, run.run_id), [db, run.run_id]);
-  const funnel = useMemo(() => decisionSummary(db, run.run_id), [db, run.run_id]);
+interface Loaded {
+  samples: EquitySample[];
+  months: MonthlyReturn[];
+  params: ParameterRow[];
+  trades: TradeRow[];
+  funnel: DecisionSummaryRow[];
+}
+
+export function RunView({ api, run, dark, onSelectTrade }: Props) {
+  const state = useAsync<Loaded>(async () => {
+    const [samples, months, params, tradeRows, funnel] = await Promise.all([
+      api.equity(run.run_id), api.monthly(run.run_id), api.parameters(run.run_id), api.trades(run.run_id), api.decisionSummary(run.run_id),
+    ]);
+    return { samples, months, params, trades: tradeRows, funnel };
+  }, [api, run.run_id]);
+  const samples = useMemo(() => state.data?.samples ?? [], [state.data]);
+  const months = state.data?.months ?? [];
+  const params = useMemo(() => groupParameters(state.data?.params ?? []), [state.data]);
+  const tradeRows = state.data?.trades ?? [];
+  const funnel = state.data?.funnel ?? [];
   const decimals = priceDecimals(tradeRows[0]?.entry_price ?? 1);
   const equitySeries = useMemo(
     () => [{ id: "equity", label: "Equity", color: "#1f6feb", points: samples.map((s) => ({ time: s.time, value: s.equity })) }],
@@ -40,6 +54,7 @@ export function RunView({ db, run, dark, onSelectTrade }: Props) {
     [samples],
   );
   const last = samples[samples.length - 1];
+  if (state.data === null) return <Pending state={state} label={`run ${run.run_id}`} />;
   return (
     <>
       <div className="kpis" data-testid="kpis">

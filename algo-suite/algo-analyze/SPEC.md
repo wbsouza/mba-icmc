@@ -219,9 +219,9 @@ engine log: a **limit** order → `target`; a **stop** order → `trail_stop` wh
 
 **`--decisions`**: `full` (default) keeps every chain decision with all its filter rows —
 the complete audit trail, ~3–4 MB per nine-month H1 run; `entries` keeps only the entry
-decisions (with their filters) and the always-present `decision_summary` funnel, which
-is what a browser-loaded database of a hundred runs needs (~0.5 MB per run, dominated by
-`equity_samples`).
+decisions (with their filters) and the always-present `decision_summary` funnel (~1 MB
+per run, dominated by `equity_samples` and `entry_bars`). The viewer's backend queries
+the file on demand, so either mode serves it; `entries` is enough for every view it has.
 
 ## 7. Error handling and acceptance
 

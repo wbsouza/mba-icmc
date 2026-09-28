@@ -1,13 +1,12 @@
 import "../support/dom";
 import { DataTable, Given, Then, When } from "@cucumber/cucumber";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { pivotMonthly, rebase, type MonthlyColumn, type MonthlyPivotRow, type RebasedPoint } from "../../src/model/rebase";
 import type { EquitySample } from "../../src/model/types";
 import { CompareView } from "../../src/views/CompareView";
-import { listRuns } from "../../src/db/queries";
-import { fixtureDatabase } from "../support/fixture";
+import { apiClient } from "../support/server";
 
 interface World {
   series?: EquitySample[];
@@ -66,13 +65,14 @@ Then("the pivot rows are:", function (table: DataTable) {
 });
 
 Given("the fixture results database is open", async function () {
-  await fixtureDatabase();
+  await apiClient().health();
 });
 
 When("I compare the runs {}", async function (ids: string) {
-  const db = await fixtureDatabase();
-  const runs = listRuns(db).filter((r) => ids.split(",").map((s) => s.trim()).includes(r.run_id));
-  render(createElement(CompareView, { db, runs, dark: false, onOpen: () => undefined }));
+  const api = apiClient();
+  const runs = (await api.runs()).filter((r) => ids.split(",").map((s) => s.trim()).includes(r.run_id));
+  render(createElement(CompareView, { api, runs, dark: false, onOpen: () => undefined }));
+  await waitFor(() => screen.getByTestId("monthly-table"));
 });
 
 Then("the monthly table lists the months {}", function (months: string) {

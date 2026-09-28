@@ -1,14 +1,14 @@
 import { useMemo } from "react";
-import type { Database } from "sql.js";
-import { equitySamples, monthlyReturns } from "../db/queries";
-import type { RunRow } from "../model/types";
+import type { ApiClient } from "../api/client";
+import { Pending, useAsync } from "../api/useAsync";
+import type { EquitySample, MonthlyReturn, RunRow } from "../model/types";
 import { pivotMonthly, rebase, REBASE_TO } from "../model/rebase";
 import { signedPct, barLabel } from "../model/format";
 import { LineChart, type LineSeriesSpec } from "../charts/LineChart";
 import { seriesColor } from "../charts/support";
 
 interface Props {
-  db: Database;
+  api: ApiClient;
   runs: RunRow[];
   dark: boolean;
   onOpen: (runId: string) => void;
@@ -18,24 +18,39 @@ export function runLabel(run: RunRow): string {
   return `${run.strategy} · ${barLabel(run.bar_minutes)} · ${run.start}`;
 }
 
+interface Loaded {
+  equity: Record<string, EquitySample[]>;
+  monthly: Record<string, MonthlyReturn[]>;
+}
+
 /** Overlaid equity curves re-based to 10,000 plus the month-by-month table. */
-export function CompareView({ db, runs, dark, onOpen }: Props) {
+export function CompareView({ api, runs, dark, onOpen }: Props) {
+  const ids = runs.map((r) => r.run_id).join(",");
+  const state = useAsync<Loaded>(async () => {
+    const equity: Record<string, EquitySample[]> = {};
+    const monthly: Record<string, MonthlyReturn[]> = {};
+    await Promise.all(runs.map(async (run) => {
+      [equity[run.run_id], monthly[run.run_id]] = await Promise.all([api.equity(run.run_id), api.monthly(run.run_id)]);
+    }));
+    return { equity, monthly };
+  }, [api, ids]);
   const series: LineSeriesSpec[] = useMemo(
-    () => runs.map((run, i) => ({
+    () => state.data === null ? [] : runs.map((run, i) => ({
       id: run.run_id,
       label: runLabel(run),
       color: seriesColor(i),
-      points: rebase(equitySamples(db, run.run_id)).map((p) => ({ time: p.time, value: p.equity })),
+      points: rebase(state.data?.equity[run.run_id] ?? []).map((p) => ({ time: p.time, value: p.equity })),
     })),
-    [db, runs],
+    [state.data, runs],
   );
   const pivot = useMemo(
-    () => pivotMonthly(runs.map((run) => ({ runId: run.run_id, label: runLabel(run), months: monthlyReturns(db, run.run_id) }))),
-    [db, runs],
+    () => state.data === null ? [] : pivotMonthly(runs.map((run) => ({ runId: run.run_id, label: runLabel(run), months: state.data?.monthly[run.run_id] ?? [] }))),
+    [state.data, runs],
   );
   if (runs.length === 0) {
     return <section className="panel"><p className="muted">Select runs in the Runs table to compare them.</p></section>;
   }
+  if (state.data === null) return <Pending state={state} label="equity curves" />;
   return (
     <>
       <section className="panel" aria-label="Equity comparison">

@@ -1,7 +1,6 @@
-/** Typed queries over the results database (one function per view need). */
+/** Typed queries over the results database (one function per endpoint). */
 
-import type { Database } from "sql.js";
-import { rows } from "./loader";
+import type { Queryable } from "./db.js";
 import type {
   DecisionRow,
   DecisionSummaryRow,
@@ -17,50 +16,46 @@ import type {
   TradeRow,
   TrailMove,
   TrailStep,
-} from "../model/types";
+} from "../src/model/types.js";
 
 const RUN_COLUMNS =
   "r.*, (SELECT AVG(is_win) FROM trades t WHERE t.run_id = r.run_id) AS win_rate";
 
-export function listRuns(db: Database): RunRow[] {
-  return rows<RunRow>(db, `SELECT ${RUN_COLUMNS} FROM runs r ORDER BY job, strategy, start, run_id`);
+export function listRuns(db: Queryable): RunRow[] {
+  return db.rows<RunRow>(`SELECT ${RUN_COLUMNS} FROM runs r ORDER BY job, strategy, start, run_id`);
 }
 
-export function getRun(db: Database, runId: string): RunRow | null {
-  return rows<RunRow>(db, `SELECT ${RUN_COLUMNS} FROM runs r WHERE run_id = ?`, [runId])[0] ?? null;
+export function getRun(db: Queryable, runId: string): RunRow | null {
+  return db.rows<RunRow>(`SELECT ${RUN_COLUMNS} FROM runs r WHERE run_id = ?`, [runId])[0] ?? null;
 }
 
-export function equitySamples(db: Database, runId: string): EquitySample[] {
-  return rows<EquitySample>(
-    db,
-    "SELECT time, equity, drawdown_pct FROM equity_samples WHERE run_id = ? ORDER BY time",
+export function equitySamples(db: Queryable, runId: string): EquitySample[] {
+  return db.rows<EquitySample>(
+    "SELECT time, equity, drawdown_pct FROM equity_samples WHERE run_id = ? ORDER BY seq",
     [runId],
   );
 }
 
-export function monthlyReturns(db: Database, runId: string): MonthlyReturn[] {
-  return rows<MonthlyReturn>(
-    db,
+export function monthlyReturns(db: Queryable, runId: string): MonthlyReturn[] {
+  return db.rows<MonthlyReturn>(
     "SELECT month, start_equity, end_equity, return_pct, trades FROM monthly_returns WHERE run_id = ? ORDER BY month",
     [runId],
   );
 }
 
-export function parameters(db: Database, runId: string): ParameterRow[] {
-  return rows<ParameterRow>(
-    db,
+export function parameters(db: Queryable, runId: string): ParameterRow[] {
+  return db.rows<ParameterRow>(
     "SELECT key, value, source FROM run_parameters WHERE run_id = ? ORDER BY key",
     [runId],
   );
 }
 
-export function trades(db: Database, runId: string): TradeRow[] {
-  return rows<TradeRow>(db, "SELECT * FROM trades WHERE run_id = ? ORDER BY entry_time", [runId]);
+export function trades(db: Queryable, runId: string): TradeRow[] {
+  return db.rows<TradeRow>("SELECT * FROM trades WHERE run_id = ? ORDER BY entry_time", [runId]);
 }
 
-export function decisionSummary(db: Database, runId: string): DecisionSummaryRow[] {
-  return rows<DecisionSummaryRow>(
-    db,
+export function decisionSummary(db: Queryable, runId: string): DecisionSummaryRow[] {
+  return db.rows<DecisionSummaryRow>(
     "SELECT final_decision, vetoed_by, count FROM decision_summary WHERE run_id = ? ORDER BY count DESC",
     [runId],
   );
@@ -74,9 +69,8 @@ interface PlanRow {
   spread_pips: number | null;
 }
 
-function plan(db: Database, runId: string, tradeId: string): TradePlan | null {
-  const row = rows<PlanRow>(
-    db,
+function plan(db: Queryable, runId: string, tradeId: string): TradePlan | null {
+  const row = db.rows<PlanRow>(
     "SELECT stop_loss, stop_pips, targets_json, trail_steps_json, spread_pips FROM trade_plans WHERE run_id = ? AND trade_id = ?",
     [runId, tradeId],
   )[0];
@@ -90,19 +84,17 @@ function plan(db: Database, runId: string, tradeId: string): TradePlan | null {
   };
 }
 
-export function tradeDetail(db: Database, runId: string, tradeId: string): TradeDetail | null {
+export function tradeDetail(db: Queryable, runId: string, tradeId: string): TradeDetail | null {
   const run = getRun(db, runId);
-  const trade = rows<TradeRow>(db, "SELECT * FROM trades WHERE run_id = ? AND trade_id = ?", [runId, tradeId])[0];
+  const trade = db.rows<TradeRow>("SELECT * FROM trades WHERE run_id = ? AND trade_id = ?", [runId, tradeId])[0];
   if (run === null || trade === undefined) return null;
   const entryDecision =
-    rows<DecisionRow>(
-      db,
+    db.rows<DecisionRow>(
       "SELECT * FROM decisions WHERE run_id = ? AND trade_id = ? AND is_entry = 1 ORDER BY timestamp LIMIT 1",
       [runId, tradeId],
     )[0] ?? null;
   const filters = entryDecision
-    ? rows<FilterRow>(
-        db,
+    ? db.rows<FilterRow>(
         "SELECT position, filter_name, recommendation, veto, reason, pattern_name FROM decision_filters WHERE decision_id = ? ORDER BY position",
         [entryDecision.id],
       )
@@ -113,13 +105,11 @@ export function tradeDetail(db: Database, runId: string, tradeId: string): Trade
     plan: plan(db, runId, tradeId),
     entryDecision,
     filters,
-    trailMoves: rows<TrailMove>(
-      db,
+    trailMoves: db.rows<TrailMove>(
       "SELECT time, from_stop, to_stop FROM trail_moves WHERE run_id = ? AND trade_id = ? ORDER BY time",
       [runId, tradeId],
     ),
-    bars: rows<EntryBar>(
-      db,
+    bars: db.rows<EntryBar>(
       "SELECT offset, time, open, high, low, close FROM entry_bars WHERE run_id = ? AND trade_id = ? ORDER BY offset",
       [runId, tradeId],
     ),

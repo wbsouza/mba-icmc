@@ -25,7 +25,7 @@ algo-download → algo-transform → algo-score → algo-backtest → algo-analy
 | [`algo-score`](algo-score/) | Loughran–McDonald sentiment (per-currency; FinBERT planned) + GDELT/GPR events → feature Parquet | 2 | `algo-score` |
 | [`algo-backtest`](algo-backtest/) | materialize `lean-data/`, LightGBM meta-learner, deterministic filter chain on LEAN | 3–4 | `algo-backtest` |
 | [`algo-analyze`](algo-analyze/) | metrics, DSR probability, paired stationary-bootstrap mean-return test, ablations, figures, consolidated equity curves | 5 | `algo-analyze` |
-| [`algo-viewer`](algo-viewer/) | browser results viewer over the SQLite file `algo-analyze results-db build` writes: runs, overlaid equity curves, trades and why the chain entered each one (TypeScript + React, `make viewer`) | 6 | static `dist/` |
+| [`algo-viewer`](algo-viewer/) | results viewer over the SQLite file `algo-analyze results-db build` writes: a TypeScript backend (JSON API, `node:sqlite`) and a React page — runs, overlaid equity curves, trades and why the chain entered each one (`make viewer`, `make viewer-serve`) | 6 | `node dist-server/server/main.js` |
 
 Each tool dir holds its own `SPEC.md` (technical spec, colocated with the code)
 and a `tests/` tree of Gherkin features.

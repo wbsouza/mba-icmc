@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Database } from "sql.js";
-import { fetchBundledDatabase, openDatabase, type LocateFile } from "./db/loader";
-import { getRun, listRuns, tradeDetail } from "./db/queries";
-import type { RunRow } from "./model/types";
+import { useCallback, useEffect, useState } from "react";
+import { ApiClient } from "./api/client";
+import { Pending, useAsync } from "./api/useAsync";
+import type { RunRow, TradeDetail } from "./model/types";
 import { parseRoute, routeHash, type Route } from "./router";
 import { applyTheme, initialTheme, type Theme } from "./theme";
-import { DbPicker } from "./views/DbPicker";
 import { RunsTable } from "./views/RunsTable";
 import { CompareView } from "./views/CompareView";
 import { RunView } from "./views/RunView";
@@ -13,20 +11,21 @@ import { TradeDrawer } from "./views/TradeDrawer";
 import { PatternsPage } from "./views/PatternsPage";
 
 interface Props {
-  locateFile?: LocateFile;
-  /** Bytes to open immediately (tests); otherwise ./results.sqlite is tried, then the picker. */
-  initialBytes?: Uint8Array;
+  /** The backend; defaults to the page's own origin. */
+  api?: ApiClient;
   initialHash?: string;
 }
 
-export function App({ locateFile, initialBytes, initialHash }: Props) {
-  const [db, setDb] = useState<Database | null>(null);
-  const [dbName, setDbName] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+const START_HINT = "start the backend: node dist-server/server/main.js --db results.sqlite --static dist";
+
+export function App({ api: given, initialHash }: Props) {
+  const [api] = useState(() => given ?? new ApiClient());
   const [theme, setTheme] = useState<Theme>(() => initialTheme());
   const [route, setRoute] = useState<Route>(() => parseRoute(initialHash ?? window.location.hash));
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const health = useAsync(() => api.health(), [api]);
+  const runsState = useAsync(() => api.runs(), [api, health.data]);
+  const runs = runsState.data ?? [];
 
   useEffect(() => applyTheme(theme), [theme]);
   useEffect(() => {
@@ -35,39 +34,11 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const open = useCallback(async (bytes: Uint8Array, name: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const opened = await openDatabase(bytes, locateFile);
-      setDb(opened);
-      setDbName(name);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [locateFile]);
-
-  useEffect(() => {
-    if (initialBytes) {
-      void open(initialBytes, "results.sqlite");
-      return;
-    }
-    void (async () => {
-      setBusy(true);
-      const bytes = await fetchBundledDatabase();
-      setBusy(false);
-      if (bytes) await open(bytes, "results.sqlite");
-    })();
-  }, [initialBytes, open]);
-
   const navigate = useCallback((next: Route) => {
     window.location.hash = routeHash(next);
     setRoute(next);
   }, []);
 
-  const runs = useMemo(() => (db ? listRuns(db) : []), [db]);
   const toggle = (runId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -87,7 +58,7 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
         <a href="#/patterns" className={route.view === "patterns" ? "active" : ""} onClick={(e) => { e.preventDefault(); navigate({ view: "patterns" }); }}>Patterns</a>
       </nav>
       <span className="spacer" />
-      <span className="db-name">{dbName}</span>
+      <span className="db-name">{health.data ? `${health.data.runs} runs · schema v${health.data.schema_version}` : ""}</span>
       <button aria-label="Toggle dark mode" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? "Light" : "Dark"}</button>
     </header>
   );
@@ -101,12 +72,14 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
     );
   }
 
-  if (db === null) {
+  if (health.data === null) {
     return (
       <>
         {nav}
         <main>
-          <DbPicker busy={busy} error={error} onFile={(file) => { void file.arrayBuffer().then((buffer) => open(new Uint8Array(buffer), file.name)); }} />
+          {health.loading ? <Pending state={health} label="backend" /> : (
+            <p className="error">Backend not reachable: {health.error}. {START_HINT}</p>
+          )}
         </main>
       </>
     );
@@ -122,17 +95,19 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
   } else if (route.view === "compare") {
     const ids = route.runIds.length > 0 ? route.runIds : [...selected];
     const chosen = ids.map((id) => runs.find((r) => r.run_id === id)).filter((r): r is RunRow => r !== undefined);
-    body = <CompareView db={db} runs={chosen} dark={theme === "dark"} onOpen={(runId) => navigate({ view: "run", runId, tradeId: null })} />;
+    body = <CompareView api={api} runs={chosen} dark={theme === "dark"} onOpen={(runId) => navigate({ view: "run", runId, tradeId: null })} />;
   } else {
-    const run = getRun(db, route.runId);
-    if (run === null) {
-      body = <p className="error">No run {route.runId} in this database.</p>;
+    const run = runs.find((r) => r.run_id === route.runId);
+    if (run === undefined) {
+      body = runsState.loading ? <Pending state={runsState} label="runs" /> : <p className="error">No run {route.runId} in this database.</p>;
     } else {
-      const detail = route.tradeId === null ? null : tradeDetail(db, route.runId, route.tradeId);
       body = (
         <>
-          <RunView db={db} run={run} dark={theme === "dark"} onSelectTrade={(tradeId) => navigate({ view: "run", runId: run.run_id, tradeId })} />
-          {detail ? <TradeDrawer detail={detail} dark={theme === "dark"} onClose={() => navigate({ view: "run", runId: run.run_id, tradeId: null })} /> : null}
+          <RunView api={api} run={run} dark={theme === "dark"} onSelectTrade={(tradeId) => navigate({ view: "run", runId: run.run_id, tradeId })} />
+          {route.tradeId === null ? null : (
+            <TradeDrawerLoader api={api} runId={run.run_id} tradeId={route.tradeId} dark={theme === "dark"}
+              onClose={() => navigate({ view: "run", runId: run.run_id, tradeId: null })} />
+          )}
         </>
       );
     }
@@ -140,7 +115,20 @@ export function App({ locateFile, initialBytes, initialHash }: Props) {
   return (
     <>
       {nav}
-      <main>{error ? <p className="error">{error}</p> : null}{body}</main>
+      <main>{runsState.error === null ? null : <p className="error">{runsState.error}</p>}{body}</main>
     </>
   );
+}
+
+function TradeDrawerLoader({ api, runId, tradeId, dark, onClose }: { api: ApiClient; runId: string; tradeId: string; dark: boolean; onClose: () => void }) {
+  const state = useAsync<TradeDetail>(() => api.tradeDetail(runId, tradeId), [api, runId, tradeId]);
+  if (state.data === null) {
+    return (
+      <>
+        <div className="drawer-backdrop" onClick={onClose} />
+        <aside className="drawer" role="dialog" aria-label={`Trade ${tradeId}`}><Pending state={state} label={`trade ${tradeId}`} /></aside>
+      </>
+    );
+  }
+  return <TradeDrawer detail={state.data} dark={dark} onClose={onClose} />;
 }

@@ -135,7 +135,7 @@ algo-analyze equity-curves \
 [--bars-root DATA_ROOT --bars-before 30 --bars-after 30] [--decisions full|entries]`
 loads every finished run directory (`<runs-root>/<strategy>/<stamp>/` with a `run.json`;
 directories still running are skipped and counted) into one SQLite file that
-[`algo-viewer`](../algo-viewer/) opens in the browser: runs with their metrics, every
+[`algo-viewer`](../algo-viewer/)'s backend serves to its React page: runs with their metrics, every
 parameter with the config file that set it, equity samples, monthly returns, trades with
 their exit kind (stop / target / trail_stop / reversal / liquidation / unknown, classified
 from LEAN's orders and the engine log), trade plans, the chain decisions with each
