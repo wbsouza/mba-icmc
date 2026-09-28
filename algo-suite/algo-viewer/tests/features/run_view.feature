@@ -22,3 +22,22 @@ Feature: Run page
       | returns          | colours        |
       | 2.0, -1.5, 0.0   | up, down, up   |
       | -0.1             | down           |
+
+  Rule: Every trade row shows the account balance after it closed
+
+    Scenario: the balance runs from the starting cash through the trades in closing order
+      When I open the run page of "20260928T010000-fixture"
+      Then the trades table shows the balance after each trade:
+        | trade_id | profit  | balance   |
+        | 1        | 500.00  | 10,500.00 |
+        | 5        | -100.00 | 10,400.00 |
+
+    Scenario Outline: the balance accumulates net P/L (profit minus fees) in exit order, not row order
+      Given trades closed as <closes> starting from cash <cash>
+      Then the balances after each trade, in row order, are <balances>
+
+      Examples:
+        | cash  | closes                                              | balances                |
+        | 10000 | A exit 2016-03-02 +500 fee 0, B exit 2016-03-10 -100 fee 0 | 10500, 10400            |
+        | 10000 | A exit 2016-03-10 +300 fee 2, B exit 2016-03-02 -50 fee 1  | 10247, 9949             |
+        | 5000  | A exit 2016-03-02 +0 fee 0                          | 5000                    |

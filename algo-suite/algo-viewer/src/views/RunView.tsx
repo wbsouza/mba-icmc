@@ -6,6 +6,7 @@ import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDeci
 import { LineChart } from "../charts/LineChart";
 import { MonthlyBarsChart } from "../charts/MonthlyBars";
 import { ChainWorkflow } from "./ChainWorkflow";
+import { balancesAfter } from "../model/balance";
 
 interface Props {
   api: ApiClient;
@@ -44,7 +45,7 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
   const samples = useMemo(() => state.data?.samples ?? [], [state.data]);
   const months = state.data?.months ?? [];
   const params = useMemo(() => groupParameters(state.data?.params ?? []), [state.data]);
-  const tradeRows = state.data?.trades ?? [];
+  const tradeRows = useMemo(() => state.data?.trades ?? [], [state.data]);
   const funnel = state.data?.funnel ?? [];
   const decimals = priceDecimals(tradeRows[0]?.entry_price ?? 1);
   const equitySeries = useMemo(
@@ -52,6 +53,8 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
     [samples],
   );
   const last = samples[samples.length - 1];
+  const startingCash = run.cash ?? samples[0]?.equity ?? 0;
+  const balances = useMemo(() => balancesAfter(tradeRows, startingCash), [tradeRows, startingCash]);
   if (state.data === null) return <Pending state={state} label={`run ${run.run_id}`} />;
   return (
     <>
@@ -130,10 +133,10 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
         ))}
       </section>
       <section className="panel" aria-label="Trades">
-        <h2>Trades <span className="muted">(click one to see why the chain entered it)</span></h2>
+        <h2>Trades <span className="muted">(click one to see why the chain entered it; balance = starting cash plus net P/L in closing order)</span></h2>
         <table className="grid" data-testid="trades-table">
           <thead>
-            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th></tr>
+            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num">Balance after</th></tr>
           </thead>
           <tbody>
             {tradeRows.map((t: TradeRow) => (
@@ -146,6 +149,7 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
                 <td><span className="badge kind">{EXIT_KIND_LABELS[t.exit_kind] ?? t.exit_kind}</span></td>
                 <td className="num">{minutes(t.holding_minutes)}</td>
                 <td className={`num ${t.profit >= 0 ? "up" : "down"}`}>{money(t.profit)}</td>
+                <td className="num balance">{money(balances.get(t.trade_id) ?? null)}</td>
               </tr>
             ))}
           </tbody>
