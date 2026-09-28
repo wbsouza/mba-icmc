@@ -166,9 +166,9 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-03 | P1 votes | Agreement | T1 | 1 | Implemented (T1) |
 | CC-04 | P1 votes | Agreement/config | T1, T11, T12 | 1, 3 | Implemented (T1) |
 | CC-05 | P1 votes | Existing chain veto | T1, T12, T13 | 1, 3 | Implemented (T1) |
-| CC-06 | P1 votes | Momentum | T2, T12 | 1, 3 | In Tasks |
-| CC-07 | P1 votes | Momentum | T2 | 1 | In Tasks |
-| CC-08 | P1 votes | Momentum/coverage | T2, T9 | 1, 2 | In Tasks |
+| CC-06 | P1 votes | Momentum | T2, T12 | 1, 3 | Implemented (T2) |
+| CC-07 | P1 votes | Momentum | T2 | 1 | Implemented (T2) |
+| CC-08 | P1 votes | Momentum/coverage | T2, T9 | 1, 2 | Implemented (T2) |
 | CC-09 | P1 thresholds | History snapshot | T3, T4, T9 | 1, 2 | In Tasks |
 | CC-10 | P1 thresholds | History snapshot | T3, T4 | 1 | In Tasks |
 | CC-11 | P1 thresholds | Relative F4 | T4 | 1 | In Tasks |
@@ -180,7 +180,7 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-17 | P1 exits | Stop precedence | T6, T13 | 2, 3 | In Tasks |
 | CC-18 | P1 exits | Trade lifecycle | T6, T13, T14 | 2, 3 | In Tasks |
 | CC-19 | P1 exits | Entry suppression | T6, T13 | 2, 3 | In Tasks |
-| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1) |
+| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1, T2) |
 | CC-21 | P1 exits | F6/config | T5, T10, T11 | 1–3 | In Tasks |
 | CC-22 | P1 exits | F6/config | T5 | 1 | In Tasks |
 | CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | In Tasks |
@@ -188,7 +188,7 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-25 | P1 evidence | Re-derivation | T8, T19, T20 | 2, 4 | In Tasks |
 | CC-26 | P1 evidence | Archive preservation | T8, T19 | 2, 4 | In Tasks |
 | CC-27 | P1 evidence | Registration/report | T16, T18, T19, T20, T21 | 4 | In Tasks |
-| CC-28 | P1 protocol | Clock contract | T2, T6, T10, T16, T20 | 1, 2, 4 | In Tasks |
+| CC-28 | P1 protocol | Clock contract | T2, T6, T10, T16, T20 | 1, 2, 4 | Implemented (T2) |
 | CC-29 | P1 inference | Comparison | T16, T18 | 4 | In Tasks |
 | CC-30 | P1 inference | Prediction endpoint | T18 | 4 | In Tasks |
 | CC-31 | P1 audit | Audit/recorder | T3, T4, T6, T14, T15, T19, T22 | 1–4 | In Tasks |

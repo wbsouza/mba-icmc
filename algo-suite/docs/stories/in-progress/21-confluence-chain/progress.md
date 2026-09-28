@@ -25,7 +25,7 @@
 ## Task checklist (mirrors `.specs/features/confluence-chain/tasks.md`)
 
 - [x] T1 Add the named agreement terminal
-- [ ] T2 Add F1 momentum context
+- [x] T2 Add F1 momentum context
 - [ ] T3 Calculate immutable monthly intensity snapshots
 - [ ] T4 Add F4 relative intensity mode
 - [ ] T5 Define the optional F6 bar-count plan
@@ -69,3 +69,31 @@
   files of this task; `uv run mypy --strict algo-backtest` → 63 source files, no issues.
 - Status updates: tasks.md T1 both boxes; spec.md CC-01..CC-05 and CC-20 → `Implemented (T1)`.
 - Next: T2.
+
+### 2026-09-28 — T2: Add F1 momentum context (CC-06..CC-08, CC-20, CC-28)
+
+- What: `chain/filters/f1_trend.py` gains the selectable variant beside the untouched
+  `F1TrendFilter`: `MomentumContextConfig` / `parse_momentum_context_config` /
+  `momentum_context_mapping` (section `momentum_context`, key `lookback_bars` = L, a
+  positive integer; bool/float/string/null/unknown keys rejected), `MomentumHistory(L)`
+  (pure bounded buffer of the last L+1 completed closes; `push(close_time, close)` needs
+  aware-UTC strictly increasing times and finite positive closes; a rejected push leaves
+  it unchanged) and `F1MomentumContextFilter(config, history)` (filter_name `F1_trend`;
+  BUY/SELL/NEUTRAL by the sign of `close[t]/close[t-L]-1`; ABSTAIN with reason
+  `WARMUP: n of L+1 closes` until then; never vetoes; reads no `state.features`).
+  Whether an *expected* close is missing is the feed's coverage contract (T9/T13), as
+  the module docstring records.
+- Scenario correction (structural, no outcome changed): `confluence_momentum.feature`
+  had two `Scenario Outline: <case>` with identical titles; pytest-bdd named both
+  `test_case` and the second silently replaced the first, dropping the six CC-06 vote
+  rows (32 collected instead of 38). Retitled them `with L+1 closes, <case>` and
+  `short of L+1 closes, <case>`; 38 now collect. The other four features have no
+  duplicate titles (checked).
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_confluence_momentum.py -q -p no:cacheprovider`
+  → 38 collected, 38 passed; with `test_f1_trend.py` → 51 passed;
+  `uv run ruff check algo-backtest` clean; `ruff format --check` clean on the two files
+  of this task; `uv run mypy --strict algo-backtest` → no issues.
+- Status updates: tasks.md T2 both boxes; spec.md CC-06, CC-07, CC-08, CC-28 →
+  `Implemented (T2)`; CC-20 → `Implemented (T1, T2)`.
+- Next: T3.
