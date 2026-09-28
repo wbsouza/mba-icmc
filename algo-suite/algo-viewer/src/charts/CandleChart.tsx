@@ -10,7 +10,7 @@ import {
 } from "lightweight-charts";
 import { canRenderCharts, chartColors, toTime } from "./support";
 import type { EntryBar, TradePlan, TradeRow, TrailMove } from "../model/types";
-import { priceDecimals } from "../model/format";
+import { EXIT_KIND_LABELS, money, price as fmtPrice, priceDecimals, when } from "../model/format";
 
 interface Props {
   bars: EntryBar[];
@@ -31,6 +31,26 @@ export function barAt(bars: EntryBar[], iso: string, barMinutes: number): EntryB
   return hit;
 }
 
+// Dark, saturated marker colours so the labels read on both themes.
+const ENTRY_COLOR = "#0b4fbf";
+const EXIT_COLOR = "#6a1b9a";
+
+/** Bold plain-HTML entry/exit caption under the chart (readable whatever the canvas does). */
+function ChartCaption({ trade }: { trade: TradeRow }) {
+  const decimals = priceDecimals(trade.entry_price);
+  return (
+    <p className="chart-caption" data-testid="chart-caption">
+      <span className="entry" style={{ color: ENTRY_COLOR }}>
+        <b>Entry</b> {trade.direction} @ {fmtPrice(trade.entry_price, decimals)} on {when(trade.entry_time)}
+      </span>
+      <span className="exit" style={{ color: EXIT_COLOR }}>
+        <b>Exit</b> {EXIT_KIND_LABELS[trade.exit_kind] ?? trade.exit_kind} @ {fmtPrice(trade.exit_price, decimals)} on {when(trade.exit_time)}
+      </span>
+      <span className={trade.profit >= 0 ? "up" : "down"}><b>P/L</b> {money(trade.profit)}</span>
+    </p>
+  );
+}
+
 /** The ±N bars around the entry with the entry, stop, targets, trail moves and exit marked. */
 export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
   const host = useRef<HTMLDivElement>(null);
@@ -40,10 +60,11 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     const colors = chartColors(dark);
     const chart: IChartApi = createChart(element, {
       autoSize: true,
-      layout: { background: { color: colors.bg }, textColor: colors.text, attributionLogo: false },
+      layout: { background: { color: colors.bg }, textColor: colors.text, attributionLogo: false, fontSize: 13 },
       grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
       timeScale: { timeVisible: true, secondsVisible: false },
-      rightPriceScale: { borderColor: colors.grid },
+      // room above and below the candles so the entry/exit labels sit in clear space
+      rightPriceScale: { borderColor: colors.grid, scaleMargins: { top: 0.18, bottom: 0.18 } },
     });
     const decimals = priceDecimals(trade.entry_price);
     const candles = chart.addSeries(CandlestickSeries, {
@@ -52,8 +73,8 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
       priceFormat: { type: "price", precision: decimals, minMove: 10 ** -decimals },
     });
     candles.setData(bars.map((b) => ({ time: toTime(b.time), open: b.open, high: b.high, low: b.low, close: b.close })));
-    candles.createPriceLine({ price: trade.entry_price, color: "#1f6feb", lineWidth: 2, lineStyle: LineStyle.Solid, title: "entry" });
-    candles.createPriceLine({ price: trade.exit_price, color: "#8e5ea2", lineWidth: 1, lineStyle: LineStyle.Dashed, title: "exit" });
+    candles.createPriceLine({ price: trade.entry_price, color: ENTRY_COLOR, lineWidth: 2, lineStyle: LineStyle.Solid, title: "entry" });
+    candles.createPriceLine({ price: trade.exit_price, color: EXIT_COLOR, lineWidth: 2, lineStyle: LineStyle.Dashed, title: "exit" });
     if (plan) {
       candles.createPriceLine({ price: plan.stop_loss, color: "#c0392b", lineWidth: 1, lineStyle: LineStyle.Dotted, title: "stop" });
       plan.targets.forEach((target, i) => {
@@ -67,13 +88,17 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     const entryBar = bars.find((b) => b.offset === 0);
     if (entryBar) {
       markers.push({
-        time: toTime(entryBar.time), position: trade.direction === "buy" ? "belowBar" : "aboveBar",
-        color: "#1f6feb", shape: trade.direction === "buy" ? "arrowUp" : "arrowDown", text: `${trade.direction} @ ${trade.entry_price}`,
+        time: toTime(entryBar.time), position: trade.direction === "buy" ? "belowBar" : "aboveBar", size: 2,
+        color: ENTRY_COLOR, shape: trade.direction === "buy" ? "arrowUp" : "arrowDown",
+        text: `ENTRY ${trade.direction.toUpperCase()} @ ${fmtPrice(trade.entry_price, decimals)}`,
       });
     }
     const exitBar = barAt(bars, trade.exit_time, barMinutesOf(bars));
     if (exitBar) {
-      markers.push({ time: toTime(exitBar.time), position: "aboveBar", color: "#8e5ea2", shape: "circle", text: `exit ${trade.exit_kind}` });
+      markers.push({
+        time: toTime(exitBar.time), position: trade.direction === "buy" ? "aboveBar" : "belowBar", size: 2,
+        color: EXIT_COLOR, shape: "circle", text: `EXIT ${(EXIT_KIND_LABELS[trade.exit_kind] ?? trade.exit_kind).toUpperCase()} @ ${fmtPrice(trade.exit_price, decimals)}`,
+      });
     }
     createSeriesMarkers(candles, markers);
     chart.timeScale().fitContent();
@@ -83,9 +108,19 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     return <div className="chart-fallback" data-testid="no-bars">No entry bars stored for this run (build the database with --bars-root).</div>;
   }
   if (!canRenderCharts()) {
-    return <div className="chart-fallback" data-testid="chart-fallback">Candlestick chart unavailable in this host ({bars.length} bars).</div>;
+    return (
+      <>
+        <div className="chart-fallback" data-testid="chart-fallback">Candlestick chart unavailable in this host ({bars.length} bars).</div>
+        <ChartCaption trade={trade} />
+      </>
+    );
   }
-  return <div ref={host} className="chart" />;
+  return (
+    <>
+      <div ref={host} className="chart tall" />
+      <ChartCaption trade={trade} />
+    </>
+  );
 }
 
 function barMinutesOf(bars: EntryBar[]): number {

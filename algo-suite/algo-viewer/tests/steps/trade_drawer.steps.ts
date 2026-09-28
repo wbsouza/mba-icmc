@@ -109,3 +109,11 @@ Then("the copied link ends with {string}", function (suffix: string) {
 Then("the button reads {string}", async function (label: string) {
   await waitFor(() => assert.equal(within(drawer()).getByTestId("copy-link").textContent, label));
 });
+
+Then("the chart caption reads {string} and {string}", function (entry: string, exit: string) {
+  const caption = within(drawer()).getByTestId("chart-caption");
+  const entryText = caption.querySelector(".entry")?.textContent ?? "";
+  const exitText = caption.querySelector(".exit")?.textContent ?? "";
+  assert.equal(entryText.replace(/\s+/g, " ").trim(), entry);
+  assert.equal(exitText.replace(/\s+/g, " ").trim(), exit);
+});
