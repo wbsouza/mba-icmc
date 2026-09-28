@@ -4,6 +4,7 @@ import { Pending, useAsync } from "../api/useAsync";
 import type { DecisionSummaryRow, EquitySample, MonthlyReturn, ParameterRow, RunRow, TradeRow } from "../model/types";
 import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDecimals, signedPct, when } from "../model/format";
 import { LineChart } from "../charts/LineChart";
+import { MonthlyBarsChart } from "../charts/MonthlyBars";
 
 interface Props {
   api: ApiClient;
@@ -49,10 +50,6 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
     () => [{ id: "equity", label: "Equity", color: "#1f6feb", points: samples.map((s) => ({ time: s.time, value: s.equity })) }],
     [samples],
   );
-  const drawdownSeries = useMemo(
-    () => [{ id: "dd", label: "Drawdown %", color: "#c0392b", points: samples.map((s) => ({ time: s.time, value: -s.drawdown_pct })) }],
-    [samples],
-  );
   const last = samples[samples.length - 1];
   if (state.data === null) return <Pending state={state} label={`run ${run.run_id}`} />;
   return (
@@ -71,12 +68,14 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
       <section className="panel" aria-label="Equity">
         <h2>Equity</h2>
         <LineChart series={equitySeries} dark={dark} />
-        <h3>Drawdown</h3>
-        <LineChart series={drawdownSeries} dark={dark} small priceFormat="percent" />
+      </section>
+      <section className="panel" aria-label="Monthly returns chart">
+        <h2>Monthly returns</h2>
+        <MonthlyBarsChart months={months} dark={dark} />
       </section>
       <div className="two-col">
-        <section className="panel" aria-label="Monthly returns">
-          <h2>Monthly returns</h2>
+        <section className="panel" aria-label="Monthly returns table">
+          <h2>Month by month</h2>
           <table className="grid">
             <thead><tr><th>Month</th><th className="num">Start</th><th className="num">End</th><th className="num">Return</th><th className="num">Trades</th></tr></thead>
             <tbody>
