@@ -28,14 +28,26 @@ score → **backtest** → analyze.
   **`statement.md`**, laid out like a
   MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
   Working Orders, the two-column A/C Summary, then Performance and Parameters with
-  provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
-  prices carry), an **`equity.png`** equity/drawdown chart, **`equity.csv`** (the chart's
-  series, one row per LEAN equity sample: `time` ISO-8601 UTC, `equity`, `drawdown_pct` —
-  the input of `algo-analyze equity-curves`), and a self-contained **`report.html`**
-  "Account Performance" dashboard (dark theme, inline CSS + SVG, no script or external
-  resource: KPI cards, equity curve, and Equity / Drawdown / Monthly Returns / Trade
-  History / Parameters tabs — `report.py`), all built purely from those artifacts
-  (`statement.py`) and regenerable with `algo-backtest statement --run`. The target
+  provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the instrument's quote precision —
+  one decimal finer than its pip, 5 for EURUSD and 3 for USDJPY, so a derived stop such as
+  `1.1207350000000003` prints as `1.12074`), an **`equity.png`** equity/drawdown chart,
+  **`equity.csv`** (the chart's series, one row per LEAN equity sample: `time` ISO-8601
+  UTC, `equity`, `drawdown_pct` — the input of `algo-analyze equity-curves`), and a
+  self-contained **`report.html`** "Account Performance" dashboard (dark theme, inline CSS
+  + SVG, no script or external resource: KPI cards, equity curve, and Equity / Drawdown /
+  Monthly Returns / Trade History / Parameters tabs — `report.py`). In Trade History every
+  closed trade expands (a native `<details>`, no script) into its **decision trail**
+  (`decision_trail.py`): *Decision at entry* — the chain's filters in order with
+  recommendation, veto and reason, and F7's probability against `theta_high` /
+  `theta_low` / `regime_gate`, from the `decisions.parquet` row of the entry bar; *Plan* —
+  lots, quantity, entry, stop with its pip distance, targets, trailing steps and spread
+  from `trade-plans.json`; *Exit* — time, price, which order closed the trade
+  (stop-market / limit target / market liquidation on a reversal or veto, from LEAN's
+  orders map and the executor's `log.txt`), the logged stop moves, realized P/L and
+  holding time. A trade whose plan or chain row is missing fails fast naming it; a run
+  without those artifacts says so on the tab. All four files are built purely from the
+  run's artifacts (`statement.py`) and regenerable with `algo-backtest statement --run`.
+  The target
   `trades.parquet` schema and `parameters.txt` are not built yet
   (see `SPEC.md` §2).
 - **Baseline vs hybrid** differ only by feature families (hybrid adds the news
@@ -74,7 +86,9 @@ uv run algo-backtest metrics --run <results-dir>
 # file when run.json / trades.json / main.json / main-order-events.json is missing or
 # malformed. For a run without trade-plans.json (one that predates story 12, or a
 # code-registered strategy) the S/L and T/P columns show "—" and the statement says
-# "no trade plan recorded for this run":
+# "no trade plan recorded for this run"; report.html's Trade History expands each closed
+# trade into its decision trail when the run recorded decisions.parquet + trade-plans.json
+# (and reads log.txt for the stop moves), and states "No decision trail" otherwise:
 uv run algo-backtest statement --run <results-dir> [--out DIR]
 # Run a reproducible experiment (the Chapter-4 experiment contract): every run in the
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
