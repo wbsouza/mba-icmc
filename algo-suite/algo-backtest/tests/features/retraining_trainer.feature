@@ -124,6 +124,16 @@ Feature: One epoch's weighted training (Story 19, T9)
       And the epoch's deployment span is [2016-03-01T00:00:00Z, 2016-04-01T00:00:00Z)
       And the epoch's activation boundary is 2016-03-01T00:00:00Z
 
+    Scenario: The manifest's per-stage provenance records exact per-class row counts
+      When the epoch starting 2016-03-01T00:00:00Z is trained for policy U
+      Then the epoch's manifest stages.family.per_class is 1: 3, 0: 2
+      And the epoch's manifest stages.combiner.per_class is 1: 2, 0: 2
+
+    Scenario: Training against a ledger with no consumed data fails naming that no row is visible
+      Given a fresh ledger with nothing consumed
+      When training the epoch starting 2016-03-01T00:00:00Z for policy U fails
+      Then the training failure names "no row is visible"
+
   Rule: Exponential weighting really changes the fitted model on identical row support
 
     Scenario: Recent DOWN labels outweigh older UP labels under E but not under U

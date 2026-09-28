@@ -196,6 +196,12 @@ Feature: Immutable epoch bundles (Story 19, T7)
       Then the bundle failure names "theta_low"
       And the registry lists 0 published bundles
 
+  Rule: Publication defaults to the real wall clock when no clock is injected
+
+    Scenario: Publishing without an injected clock records the real wall-clock instant
+      When the bundle is published without an injected clock
+      Then the manifest's published_at is within 5 minutes of the real wall-clock instant
+
   Rule: An interrupted publication leaves no published bundle (temp file + atomic rename)
 
     Scenario: A failure between writing the staged files and the atomic rename publishes nothing and is recoverable

@@ -92,6 +92,11 @@ Feature: The full adaptive-cycle coordinator (Story 19, T10)
       And the eligible bundle's deployment span is [2016-03-01T00:00:00Z, 2016-04-01T00:00:00Z)
       And the cycle record's attempt started at 2026-09-28T10:00:00Z by the fake clock
 
+    Scenario: A coordinator opened without an injected clock records the real wall-clock instant
+      Given a coordinator with no injected clock
+      When the cycle request "first-U" is handled
+      Then the cycle record's attempt started within 5 minutes of the real wall-clock instant
+
   Rule: The cycle runs exactly once per policy and boundary (RWT-25)
 
     Scenario: Handling the identical request again is a no-op that returns the same artifact without refitting
@@ -183,6 +188,12 @@ Feature: The full adaptive-cycle coordinator (Story 19, T10)
       And the registry lists 0 published bundles
       And looking up the eligible bundle for policy "U" at 2016-03-01T00:00:00Z fails naming "failed"
 
+    Scenario: An attempt that lands exactly on the registered timeout budget is not over budget
+      Given the fake wall clock advances 900 seconds during the fit stage
+      When the cycle request "first-U" is handled
+      Then the response status is "ok"
+      And the cycle record has 1 attempt with outcome "ok"
+
     Scenario: A validation failure leaves no eligible manifest and no published bundle
       Given the staged model is corrupted before the validate stage
       When handling the cycle request "first-U" fails
@@ -192,6 +203,10 @@ Feature: The full adaptive-cycle coordinator (Story 19, T10)
       And the registry lists 0 published bundles
       And no manifest.json exists in the registry outside a staging directory
       And looking up the eligible bundle for policy "U" at 2016-03-01T00:00:00Z fails naming "validate"
+
+    Scenario: Looking up the eligible bundle for a boundary that never had a cycle run fails naming that nothing is eligible
+      Then looking up the eligible bundle for policy "Q" at 2016-03-01T00:00:00Z fails naming "no cycle recorded"
+      And looking up the eligible bundle for policy "Q" at 2016-03-01T00:00:00Z fails naming "nothing is eligible"
 
   Rule: A retry resumes from the last checkpointed stage without refitting (RWT-27 recovery)
 
@@ -219,6 +234,21 @@ Feature: The full adaptive-cycle coordinator (Story 19, T10)
       Then the response status is "ok"
       And the ledger's file bytes are unchanged
       And the cycle record has 2 attempts, the first "failed" at stage "fit" and the second "ok"
+
+    Scenario: A timeout right after the publish checkpoint is written is retried, resuming from the publish checkpoint itself
+      Given the fake wall clock advances 1801 seconds when the bundle is renamed into the registry
+      When handling the cycle request "first-U" fails
+      Then the cycle failure names "timeout"
+      And the cycle record has 1 attempt with outcome "failed" at stage "publish"
+      And the cycle record lists the completed stages "consume, mature, fit, validate, publish"
+      And the registry lists 1 published bundle
+      When the cycle request "first-U" is handled
+      Then the response status is "ok"
+      And the cycle record has 2 attempts, the first "failed" at stage "publish" and the second "ok"
+      And the cycle record lists the completed stages "consume, mature, fit, validate, publish"
+      And the registry lists 1 published bundle
+      And the eligible bundle for policy "U" at 2016-03-01T00:00:00Z is the response's bundle_id
+      And the response's bundle_id is actually present in the registry
 
   Rule: Activation is future-only: the boundary is a month start strictly after the cutoff (RWT-26)
 

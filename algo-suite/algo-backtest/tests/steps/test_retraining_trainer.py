@@ -212,6 +212,12 @@ def _consume_one_into_ledger(tr_ctx: _TrainerCtx, name: str) -> None:
     consume(tr_ctx.ledger_dir, tr_ctx.batches[name])
 
 
+@given("a fresh ledger with nothing consumed")
+def _fresh_empty_ledger(tr_ctx: _TrainerCtx) -> None:
+    tr_ctx.ledger_counter += 1
+    tr_ctx.ledger_dir = tr_ctx.base_dir / f"ledger-{tr_ctx.ledger_counter}"
+
+
 @given("the training settings use the registered support minima")
 def _use_registered_minima(tr_ctx: _TrainerCtx) -> None:
     assert tr_ctx.settings is not None
@@ -484,6 +490,27 @@ def _raw_combiner_weights(tr_ctx: _TrainerCtx, weights: str) -> None:
     _assert_close(tr_ctx.last.combiner.raw_weights, _parse_floats(weights))
 
 
+def _parse_per_class(text: str) -> dict[str, int]:
+    """`"1: 3, 0: 2"` -> `{"1": 3, "0": 2}`."""
+    counts: dict[str, int] = {}
+    for entry in text.split(","):
+        label, count = entry.split(":")
+        counts[label.strip()] = int(count.strip())
+    return counts
+
+
+@then(parsers.parse("the epoch's manifest stages.family.per_class is {counts}"))
+def _manifest_family_per_class(tr_ctx: _TrainerCtx, counts: str) -> None:
+    assert tr_ctx.last is not None
+    assert tr_ctx.last.manifest["stages"]["family"]["per_class"] == _parse_per_class(counts)
+
+
+@then(parsers.parse("the epoch's manifest stages.combiner.per_class is {counts}"))
+def _manifest_combiner_per_class(tr_ctx: _TrainerCtx, counts: str) -> None:
+    assert tr_ctx.last is not None
+    assert tr_ctx.last.manifest["stages"]["combiner"]["per_class"] == _parse_per_class(counts)
+
+
 @then(parsers.parse("the epoch's family n_eff is {value:g}"))
 def _family_n_eff(tr_ctx: _TrainerCtx, value: float) -> None:
     assert tr_ctx.last is not None
@@ -744,7 +771,11 @@ def _both_record_wall_time(tr_ctx: _TrainerCtx) -> None:
         published_at = result.manifest["published_at"]
         assert published_at.endswith("Z")
         datetime.fromisoformat(published_at.replace("Z", "+00:00"))
-        assert result.manifest["training_duration_seconds"] >= 0.0
+        duration = result.manifest["training_duration_seconds"]
+        assert 0.0 <= duration < 60.0, (
+            f"training_duration_seconds {duration!r} is not a plausible single-epoch fit "
+            "duration; it must measure elapsed time since the fit started, not an absolute clock"
+        )
 
 
 @then("the volatile fields are outside the bundle_id")

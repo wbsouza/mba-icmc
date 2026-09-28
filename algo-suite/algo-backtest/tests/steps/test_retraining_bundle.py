@@ -483,6 +483,28 @@ def _manifest_published_at(bundle_ctx: _BundleCtx) -> None:
     datetime.fromisoformat(published_at.replace("Z", "+00:00"))
 
 
+@when("the bundle is published without an injected clock")
+def _publish_without_clock(bundle_ctx: _BundleCtx) -> None:
+    assert bundle_ctx.model is not None
+    assert bundle_ctx.description is not None
+    result = publish(bundle_ctx.model, bundle_ctx.description, bundle_ctx.registry)
+    bundle_ctx.result = result
+    bundle_ctx.results.append(result)
+
+
+@then(
+    parsers.parse(
+        "the manifest's published_at is within {minutes:d} minutes of the real wall-clock instant"
+    )
+)
+def _manifest_published_at_near_real_clock(bundle_ctx: _BundleCtx, minutes: int) -> None:
+    assert bundle_ctx.result is not None
+    published_at = datetime.fromisoformat(
+        bundle_ctx.result.manifest["published_at"].replace("Z", "+00:00")
+    )
+    assert abs((datetime.now(UTC) - published_at).total_seconds()) < minutes * 60
+
+
 @then("the manifest's runtime names the installed lightgbm, scikit-learn and numpy versions")
 def _manifest_runtime(bundle_ctx: _BundleCtx) -> None:
     import lightgbm

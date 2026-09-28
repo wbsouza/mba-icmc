@@ -13,7 +13,7 @@ import pytest
 from algo_backtest.chain.filters import f7_meta_learner as f7
 from algo_backtest.chain.filters.f7_meta_learner import FeatureFamily
 from algo_backtest.retraining import bundle as bundle_module
-from algo_backtest.retraining.bundle import load
+from algo_backtest.retraining.bundle import list_bundles, load
 from algo_backtest.retraining.cycle import Coordinator, CycleRequest, CycleResponse
 from algo_backtest.retraining.ingestion import Batch, Ledger, SourceRow
 from algo_backtest.retraining.schedule import (
@@ -565,6 +565,33 @@ def _break_rename(cy_ctx: _CycleCtx, monkeypatch: pytest.MonkeyPatch) -> None:
 
 @given(
     parsers.parse(
+        "the fake wall clock advances {seconds:d} seconds when the bundle is renamed into "
+        "the registry"
+    )
+)
+def _advance_during_rename(
+    cy_ctx: _CycleCtx, seconds: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    delta = timedelta(seconds=seconds)
+    clock = cy_ctx.clock
+    real_rename = bundle_module.os.replace
+
+    def _advancing_rename(src: Path, dst: Path) -> None:
+        real_rename(src, dst)
+        clock.advance(delta)
+
+    monkeypatch.setattr(bundle_module, "_rename", _advancing_rename)
+
+
+@given("a coordinator with no injected clock")
+def _coordinator_no_clock(cy_ctx: _CycleCtx) -> None:
+    cy_ctx.coordinator = Coordinator(
+        cy_ctx.coordinator_dir, cy_ctx.epochs, timeout_seconds=cy_ctx.timeout_seconds
+    )
+
+
+@given(
+    parsers.parse(
         'the batch "{name}" additionally carries the row "{key}" available {available} with '
         "label_time {label_time} and label {label:d}"
     )
@@ -684,6 +711,12 @@ def _response_names_bundle_id(cy_ctx: _CycleCtx) -> None:
 @then(parsers.parse("the response activation_boundary is {stamp}"))
 def _response_activation_boundary(cy_ctx: _CycleCtx, stamp: str) -> None:
     assert cy_ctx.responses[cy_ctx.last_request_name].activation_boundary == _iso(stamp)
+
+
+@then("the response's bundle_id is actually present in the registry")
+def _response_bundle_id_actually_published(cy_ctx: _CycleCtx) -> None:
+    bundle_id = cy_ctx.responses[cy_ctx.last_request_name].bundle_id
+    assert bundle_id in list_bundles(cy_ctx.registry_dir)
 
 
 @then(parsers.parse('the cycle record lists the completed stages "{stages}"'))
@@ -855,6 +888,19 @@ def _eligible_deployment_span(cy_ctx: _CycleCtx, start: str, end: str) -> None:
 @then(parsers.parse("the cycle record's attempt started at {stamp} by the fake clock"))
 def _attempt_started_at(cy_ctx: _CycleCtx, stamp: str) -> None:
     assert _last_record(cy_ctx)["attempts"][-1]["started_at"] == stamp
+
+
+@then(
+    parsers.parse(
+        "the cycle record's attempt started within {minutes:d} minutes of the real "
+        "wall-clock instant"
+    )
+)
+def _attempt_started_near_real_clock(cy_ctx: _CycleCtx, minutes: int) -> None:
+    started_at = datetime.fromisoformat(
+        _last_record(cy_ctx)["attempts"][-1]["started_at"].replace("Z", "+00:00")
+    )
+    assert abs((datetime.now(UTC) - started_at).total_seconds()) < minutes * 60
 
 
 @then("both responses name the same bundle_id")

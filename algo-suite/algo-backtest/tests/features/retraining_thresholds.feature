@@ -130,15 +130,16 @@ Feature: Separate-span threshold calibration (Story 19, T8)
     Scenario: Rows outside the span or with a label maturing at or after its end do not move the quantiles
       Given the scored rows in the span with scores 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95
       And the extra scored rows
-        | key        | available_at         | label_time           | score |
-        | before     | 2016-01-29T23:00:00Z | 2016-01-30T00:30:00Z | 0.01  |
-        | at-end     | 2016-02-29T00:00:00Z | 2016-02-29T01:00:00Z | 0.99  |
-        | after      | 2016-03-05T09:00:00Z | 2016-03-05T10:00:00Z | 0.99  |
-        | immature   | 2016-02-28T23:00:00Z | 2016-02-29T00:00:00Z | 0.01  |
-        | first      | 2016-01-30T00:00:00Z | 2016-01-30T01:00:00Z | 0.50  |
+        | key            | available_at         | label_time           | score |
+        | before         | 2016-01-29T23:00:00Z | 2016-01-30T00:30:00Z | 0.01  |
+        | at-end         | 2016-02-29T00:00:00Z | 2016-02-29T01:00:00Z | 0.99  |
+        | at-end-mature  | 2016-02-29T00:00:00Z | 2016-01-30T12:00:00Z | 0.99  |
+        | after          | 2016-03-05T09:00:00Z | 2016-03-05T10:00:00Z | 0.99  |
+        | immature       | 2016-02-28T23:00:00Z | 2016-02-29T00:00:00Z | 0.01  |
+        | first          | 2016-01-30T00:00:00Z | 2016-01-30T01:00:00Z | 0.50  |
       When the thresholds are calibrated with a minimum of 5 rows
       Then the calibration used 12 rows
-      And the calibrated row keys do not include "before, at-end, after, immature"
+      And the calibrated row keys do not include "before, at-end, at-end-mature, after, immature"
       And the calibrated row keys include "first"
       And theta_low is 0.11
       And theta_high is 0.89

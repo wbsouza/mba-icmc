@@ -876,3 +876,53 @@ Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
 - `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1827 passed, 53
   deselected, 0 failed (79.5 s) — unchanged from the coder's Phase 2 closure count,
   confirming the `cycle.py` refactor is behavior-preserving.
+
+## 2026-09-28 — Hardener phase 2
+
+Manual mutation testing (no scratch worktree — in-place backup/apply/restore
+per mutation, per the team lead's brief) over the cleaner's Phase 2 output:
+`retraining/{bundle,thresholds,trainer,cycle}.py`, the T6 `combiner_weights`
+diff of `chain/filters/f7_meta_learner.py`, and the T9 additions to
+`retraining/ingestion.py`. Full table, negative control and design-gap
+detail in [mutation-phase2.md](mutation-phase2.md).
+
+56 mutations injected across the six scope areas (bundle 9, cycle 11,
+thresholds 8, trainer 8, F7 diff 5, ingestion diff 4) plus 1 negative
+control. 48 KILLED on first run; 8 initially SURVIVED, each fixed with a new
+or extended Gherkin scenario (never by weakening an existing one) and
+reconfirmed KILLED. 0 SURVIVED and 0 equivalent-mutant justifications
+remain. Both mutations the team lead specifically flagged as design-gap
+regressions — removing the cycle's watermark-conflict tolerance for an
+independent policy replaying the same batches (RWT-25), and making
+`ledger_watermark`/`hashes.data_sha256` depend on the ledger's raw state
+instead of the epoch's own cutoff (RWT-30 future-tail independence) — were
+**KILLED on the first run** by existing scenarios, confirming both of the
+coder's mid-task production fixes are properly guarded against regression.
+
+New scenarios added (all additive): bundle.py's default-clock bypass
+(publishing without an injected clock); cycle.py's default-clock bypass, the
+"no cycle ever ran" eligibility lookup, the exact-timeout-boundary case, and
+a publish-checkpoint-then-timeout-crash retry that exercises the previously
+uncovered checkpoint-resume read path; a threshold fixture row isolating the
+`available_at` half-open upper bound from the `label_time` bound; trainer.py's
+empty-ledger fail-fast case, a tightened `training_duration_seconds` upper
+bound, and an exact `per_class` provenance check; and an F7 scenario proving
+`family_weights` is validated before `combiner_weights` when both are
+invalid at once.
+
+Gate (cwd `/tmp/mba-impl-19/algo-suite`, all exit 0):
+
+- `uv run pytest` on the 8 covering step files: 199 passed (191 baseline + 8
+  new scenarios).
+- `uv run ruff check algo-backtest`: clean (fixed 5 new E501s from the
+  hardening step defs before this run).
+- `uv run mypy --strict algo-backtest`: clean, 72 source files (cache
+  removed after).
+- `uv run pytest algo-backtest/tests -q -p no:cacheprovider`: 1835 passed, 53
+  deselected, 0 failed (85 s).
+- `git status --porcelain` after every mutation's restore matched the
+  session baseline; the branch's only change from this pass is the 8
+  feature/step files plus this report — no file under `algo-backtest/src`
+  was left modified.
+
+Commit: `test(retraining): harden phase 2 modules against surviving mutants`.

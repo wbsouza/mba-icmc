@@ -87,6 +87,12 @@ Feature: F7 combiner fitting accepts independent row-aligned stage weights (Stor
         | combiner weights one short                      | 40           | 7              | combiner_weights | 7     | 8        |
         | combiner weights empty                          | 40           | 0              | combiner_weights | 0     | 8        |
 
+    Scenario: Both stage vectors invalid at once fails naming family_weights, checked first (fail-fast ordering, RWT-02)
+      Given family_weights are 39 values of 1.0
+      And combiner_weights are 7 values of 1.0
+      When training the meta-learner with those family_weights and combiner_weights on the trend family fails
+      Then the training failure names "family_weights"
+
     Scenario Outline: A combiner weight that is negative or non-finite is rejected naming its position (<case>)
       Given LightGBM fits are observed
       And LogisticRegression fits are observed
