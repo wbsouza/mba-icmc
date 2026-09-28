@@ -114,8 +114,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] BUY/SELL unanimity, required abstention, all-abstain, conflict, explicit HOLD, invalid names, absent/duplicate results and F5/F6 short-circuit match spec outcomes; legacy terminals retain their behavior.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] BUY/SELL unanimity, required abstention, all-abstain, conflict, explicit HOLD, invalid names, absent/duplicate results and F5/F6 short-circuit match spec outcomes; legacy terminals retain their behavior.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_agreement.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_agreement.py` in this task; at least 12 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_agreement.py`; Build and applicable Regression before handoff.

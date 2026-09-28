@@ -161,11 +161,11 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 
 | Requirement ID | Story | Design component | Tasks | Phase | Status |
 | --- | --- | --- | --- | --- | --- |
-| CC-01 | P1 votes | Agreement | T1, T11, T12 | 1, 3 | In Tasks |
-| CC-02 | P1 votes | Agreement | T1 | 1 | In Tasks |
-| CC-03 | P1 votes | Agreement | T1 | 1 | In Tasks |
-| CC-04 | P1 votes | Agreement/config | T1, T11, T12 | 1, 3 | In Tasks |
-| CC-05 | P1 votes | Existing chain veto | T1, T12, T13 | 1, 3 | In Tasks |
+| CC-01 | P1 votes | Agreement | T1, T11, T12 | 1, 3 | Implemented (T1) |
+| CC-02 | P1 votes | Agreement | T1 | 1 | Implemented (T1) |
+| CC-03 | P1 votes | Agreement | T1 | 1 | Implemented (T1) |
+| CC-04 | P1 votes | Agreement/config | T1, T11, T12 | 1, 3 | Implemented (T1) |
+| CC-05 | P1 votes | Existing chain veto | T1, T12, T13 | 1, 3 | Implemented (T1) |
 | CC-06 | P1 votes | Momentum | T2, T12 | 1, 3 | In Tasks |
 | CC-07 | P1 votes | Momentum | T2 | 1 | In Tasks |
 | CC-08 | P1 votes | Momentum/coverage | T2, T9 | 1, 2 | In Tasks |
@@ -180,7 +180,7 @@ an order is live. A-plan's longer holding policy remains distinct and disclosed.
 | CC-17 | P1 exits | Stop precedence | T6, T13 | 2, 3 | In Tasks |
 | CC-18 | P1 exits | Trade lifecycle | T6, T13, T14 | 2, 3 | In Tasks |
 | CC-19 | P1 exits | Entry suppression | T6, T13 | 2, 3 | In Tasks |
-| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | In Tasks |
+| CC-20 | P1 compatibility | Legacy contracts | T1, T2, T4, T5, T11, T12, T13, T15, T22 | 1–4 | Implemented (T1) |
 | CC-21 | P1 exits | F6/config | T5, T10, T11 | 1–3 | In Tasks |
 | CC-22 | P1 exits | F6/config | T5 | 1 | In Tasks |
 | CC-23 | P1 protocol | Manifest/controls | T7, T10, T16, T17 | 2, 4 | In Tasks |
