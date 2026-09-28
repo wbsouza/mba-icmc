@@ -9,4 +9,5 @@
 - [x] Code PR #60 merged; docs on integrate/story-12-13
 - [x] Registered paired inference computed (block 4/2 untouched months, 5/3 full span; 999 resamples, seed 42): primary p = 0.996 (Nov–Dec), rule vs baseline p = 0.24; nothing rejects the null. `evidence/paired-inference-20260928T0615Z.{md,json}`
 - [x] Trading-year comparison (job `2026-09-28-trading-year`, registered 06:25 UTC): ten cells + two supplements 2016-03-01..2017-02-28; primary hybrid vs price-only H1 p = 0.15 (untouched), 0.94 (year); only the reversed-sign rule ends positive (+12.2 %, p = 0.22 vs price-only). `evidence/trading-year-*`
-- [ ] Follow-up (not registered yet): matched short-only control for the sign −1 rule; a rising-euro window
+- [x] Short-only control (registered 06:58/07:15 UTC): always-short-h1 −7.8 % (298 trades), -h4 +1.4 %; identical to the rule on Dec–Feb and within 0.6 pp in Nov → the rule's untouched-month profit is drift; mis-specified long-whenever-flat run kept as mirror (−29.0 % / −14.5 %) and it exposed the same-bar OCO double fill (TD-69)
+- [ ] Rising-euro window (2017-03..08) once GDELT lands there

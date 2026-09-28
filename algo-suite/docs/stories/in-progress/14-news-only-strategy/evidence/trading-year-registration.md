@@ -15,3 +15,15 @@ carried as a registered cell, not as a post-hoc pick. Trial count for this job: 
 Supplement registered 06:50 UTC, before viewing (same year, same rules): `q10-atr-stop` (H4, the
 first positive H4 cell over March..October) and `h1-vol-0.8` (H1 with the activity gate at 0.8, the
 best fixed-threshold H1 cell) — two more cells, trial count 12.
+
+Control registered 06:58 UTC, before running: `short-when-flat-h1` / `-h4` — the reversed-sign rule's
+chain with thresholds that make F4 recommend SELL on every bar (sign −1, sell threshold above any
+intensity, buy unreachable), so the account is short whenever flat, with the same plan and risk guard.
+If it matches or beats the reversed-sign rule, the rule's profit is drift, not timing. Trial count 14.
+
+Correction, 07:15 UTC: the `short-when-flat-*` cells were mis-specified (F4 said SELL on every bar and
+sign −1 turned that into BUY), so they are in fact a *long-whenever-flat* control; kept and reported as
+such (H1 −29.0 %, H4 −14.5 %). The intended control is `always-short-h1` / `-h4` (F4 says BUY on every
+bar, sign −1 → SELL), registered before running. Trial count 16. The H1 long-whenever-flat run also
+exposed an engine limitation: on 2016-09-21 a stop-market and a limit target filled in the same minute
+bar, leaving an unplanned position; recorded as technical debt (same-bar OCO double fill).
