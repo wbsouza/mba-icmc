@@ -57,9 +57,18 @@ Feature: Candle evidence and configuration contract
     | shooting_star     | -1       | 12       | legacy |
     | spinning_top      | 0        | 1        | new    |
 
-  Rule: The default configuration enables the whole admitted catalog and is immutable
+  Story 23's bigalow-extended-signals addendum (BEXT-01, BEXT-02, BEXT-04) admits three
+  further ids to the catalog above (usable via enabled_rules) without adding them to the
+  default configuration, so this feature's frozen fixtures stay byte-identical:
 
-    Scenario: The default configuration lists every admitted rule with its polarity and lookback
+    | id                          | polarity | lookback | origin |
+    | bearish_counterattack_line  | -1       | 2        | new    |
+    | bullish_counterattack_line  | 1        | 2        | new    |
+    | methods_rising              | 1        | 4        | new    |
+
+  Rule: The default configuration enables the Story 22 catalog and is immutable
+
+    Scenario: The default configuration lists every default-enabled rule with its polarity and lookback
       Given the default candle configuration
       Then the configuration has catalog_version "1", max_history 256 and policy_mode "legacy"
       And the enabled rules are exactly, in id order:
@@ -90,6 +99,16 @@ Feature: Candle evidence and configuration contract
       And a READY candle evidence with one hit "doji"
       When any attribute of the configuration or the evidence is assigned
       Then the assignment raises an immutability error and the values are unchanged
+
+    Scenario: The Story 23 extended-signal ids are admitted but excluded from the default
+      Given the default candle configuration
+      Then the admitted catalog includes, in id order:
+        | id                         | polarity | lookback |
+        | bearish_counterattack_line | -1       | 2        |
+        | bullish_counterattack_line | 1        | 2        |
+        | methods_rising             | 1        | 4        |
+      And the admitted catalog is sorted by id
+      And none of those ids are in the default enabled rules
 
   Rule: Configuration bounds fail fast with the field and a remedy
 

@@ -144,12 +144,12 @@ codebase.
 
 | Requirement ID | Story | Design component | Tasks | Status |
 | --- | --- | --- | --- | --- |
-| BEXT-01 | P1 patterns | candle_catalog.py | T1, T2 | Pending |
-| BEXT-02 | P1 patterns | candle_catalog.py | T1, T2 | Pending |
-| BEXT-03 | P1 patterns | candle_catalog.py | T2 | Pending |
-| BEXT-04 | P1 patterns | candle_catalog.py | T1, T2 | Pending |
-| BEXT-05 | P1 patterns | candle_catalog.py | T2 | Pending |
-| BEXT-06 | P1 patterns | candle_catalog.py | T2 | Pending |
+| BEXT-01 | P1 patterns | candle_catalog.py | T1, T2 | Implemented (T2) |
+| BEXT-02 | P1 patterns | candle_catalog.py | T1, T2 | Implemented (T2) |
+| BEXT-03 | P1 patterns | candle_catalog.py | T2 | Implemented (T2) |
+| BEXT-04 | P1 patterns | candle_catalog.py | T1, T2 | Implemented (T2) |
+| BEXT-05 | P1 patterns | candle_catalog.py | T2 | Implemented (T2) |
+| BEXT-06 | P1 patterns | candle_catalog.py | T2 | Implemented (T2) |
 | BEXT-07 | P1 context | candle_context.py | T3 | Pending |
 | BEXT-08 | P1 context | candle_context.py | T3 | Pending |
 | BEXT-09 | P1 context | candle_context.py | T3 | Pending |

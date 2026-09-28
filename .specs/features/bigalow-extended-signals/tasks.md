@@ -72,8 +72,8 @@ the same module, not a new one).
 **Tests**: Gherkin unit. At least 3 cases per new rule ID (positive/negative/boundary, per T1's addendum) plus warmup, prefix-invariance, and legacy-catalog-unchanged cases — at least 15 scenarios total.
 **Gate**: Quick.
 **Done when**:
-- [ ] All listed cases pass; legacy 18-rule scenarios still pass unmodified.
-- [ ] Evidence and requirement/task status included in the commit.
+- [x] All listed cases pass; legacy 18-rule scenarios still pass unmodified.
+- [x] Evidence and requirement/task status included in the commit.
 
 **Commit**: `feat(candles): add meeting line and methods rising to the catalog`
 

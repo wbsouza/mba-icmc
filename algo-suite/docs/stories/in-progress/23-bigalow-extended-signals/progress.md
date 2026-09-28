@@ -10,7 +10,20 @@
       Methods Rising and Fibonacci confluence geometry, citations, the two
       spec.md conventions plus one implementation-only tie-break convention,
       and positive/negative/boundary OHLC examples for every rule).
-- [ ] T2: Add Meeting Line and Methods Rising to the catalog.
+- [x] 2026-09-28 — T2: added `bearish_counterattack_line`,
+      `bullish_counterattack_line` and `methods_rising` to `candle_catalog.py`
+      / `candle_contract.py`'s `CATALOG`. Admitted (`ADMITTED_RULES`, now 22
+      ids) but excluded from the default (`DEFAULT_ENABLED_RULES`, the
+      frozen Story 22 19-rule set), so every existing `candle_catalog.feature`
+      / `candle_contract.feature` scenario passes unmodified. Deviation: also
+      touched `candle_contract.py` (CATALOG registration is unavoidable —
+      `PatternHit`/`enabled_rules` validate against it) and split one
+      existing `test_candle_contract.py` assertion (`assert_enabled_rules`)
+      that had conflated "default enabled" with "admitted" — scoped it to
+      the default config's own `enabled_rules` and added a new scenario
+      proving the three extended ids are admitted but excluded from the
+      default; no existing assertion's substance changed. 22 new scenario
+      rows added (candle_catalog.feature), all passing.
 - [ ] T3: Add Fibonacci confluence to the context evaluator.
 - [ ] T4: Publish the extension summary.
 

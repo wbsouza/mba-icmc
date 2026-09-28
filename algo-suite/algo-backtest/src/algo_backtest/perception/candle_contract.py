@@ -42,9 +42,11 @@ class RuleSpec:
 
 # Declared in ascending id order; ``ADMITTED_RULES`` is the stable hit order.
 CATALOG: Final[dict[str, RuleSpec]] = {
+    "bearish_counterattack_line": RuleSpec(-1, 2, "new"),
     "bearish_engulfing": RuleSpec(-1, 3, "legacy"),
     "bearish_harami": RuleSpec(-1, 2, "new"),
     "bearish_kicker": RuleSpec(-1, 2, "new"),
+    "bullish_counterattack_line": RuleSpec(1, 2, "new"),
     "bullish_engulfing": RuleSpec(1, 3, "legacy"),
     "bullish_harami": RuleSpec(1, 2, "new"),
     "bullish_kicker": RuleSpec(1, 2, "new"),
@@ -57,12 +59,37 @@ CATALOG: Final[dict[str, RuleSpec]] = {
     "hammer": RuleSpec(1, 12, "legacy"),
     "hanging_man": RuleSpec(-1, 5, "new"),
     "inverted_hammer": RuleSpec(1, 5, "new"),
+    "methods_rising": RuleSpec(1, 4, "new"),
     "morning_star": RuleSpec(1, 13, "legacy"),
     "piercing_line": RuleSpec(1, 2, "new"),
     "shooting_star": RuleSpec(-1, 12, "legacy"),
     "spinning_top": RuleSpec(0, 1, "new"),
 }
 ADMITTED_RULES: Final[tuple[str, ...]] = tuple(CATALOG)
+# The Story 22 rule set, frozen: CandleConfig's default so existing configuration and
+# frozen regression fixtures reproduce it byte-identically (BEXT-06) whether or not the
+# Story 23 extended-signal ids above are also admitted for explicit opt-in.
+DEFAULT_ENABLED_RULES: Final[tuple[str, ...]] = (
+    "bearish_engulfing",
+    "bearish_harami",
+    "bearish_kicker",
+    "bullish_engulfing",
+    "bullish_harami",
+    "bullish_kicker",
+    "dark_cloud_cover",
+    "doji",
+    "doji_dragonfly",
+    "doji_gravestone",
+    "doji_long_legged",
+    "evening_star",
+    "hammer",
+    "hanging_man",
+    "inverted_hammer",
+    "morning_star",
+    "piercing_line",
+    "shooting_star",
+    "spinning_top",
+)
 
 
 def _integer(value: object, name: str, minimum: int) -> int:
@@ -184,7 +211,7 @@ class CandleConfig:
     """Versioned, bounded configuration of the catalog, context, sequences and policy."""
 
     catalog_version: str = CATALOG_VERSION
-    enabled_rules: tuple[str, ...] = ADMITTED_RULES
+    enabled_rules: tuple[str, ...] = DEFAULT_ENABLED_RULES
     max_history: int = MAX_HISTORY
     timeframe_minutes: int = 60
     context: ContextConfig = ContextConfig()
