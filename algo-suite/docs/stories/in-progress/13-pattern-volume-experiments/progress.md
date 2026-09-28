@@ -305,6 +305,14 @@ disk-backed output root and basetemp, `df -i` checked first. Not launched in thi
 - Observed while rendering: `statement.py` prints prices with float noise (1.1225400000000001);
   fix queued for the next code PR.
 
+### Follow-up outcomes, part 1 (2026-09-28 04:45 UTC)
+
+- December extension finished 04:35 UTC (51/51): Nov positive 0/51, Dec positive 10/51, both 0/51;
+  full Mar..Dec above deposit 9/51 (best +9.05 % on 37 trades). `evidence/december-extension-20260928T0445Z.md`.
+- Permissive H1 family finished 04:37 UTC (8/8): fixed thresholds 0 trades (p_hat 0.517–0.540),
+  calibrated cells 293–586 trades, −32..−55 %. `evidence/tuning-followups-part1-20260928T0445Z.md`.
+- 216-cell grid stopped by the user at 05:12 UTC after 20 cells (curiosity experiment; the permissive family had answered the question). The permissive family and the grid are exploratory only and are not reported in the monograph; their tables stay in this evidence directory and the job dirs.
+
 ## Story completion checklist
 
 Check an implementation item only after its changes are committed and tests pass.
