@@ -177,6 +177,52 @@ the others are sensitivity settings. Examples are not a registration for a new
 experiment. Store corrected stdout in new v2 report files and retain legacy outputs.
 There is no default trial count, normal-moment assumption, or DSR plausibility band.
 
+### 6.2 Results database (`results-db build`)
+
+`results-db build --runs-root [LABEL=]DIR [--runs-root ...] --out results.sqlite
+[--bars-root DATA_ROOT --bars-before 30 --bars-after 30] [--decisions full|entries]`
+loads every **finished** run directory (`<runs-root>/<strategy>/<stamp>/` holding
+`run.json`, which the engine writes last; a directory without one is still running and
+is skipped and counted) into one SQLite file that `algo-viewer/` opens in the browser.
+The job label of a root is `LABEL`, else the nearest ancestor of DIR not named
+`runs`/`data`. Re-running the build **upserts by run id** (the run's rows are deleted
+and re-inserted in one transaction). A finished directory with a missing or malformed
+artifact stops the build naming the file (`trades.json is missing from <dir>; ...`,
+`metrics.json in <dir> is not valid JSON (...)`, `main.json in <dir> has no order 2, the
+closing order of a trade in trades.json; ...`). Nothing is estimated: every value is read
+from the run's artifacts.
+
+Schema (table `schema_version` = 1; every table carries `run_id`):
+
+| table | one row per | columns |
+|---|---|---|
+| `runs` | run | `run_id, job, run_dir, strategy, symbol, start, end, cash, bar_minutes, model_sha256, code_revision, success, closed_trades, total_return, sharpe, max_drawdown, hit_rate, statement_path, report_path, equity_png_path, ingested_at` — `bar_minutes` from `price_features.bar_minutes` (engine default when the config omits it), `model_sha256` from the `<TAG>_MODEL_SHA256=` log line, `code_revision` from `run.json` when recorded (NULL otherwise), the four metrics from `metrics.json` |
+| `run_parameters` | config leaf + `--param` | `key, value (JSON), source` — every leaf of `strategy-config.yaml` with the `config.yaml` that set it (`strategy-provenance.json`, `unknown` when unrecorded), then `run.json` `params` with source `--param` |
+| `equity_samples` | `equity.csv` row | `time, equity, drawdown_pct` |
+| `monthly_returns` | month | `month, start_equity, end_equity, return_pct, trades` (same rule as `report.html`: a month starts at the previous month's last sample) |
+| `trades` | closed trade | `trade_id (= entry order id), entry_order_id, direction, lots, quantity, entry_time, entry_price, exit_time, exit_price, profit, fees, is_win, exit_kind, exit_order_id, exit_order_type, holding_minutes` — lots from the plan, else quantity / `capital_mgmt.lot_notional_units`, else NULL |
+| `trade_plans` | planned entry | `stop_loss, stop_pips, targets_json, trail_steps_json, spread_pips` from `trade-plans.json`; `stop_pips` = \|entry − stop\| / pip when the plan does not record it |
+| `decisions` | chain invocation | `id, trade_id, timestamp, final_decision, vetoed_by, p_hat, is_entry` — `p_hat` lifted from F7's enrichment; `is_entry` marks the **first** BUY/SELL row of each trade id (a later same-side signal repeats the id but opened nothing) |
+| `decision_filters` | filter result | `decision_id, position, filter_name, recommendation, veto, reason, pattern_name` — `pattern_name` extracted from F3's reason (`detected candlestick pattern 'hammer'`, or `pattern=hammer`) |
+| `decision_summary` | (final_decision, vetoed_by) | `count` — the run's funnel, always complete |
+| `trail_moves` | `<TAG>_TRAIL\|` log line | `trade_id (NULL when no closed trade spans it), time, from_stop, to_stop` |
+| `entry_bars` | bar around an entry | `trade_id, offset, time, open, high, low, close` — only with `--bars-root`: the M1 bid/ask **mid** aggregated into the run's bar size with the engine's `ClosedBarClock` rule (UTC day-anchored buckets, complete buckets only); offset 0 is the last bar closed at or before the entry, −N..+N around it; only months inside the run's window are read |
+
+**Exit kinds** (`trades.exit_kind`), from the LEAN order that produced the final fill
+(the last id of the trade's `orderIds`, looked up in `main.json` `orders`) and the tagged
+engine log: a **limit** order → `target`; a **stop** order → `trail_stop` when a
+`<TAG>_TRAIL|` line moved this trade's stop between its entry and exit (the line's
+`entry=` price is the trade's entry price), else `stop`; a **market** order →
+`reversal` when a `<TAG>_OCO_CANCEL|reason=reversal` line was logged at the exit minute,
+`liquidation` when its reason is `veto`, else `unknown`; any other order type →
+`unknown`. `log.txt` is therefore required as soon as `trades.json` has a trade.
+
+**`--decisions`**: `full` (default) keeps every chain decision with all its filter rows —
+the complete audit trail, ~3–4 MB per nine-month H1 run; `entries` keeps only the entry
+decisions (with their filters) and the always-present `decision_summary` funnel, which
+is what a browser-loaded database of a hundred runs needs (~0.5 MB per run, dominated by
+`equity_samples`).
+
 ## 7. Error handling and acceptance
 
 Incomplete equity/selection history, fewer than four daily returns, zero variance

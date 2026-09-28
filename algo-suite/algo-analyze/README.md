@@ -129,6 +129,30 @@ algo-analyze equity-curves \
   --label "baseline=Baseline (F1-F7)" --out data/analysis/equity
 ```
 
+## Results database for the browser viewer
+
+`results-db build --runs-root [LABEL=]DIR [--runs-root ...] --out results.sqlite
+[--bars-root DATA_ROOT --bars-before 30 --bars-after 30] [--decisions full|entries]`
+loads every finished run directory (`<runs-root>/<strategy>/<stamp>/` with a `run.json`;
+directories still running are skipped and counted) into one SQLite file that
+[`algo-viewer`](../algo-viewer/) opens in the browser: runs with their metrics, every
+parameter with the config file that set it, equity samples, monthly returns, trades with
+their exit kind (stop / target / trail_stop / reversal / liquidation / unknown, classified
+from LEAN's orders and the engine log), trade plans, the chain decisions with each
+filter's reason (F3's pattern name extracted), trail moves and, with `--bars-root`, the
+±N bars around every entry aggregated from the M1 bid/ask mid. Re-running upserts by run
+id; a broken artifact stops the build naming the file. Schema and rules: `SPEC.md` §6.2.
+
+```sh
+algo-analyze results-db build \
+  --runs-root data/training/2026-09-28-broad-window-h4/data/runs \
+  --runs-root oneyear=data/training/2026-09-28-one-year-protocol/data/runs \
+  --bars-root data/training/2026-09-28-broad-window-h4/data \
+  --decisions entries --out results.sqlite
+# results-db: 91 run(s) ingested -> results.sqlite
+# results-db: skipped 12 unfinished run directories (no run.json)
+```
+
 ## Verification
 
 Run `make check-inference` in this directory for lint, strict types, Gherkin
