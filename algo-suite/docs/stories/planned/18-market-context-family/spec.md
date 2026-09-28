@@ -95,7 +95,9 @@ The same family applies to USD/CAD and AUD/USD first (Dukascopy M1, same pipelin
 ## References to add to the bibliography
 
 - Laïdi, A. (2008). *Currency Trading and Intermarket Analysis: How to Profit from the Shifting
-  Currents in Global Markets*. Wiley.
+  Currents in Global Markets*. Wiley. Local copy:
+  `/media/nas/wellington/mba/related-work/books/books-forex-trading/Currency Trading and Intermarket Analysis - How to Profit from the Shifting Currents in Global Markets 2008.pdf`
+  (chapters 1, 2, 5, 6 and 8 are the ones this story draws on).
 - World Bank Commodity Price Data (Pink Sheet), monthly fertilizer series.
 - FAO, *The State of Food and Agriculture* / *World fertilizer trends and outlook* (nutrient
   depletion and fertilizer demand).
