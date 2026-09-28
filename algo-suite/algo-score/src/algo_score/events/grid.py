@@ -16,15 +16,16 @@ PUBLICATION_LAG = timedelta(days=1)
 
 def forward_filled_values(
     daily_values: list[DailyValue], minutes: list[datetime]
-) -> list[float | None]:
-    """Forward-fill daily values onto ``minutes`` without inventing earlier values.
+) -> list[DailyValue | None]:
+    """Forward-fill daily records onto ``minutes`` without inventing earlier values.
 
-    Each minute carries the most recent daily value whose day ended *before* that
-    minute's UTC day began (``PUBLICATION_LAG``) — never the same day's aggregate.
+    Each minute carries the most recent whole ``DailyValue`` (value + provenance)
+    whose day ended *before* that minute's UTC day began (``PUBLICATION_LAG``) —
+    never the same day's aggregate.
     """
-    by_day = {row.day: row.value for row in daily_values}
-    current: float | None = None
-    values: list[float | None] = []
+    by_day = {row.day: row for row in daily_values}
+    current: DailyValue | None = None
+    values: list[DailyValue | None] = []
     for minute in minutes:
         daily_value = by_day.get(minute.date() - PUBLICATION_LAG)
         if daily_value is not None:

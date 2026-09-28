@@ -55,7 +55,7 @@ import argparse
 import sys
 import time
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from algo_core import layout
@@ -295,6 +295,7 @@ def _row_to_event(row: dict) -> GdeltEvent:
             num_mentions=int(row["NumMentions"]),
             num_sources=int(row["NumSources"]),
             num_articles=int(row["NumArticles"]),
+            date_added=_parse_yyyymmddhhmmss(str(row["DATEADDED"])),
             source_url=str(row["SOURCEURL"] or ""),
         )
     except (TypeError, ValueError) as exc:
@@ -304,6 +305,11 @@ def _row_to_event(row: dict) -> GdeltEvent:
 def _parse_yyyymmdd(value: str) -> date:
     """Parse a GDELT/BigQuery YYYYMMDD date value (matches the HTTP-path decoder)."""
     return date(int(value[0:4]), int(value[4:6]), int(value[6:8]))
+
+
+def _parse_yyyymmddhhmmss(value: str) -> datetime:
+    """Parse a GDELT DATEADDED YYYYMMDDHHMMSS value as UTC (matches the HTTP-path decoder)."""
+    return datetime.strptime(value, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
 
 
 def _last_day_of_month(year: int, month: int) -> int:

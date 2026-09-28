@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import pyarrow as pa
@@ -73,7 +73,13 @@ def _write_flat_gdelt(context: dict[str, object], rows: list[tuple[date, float, 
     _write_gdelt_at(_flat_gdelt_path(context), rows)
 
 
-def _write_gdelt_at(path: Path, rows: list[tuple[date, float, float]]) -> None:
+def _write_gdelt_at(
+    path: Path,
+    rows: list[tuple[date, float, float]],
+    date_added: list[datetime] | None = None,
+) -> None:
+    """Write a GDELT event Parquet partition. ``date_added`` defaults to noon UTC per row."""
+    added = date_added or [datetime.combine(row[0], time(12, 0), tzinfo=UTC) for row in rows]
     path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(
         pa.table(
@@ -88,6 +94,7 @@ def _write_gdelt_at(path: Path, rows: list[tuple[date, float, float]]) -> None:
                 "num_mentions": [1] * len(rows),
                 "num_sources": [1] * len(rows),
                 "num_articles": [1] * len(rows),
+                "date_added": added,
                 "source_url": ["https://example.test"] * len(rows),
             }
         ),
@@ -209,6 +216,76 @@ def _flat_gdelt_goldstein_rows(context: dict[str, object]) -> None:
             (date(2020, 1, 5), 6.0, 300.0),
         ],
     )
+
+
+@given("GDELT events on 2020-01-05 added at 06:00, 12:00 and 23:45 UTC")
+def _gdelt_rows_distinct_date_added(context: dict[str, object]) -> None:
+    context["source"] = "gdelt"
+    _write_gdelt_at(
+        _input_path(context, "gdelt"),
+        [
+            (date(2020, 1, 5), -4.0, 100.0),
+            (date(2020, 1, 5), 2.0, 200.0),
+            (date(2020, 1, 5), 6.0, 300.0),
+        ],
+        date_added=[
+            datetime(2020, 1, 5, 6, 0, tzinfo=UTC),
+            datetime(2020, 1, 5, 12, 0, tzinfo=UTC),
+            datetime(2020, 1, 5, 23, 45, tzinfo=UTC),
+        ],
+    )
+
+
+@given("one GDELT event on 2020-01-05 added at 18:00 UTC")
+def _single_gdelt_event(context: dict[str, object]) -> None:
+    context["source"] = "gdelt"
+    _write_gdelt_at(
+        _input_path(context, "gdelt"),
+        [(date(2020, 1, 5), -4.0, 100.0)],
+        date_added=[datetime(2020, 1, 5, 18, 0, tzinfo=UTC)],
+    )
+
+
+@given("a GDELT event Parquet partition without a date_added column")
+def _gdelt_without_date_added(context: dict[str, object]) -> None:
+    context["source"] = "gdelt"
+    path = _input_path(context, "gdelt")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(
+        pa.table(
+            {
+                "global_event_id": [1],
+                "event_date": [date(2020, 1, 5)],
+                "event_code": ["042"],
+                "goldstein_scale": [1.0],
+                "avg_tone": [0.0],
+                "actor1_code": ["USA"],
+                "actor2_code": ["EUR"],
+                "num_mentions": [1],
+                "num_sources": [1],
+                "num_articles": [1],
+                "source_url": ["https://example.test"],
+            }
+        ),
+        path,
+    )
+
+
+@then(parsers.parse("every minute of {day} carries available_at {expected}"))
+def _available_at(context: dict[str, object], day: str, expected: str) -> None:
+    table = _read_output(context, "gdelt")
+    start = datetime.fromisoformat(f"{day}T00:00:00+00:00")
+    end = start + timedelta(days=1)
+    timestamps = table.column("timestamp").to_pylist()
+    values = table.column("available_at").to_pylist()
+    day_values = {v for t, v in zip(timestamps, values, strict=True) if start <= t < end}
+    assert day_values == {datetime.fromisoformat(expected)}
+
+
+@then("the output names the missing date_added column")
+def _names_missing_column(context: dict[str, object]) -> None:
+    result = context["result"]
+    assert "date_added" in result.output  # type: ignore[union-attr]
 
 
 @when("I build event features")
@@ -336,8 +413,6 @@ def _goldstein_for(day: date) -> float:
     "2020-03-01"
 )
 def _raw_distinct(context: dict[str, object]) -> None:
-    from datetime import timedelta
-
     days = [date(2020, 1, 30) + timedelta(days=i) for i in range(32)]
     by_month: dict[tuple[int, int], list[tuple[date, float, float]]] = {}
     for day in days:

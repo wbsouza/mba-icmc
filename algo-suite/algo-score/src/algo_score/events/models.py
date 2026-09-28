@@ -26,10 +26,17 @@ class EventFeatureReport:
 
 @dataclass(frozen=True)
 class DailyValue:
-    """One daily event-derived value before minute-grid expansion."""
+    """One daily event-derived value before minute-grid expansion.
+
+    ``available_at`` is the source-level provenance timestamp of when the day's
+    value became fully knowable (GDELT: the max ``date_added`` among that day's
+    contributing events). GPR carries no such per-source provenance and leaves
+    it ``None``.
+    """
 
     day: date
     value: float
+    available_at: datetime | None = None
 
 
 class GprFeature(BaseModel):
@@ -42,9 +49,16 @@ class GprFeature(BaseModel):
 
 
 class GdeltFeature(BaseModel):
-    """One minute-bucketed GDELT event-intensity feature row."""
+    """One minute-bucketed GDELT event-intensity feature row.
+
+    ``available_at`` is the forward-filled day's provenance (see ``DailyValue``):
+    when the underlying GDELT daily aggregate actually became knowable. It is
+    ``None`` exactly when ``event_intensity`` is -- no GDELT data yet -- never
+    fabricated ahead of real provenance.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     timestamp: datetime
     event_intensity: float | None
+    available_at: datetime | None = None

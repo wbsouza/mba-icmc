@@ -99,3 +99,22 @@ Feature: Event features
     Then the 2020-02 partition still has every minute of February
     And every 2020-02 minute from 2020-02-02 on is unchanged
     And the 2020-02-01 minutes carry the 2020-01-31 value
+
+  # event-features-09
+  Scenario: A GDELT day's available_at is the max date_added among that day's events
+    Given GDELT events on 2020-01-05 added at 06:00, 12:00 and 23:45 UTC
+    When I build event features
+    Then every minute of 2020-01-06 carries available_at 2020-01-05T23:45:00+00:00
+
+  # event-features-10
+  Scenario: A day with only one GDELT event has available_at equal to that event's date_added
+    Given one GDELT event on 2020-01-05 added at 18:00 UTC
+    When I build event features
+    Then every minute of 2020-01-06 carries available_at 2020-01-05T18:00:00+00:00
+
+  # event-features-11
+  Scenario: A GDELT partition without date_added provenance fails fast
+    Given a GDELT event Parquet partition without a date_added column
+    When I build event features
+    Then the run exits non-zero
+    And the output names the missing date_added column
