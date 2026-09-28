@@ -29,7 +29,7 @@ the project's own design, grounded in the cited literature
 | Direction | Item | Form |
 |---|---|---|
 | In | canonical Parquet | `parquet/{security_type}/{symbol}/…` (forex for the TCC), `parquet/sentiment/…`, `parquet/events/…` |
-| In | strategy `config.yaml` | validated by `algo-core` schema/loader |
+| In | strategy `config.yaml` | `strategies/<name>/config.yaml` (bundled or under `--strategies-dir`), resolved by `strategies.py` (`extends:` chain, provenance) and validated section by section by each filter's own parser — see §6.4 |
 | In | LEAN execution store | **durable `lean-data/`** (materialized **once** from Parquet, reused across the sweep); optional tmpfs `/dev/shm/lean-data/` copy for hot reads |
 | Out | run directory | `runs/<run-id>/` with results, equity curve, `trades.parquet`, `decisions.parquet`, `parameters.txt` |
 | Out | trade ledger | `runs/<run-id>/trades.parquet` (one row per **closed trade** — the unit `algo-analyze` measures) |
@@ -48,18 +48,27 @@ contract: `main.json` source, calendar-day UTC grid, 365 periods, zero daily ris
 `costs: brokerage:<resolved adapter>`, symbol and exclusive-end window; its SHA-256 and
 the adapter are recorded in `run.json` as `inference_inputs_sha256`/`broker_adapter` so
 `algo-analyze` can refuse an edited sidecar) and `metrics.json` next to LEAN's own result
-JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`); the chain strategies (`baseline`,
-`hybrid`) additionally write `decisions.parquet` there, whose `trade_id` joins
-`trades.json` (LEAN's `orderIds[0]` of the trade, flat-to-flat grouping). Every run then
-ends with `statement.md`, `equity.png` and `equity.csv` (`statement.py`, story 12 item H): an account
+JSON under `runs/<strategy>/<stamp>/` (`artifacts.py`). A config.yaml-driven chain strategy
+(`baseline`, `baseline-dsha`, `hybrid` or any `--strategies-dir` variant) additionally
+writes: `strategy-provenance.json` (host side, before the container starts — dotted
+parameter path → the `<name>/config.yaml` in the `extends:` chain that set it, or
+`default`), `strategy-config.json` and `strategy-config.yaml` (inside the container at
+algorithm initialisation — the fully resolved configuration, defaults filled in; the YAML
+loads back as a strategy), `decisions.parquet` (at the end of the algorithm; its `trade_id`
+joins `trades.json` — LEAN's `orderIds[0]` of the trade, flat-to-flat grouping) and
+`trade-plans.json` (same moment, story 12 item D — a JSON list with one record per planned
+entry: `entry_order_id`, `entry_time`, `direction`, `lots`, `quantity`, `stop_loss`,
+`take_profits[{price, close_fraction}]`, `trail_stops`; an empty list when no entry was
+planned). Every run then ends with `statement.md`, `equity.png`, `equity.csv` and
+`report.html` (`statement.py`, `report.py`, story 12 item H): an account
 statement laid out like a MetaTrader/MIG Bank daily or monthly confirmation (the run
 window is the period) — header `A/C No: <run id>   Name: <strategy> / <symbol>   <period
 end>`; "Closed Transactions:" (Ticket | Open Time | Type | Lots | Item | Price | S / L |
 T / P | Close Time | Price | Commission | R/O Swap | Trade P/L, sorted by open time, totals
 row, then `Deposit/Withdrawal … Credit Facility … Closed Trade P/L`; ticket = entry order
 id, lots = quantity / `capital_mgmt.lot_notional_units`, S / L and T / P from
-`trade-plans.json` when the plan-driven executor wrote one, else "—" with an explicit "no
-trade plan recorded" note); "Open Trades:" (same columns minus Close Time, current price
+`trade-plans.json` — a run that predates it (or a code-registered strategy) shows "—" with
+an explicit "no trade plan recorded" note); "Open Trades:" (same columns minus Close Time, current price
 = Holdings / quantity only when the fill's price currency is the account currency, totals
 row, `Floating P/L`) and "Working Orders:" (… | Market Price), both from the order events
 and `runtimeStatistics`, or "No transactions"; the two-column "A/C Summary:" block
@@ -106,7 +115,7 @@ are pure derivations of the artifacts above (no LEAN import) and `algo-backtest 
   Automated backtests are driven via **testcontainers** (no `lean` CLI, no QC account;
   see `tests/integration/`); the `lean` CLI remains an option for manual runs.
 - **TA-Lib** (C lib + wrapper) for `CDL*` candlestick recognition (planned — not a
-  dependency yet; F3's pattern input is never populated, TD-51); LEAN-native
+  dependency yet; F3's pattern input is never populated, TD-45); LEAN-native
   indicators (`self.RSI`, `self.ATR`, …) for the rest.
 - **lightgbm** + **scikit-learn** + **numpy** for F7 training on the host; the model
   is persisted as JSON (`chain/filters/f7_model_io.py`) because the LEAN image ships
@@ -117,8 +126,10 @@ are pure derivations of the artifacts above (no LEAN import) and `algo-backtest 
 
 ```
 algo_backtest/
-├── cli.py                  # algo-backtest version|materialize|lean-smoke|run [--model PATH]|metrics|
-│                           #   experiment run (IMPLEMENTED)
+├── cli.py                  # algo-backtest version|materialize|lean-smoke|run [--model PATH]
+│                           #   [--strategies-dir DIR]|explain-strategy NAME|metrics|statement --run DIR
+│                           #   [--out DIR]|experiment run (IMPLEMENTED). `run` prints every resolved
+│                           #   strategy parameter with its source at bootstrap, before any data check
 ├── config.py               # IMPLEMENTED — backtest schema (markets.oanda.data_tz=UTC) + typed
 │                           #   load_backtest_config() over algo_core.config.resolve()
 ├── materialize.py          # IMPLEMENTED — materialize_month(): canonical Parquet → lean-data/,
@@ -182,8 +193,12 @@ algo_backtest/
 │                           #   built purely from the run directory's artifacts (run.json,
 │                           #   trades.json, main.json, main-order-events.json, strategy-config/
 │                           #   provenance, optional trade-plans.json); direction 0=buy/1=sell is
-│                           #   cross-checked against each entry fill; write_statement() is called
-│                           #   at the end of `run` and by `algo-backtest statement --run`
+│                           #   cross-checked against each entry fill; write_statement_files() is
+│                           #   called at the end of `run` and by `algo-backtest statement --run`
+├── report.py               # IMPLEMENTED — story 12 item H2: report.html, the self-contained (inline
+│                           #   CSS + SVG, no script) "Account Performance" dashboard derived from the
+│                           #   same Statement: KPI cards, equity/drawdown SVG, monthly returns, trade
+│                           #   history and parameters tabs
 ├── experiment.py           # IMPLEMENTED — Run/Experiment value objects, load_experiment() (closed
 │                           #   schema, fail-fast), run_experiment() (injected runner): deterministic
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json
@@ -209,10 +224,15 @@ algo_backtest/
 │   │                       #   (zero = keep the brokerage adapter's default) and logs one
 │   │                       #   <TAG>_FILL_COSTS|model=... line each. Imports AlgorithmImports by name
 │   │                       #   (mypy-checked); the BDD suite fakes that module offline.
-│   ├── order_executor.py   # IMPLEMENTED (Spec 04a) — Decision/SizingContext/FillRecord + OrderExecutor:
-│   │                       #   Decision + sizing in, places the order (calculate_order_quantity →
-│   │                       #   market_order), consumes OnOrderEvent, returns a normalized fill.
+│   ├── order_executor.py   # IMPLEMENTED (Spec 04a, story 12 D) — Decision/SizingContext/FillRecord +
+│   │                       #   OrderExecutor: market entry by quantity, stop-market and limit orders
+│   │                       #   (untagged: the pinned image cannot bind the 4-argument overload from
+│   │                       #   Python), cancel/update, consumes OnOrderEvent, returns a normalized fill.
 │   │                       #   Unit-tested against a fake algorithm double (LEAN types imported lazily).
+│   ├── trade_plan.py       # IMPLEMENTED (story 12, D) — pure plan math: F6's pip plan → signed order
+│   │                       #   quantity (snapped to the lot step), stop/target prices, trail_update,
+│   │                       #   hold_elapsed (execution.min_hold_bars), OCO reconciliation, and the
+│   │                       #   TradePlanRecord rows of trade-plans.json. BDD via trade_plan.feature.
 │   └── brokerage/          # IMPLEMENTED (Spec 04a) — BrokerageAdapter ABC + REGISTRY/build_brokerage_
 │                           #   adapter (mirrors algo_download's adapter registry); oanda.py the first
 │                           #   concrete adapter (LEAN's OANDA margin brokerage model). Config-selected
@@ -231,8 +251,16 @@ algo_backtest/
 │   │                       #   bookkeeping from filled orders' position transitions (on_fill),
 │   │                       #   matching the flat-to-flat (FIFO) ledger ChainAlgorithm configures
 │   │                       #   (LEAN's default is fill-to-fill) — proven by trade_grouping.feature.
-│   ├── wiring.py           # IMPLEMENTED — LEAN-free chain wiring: build_filters(), price/account
-│   │                       #   features contract, PnlWindows, smoke-test placeholder economics.
+│   ├── wiring.py           # IMPLEMENTED — LEAN-free chain wiring: build_filters() from the resolved
+│   │                       #   config (each filter gets its typed section), price/account features
+│   │                       #   contract (atr_pips, swing_low/high_pips, per-lot economics from
+│   │                       #   capital_mgmt), PnlWindows. No filter parameter lives here (TD-43 closed).
+│   ├── price_features.py   # IMPLEMENTED — PriceFeatureConfig (EMA/RSI/MACD/ATR periods, swing look-back)
+│   │                       #   + warmup_bars(); shared by training and serving
+│   ├── execution_config.py # IMPLEMENTED (story 12) — ExecutionConfig: spread_pips, commission_per_lot,
+│   │                       #   min_hold_bars, broker_stop_level_pips, close_on_veto (all defaulted)
+│   ├── params.py           # IMPLEMENTED — the shared fail-fast section parsers (require_*/optional_*,
+│   │                       #   reject_unknown_keys) every parse_*_config uses
 │   └── audit.py            # IMPLEMENTED — DecisionRow/FilterResultRow, decision_row_from_outcome(),
 │                           #   write_decisions(): decisions.parquet audit trail (specs.md §11.3.4)
 ├── rules/
@@ -254,9 +282,13 @@ algo_backtest/
 ├── config/                 # NOT BUILT
 │   ├── generator.py        # interactive CLI (typer)
 │   └── (schema/loader live in algo-core)
-├── strategies.py           # IMPLEMENTED — load a strategy's config.yaml, single-level `extends:`
+├── strategies.py           # IMPLEMENTED — resolve a strategy's config.yaml: `extends:` chains of any
+│                           #   depth (base-first deep merge, cycle detection, external dir then bundled),
+│                           #   schema_version 2, per-filter section dispatch, effective defaults written
+│                           #   back, per-parameter provenance (explain_lines, resolved_yaml)
 └── strategies/
-    └── <name>/config.yaml  # hand-written, version-controlled (baseline, hybrid extends baseline)
+    └── <name>/config.yaml  # hand-written, version-controlled: baseline; hybrid extends baseline (+F4);
+                            #   baseline-dsha extends baseline (perception_source only)
 ```
 
 ### 3.1 LEAN-native materializer (`leandata.py`) — not a black box
@@ -386,7 +418,9 @@ trading-impactful parameter is a hard stop before the first bar.
 Target surface below; **implemented today** is `version`, `materialize --symbol
 --year --month`, `lean-smoke`, `run --strategy --symbol --from --to [--param k=v]...
 [--model PATH] [--strategies-dir DIR]`, `explain-strategy NAME [--strategies-dir DIR]`,
-`metrics --run DIR` and `experiment run --spec YAML`. Since 2026-09-27 (story 09) a
+`metrics --run DIR`, `statement --run DIR [--out DIR]` (regenerates `statement.md`,
+`equity.png`, `equity.csv` and `report.html` for any finished run on disk) and
+`experiment run --spec YAML`. Since 2026-09-27 (story 09) a
 chain strategy is resolved from its `config.yaml`, not a code registry: `--strategy
 <name>` accepts any bundled `strategies/<name>/config.yaml` or one under
 `--strategies-dir`; the YAML decides the hosting algorithm (`algos/hybrid` when
@@ -476,11 +510,147 @@ timestamp+pair match. `algo-analyze` consumes both: `trades.parquet` for metrics
 
 ### 6.4 Config
 
-YAML, `schema_version` pinned; loaded via `algo-core` (hard-stop on missing
+**Target contract:** YAML, `schema_version` pinned; hard-stop on missing
 trading-impactful params; `null` = explicit-disable; `extends:` inheritance;
-provenance log to `parameters.txt`). Sections: `universe`, `risk_math`,
+provenance log to `parameters.txt`. Sections: `universe`, `risk_math`,
 `strategy_math`, `risk_guard`, `circuit_breakers`, `operational`, and the ordered
-`chain` (the filter sequence).
+`chain` (the filter sequence). The general `algo-core`-level loader is TD-8; the
+strategy loader below is the shipped form of the same policy.
+
+#### 6.4.1 Strategy `config.yaml` — as shipped (schema 2, `strategies.py`)
+
+One file per strategy, `strategies/<name>/config.yaml` (bundled) or
+`<--strategies-dir>/<name>/config.yaml`. The policy for every section is the same:
+a key the parser does not know is a hard stop; a **required** key that is absent is a
+hard stop (an explicit `null` counts as present and disables that parameter where the
+table says so); a **defaulted** key may be omitted and the loader writes its effective
+value back into the resolved document, so `strategy-config.{json,yaml}` and
+`explain-strategy` always show the value the run used. Numbers are YAML numbers
+(booleans and strings are rejected, never coerced); booleans are YAML `true`/`false`.
+
+**Top level**
+
+| Key | Type / range | Default | Meaning and effect |
+|---|---|---|---|
+| `schema_version` | integer, must be `2` | required | The loader refuses any other value (v2 moved every filter's parameters into its own section). |
+| `extends` | strategy name | none | Base strategy. Chains of any depth (`base → variant → sub-variant`) are walked base-first with cycle detection (a name revisited is an error). The base is looked up in the same directory first, then in the bundled `strategies/`, so an external variant can extend `baseline`. Merge policy: the child's **top-level** keys replace the base's wholesale (including `filters:`); nested mappings (`meta_learner:`, `capital_mgmt:`, …) merge key by key, child wins. |
+| `filters` | non-empty list of `f1_trend`, `f2_indicator`, `f3_pattern`, `f4_news_context`, `f5_risk_guard`, `f6_capital_mgmt`, `f7_meta_learner` | required | The chain, in order. Always written out in full (never a diff against the base). Listing `f4_news_context` selects the news-aware hosting algorithm (`algos/hybrid`) and mounts the GDELT feature Parquet; otherwise `algos/baseline` hosts the run. A filter listed without its section, or a section without its filter, is a hard stop. |
+| `perception_source` | `ema` \| `double_smoothed_heikin_ashi` | `ema` | F1's direction source (Spec 04k). |
+| `double_smoothed_heikin_ashi.period1` / `.period2` / `.higher_tf_minutes` | integers ≥ 1 / ≥ 1 / ≥ 2 | 6 / 2 / 60 | The DSHA smoothing lengths (bars of each timeframe) and the higher timeframe in minutes; read only when the selector above is `double_smoothed_heikin_ashi`. |
+
+**`price_features`** — tied to no filter, always resolved; positive integers in minute
+bars. Shared by F1/F2, F6's stop-distance features and the F7 feature families; training
+records the effective values in the model's provenance and `run --model` refuses a model
+fitted under different values. The warm-up (bars skipped before the first decision) is
+`max(ema_higher_tf, macd_slow + macd_signal − 1, rsi_period + 1, atr_period,
+swing_lookback_bars) − 1`.
+
+| Key | Default | Meaning and effect |
+|---|---|---|
+| `ema_fast` / `ema_slow` / `ema_higher_tf` | 3 / 8 / 60 | F1's primary EMA pair (direction = fast vs slow, strength = their gap) and the higher-timeframe EMA whose direction must agree; must satisfy `ema_fast < ema_slow < ema_higher_tf`. |
+| `rsi_period` | 14 | Wilder RSI behind F2 and the indicator family. |
+| `macd_fast` / `macd_slow` / `macd_signal` | 12 / 26 / 9 | MACD behind F2 and the indicator family; `macd_fast < macd_slow`. |
+| `atr_period` | 14 | Wilder ATR behind the `atr_pips` feature — the base stop distance when `capital_mgmt.stop_distance_source: atr`. |
+| `swing_lookback_bars` | 60 | Rolling Minimum/Maximum window behind `swing_low_pips` / `swing_high_pips` — the structural stop distance when `stop_distance_source: swing`. |
+
+**`indicator`** — F2; section optional when the filter is listed (every key defaults).
+F2 recommends BUY only when both oscillators agree bullish, SELL when both agree bearish,
+otherwise ABSTAIN.
+
+| Key | Range | Default | Meaning and effect |
+|---|---|---|---|
+| `rsi_midline` | strictly inside (0, 100) | 50 | RSI above it is a bullish bias, below it bearish. |
+| `macd_hist_threshold` | ≥ 0 | 0 | The MACD histogram must exceed `+threshold` (bullish) or fall below `−threshold` (bearish). |
+
+**`pattern`** — F3; section optional. Which detected candlestick names count as bullish
+and which as bearish; a name in both lists is an error, each list must be non-empty. No
+detector is wired yet (`chain/wiring.py` feeds `candlestick_pattern = None`, TD-45), so F3
+ABSTAINs on every bar today; a detected name outside both lists would be a hard stop.
+
+| Key | Default |
+|---|---|
+| `bullish_patterns` | `[bullish_engulfing, hammer, morning_star]` |
+| `bearish_patterns` | `[bearish_engulfing, shooting_star, evening_star]` |
+
+**`news_context`** — F4; section **required** when the filter is listed, both keys
+required, `null` disables that half.
+
+| Key | Unit | `hybrid` value | Meaning and effect |
+|---|---|---|---|
+| `event_intensity_veto_threshold` | GDELT Goldstein scale, the day's mean, roughly [−10, 10] (more negative = more conflictual) | −0.5 | An `event_intensity` at or below it is an active high-risk event: F4 **vetoes** (NO_TRADE). `null`: F4 never vetoes. |
+| `sentiment_direction_threshold` | polarity magnitude | 0.15 | Minimum net-sentiment magnitude before F4 recommends a direction; below it, or with no sentiment source (TD-48), F4 ABSTAINs. `null`: F4 never recommends a direction. |
+
+**`risk_guard`** — F5; section **required** when listed, all five keys required, `null`
+disables one cap. Any breached cap vetoes the bar (NO_TRADE, `vetoed_by = f5_risk_guard`).
+
+| Key | Unit / range | `baseline` value | Cap checked each bar |
+|---|---|---|---|
+| `portfolio_at_risk_cap` | fraction of equity | 0.10 | open unrealised loss / portfolio value. |
+| `daily_drawdown_limit` | PnL fraction, ≤ 0 (`−0.05` = a 5 % loss) | −0.05 | today's PnL relative to the day's opening equity may not fall below it; a positive value is rejected. |
+| `weekly_drawdown_limit` | PnL fraction, ≤ 0 | −0.15 | the same for the trading week. |
+| `max_concurrent_trades_per_account` | integer | 2 | open positions (A05 `maxLimit`; the executor holds one planned position at a time). |
+| `max_leverage` | multiple of equity | 30 | unsigned holdings value / portfolio value. |
+
+**`capital_mgmt`** — F6; section **required** when listed. The five sizing keys are
+required (strictly positive numbers); every trade-plan key defaults to the pre-story-12
+behaviour (one full-size target at 2 × the stop, nothing else). From this section, the
+`execution` spread and broker stop level, and the bar's features F6 builds the
+`trade_plan` the executor places (story 12): stop distance per side → lot size → targets
+and trailing steps in pips → reward:risk.
+
+| Key | Unit / range | Default | `baseline` value | Meaning and effect |
+|---|---|---|---|---|
+| `risk_per_trade` | fraction of balance, (0, 1] | required | 0.03 | Lot size = balance × risk / (pip value × stop pips) (`rules/risk_math`), sized from the **wider** of the long/short stops so either side risks at most this fraction. |
+| `stop_loss_pips` | pips, > 0 | required | 20 | Base stop distance for both sides when `stop_distance_source` is `fixed`; unused otherwise (still required). |
+| `pip_value_per_lot` | account currency per pip per 1.0 lot | required | 10 | The `pip_value` sizing input (EURUSD convention ≈ $10 per 100 000-unit lot). |
+| `lot_notional_units` | base-currency units per 1.0 lot | required | 100000 | Converts lots to order units; margin per lot = units × price / `assumed_leverage`; the commission's pro-rata base; the statement's "Lots" column. |
+| `assumed_leverage` | multiple, > 0 | required | 30 | Derives margin per lot for the margin veto (`lot × margin_per_lot > available_margin` → NO_TRADE). |
+| `stop_loss_shrink` | fraction, [0, 1) | 0.0 | 0.20 | The base stop distance is multiplied by `1 − shrink` (A05 `stopLossDecrease`). |
+| `min_stop_pips` | pips, ≥ 0 | 0.0 | 5.0 | Absolute floor on the shrunk stop distance. |
+| `min_stop_factor` | multiplier, ≥ 1 | 1.0 | 1.2 | Second floor: `min_stop_factor × execution.broker_stop_level_pips` (A05 `STOP_LEVEL_FACTOR`). The effective floor is the larger of the two. |
+| `targets` | list of `{at_level_ratio > 0, close_fraction ∈ (0, 1]}`; ratios strictly increasing; fractions sum ≤ 1 | `[{2.0, 1.0}]` | `[{2.0, 0.5}]` | One take-profit limit order per entry: distance = `stop × ratio + (ratio + 1) × spread` pips (`rules/trail_stop`), closing that fraction of the position; the remainder rides the trailing stop. `[]` = no target order. |
+| `trail_stops` | list of `{at_level_ratio > 0, to_level_ratio}` (signed); ratios strictly increasing | `[]` | `[{0.5, −0.66}]` | A step arms once price has moved `stop × at + (at + 1) × spread` pips in the trade's favour and moves the stop to `stop × to + spread` pips from entry (negative = still a loss, 0 = break-even plus spread, positive = locked-in profit); the stop only ever tightens. |
+| `min_reward_risk` | ratio, > 0, or `null` | `null` | 2.0 | Veto the bar when first-target pips / stop pips on either side falls below it (F6 runs before the direction is known). Needs at least one target. |
+| `stop_distance_source` | `fixed` \| `atr` \| `swing` | `fixed` | `swing` | Base stop distance: `stop_loss_pips`; `atr_multiplier × atr_pips`; or the distance to the rolling swing low (long) / swing high (short) over `price_features.swing_lookback_bars` — A05's structural template stop. A missing source feature is a hard stop naming the key. |
+| `atr_multiplier` | multiple, > 0 | 2.0 | 2.0 | ATR multiple for the `atr` source. |
+
+**`meta_learner`** — the F7 feature-family list plus the terminal rule's parameters.
+`families` may be present without F7; the three rule keys without `f7_meta_learner`
+listed are a hard stop. None of these is learned by the model.
+
+| Key | Range | Default | `baseline` value | Meaning and effect |
+|---|---|---|---|---|
+| `families` | list of `trend`, `indicator`, `pattern`, `news` | `[]` | `[trend, indicator, pattern]` (`hybrid` adds `news`) | Which per-family sub-models the meta-learner combines; a `--model` whose families differ is refused. |
+| `theta_high` | probability strictly inside (0, 1) | required with F7 | 0.55 | BUY when `p̂ > theta_high` (and F1's regime is bull, if gated). |
+| `theta_low` | probability, strictly below `theta_high` | required with F7 | 0.45 | SELL when `p̂ < theta_low` (and the regime is bear, if gated); between the two thresholds the bar is HOLD. |
+| `regime_gate` | boolean | required with F7 | `false` | `true` is the dissertation's rule (direction must agree with F1's `trend_score` regime); `false` trades on `p̂` alone. Off in both bundled strategies since the 2015-09 pilot found the fitted model anti-aligned with the regime (story 09). |
+| `label_horizon_minutes` | positive integer | 15 | 15 | The training label's look-ahead (forward move over this many bars). Recorded in the model's provenance; `run --model` refuses a model trained under a different horizon. |
+
+**`execution`** — tied to no filter, always resolved, every key optional; the defaults
+are the frictionless, hold-free case (a strategy without the section behaves as before
+story 12). Recorded in `strategy-config.{json,yaml}` so a result names the cost
+assumptions it rests on.
+
+| Key | Unit / range | Default | `baseline` value | Meaning and effect |
+|---|---|---|---|---|
+| `spread_pips` | pips, ≥ 0 | 0.0 | 1.0 | The full bid–ask spread: every fill slips half of it (`spread / 2 × pip size`, `engine/fill_models.PipSpreadSlippageModel`), and F6 adds the spread into every target and trail level. `0` keeps the brokerage adapter's own slippage model. |
+| `commission_per_lot` | account currency per 1.0 lot per side, ≥ 0 | 0.0 | 0.0 | Charged pro rata on the absolute filled quantity against `capital_mgmt.lot_notional_units` (`PerLotFeeModel`). `0` keeps the adapter's fee model. |
+| `min_hold_bars` | integer bars, ≥ 0 | 0 | 0 | An opposite F7 signal may reverse the position only once this many bars have passed since the entry bar (`HOLD_GUARD` log line otherwise); a same-side signal never adds to the position. Stops, targets and trailing exits are not delayed by it. |
+| `broker_stop_level_pips` | pips, ≥ 0 | 0.0 | 0.0 | The broker's minimum distance between price and a stop/target order (LEAN does not expose OANDA's, so it is declared). Enters the stop floor through `capital_mgmt.min_stop_factor`. |
+| `close_on_veto` | boolean | `false` | `false` | `true`: a NO_TRADE (any filter veto) while a position is open closes it at once, cancelling its stop and targets. `false` (A05's behaviour): the veto only blocks new entries; the stop, targets, trailing steps and `min_hold_bars` govern the exit. |
+
+**Run parameters** are separate from the YAML: a chain strategy accepts exactly one,
+`--param cash=<starting deposit>` (> 0); its orders are sized by F6's plan, never by a
+`size` fraction.
+
+**Provenance.** `algo-backtest explain-strategy <name> [--strategies-dir DIR]` prints
+one line per resolved parameter, `key = value  # <source>`, sorted by dotted key, where the
+source is the `<name>/config.yaml` in the `extends:` chain that set it or `default` for a
+value the loader filled in. `run` prints the same lines at bootstrap as
+`strategy[<name>] key = value  # <source>` before any data check or container start, and
+writes the map to the run's `strategy-provenance.json`; `strategy-config.json` /
+`strategy-config.yaml` hold the values themselves (§2). Lists (`filters`, `targets`,
+`families`) count as one parameter each.
 
 **Filter order is a searched hyperparameter, not a fixed assumption.** The
 `chain` list defines the order and presence of filters; since each filter acts on
@@ -561,9 +731,10 @@ wire this chain into a real LEAN algorithm and are registered in `run.py`'s
 `STRATEGIES`, verified against the real pinned LEAN container (`decisions.
 parquet` provably joins `trades.json` by `trade_id`). `src/algo_backtest/
 strategies/{baseline,hybrid}/config.yaml` (composed via `algo_backtest/
-strategies.py`'s single-level `extends:` loader, `docs/experiments.md` §1)
-declare the intended chains; both are still wiring smoke tests, not a
-methodology result — see `docs/technical-debt.md`'s TD-51 entry.
+strategies.py`'s `extends:` loader, `docs/experiments.md` §1)
+declare the intended chains. Their runs are not yet a methodology result: F3 has no
+pattern detector (TD-45), F4's sentiment half is best-effort (TD-48) and the registered
+one-year protocol (story 12) has not been simulated — see `docs/ch04-deliverables.md`.
 
 **Per-filter parameters (2026-09-27 amendment, story 09).** The same
 `config.yaml` carries every configurable filter's own section, parsed by that
@@ -586,7 +757,7 @@ trade plan with defaults for every key: `stop_loss_shrink` in [0, 1), `min_stop_
 `min_stop_factor` (≥ 1, × `execution.broker_stop_level_pips`; the floor is the larger),
 `targets[]` of `{at_level_ratio, close_fraction}` with strictly increasing levels and
 fractions summing to at most 1, `trail_stops[]` of `{at_level_ratio, to_level_ratio}`,
-`min_stop_factor` >= 1, `min_reward_risk` (`null` = no veto), `stop_distance_source`
+`min_reward_risk` (`null` = no veto), `stop_distance_source`
 `fixed`|`atr`|`swing` and `atr_multiplier`; `capital_mgmt_mapping` writes the effective
 values back, unknown keys fail fast. From these and the `execution` spread and broker
 stop level F6 builds the per-bar `trade_plan` enrichment — the stop per side (fixed pips,
@@ -599,9 +770,12 @@ switchable; the horizon is the training label's look-ahead, default 15). A top-l
 `execution` section tied to no filter (`chain/execution_config.py`, story 12) carries
 the fill costs, holding rule, broker constraint and veto rule — `spread_pips`,
 `commission_per_lot`, `min_hold_bars`, `broker_stop_level_pips`, and `close_on_veto`
-(default `true`: a NO_TRADE closes an open position at once; `false` leaves it to its stop,
-targets and trailing stop) — all defaulting to the frictionless, hold-free case — and is
-always resolved, like `price_features`.
+(default `false`: a NO_TRADE only blocks new entries and the open position is left to
+its stop, targets, trailing stop and `min_hold_bars`; `true` closes it at once — the
+default was set to `false` during story 12's integration because F1's direction-conflict
+veto otherwise closed every planned trade one bar after entry) — all defaulting to the
+frictionless, hold-free case — and is always resolved, like `price_features`. §6.4.1
+tabulates every key.
 Sections with defaults may be omitted; the loader writes the effective values back into the
 resolved config so every run's `strategy-config.json` and `strategy-config.yaml` show what
 was used, and `strategy-provenance.json` attributes each to its config.yaml or `default`. A filter listed without

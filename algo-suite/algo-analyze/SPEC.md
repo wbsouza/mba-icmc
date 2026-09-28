@@ -167,8 +167,8 @@ cover the same dates. Outputs, in `--out`:
   starting-deposit reference, y gridlines, month labels on the x axis) and a table of
   the runs that fed each curve (strategy, run id, window, raw end equity, chained end
   equity). Every curve is mapped by the one pure `svg_polyline()` helper.
-- One console line per strategy: `<strategy>: first <equity> -> last <equity>, net
-  <chained %>, max drawdown <%>, <n> run(s)`.
+- One console line per strategy, `equity-curves: <strategy>: first <equity> -> last
+  <equity>, net <chained %>, max drawdown <%>, <n> run(s)`, then the three output paths.
 
 Nothing is fabricated: the chained curve is a deterministic re-scaling of recorded
 equity, the raw column is always beside it, and no window is filled, trimmed or

@@ -12,14 +12,20 @@ score → **backtest** → analyze.
   that produce the calibrated probability `p̂ₜ` — offline, via
   `scripts/train_{baseline,hybrid}_meta_learner.py`, persisted as a portable
   (pickle-free) `f7_meta_learner.json` with its training provenance embedded.
-- Applies a **deterministic filter chain** (trend, indicator, pattern,
-  market-activity, news-context, risk-guard, capital, terminal threshold) that
+- Applies a **deterministic filter chain** (F1 trend, F2 indicator, F3 pattern,
+  F4 news-context, F5 risk-guard, F6 capital management, F7 terminal threshold) that
   converts `p̂ₜ` into the trade decision, persisting every filter's contribution
-  to an audit trail.
+  to an audit trail. Which filters run, in what order and with which parameters is
+  the strategy's `config.yaml` (see Config below), never code.
 - Emits, per run: `run.json` (manifest), `trades.json` (LEAN closed-trade ledger),
-  `metrics.json` and LEAN's result JSON; the chain strategies (`baseline`, `hybrid`)
-  also write `decisions.parquet` (bar-level audit, joined to `trades.json` by
-  `trade_id`). Every run then ends with **`statement.md`**, laid out like a
+  `metrics.json` and LEAN's result JSON; a config.yaml-driven chain strategy
+  (`baseline`, `baseline-dsha`, `hybrid`, or a `--strategies-dir` variant) also writes
+  `strategy-config.json` + `strategy-config.yaml` (the fully resolved configuration,
+  defaults filled in), `strategy-provenance.json` (which `config.yaml` in the `extends:`
+  chain set each parameter, or `default`), `decisions.parquet` (bar-level audit, joined to
+  `trades.json` by `trade_id`) and `trade-plans.json` (one record per planned entry:
+  stop, take-profit and trailing levels the executor placed). Every run then ends with
+  **`statement.md`**, laid out like a
   MetaTrader/MIG Bank daily or monthly confirmation (Closed Transactions, Open Trades,
   Working Orders, the two-column A/C Summary, then Performance and Parameters with
   provenance; times `YYYY.MM.DD HH:MM` UTC, prices at the quote precision the run's
@@ -40,7 +46,7 @@ score → **backtest** → analyze.
 | Direction | Item |
 |---|---|
 | In | `lean-data/` execution store (materialized from canonical Parquet); chain strategies read `src/algo_backtest/strategies/<name>/config.yaml` + their F7 model; `hybrid` also reads `parquet/events/_features/` (+ `parquet/sentiment/` when present) |
-| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, LEAN's result JSON, `statement.md` + `equity.png` + `equity.csv` (end-of-run statement, chart and its `time,equity,drawdown_pct` series), and `decisions.parquet` for `baseline`/`hybrid` |
+| Out | `runs/<strategy>/<stamp>/` with `run.json`, `trades.json`, `metrics.json`, `inference-inputs.json`, LEAN's result JSON, `statement.md` + `equity.png` + `equity.csv` + `report.html` (end-of-run statement, chart, its `time,equity,drawdown_pct` series and the HTML dashboard) and, for chain strategies, `strategy-config.{json,yaml}`, `strategy-provenance.json`, `decisions.parquet` and `trade-plans.json` |
 
 ## CLI
 
@@ -62,12 +68,13 @@ uv run algo-backtest run --strategy baseline-ma --symbol EURUSD --from 2014-05-0
 #      summary lines.
 # Re-extract the four Chapter-4 metrics from a finished run's artifacts:
 uv run algo-backtest metrics --run <results-dir>
-# Regenerate statement.md + equity.png + equity.csv for a finished run (any run on disk,
-# including ones that predate the statement — `algo-analyze equity-curves` needs the
-# equity.csv this writes); --out DIR writes them elsewhere. Exits 2 naming the
+# Regenerate statement.md + equity.png + equity.csv + report.html for a finished run (any
+# run on disk, including ones that predate the statement — `algo-analyze equity-curves`
+# needs the equity.csv this writes); --out DIR writes them elsewhere. Exits 2 naming the
 # file when run.json / trades.json / main.json / main-order-events.json is missing or
-# malformed. S/L and T/P columns show "—" and the statement says "no trade plan
-# recorded for this run" until the plan-driven executor writes trade-plans.json:
+# malformed. For a run without trade-plans.json (one that predates story 12, or a
+# code-registered strategy) the S/L and T/P columns show "—" and the statement says
+# "no trade plan recorded for this run":
 uv run algo-backtest statement --run <results-dir> [--out DIR]
 # Run a reproducible experiment (the Chapter-4 experiment contract): every run in the
 # spec writes runs/experiments/<experiment>/<id>/ + one row in experiment.json (needs the
@@ -120,11 +127,32 @@ The schema is closed — unknown keys are rejected.
 ## Config
 
 Chain-strategy definitions live in `src/algo_backtest/strategies/<name>/config.yaml`
-(the filter chain and meta-learner families; `hybrid` `extends: baseline`). Per-run
-strategy parameters are `--param key=value` (`cash` alone for `baseline`/`hybrid` — F6's
+(`baseline`; `hybrid` `extends: baseline` adding F4; `baseline-dsha` `extends: baseline`
+switching F1's perception source) or in any folder passed as `--strategies-dir`. `extends:`
+chains of any depth compose base-first with cycle detection; a variant's top-level keys
+(including `filters:`) replace the base's, nested sections merge key by key. Per-run
+strategy parameters are `--param key=value` (`cash` alone for a chain strategy — F6's
 trade plan sizes each order; `cash`, the starting deposit, is common to every strategy).
 Backtest settings (e.g. `markets.oanda.data_tz`, `broker.adapter`) resolve from `../conf/backtest.yaml`,
 `../conf/algo.yaml` or `ALGO_*` env.
+
+Every key of the strategy YAML, with its range, unit, default and effect, is tabulated in
+[`SPEC.md` §6.4.1](SPEC.md#641-strategy-configyaml--as-shipped-schema-2-strategiespy).
+The short form (`baseline`'s values in parentheses; "req." = required when the filter is
+listed; every other key defaults and the effective value is written back into the run's
+`strategy-config.{json,yaml}`):
+
+| Section | Keys |
+|---|---|
+| top level | `schema_version` (must be 2); `extends`; `filters` (ordered list of `f1_trend` … `f7_meta_learner`); `perception_source` (`ema`); `double_smoothed_heikin_ashi.{period1 6, period2 2, higher_tf_minutes 60}` |
+| `price_features` (always resolved) | `ema_fast 3`, `ema_slow 8`, `ema_higher_tf 60`, `rsi_period 14`, `macd_fast 12`, `macd_slow 26`, `macd_signal 9`, `atr_period 14` (the `atr` stop source), `swing_lookback_bars 60` (the `swing` stop source) — minute bars |
+| `indicator` (F2) | `rsi_midline 50`, `macd_hist_threshold 0` |
+| `pattern` (F3) | `bullish_patterns`, `bearish_patterns` (no detector is wired, F3 ABSTAINs — TD-45) |
+| `news_context` (F4, req.) | `event_intensity_veto_threshold` (Goldstein mean, ≤ it vetoes; `hybrid` −0.5), `sentiment_direction_threshold` (polarity magnitude; 0.15); `null` disables a half |
+| `risk_guard` (F5, req.) | `portfolio_at_risk_cap 0.10`, `daily_drawdown_limit −0.05`, `weekly_drawdown_limit −0.15` (PnL floors, ≤ 0), `max_concurrent_trades_per_account 2`, `max_leverage 30`; `null` disables a cap; a breach vetoes |
+| `capital_mgmt` (F6, req.) | sizing (req.): `risk_per_trade 0.03`, `stop_loss_pips 20`, `pip_value_per_lot 10`, `lot_notional_units 100000`, `assumed_leverage 30`; A05 trade plan (defaulted): `stop_loss_shrink 0.20` (default 0), `min_stop_pips 5` (0), `min_stop_factor 1.2` (1, × `execution.broker_stop_level_pips`), `targets [{at_level_ratio 2.0, close_fraction 0.5}]` (default one full close at 2.0), `trail_stops [{at_level_ratio 0.5, to_level_ratio −0.66}]` ([]), `min_reward_risk 2.0` (null = no veto), `stop_distance_source swing` (`fixed`), `atr_multiplier 2.0` |
+| `meta_learner` (F7) | `families [trend, indicator, pattern]` (+ `news` in `hybrid`); req. with F7: `theta_high 0.55`, `theta_low 0.45`, `regime_gate false`; `label_horizon_minutes 15` |
+| `execution` (always resolved) | `spread_pips 1.0` (default 0; half per fill, also inside F6's target/trail levels), `commission_per_lot 0` (per side, pro rata on lot units), `min_hold_bars 0` (bars before an opposite signal may reverse), `broker_stop_level_pips 0`, `close_on_veto false` (a veto only blocks entries; `true` closes the open position at once) |
 
 ## Testing
 
@@ -191,11 +219,17 @@ in `chain/wiring.py`. `chain/decision_recorder.py` writes `decisions.parquet`, w
 trained offline by `scripts/train_*_meta_learner.py` over LEAN's delivered bar stream
 (`training.py`, `market_hours.py`), with train/serve feature parity proven in real LEAN.
 The bundled models were trained on EUR/USD 2015-02-02 → 2015-07-31 (train +
-validation), holding out 2015-08-01 → 2016-01-31. These are **wiring smoke tests, not
-methodology results** — F3 has no real pattern detector, F5/F6 use placeholder
-economics, F4's sentiment half is best-effort (TD-48); see `docs/technical-debt.md`
-TD-51. Still planned: richer analytics (CPCV, equity curves, `trades.parquet` schema);
-read-through caching.
+validation), holding out 2015-08-01 → 2016-01-31. Since stories 09 and 12 (2026-09-27)
+every filter parameter is a `config.yaml` section with provenance, F5's caps and F6's
+economics come from the YAML (no placeholder constants remain), F6 builds the fx-manager
+A05 trade plan (stop, lot, targets, trailing steps, reward:risk veto) and the executor
+places it as stop-market and limit orders with configured spread and commission on every
+fill (`engine/trade_plan.py`, `engine/costs.py`). These runs are still **not a
+methodology result**: F3 has no real pattern detector (TD-45), F4's sentiment half is
+best-effort (TD-48) and the registered one-year protocol
+(`docs/stories/in-progress/12-execution-realism/spec.md`) has not been simulated; see
+`docs/ch04-deliverables.md`. Still planned: CPCV (`--cv`), the `trades.parquet` schema and
+`parameters.txt`; read-through caching.
 
 Spec: [`SPEC.md`](SPEC.md).
 
