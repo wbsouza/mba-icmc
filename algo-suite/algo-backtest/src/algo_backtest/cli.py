@@ -277,17 +277,20 @@ def run(
 
 
 def _emit_statement(run_dir: Path, out_dir: Path | None) -> None:
-    """Write statement.md, equity.png, equity.csv and report.html for `run_dir`; print the
-    A/C summary lines and the four paths."""
+    """Write statement.md, equity.png, equity.csv and report.html (with the per-trade
+    decision drill-down when the run recorded decisions.parquet and trade-plans.json) for
+    `run_dir`; print the A/C summary lines and the four paths."""
     from algo_backtest.statement import (
         build_statement,
+        load_decision_trails,
         load_run_artifacts,
         summary_lines,
         write_statement_files,
     )
 
     statement = build_statement(load_run_artifacts(run_dir))
-    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    trails = load_decision_trails(run_dir)
+    paths = write_statement_files(statement, out_dir if out_dir is not None else run_dir, trails)
     for line in summary_lines(statement):
         typer.echo(f"statement: {line}")
     typer.echo(f"statement: {paths.statement}")
@@ -359,8 +362,10 @@ def statement(
     Reads run.json, trades.json, LEAN's result JSON and its order-events sibling (plus
     strategy-config.json, strategy-provenance.json and trade-plans.json when present) and
     writes statement.md + equity.png + equity.csv (the chart's series: time, equity,
-    drawdown_pct — the input of `algo-analyze equity-curves`); prints the A/C summary.
-    Exits 2 when a required artifact is missing or malformed, naming the file.
+    drawdown_pct — the input of `algo-analyze equity-curves`) + report.html, whose Trade
+    History expands each closed trade into its decision trail when the run recorded
+    decisions.parquet and trade-plans.json; prints the A/C summary. Exits 2 when a
+    required artifact is missing or malformed, naming the file.
     """
     try:
         _emit_statement(Path(run_dir), out)

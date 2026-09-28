@@ -79,8 +79,13 @@ equity noted beneath for reconciliation; margin is 0.00 when flat, LEAN's `Portf
 Margin` sample when current, else "n/a"); then Performance (LEAN's `statistics` quoted
 verbatim plus trade count and median holding minutes) and Parameters (every resolved
 `strategy-config.json` leaf with its `strategy-provenance.json` source). Times are
-`YYYY.MM.DD HH:MM` UTC, prices at the quote precision derived from the recorded prices (5
-for EURUSD, 3 for USDJPY — never per-pair constants), lots and money to two decimals. The
+`YYYY.MM.DD HH:MM` UTC, prices at the instrument's quote precision — one decimal finer than
+its pip (the pipette, LEAN's minimum price variation: 5 for EURUSD, 3 for USDJPY), the pip
+read from `algo_core.instrument`'s registry, never a per-pair constant in the statement;
+a symbol the registry does not know falls back to the most decimals its recorded prices
+carry. The plan's stop and target levels are derived floats (`entry − pips × pip`), so this
+is what keeps `1.1207350000000003` from reaching the page — both `statement.md` and the
+report tables print `1.12074`. Lots and money print to two decimals. The
 chart is a two-panel equity/drawdown figure from `charts['Strategy Equity']`, and
 `equity.csv` is that same series as data — columns `time` (ISO-8601 UTC), `equity`,
 `drawdown_pct` (percent below the running peak), one row per LEAN equity sample — so
@@ -94,9 +99,29 @@ starting deposit as a dashed reference, six performance cards (total return %, m
 drawdown %, Sharpe, win rate, trades, profit factor = gross profit / gross loss or "n/a"
 without a loss), and CSS-only tabs — Equity, Drawdown (SVG of the drawdown series),
 Monthly Returns (each month chained from the previous month's last equity sample), Trade
-History (the Closed Transactions columns) and Parameters (the provenance table). All four
-are pure derivations of the artifacts above (no LEAN import) and `algo-backtest statement
---run <dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema
+History (the Closed Transactions columns) and Parameters (the provenance table). In Trade
+History every closed trade is followed by a native `<details>` disclosure (still no
+script) holding its **decision trail** (`decision_trail.py`, `build_decision_trails(run_dir)
+-> list[DecisionTrail]`, one per closed trade): "Decision at entry" — the chain row of the
+entry bar (the first `decisions.parquet` row whose `trade_id` is the trade's entry order id,
+else the row timestamped at `entryTime`; neither → fail fast naming the trade) as each
+filter's recommendation, veto flag and reason in chain order, the final decision, the
+vetoed-by filter and F7's `p_hat` against `meta_learner.theta_high` / `theta_low` /
+`regime_gate` from `strategy-config.json`; "Plan" — the `trade-plans.json` record joined by
+`orderIds[0] == entry_order_id` (lots, quantity, entry price, stop and its distance in pips
+from the instrument's pip, each target's price and close fraction, each trailing step's
+at/to prices and ratios, spread pips); "Exit" — exit time and price, the order that closed
+the trade classified from LEAN's `orders` map by its last `orderIds` entry (`type` 2 →
+"stop-market", 1 → "limit target", 0 → "market", "market liquidation" when tagged
+`Liquidated`, with the executor's `_OCO_CANCEL|reason=` — `reversal` or `veto` — appended
+from `log.txt` when it was not the plain `flat` reconciliation), the `_TRAIL|entry=|from=|to=`
+stop moves logged inside the trade's window at its entry price, realized P/L and holding
+time. A missing plan, chain row or order fails the statement naming the trade; a run
+without `decisions.parquet` / `trade-plans.json` renders the tab with an explicit "No
+decision trail" note; a run without `log.txt` says its stop moves were not recorded. A
+legend line above the table explains the three sections. All four files are pure
+derivations of the artifacts above (no LEAN import) and `algo-backtest statement --run
+<dir> [--out DIR]` regenerates them for any run on disk. The `trades.parquet` schema
 (§6.1) and `parameters.txt` are not built yet.
 
 ## 3. Architecture & libraries
@@ -198,7 +223,12 @@ algo_backtest/
 ├── report.py               # IMPLEMENTED — story 12 item H2: report.html, the self-contained (inline
 │                           #   CSS + SVG, no script) "Account Performance" dashboard derived from the
 │                           #   same Statement: KPI cards, equity/drawdown SVG, monthly returns, trade
-│                           #   history and parameters tabs
+│                           #   history (each trade expandable into its decision trail via a native
+│                           #   <details>) and parameters tabs
+├── decision_trail.py       # IMPLEMENTED — build_decision_trails(run_dir): one DecisionTrail per closed
+│                           #   trade (chain verdict at the entry bar from decisions.parquet, the plan
+│                           #   from trade-plans.json, the exit classified from LEAN's orders map and
+│                           #   log.txt's trail/cancel lines); LEAN-free, fails fast on a missing join
 ├── experiment.py           # IMPLEMENTED — Run/Experiment value objects, load_experiment() (closed
 │                           #   schema, fail-fast), run_experiment() (injected runner): deterministic
 │                           #   runs/experiments/<experiment>/<run_id>/ + row-oriented experiment.json

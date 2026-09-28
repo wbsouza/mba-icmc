@@ -35,11 +35,21 @@ positive `fillQuantity`), 1 = Short (entry fill `direction: "sell"`, negative
 `fillQuantity`). The builder cross-checks each trade's label against its entry fill and
 fails fast on a contradiction rather than printing a wrong side.
 
-Formats: times `YYYY.MM.DD HH:MM` UTC; prices at the instrument's quote precision,
-derived as the most decimals any recorded price in the run carries (5 for EURUSD, 3 for
-USDJPY — never hard-coded per pair); lots and money to two decimals, money with
-thousands separators. Nothing is fabricated: every figure comes from the artifacts; the
-only constants are presentation (file names, chart size/dpi, labels).
+Formats: times `YYYY.MM.DD HH:MM` UTC; prices at the instrument's quote precision — one
+decimal more than its pip (the pipette, LEAN's minimum price variation: 5 for EURUSD's
+0.0001 pip, 3 for USDJPY's 0.01), the pip taken from the instrument registry
+(`algo_core.instrument`), never a per-pair constant here; for a symbol the registry does
+not know, the most decimals any recorded price carries. The plan's stop and target prices
+are derived floats (`entry - pips × pip`), so rendering at the float's own repr would
+print binary noise such as `1.1207350000000003` — the quote precision is what a broker
+confirmation shows. Lots and money to two decimals, money with thousands separators.
+Nothing is fabricated: every figure comes from the artifacts; the only constants are
+presentation (file names, chart size/dpi, labels).
+
+`report.html` additionally expands every closed trade into its decision trail
+(`decision_trail.py`: the chain's verdict at entry, the plan, the exit) when the run
+recorded `decisions.parquet` and `trade-plans.json`; `write_statement` passes the trails
+through, and the report states their absence otherwise.
 """
 
 from __future__ import annotations
@@ -53,15 +63,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import matplotlib
 
 matplotlib.use("Agg", force=True)
 from algo_core.atomicio import write_text_atomic  # noqa: E402
+from algo_core.instrument import UnknownSymbolError, build_instrument  # noqa: E402
 from matplotlib import pyplot as plt  # noqa: E402
 
 from algo_backtest.results import find_result_json  # noqa: E402
+
+if TYPE_CHECKING:  # report.py and decision_trail.py build on this module; no import cycle.
+    from algo_backtest.decision_trail import DecisionTrail
 
 STATEMENT_FILE = "statement.md"
 CHART_FILE = "equity.png"
@@ -399,14 +413,37 @@ def format_time(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime(TIME_FORMAT)
 
 
+def _decimals_of(value: float) -> int:
+    """How many decimals `repr(value)` carries (0 for an integer-valued float)."""
+    exponent = Decimal(repr(float(value))).normalize().as_tuple().exponent
+    return max(0, -exponent) if isinstance(exponent, int) else 0
+
+
 def price_precision(prices: Iterable[float]) -> int:
-    """The instrument's quote precision: the most decimals any recorded price carries
-    (5 for EURUSD quotes such as 1.08668, 3 for USDJPY's 120.123); 0 when none."""
-    decimals = 0
-    for price in prices:
-        exponent = Decimal(repr(float(price))).normalize().as_tuple().exponent
-        decimals = max(decimals, -exponent if isinstance(exponent, int) else 0)
-    return decimals
+    """The fallback quote precision for a symbol outside the instrument registry: the most
+    decimals any recorded price carries (5 for EURUSD quotes such as 1.08668, 3 for
+    USDJPY's 120.123); 0 when none."""
+    return max((_decimals_of(price) for price in prices), default=0)
+
+
+def quote_decimals(pip_size: float) -> int:
+    """The quote precision implied by a pip: one decimal finer than the pip (the pipette,
+    LEAN's minimum price variation) — 0.0001 -> 5, 0.01 -> 3.
+
+    Raises:
+        ValueError: `pip_size` is not strictly positive.
+    """
+    if pip_size <= 0:
+        raise ValueError(f"pip size must be positive to derive a quote precision, got {pip_size!r}")
+    return _decimals_of(pip_size) + 1
+
+
+def pip_size_for(symbol: str) -> float | None:
+    """The instrument's pip from the registry, `None` for a symbol it does not know."""
+    try:
+        return float(build_instrument(symbol).unit_size)
+    except UnknownSymbolError:
+        return None
 
 
 def equity_series(main_json: Mapping[str, Any], file: str = "main.json") -> list[
@@ -770,6 +807,13 @@ def _recorded_prices(
         yield from row.take_profits or ()
 
 
+def _price_decimals(symbol: str, recorded: Iterable[float]) -> int:
+    """The quote precision: from the instrument's pip when the registry knows the symbol,
+    else the most decimals the recorded prices carry."""
+    pip = pip_size_for(symbol)
+    return quote_decimals(pip) if pip is not None else price_precision(recorded)
+
+
 def _period_end(equity: Sequence[tuple[datetime, float]], file: str) -> datetime:
     """The statement's as-of time: the engine's last equity sample."""
     if not equity:
@@ -812,7 +856,9 @@ def build_statement(artifacts: RunArtifacts) -> Statement:
         period_end=_period_end(equity, file), run_id=artifacts.run_dir.name,
         broker_adapter=str(run.get("broker_adapter", "not recorded in run.json")),
         starting_deposit=summary.previous_balance,
-        price_decimals=price_precision(_recorded_prices(transactions, open_trades, working)),
+        price_decimals=_price_decimals(
+            ctx.symbol, _recorded_prices(transactions, open_trades, working)
+        ),
         transactions=transactions, open_trades=open_trades, working_orders=working,
         summary=summary, performance=_performance(result, artifacts.trades, file),
         parameters=_parameters(artifacts), plans_recorded=ctx.plans is not None,
@@ -1030,9 +1076,26 @@ def render_equity_chart(statement: Statement, out: Path) -> Path:
     return out
 
 
-def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
+def load_decision_trails(run_dir: Path) -> tuple[DecisionTrail, ...] | None:
+    """The report's per-trade decision trails, or `None` when the run recorded no
+    `decisions.parquet` / `trade-plans.json` (a code-registered strategy, or a run predating
+    them) — the report then states the absence instead of inventing a trail.
+
+    Raises what `decision_trail.build_decision_trails` raises when both artifacts exist but
+    a closed trade has no plan or no chain row.
+    """
+    # Local import: decision_trail.py builds on this module (no import cycle).
+    from algo_backtest.decision_trail import build_decision_trails, has_trail_artifacts
+
+    return tuple(build_decision_trails(run_dir)) if has_trail_artifacts(run_dir) else None
+
+
+def write_statement_files(
+    statement: Statement, target: Path, trails: Sequence[DecisionTrail] | None = None
+) -> StatementPaths:
     """Write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a built
-    statement into `target`.
+    statement into `target`; `trails` (see `load_decision_trails`) feed the report's
+    per-trade drill-down, `None` renders it as absent.
 
     The Markdown, the CSV and the HTML are written atomically; the chart is rendered to a
     temp file and renamed into place, so no artifact is ever half-written.
@@ -1047,18 +1110,20 @@ def write_statement_files(statement: Statement, target: Path) -> StatementPaths:
     equity_csv = target / EQUITY_CSV_FILE
     write_text_atomic(equity_csv, render_equity_csv(equity_rows(statement.equity)))
     report_path = target / REPORT_FILE
-    write_text_atomic(report_path, render_report(statement))
+    write_text_atomic(report_path, render_report(statement, trails=trails))
     return StatementPaths(
         statement=statement_path, chart=chart, equity_csv=equity_csv, report=report_path
     )
 
 
 def write_statement(run_dir: Path, out_dir: Path | None = None) -> StatementPaths:
-    """Build and write `statement.md`, `equity.png`, `equity.csv` and `report.html` for a
-    finished run.
+    """Build and write `statement.md`, `equity.png`, `equity.csv` and `report.html` (with
+    the decision drill-down when the run recorded its inputs) for a finished run.
 
     All four land in `out_dir` (default: the run directory itself). Raises what
-    `load_run_artifacts`/`build_statement` raise on a missing or inconsistent artifact.
+    `load_run_artifacts`/`build_statement`/`load_decision_trails` raise on a missing or
+    inconsistent artifact.
     """
     statement = build_statement(load_run_artifacts(run_dir))
-    return write_statement_files(statement, out_dir if out_dir is not None else run_dir)
+    trails = load_decision_trails(run_dir)
+    return write_statement_files(statement, out_dir if out_dir is not None else run_dir, trails)
