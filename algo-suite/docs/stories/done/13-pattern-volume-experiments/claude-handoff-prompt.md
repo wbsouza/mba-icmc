@@ -1,7 +1,7 @@
 # Copy-paste prompt for Claude
 
 Take over Story 13 from Codex. First read these files in
-`/tmp/mba-pattern-volume/algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/`:
+`/tmp/mba-pattern-volume/algo-suite/docs/stories/done/13-pattern-volume-experiments/`:
 `progress.md`, `qa-procedure.md`, `evidence/h4-results-20260928T011114Z.md`, and
 `evidence/h4-parameters-20260928T011114Z.md`. Read repository instructions too.
 

@@ -10,14 +10,14 @@ The [19-task plan](../../../.specs/features/recency-weighted-retraining/tasks.md
 includes Gherkin gates and future Chapter 3/4 updates. Planning only; no models
 or experiments launched. Story 19 avoids the market-context Story 18 allocation.
 
-[Story 13 — planned candlestick extension](in-progress/13-pattern-volume-experiments/candlestick-extension.md)
+[Story 22 — candlestick context extension (planned; split out of story 13 on closure)](planned/22-candlestick-context-extension/candlestick-extension.md)
 adds Bigalow's *High Profit Candlestick Patterns*, the supplied CMT presentation,
 timestamped webinar notes, and Laya as a proposed learned pattern/context
 complement to TA-Lib. The original pattern/volume experiments already exist;
 the extension is **planned**, not implemented or validated. It requires frozen
 model versions, causal inputs, independent recognition review,
 and controlled comparisons. See the updated
-[progress and handoff](in-progress/13-pattern-volume-experiments/progress.md).
+[progress and handoff](planned/22-candlestick-context-extension/progress.md); story 13 itself is done.
 Its [tlc-spec-driven task plan](../../../.specs/features/candlestick-context/tasks.md)
 splits the extension into 24 pending tasks across rules, integration, optional
 learned context, and evaluation/publication. Planning only; execution is deferred.
@@ -53,13 +53,13 @@ grains/yields/producers as lagged context, monthly fertilizer and food indices a
 context only), the NPK input chain, and a commodity-currency follow-up (USD/CAD,
 AUD/USD). Status: **planned**; nothing downloaded, coded or simulated.
 
-[Story 20 — session 2: clean trading-year re-run, BUY and SELL in one simulation](in-progress/20-session-2-clean-rerun/spec.md)
+[Story 20 — session 2: clean trading-year re-run, BUY and SELL in one simulation](done/20-session-2-clean-rerun/spec.md)
 (renumbered from 15 to resolve the clash with the Miner story; 19 is the adaptive retraining story) re-ran the reported
 year after the confidentiality rename: twelve retrained models identical outside
 provenance, fifteen cells byte-identical to session 1, the primary test reproduced
 (p = 0.149); every both-sides cell negative; the reversed-sign rule statistically
 equal to its always-short control (p = 0.92). Chapter 4 `subsec:session-2`. Status:
-**in progress** (results merged; TD-71 blocks any sub-hour result).
+**done** (closed 2026-09-28; TD-71 blocks any sub-hour result, see the deferred list below).
 
 **Statistical correction completed (2026-09-27):**
 [Story 11](done/11-statistical-inference-corrections/spec.md) implements schema-v2
@@ -78,9 +78,10 @@ features/LEAN data → freeze splits → fit family models → calibrate combine
 freeze artifacts → verify engine/cost assumptions → held-out replay → audit and
 analyze → extend and report. A completed tool is not a completed experiment.
 
-- **09, in progress:** both six-month pilot models are saved; both September
-  replays completed with zero trades and require diagnosis. See the
-  [pilot record](in-progress/09-six-month-training-september-pilot/progress.md).
+- **09, done (closed 2026-09-28):** the pilot's zero-trade diagnosis, calibration,
+  amended chain and September/October reruns are in Chapter 4; the one-year protocol
+  (story 12) and the trading year (stories 14, 20) superseded it. See the
+  [pilot record](done/09-six-month-training-september-pilot/progress.md).
 - **10, planned:** [experiment readiness](planned/10-experiment-validation-readiness/progress.md)
   owns coverage, execution assumptions, validation design, and claim review.
 - **11, done:** corrected inference software and validation are complete;
@@ -202,6 +203,16 @@ leaving real slack for their corrections.~~
 No slack day is built in. If any day slips, the go/no-go checkpoint (end of
 Day 1) is the last safe point to fall back to Medium scope without
 endangering the deposit date.
+
+## Deferred registered follow-ups (moved here when stories 14 and 20 closed, 2026-09-28)
+
+- Rising-euro window (2017-03..08) for the reversed-sign rule and its always-short control: GDELT
+  `.done` markers now reach 2017-07, so the cell can be registered and run; features must be
+  built for those months first.
+- USD/JPY pass: needs the price download and `pip_value_per_lot` in account currency (JPY has one
+  more decimal).
+- TD-71 (same-bar OCO double fill) must be fixed before any sub-hour result is reported (five of
+  six M5/M15/M30 cells stopped at the statement step in session 2).
 
 ## 1. State as of 2026-09-22
 
@@ -383,7 +394,7 @@ Status column is current. Story folders are under `docs/stories/{done,in-progres
 | 06 | `06-monografia-chapter04.md` | `monografia` | 08–11 evidence | **in progress.** Setup/workflow and limitations updated; paired results, inference, and figures remain incomplete |
 | 07 | `07-monografia-document-qa.md` | `monografia` | 06 (for §1 only) | **partial.** §2 build hygiene done 2026-09-25. §1 waits on 06 |
 | 08 | `08-news-event-data-materialization` | scripts + `algo-*` CLIs | nothing | **in progress.** Local GDELT completion markers through September 2015. Coverage reconciliation, GPR evidence, and full-window readiness remain open |
-| 09 | [Six-month training and September pilot](in-progress/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **in progress.** Models saved; baseline and hybrid September replays completed with zero trades and need diagnosis |
+| 09 | [Six-month training and September pilot](done/09-six-month-training-september-pilot/progress.md) | `algo-backtest` + `algo-score` | completed input months | **done** (closed 2026-09-28; superseded by the one-year protocol and the trading year, Chapter 4) |
 | 10 | [Experiment validation readiness](planned/10-experiment-validation-readiness/progress.md) | research protocol + all tools | 08, 09, 11 evidence | **planned.** Coverage, execution, validation, and claim readiness |
 | 11 | [Statistical inference corrections](done/11-statistical-inference-corrections/spec.md) | `algo-analyze`, return artifacts, reporting | existing code; real pilot optional for development | **done** (2026-09-27). Schema-v2 DSR probability, paired stationary bootstrap, legacy inventory and independent validation archived; empirical use waits on audited inputs (Task 10) and on an evaluation window long enough for calibrated paired inference: both registered block rules failed at 90–180 days |
 

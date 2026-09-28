@@ -197,9 +197,9 @@ Run from `/tmp/mba-pattern-volume` with the existing environment:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 algo-suite/.venv/bin/python -B \
-  algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/evidence/render_intermediate_figures.py
+  algo-suite/docs/stories/done/13-pattern-volume-experiments/evidence/render_intermediate_figures.py
 PYTHONDONTWRITEBYTECODE=1 algo-suite/.venv/bin/python -B -m pytest -q -p no:cacheprovider \
-  algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/evidence/tests/steps/test_intermediate_figures.py
+  algo-suite/docs/stories/done/13-pattern-volume-experiments/evidence/tests/steps/test_intermediate_figures.py
 make -C monografia verify
 ```
 

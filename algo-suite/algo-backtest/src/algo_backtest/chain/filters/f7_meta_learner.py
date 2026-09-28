@@ -15,7 +15,7 @@ and ``theta_low``. With the gate off the rule is ``BUY if p̂_t > θ_high``, ``S
 p̂_t < θ_low``, ``HOLD`` otherwise. The September-2015 pilot found the fitted model
 anti-aligned with F1's regime on every bar (p̂ < 0.5 in bull, > 0.49 in bear), so the
 gated rule could never fire; see
-`docs/stories/in-progress/09-six-month-training-september-pilot/progress.md`.
+`docs/stories/done/09-six-month-training-september-pilot/progress.md`.
 
 ``v_t`` (the news-context veto flag) never needs an explicit check here: a veto from any
 upstream filter (F4 included) already short-circuits `FilterChain.run()` to

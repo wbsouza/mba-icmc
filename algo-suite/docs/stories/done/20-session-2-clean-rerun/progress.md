@@ -21,6 +21,5 @@
 - [x] Chapter 4 `subsec:session-2` + `tab:session-2` + `fig:equity-session-2` (118 pages, no undefined
   references); TD-71 row updated; viewer database rebuilt from the 18 finished headline cells
   (`results-viewer-demo/rebuild-session2.sh`).
-- [ ] Review and merge (user). Then move the story to `done/` with `lessons-learned.md`.
-- [ ] Deferred: fix TD-71 before any sub-hour result; rising-euro window (2017-03..08) once GDELT lands;
-  USD/JPY pass.
+- [x] Reviewed and merged by the user (PR #74; renumbered to 20 in PR #78); moved to `done/` with `lessons-learned.md` on 2026-09-28.
+- [x] Deferred items (TD-71, rising-euro window, USD/JPY) moved to the deferred registered follow-ups list in `00-PLAN.md`.

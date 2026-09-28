@@ -11,7 +11,7 @@ the supplied Bigalow material. Laya is a proposed learned complement, not a
 validated detector or a substitute for deterministic risk protection.
 
 Source inventory and historical findings remain in the
-[Story 13 research brief](../../../algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/candlestick-extension.md).
+[Story 13 research brief](../../../algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-extension.md).
 This file owns requirements; [design.md](design.md) owns the proposed design;
 [tasks.md](tasks.md) owns implementation status and test mapping. The story's
 progress file owns handoff history. Do not maintain a competing task checklist.

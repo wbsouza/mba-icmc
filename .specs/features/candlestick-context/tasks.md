@@ -116,7 +116,7 @@ No historical backtest result alone permits live deployment.
 
 **What**: Record book PDF/printed pages, slide numbers and video times, exact geometry/context/confirmation rules, TA-Lib equivalence or differences, and optional EarnForex license/source review. Mark unsupported or ambiguous definitions deferred, including broader chart formations.
 
-**Where**: `algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/candlestick-rule-ledger.md`
+**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-rule-ledger.md`
 **Depends on**: None
 **Requirement**: CND-01
 **Reuses**: Source brief and timestamped video notes.
@@ -390,7 +390,7 @@ No historical backtest result alone permits live deployment.
 
 **What**: Register exact splits, costs, seeds, label minimums, calibration metrics, acceptance thresholds, trial budget, inference feasibility and stop criteria before fitting or outcome inspection.
 
-**Where**: `algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/candlestick-method-design.md`
+**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-method-design.md`
 **Depends on**: T15
 **Requirement**: CND-19, CND-26
 **Reuses**: Existing method-design approach and T15 validated dataset inventory.
@@ -518,7 +518,7 @@ No historical backtest result alone permits live deployment.
 
 **What**: Publish the registered comparisons and recognition results with complete per-filter parameter tables, costs, sample sizes, uncertainty, exclusions and artifact links; report negative/inconclusive outcomes.
 
-**Where**: `algo-suite/docs/stories/in-progress/13-pattern-volume-experiments/candlestick-results.md`
+**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-results.md`
 **Depends on**: T22
 **Requirement**: CND-25, CND-26
 **Reuses**: T16 frozen protocol and T22 experiment artifacts.
