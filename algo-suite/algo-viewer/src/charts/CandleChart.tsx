@@ -63,8 +63,8 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
       layout: { background: { color: colors.bg }, textColor: colors.text, attributionLogo: false, fontSize: 13 },
       grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
       timeScale: { timeVisible: true, secondsVisible: false },
-      // room above and below the candles so the entry/exit labels sit in clear space
-      rightPriceScale: { borderColor: colors.grid, scaleMargins: { top: 0.18, bottom: 0.18 } },
+      // empty bands above and below the candles: the entry/exit labels are drawn there
+      rightPriceScale: { borderColor: colors.grid, scaleMargins: { top: 0.22, bottom: 0.22 } },
     });
     const decimals = priceDecimals(trade.entry_price);
     const candles = chart.addSeries(CandlestickSeries, {
@@ -84,11 +84,14 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     for (const move of trailMoves) {
       candles.createPriceLine({ price: move.to_stop, color: "#e9a23b", lineWidth: 1, lineStyle: LineStyle.SparseDotted, title: "trail" });
     }
+    // Labels live in the clear bands, never on a candle: the entry above the highest high
+    // at its bar's time, the exit below the lowest low at its bar's time.
+    const { top, bottom } = labelBands(bars);
     const markers: SeriesMarker<UTCTimestamp>[] = [];
     const entryBar = bars.find((b) => b.offset === 0);
     if (entryBar) {
       markers.push({
-        time: toTime(entryBar.time), position: trade.direction === "buy" ? "belowBar" : "aboveBar", size: 2,
+        time: toTime(entryBar.time), position: "atPriceMiddle", price: top, size: 2,
         color: ENTRY_COLOR, shape: trade.direction === "buy" ? "arrowUp" : "arrowDown",
         text: `ENTRY ${trade.direction.toUpperCase()} @ ${fmtPrice(trade.entry_price, decimals)}`,
       });
@@ -96,8 +99,9 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     const exitBar = barAt(bars, trade.exit_time, barMinutesOf(bars));
     if (exitBar) {
       markers.push({
-        time: toTime(exitBar.time), position: trade.direction === "buy" ? "aboveBar" : "belowBar", size: 2,
-        color: EXIT_COLOR, shape: "circle", text: `EXIT ${(EXIT_KIND_LABELS[trade.exit_kind] ?? trade.exit_kind).toUpperCase()} @ ${fmtPrice(trade.exit_price, decimals)}`,
+        time: toTime(exitBar.time), position: "atPriceMiddle", price: bottom, size: 2,
+        color: EXIT_COLOR, shape: "circle",
+        text: `EXIT ${(EXIT_KIND_LABELS[trade.exit_kind] ?? trade.exit_kind).toUpperCase()} @ ${fmtPrice(trade.exit_price, decimals)}`,
       });
     }
     createSeriesMarkers(candles, markers);
@@ -121,6 +125,16 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
       <ChartCaption trade={trade} />
     </>
   );
+}
+
+/** The prices at which the two labels sit: 12% of the bars' range above the highest high and below the lowest low. */
+export function labelBands(bars: EntryBar[]): { top: number; bottom: number } {
+  const highs = bars.map((b) => b.high);
+  const lows = bars.map((b) => b.low);
+  const high = Math.max(...highs);
+  const low = Math.min(...lows);
+  const pad = Math.max(high - low, Number.EPSILON) * 0.12;
+  return { top: high + pad, bottom: low - pad };
 }
 
 function barMinutesOf(bars: EntryBar[]): number {
