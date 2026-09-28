@@ -1,7 +1,7 @@
 Feature: Target / trail-stop level math
   Ports fx-manager's `StrategyMoneyManagementFacadeBean` formulas (specs.md §14.5),
   confirmed against the real Java source (both the original JavaEE/EJB version and its
-  later Spring reimplementation in `spockfx-engine` agree on the formula):
+  later Spring reimplementation in the author's later Heikin-Ashi trading manager agree on the formula):
 
     target_level_N        = entry + sign * (|entry - SL| * target_factor_N + (target_factor_N + 1) * spread)
     trail_stop_at_level_N = entry + sign * (|entry - SL| * trail_stop_at_level_factor_N + (trail_stop_at_level_factor_N + 1) * spread)
@@ -14,7 +14,7 @@ Feature: Target / trail-stop level math
   lands on the loss side (a tightened stop-loss, closer than the original SL — specs.md
   §14.7's "entry − 66% × SL distance" example); a positive factor legitimately lands on
   the *profit* side (locking in partial profit once the trail arms — a real, deployed
-  configuration, e.g. the legacy `japaDragonStrategy04`'s `0.1`). Do not `abs()` the
+  configuration, e.g. a legacy Heikin-Ashi template's `0.1`). Do not `abs()` the
   factor: an earlier version of this module did, and hard-coded a loss-side subtraction,
   which happened to match the loss-side case but flipped the sign of the `spread` term —
   wrong for every factor magnitude, not just positive ones.

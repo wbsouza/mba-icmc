@@ -3,8 +3,9 @@
 import importlib.util
 import json
 import subprocess
+import sys
 import threading
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,14 +14,14 @@ import yaml
 from algo_backtest.strategies import load_strategy_chain_config
 from pytest_bdd import given, parsers, scenarios, then, when
 
-scenarios("../features/spockfx_experiments.feature")
-SETUP = Path(__file__).resolve().parents[3] / "experiments/spockfx-signals"
+scenarios("../features/heikin_ashi_experiments.feature")
+SETUP = Path(__file__).resolve().parents[3] / "experiments/heikin-ashi-signals"
 
 
 @pytest.fixture
 def experiment(monkeypatch, tmp_path):
     """Load the runner with an isolated code tree so concurrent checkout edits cannot race it."""
-    spec = importlib.util.spec_from_file_location("spockfx_experiment_runner", SETUP / "runner.py")
+    spec = importlib.util.spec_from_file_location("heikin_ashi_runner", SETUP / "runner.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     fingerprint_root = tmp_path / "fingerprint-code"
@@ -47,7 +48,7 @@ def forbid_jobs(monkeypatch):
     monkeypatch.setattr(subprocess, "run", forbidden)
 
 
-@given("the tracked SpockFX experiment setup")
+@given("the tracked Heikin-Ashi experiment setup")
 def tracked(experiment):
     """Read the explicit, versionable four-run plan."""
     experiment["plan"] = yaml.safe_load((SETUP / "plan.yaml").read_text())
@@ -93,26 +94,60 @@ def comparable_pairs(experiment):
         assert raw == dict(baseline.raw)
 
 
+def month_range(cell: str) -> list[tuple[int, int]]:
+    """Translate a table cell such as 2015-02..2015-09 into inclusive (year, month) pairs."""
+    first, last = cell.split("..")
+    year, month = (int(part) for part in first.split("-"))
+    stop = tuple(int(part) for part in last.split("-"))
+    months = []
+    while (year, month) <= stop:
+        months.append((year, month))
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return months
+
+
+def evaluation_weekdays(plan) -> list[date]:
+    """List the Monday–Friday dates LEAN needs from the plan's evaluation window."""
+    start, end = (date.fromisoformat(plan[key]) for key in ("test_start", "test_end"))
+    days = (start + timedelta(offset) for offset in range((end - start).days + 1))
+    return [day for day in days if day.weekday() < 5]
+
+
+def write_fixture(path: Path, content: str) -> None:
+    """Create one small stand-in partition, never a real market file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content.encode())
+
+
+def materialize(experiment, m1_months, gdelt_months=(), sentiment_months=()):
+    """Create the named synthetic partitions plus every evaluation weekday's LEAN zip."""
+    root, runner = experiment["input"], experiment["runner"]
+    for year, month in m1_months:
+        write_fixture(
+            root / f"parquet/forex/EURUSD/m1/year={year}/month={month:02d}/data.parquet",
+            f"fixture-month-{year}-{month}",
+        )
+    lean = root / "lean-data/forex/oanda/minute/eurusd"
+    for day in evaluation_weekdays(experiment["plan"]):
+        write_fixture(lean / f"{day:%Y%m%d}_quote.zip", "fixture-minute-data")
+    for year, month in gdelt_months:
+        path = runner.event_feature_path(root, "gdelt", year, month)
+        write_fixture(path, f"news-fixture-{year}-{month}")
+    for year, month in sentiment_months:
+        write_fixture(runner.symbol_path(root, "lm", year, month), f"lm-{year}-{month}")
+    experiment["input_hashes"] = {str(p): runner.digest(p) for p in root.rglob("*") if p.is_file()}
+
+
 @given("all required hybrid news sources")
 def news_sources(experiment):
     """Supply file fixtures through October's final September decision boundary."""
-    for month in range(2, 11):
-        path = experiment["runner"].event_feature_path(experiment["input"], "gdelt", 2015, month)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(f"news-fixture-{month}".encode())
-    experiment["input_hashes"] = {
-        str(p): experiment["runner"].digest(p)
-        for p in experiment["input"].rglob("*")
-        if p.is_file()
-    }
+    materialize(experiment, [], gdelt_months=month_range("2015-02..2015-10"))
 
 
 @when("a fresh hybrid experiment output directory is prepared")
 def prepare_hybrid(experiment):
     """Opt in to four hybrid arms without adding the baseline family to execution."""
-    experiment["runner"].prepare(
-        experiment["input"], experiment["output"], experiment["source"], mode="hybrid"
-    )
+    experiment["runner"].prepare(experiment["input"], experiment["output"], mode="hybrid")
 
 
 @then("exactly four hybrid runs use the hybrid trainer and exhaustive source archives")
@@ -132,13 +167,11 @@ def hybrid_archives(experiment):
         assert Path(command[1]).name == "train_hybrid_meta_learner.py"
         assert command[command.index("--strategy") + 1] == name
         assert "news_context.event_intensity_veto_threshold" in (run / "parameters.md").read_text()
-        assert (run / "source-mapping.md").is_file()
+        assert (run / "template-settings.md").is_file()
         assert (run / "source-configs" / name / "config.yaml").is_file()
         assert (run / "source-configs/hybrid/config.yaml").is_file()
-        for source in runner.XML_SOURCES:
-            assert (run / "source-xml" / source).read_bytes() == (
-                experiment["source"] / source
-            ).read_bytes()
+        assert [p.name for p in run.iterdir() if p.is_dir()] == ["source-configs"]
+        assert {key for key in manifest if key.startswith("source")} == set()
     assert runner.verify_prepared(root)["plan"]["mode"] == "hybrid"
 
 
@@ -182,21 +215,22 @@ def matrix(experiment):
     assert all(raw == normalized[0] for raw in normalized)
 
 
-@then("each variant preserves the Dragon08 risk and exit mapping")
-def mapping(experiment):
-    """Check source values as risk fractions and original-position close fractions."""
+@then("each variant preserves the Heikin-Ashi H4 template risk and exit settings")
+def template_settings(experiment, datatable):
+    """Compare the resolved YAML leaves against the reference template table."""
+    expected = {row[0]: json.loads(row[1]) for row in datatable[1:]}
     for config in experiment["configs"]:
-        assert config.price_features.bar_minutes == 240
-        assert config.risk_guard.portfolio_at_risk_cap == 0.18
-        assert config.capital_mgmt.risk_per_trade == 0.03
-        assert config.capital_mgmt.stop_loss_shrink == 0.5
-        assert [(t.at_level_ratio, t.close_fraction) for t in config.capital_mgmt.targets] == [
-            (4.0, 0.5),
-            (6.0, 0.5),
-        ]
-        assert [(t.at_level_ratio, t.to_level_ratio) for t in config.capital_mgmt.trail_stops] == [
-            (2.0, 0.1)
-        ]
+        raw = dict(config.raw)
+        actual = {}
+        for key in expected:
+            section, leaf = key.split(".")
+            value = raw[section][leaf]
+            if leaf == "targets":
+                value = [[t["at_level_ratio"], t["close_fraction"]] for t in value]
+            elif leaf == "trail_stops":
+                value = [[t["at_level_ratio"], t["to_level_ratio"]] for t in value]
+            actual[key] = value
+        assert actual == expected
 
 
 @then("every variant declares the research assumptions and exploratory windows")
@@ -225,39 +259,24 @@ def assumptions(experiment):
         )
         assert config.execution.close_on_veto is False
     readme = (SETUP / "README.md").read_text()
-    assert all(word in readme for word in ("offsetRisk", "SetupNow", "Dragon03", "proprietary"))
+    assert all(word in readme for word in ("Unsupported template semantics", "proprietary"))
 
 
-@given("explicit temporary input and SpockFX source directories")
+@given("explicit temporary input directories")
 def inputs(experiment, tmp_path):
     """Small fixture files exercise paths and hashes without touching real market inputs."""
-    root, sources = tmp_path / "inputs", tmp_path / "xml"
-    for month in range(2, 10):
-        path = root / f"parquet/forex/EURUSD/m1/year=2015/month={month:02d}/data.parquet"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(f"fixture-month-{month}".encode())
-    lean = root / "lean-data/forex/oanda/minute/eurusd"
-    lean.mkdir(parents=True)
-    for day in range(1, 31):
-        if date(2015, 9, day).weekday() < 5:
-            (lean / f"201509{day:02d}_quote.zip").write_bytes(b"fixture-minute-data")
-    for name in experiment["runner"].XML_SOURCES:
-        path = sources / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("<beans><!-- source fixture only --></beans>")
-    experiment.update(input=root, source=sources, output=tmp_path / "output")
-    experiment["input_hashes"] = {
-        str(p): experiment["runner"].digest(p) for p in root.rglob("*") if p.is_file()
-    }
+    root = tmp_path / "inputs"
+    experiment.update(input=root, output=tmp_path / "output")
+    materialize(experiment, month_range("2015-02..2015-09"))
 
 
 @when("a fresh experiment output directory is prepared")
 def prepare(experiment):
     """Preparation writes only the new explicit output tree."""
-    experiment["runner"].prepare(experiment["input"], experiment["output"], experiment["source"])
+    experiment["runner"].prepare(experiment["input"], experiment["output"])
 
 
-@given("a prepared temporary SpockFX experiment")
+@given("a prepared temporary Heikin-Ashi experiment")
 def prepared(experiment, tmp_path):
     """Prepare the real archive using tiny market-source fixtures."""
     tracked(experiment)
@@ -329,7 +348,7 @@ def bad_prepare(experiment, problem):
     elif problem == "a dangling output link":
         experiment["output"].symlink_to(experiment["output"].parent / "missing-output")
     else:
-        experiment["source"] = experiment["source"] / "missing"
+        raise ValueError(f"Unknown preparation problem in the feature table: {problem}")
     with pytest.raises(ValueError) as error:
         prepare(experiment)
     experiment["error"] = str(error.value)
@@ -383,7 +402,6 @@ def harness(
             if mutate:
                 targets = {
                     "input": Path(next(iter(experiment["input_hashes"]))),
-                    "source": experiment["source"] / "deploy.xml",
                     "model": run / "model.json",
                 }
                 target = targets[mutate]
@@ -422,7 +440,7 @@ def successful_archives(experiment):
         )
 
 
-@then("the final immutable check passes with archived source and input hashes")
+@then("the final immutable check passes with archived code and input hashes")
 def final_check_passed(experiment):
     """Success and child failure both leave an atomic byte-identity audit."""
     runner = experiment["runner"]
@@ -430,7 +448,7 @@ def final_check_passed(experiment):
     manifest = runner.read_json(experiment["output"] / "manifest.json")
     assert report["ok"] is True
     assert report["mismatches"] == report["errors"] == []
-    for group in ("code", "inputs", "source_xml"):
+    for group in ("code", "inputs"):
         assert set(report["groups"][group]) == set(manifest[group])
         for name, entry in report["groups"][group].items():
             assert entry["actual_sha256"] == entry["expected_sha256"] == manifest[group][name]
@@ -624,14 +642,12 @@ def training_budget(experiment):
         assert manifest["environment"][variable] == "4"
 
 
-@given("a temporary SpockFX experiment prepared for two workers")
+@given("a temporary Heikin-Ashi experiment prepared for two workers")
 def prepare_two_workers(experiment, tmp_path):
     """Freeze the concurrency choice before any execution archive is created."""
     tracked(experiment)
     inputs(experiment, tmp_path)
-    experiment["runner"].prepare(
-        experiment["input"], experiment["output"], experiment["source"], workers=2
-    )
+    experiment["runner"].prepare(experiment["input"], experiment["output"], workers=2)
 
 
 def parallel_harness(experiment, monkeypatch, fail=False):
@@ -743,10 +759,138 @@ def invalid_workers(experiment, workers):
     """Reject booleans, zero and unsupported extra workers before writing output."""
     with pytest.raises(ValueError) as error:
         experiment["runner"].prepare(
-            experiment["input"],
-            experiment["output"],
-            experiment["source"],
-            workers=json.loads(workers),
+            experiment["input"], experiment["output"], workers=json.loads(workers)
         )
     experiment["error"] = str(error.value)
     assert not experiment["output"].exists()
+
+
+@given(parsers.parse("the registered plan {plan}"))
+def registered_plan(experiment, tmp_path, plan):
+    """Read one of the two tracked plans and lay out fresh disjoint roots for it."""
+    experiment["plan_path"] = SETUP / plan
+    experiment["plan"] = yaml.safe_load(experiment["plan_path"].read_text())
+    experiment.update(input=tmp_path / "inputs", output=tmp_path / "out")
+
+
+@given(
+    parsers.parse(
+        "synthetic inputs for M1 months {m1}, the plan's evaluation weekdays, "
+        "GDELT months {gdelt} and sentiment months {sentiment}"
+    )
+)
+def span_inputs(experiment, m1, gdelt, sentiment):
+    """Create exactly the partitions the outline names, so nothing else can be required."""
+    materialize(experiment, month_range(m1), month_range(gdelt), month_range(sentiment))
+
+
+@when("the plan's hybrid input files are derived")
+def derive_inputs(experiment):
+    """Use the production derivation in hybrid mode so news partitions are included."""
+    runner = experiment["runner"]
+    plan = runner.select_plan("hybrid", experiment["plan_path"])
+    experiment["derived"] = runner.input_files(experiment["input"], plan)
+
+
+@then("the derived input files are exactly the synthetic inputs")
+def derived_matches(experiment):
+    """Neither a missing nor an unrequested partition is tolerated."""
+    assert {str(p) for p in experiment["derived"]} == set(experiment["input_hashes"])
+
+
+@then(parsers.parse("exactly {zips:d} LEAN weekday zips are required"))
+def zip_count(experiment, zips):
+    """The glob of same-span zips adds nothing beyond the required weekdays."""
+    assert sum(p.suffix == ".zip" for p in experiment["derived"]) == zips
+
+
+@given(parsers.parse("a plan copied from plan.yaml with {change}"))
+def copied_plan(experiment, tmp_path, change):
+    """Write a variant plan: '<key> removed' drops the key, "<key> 'value'" replaces it."""
+    plan = yaml.safe_load((SETUP / "plan.yaml").read_text())
+    key, value = change.split(" ", 1)
+    if value == "removed":
+        del plan[key]
+    else:
+        plan[key] = value.strip("'")
+    experiment["plan_path"] = tmp_path / "plan-copy.yaml"
+    experiment["plan_path"].write_text(yaml.safe_dump(plan))
+
+
+@when("a fresh experiment output directory is prepared from the copied plan")
+def prepare_copied(experiment):
+    """Prepare through the explicit plan path instead of the bundled pilot."""
+    experiment["runner"].prepare(
+        experiment["input"],
+        experiment["output"],
+        plan_path=experiment["plan_path"],
+    )
+
+
+@when("preparation is requested from the copied plan")
+def refuse_copied(experiment):
+    """A malformed plan is refused before any output directory exists."""
+    with pytest.raises(ValueError) as error:
+        prepare_copied(experiment)
+    experiment["error"] = str(error.value)
+    assert not experiment["output"].exists()
+
+
+@then(parsers.parse('preparation fails before launching a process with "{expected}"'))
+def refused_with(experiment, expected):
+    """The refusal text names the key or the offending pair and the fix."""
+    assert experiment["error"] == expected
+    assert experiment["calls"] == []
+
+
+@then(
+    parsers.parse(
+        "every archived training command passes --test-end {heldout} "
+        "while LEAN keeps {start} to {end}"
+    )
+)
+def heldout_commands(experiment, heldout, start, end):
+    """The trainer's held-out partition ends at the registered span, not the LEAN window."""
+    manifest = experiment["runner"].read_json(experiment["output"] / "manifest.json")
+    plan = manifest["plan"]
+    assert (plan["heldout_end"], plan["test_start"], plan["test_end"]) == (heldout, start, end)
+    for name in plan["variants"]:
+        run = experiment["output"] / name
+        command = json.loads((run / "commands.json").read_text())["training"]
+        assert command[command.index("--test-end") + 1] == heldout
+        assert command[command.index("--validation-end") + 1] == plan["calibration_end"]
+        provenance = json.loads((run / "provenance.json").read_text())["plan"]
+        assert (provenance["test_start"], provenance["test_end"]) == (start, end)
+
+
+@when(parsers.parse("the runner command line prepares with --plan {plan}"))
+def cli_prepare(experiment, monkeypatch, plan):
+    """Drive the real argument parser; only the plan option departs from the pilot command."""
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "runner.py",
+            "prepare",
+            "--input-root",
+            str(experiment["input"]),
+            "--output-root",
+            str(experiment["output"]),
+            "--plan",
+            str(SETUP / plan),
+        ],
+    )
+    assert experiment["runner"].main() == 0
+
+
+@then("the manifest archives the plan path and its SHA-256 beside the inputs")
+def plan_archived(experiment):
+    """The chosen plan is hashed like the inputs, copied, and re-verified at execution."""
+    runner, root = experiment["runner"], experiment["output"]
+    manifest = runner.read_json(root / "manifest.json")
+    path = experiment["plan_path"]
+    assert manifest["plan_source"] == {str(path): runner.digest(path)}
+    assert (root / "plan.yaml").read_bytes() == path.read_bytes()
+    assert runner.verify_prepared(root)["plan_source"] == manifest["plan_source"]
+    parameters = root / manifest["plan"]["variants"][0] / "parameters.md"
+    assert "2015-2016 window" in parameters.read_text()

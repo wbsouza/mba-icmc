@@ -1,4 +1,4 @@
-# Exploratory Dragon08 H4 proxy; sources and unsupported semantics: ../../README.md.
+# Exploratory Heikin-Ashi H4 template proxy; reference settings and unsupported semantics: ../../README.md.
 extends: hybrid
 schema_version: 2
 perception_source: ema

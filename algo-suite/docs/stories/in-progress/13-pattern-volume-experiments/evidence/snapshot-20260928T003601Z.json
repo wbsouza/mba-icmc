@@ -173,7 +173,7 @@
           "sha256": "63a28eadadf84c44492b7e0e3a89e8baf011b0826b6c0f73a5a842defcd0f1e3",
           "bytes": 2513,
           "mtime_utc": "2026-09-27T22:19:24.419Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 — execution-realism rerun of September 2015 (then October–November) with the\n# fx-manager A05 plan from strategies/baseline/config.yaml: risk-based lots, stop and\n# target orders, trailing stop, partial close, 1-pip spread, $10,000 account.\n# Frozen 2026-09-26 models; the chain strategies now take only --param cash.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 LOKY_MAX_CPU_COUNT=4\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" \"$PILOT/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n# October–December canonical event months into the pilot data root (completed .done only),\n# then event features for 2015-10-01..2015-12-01 so the November hybrid run has its last\n# bar's decision minute (2015-12-01 00:00 UTC) covered.\nstage link-event-months\nfor month in 10 11 12; do\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=2015/month=$month\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015/month=$month\"\ndone\nstage build-event-features-oct-nov\nuv run algo-score events --kind gdelt --from 2015-10-01 --to 2015-12-01 > \"$JOB/event-features.log\" 2>&1\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\nfor window in \"2015-09-01 2015-09-30\" \"2015-10-01 2015-10-31\" \"2015-11-01 2015-11-30\"; do\n  set -- $window; from=$1; to=$2; tag=${from:0:7}\n  for strategy in baseline hybrid; do\n    stage \"$strategy-$tag\"\n    uv run algo-backtest run --strategy $strategy --symbol EURUSD --from $from --to $to \\\n      --param cash=10000 --model \"$PILOT/$strategy-f7.json\" --timeout 14400 \\\n      > \"$JOB/$strategy-$tag.log\" 2>&1\n  done\ndone\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 execution-realism rerun of September 2015 (then October\u2013November) with the\n# fx-manager A05 plan from strategies/baseline/config.yaml: risk-based lots, stop and\n# target orders, trailing stop, partial close, 1-pip spread, $10,000 account.\n# Frozen 2026-09-26 models; the chain strategies now take only --param cash.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 LOKY_MAX_CPU_COUNT=4\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" \"$PILOT/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n# October\u2013December canonical event months into the pilot data root (completed .done only),\n# then event features for 2015-10-01..2015-12-01 so the November hybrid run has its last\n# bar's decision minute (2015-12-01 00:00 UTC) covered.\nstage link-event-months\nfor month in 10 11 12; do\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=2015/month=$month\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015/month=$month\"\ndone\nstage build-event-features-oct-nov\nuv run algo-score events --kind gdelt --from 2015-10-01 --to 2015-12-01 > \"$JOB/event-features.log\" 2>&1\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\nfor window in \"2015-09-01 2015-09-30\" \"2015-10-01 2015-10-31\" \"2015-11-01 2015-11-30\"; do\n  set -- $window; from=$1; to=$2; tag=${from:0:7}\n  for strategy in baseline hybrid; do\n    stage \"$strategy-$tag\"\n    uv run algo-backtest run --strategy $strategy --symbol EURUSD --from $from --to $to \\\n      --param cash=10000 --model \"$PILOT/$strategy-f7.json\" --timeout 14400 \\\n      > \"$JOB/$strategy-$tag.log\" 2>&1\n  done\ndone\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-execution-realism/status.txt",
@@ -455,7 +455,7 @@
           "sha256": "ad2e56bf5fa22cea8a3457b63667bae9676b31ac1e42e8d0cf821e177220ae43",
           "bytes": 1583,
           "mtime_utc": "2026-09-27T23:56:23.056Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 — September-2015 variant sweep: five YAML variants extending baseline (each one\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 September-2015 variant sweep: five YAML variants extending baseline (each one\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in a05-risk1 a05-wide-stop a05-selective a05-gated a05-conservative; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept/status.txt",
@@ -556,10 +556,10 @@
           "sha256": "083c073fdf5ce7b46c61d87c06991f644ace3b736d95a4919f24df5711e816f0",
           "bytes": 1641,
           "mtime_utc": "2026-09-28T00:08:15.642Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 — September-2015 variant sweep: four spockfx-derived plans extending baseline (dragon03, dragon05, setupNow, dragon03+ATR\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in spockfx-dragon03 spockfx-dragon05 spockfx-setupnow spockfx-dragon03-atr; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in spockfx-dragon03 spockfx-dragon05 spockfx-setupnow spockfx-dragon03-atr; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 \u2014 September-2015 variant sweep: four template-derived plans extending baseline (ha-h1-template, ha-1r2r-template, ha-setup-template, ha-h1-template+ATR\n# knob, plus their combination), frozen pilot baseline model, $10,000, run in parallel.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b\nPILOT=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot\nexport ALGO_DATA_ROOT=\"$PILOT/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 LOKY_MAX_CPU_COUNT=2\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\nsha256sum \"$PILOT/baseline-f7.json\" > \"$JOB/model-hashes.txt\"\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"\nfor v in ha-h1-template ha-1r2r-template ha-setup-template ha-h1-template-atr; do\n  uv run algo-backtest explain-strategy \"$v\" --strategies-dir \"$JOB/strategies\" > \"$JOB/$v-parameters.txt\" 2>&1 || true\ndone\nstage \"sweep-2015-09 (5 variants in parallel)\"\nfor v in ha-h1-template ha-1r2r-template ha-setup-template ha-h1-template-atr; do\n  uv run algo-backtest run --strategy \"$v\" --strategies-dir \"$JOB/strategies\" --symbol EURUSD \\\n    --from 2015-09-01 --to 2015-09-30 --param cash=10000 --model \"$PILOT/baseline-f7.json\" \\\n    --timeout 14400 > \"$JOB/$v-2015-09.log\" 2>&1 &\ndone\nwait\nstage complete\n"
         },
-        "spockfx-dragon03-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon03-2015-09.log",
+        "ha-h1-template-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-h1-template-2015-09.log",
           "status": "present",
           "sha256": "47a6be0988295b009f2a85a358c3f0f16a5d6c8547fe8207e886e0310151ceac",
           "bytes": 6002,
@@ -569,17 +569,17 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 4,653.44",
             "statement: Equity (engine-reported): 4,653.46",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/report.html"
           ],
           "identity_lines": [
-            "run[spockfx-dragon03]: success=True closed_trades=144 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/main.json"
+            "run[ha-h1-template]: success=True closed_trades=144 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/main.json"
           ]
         },
-        "spockfx-dragon03-atr-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon03-atr-2015-09.log",
+        "ha-h1-template-atr-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-h1-template-atr-2015-09.log",
           "status": "present",
           "sha256": "a66d1a085c3e52e6d5c51076f351e49fad3e2f470be396573d87b1efb5dcc95c",
           "bytes": 6269,
@@ -589,33 +589,33 @@
             "statement: Margin Requirement: 1,291.97",
             "statement: Available Margin: 4,491.26",
             "statement: Equity (engine-reported): 5,784.11",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/report.html"
           ],
           "identity_lines": [
-            "run[spockfx-dragon03-atr]: success=True closed_trades=437 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/main.json"
+            "run[ha-h1-template-atr]: success=True closed_trades=437 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/main.json"
           ]
         },
-        "spockfx-dragon03-atr-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon03-atr-parameters.txt",
+        "ha-h1-template-atr-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-h1-template-atr-parameters.txt",
           "status": "present",
           "sha256": "19175d8112a41b7695a1bc9c6eabf0e73a07526e3390a80f192af9c9e2448ee5",
           "bytes": 2926,
           "mtime_utc": "2026-09-28T00:08:19.913Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 4.0  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 3.0  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 3.0, \"close_fraction\": 1.0}]  # spockfx-dragon03-atr/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": -0.66}, {\"at_level_ratio\": 1.5, \"to_level_ratio\": 0.0}]  # spockfx-dragon03-atr/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # spockfx-dragon03-atr/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 4.0  # ha-h1-template-atr/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 3.0  # ha-h1-template-atr/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 10.0  # ha-h1-template-atr/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.01  # ha-h1-template-atr/config.yaml\ncapital_mgmt.stop_distance_source = \"atr\"  # ha-h1-template-atr/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # ha-h1-template-atr/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 3.0, \"close_fraction\": 1.0}]  # ha-h1-template-atr/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": -0.66}, {\"at_level_ratio\": 1.5, \"to_level_ratio\": 0.0}]  # ha-h1-template-atr/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # ha-h1-template-atr/config.yaml\n"
         },
-        "spockfx-dragon03-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon03-parameters.txt",
+        "ha-h1-template-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-h1-template-parameters.txt",
           "status": "present",
           "sha256": "fba70a512511c759a4389c0f2b9f416baf66f43c489970e6fa1bad2a827d42ce",
           "bytes": 2859,
           "mtime_utc": "2026-09-28T00:08:16.667Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 3.0  # spockfx-dragon03/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # spockfx-dragon03/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 3.0, \"close_fraction\": 1.0}]  # spockfx-dragon03/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": -0.66}, {\"at_level_ratio\": 1.5, \"to_level_ratio\": 0.0}]  # spockfx-dragon03/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # spockfx-dragon03/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 3.0  # ha-h1-template/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # ha-h1-template/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 3.0, \"close_fraction\": 1.0}]  # ha-h1-template/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": -0.66}, {\"at_level_ratio\": 1.5, \"to_level_ratio\": 0.0}]  # ha-h1-template/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # ha-h1-template/config.yaml\n"
         },
-        "spockfx-dragon05-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon05-2015-09.log",
+        "ha-1r2r-template-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-1r2r-template-2015-09.log",
           "status": "present",
           "sha256": "72243d25c3c2152e0c32b29d7d2485d4fb26876424334c00184e4694613fbe25",
           "bytes": 5984,
@@ -625,25 +625,25 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 10,000.00",
             "statement: Equity (engine-reported): 10,000.00",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/report.html"
           ],
           "identity_lines": [
-            "run[spockfx-dragon05]: success=True closed_trades=0 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/main.json"
+            "run[ha-1r2r-template]: success=True closed_trades=0 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/main.json"
           ]
         },
-        "spockfx-dragon05-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-dragon05-parameters.txt",
+        "ha-1r2r-template-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-1r2r-template-parameters.txt",
           "status": "present",
           "sha256": "2e4641d03847a5afb18501004e6af4e6a3ee46838386f8206ef4952f57682f41",
           "bytes": 2857,
           "mtime_utc": "2026-09-28T00:08:17.792Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # spockfx-dragon05/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # spockfx-dragon05/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 1.0, \"close_fraction\": 0.5}, {\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # spockfx-dragon05/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": 0.0}]  # spockfx-dragon05/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # spockfx-dragon05/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 2.0  # ha-1r2r-template/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # ha-1r2r-template/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 1.0, \"close_fraction\": 0.5}, {\"at_level_ratio\": 2.0, \"close_fraction\": 0.5}]  # ha-1r2r-template/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 1.0, \"to_level_ratio\": 0.0}]  # ha-1r2r-template/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # ha-1r2r-template/config.yaml\n"
         },
-        "spockfx-setupnow-2015-09.log": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-setupnow-2015-09.log",
+        "ha-setup-template-2015-09.log": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-setup-template-2015-09.log",
           "status": "present",
           "sha256": "d724d77be59f12e64da182125e4820a39779f29e70408e37606f7b8114346146",
           "bytes": 5984,
@@ -653,22 +653,22 @@
             "statement: Margin Requirement: 0.00",
             "statement: Available Margin: 10,000.00",
             "statement: Equity (engine-reported): 10,000.00",
-            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/statement.md",
-            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/equity.png",
-            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/equity.csv",
-            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/report.html"
+            "statement: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/statement.md",
+            "equity chart: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/equity.png",
+            "equity csv: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/equity.csv",
+            "report: /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/report.html"
           ],
           "identity_lines": [
-            "run[spockfx-setupnow]: success=True closed_trades=0 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/main.json"
+            "run[ha-setup-template]: success=True closed_trades=0 results=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/main.json"
           ]
         },
-        "spockfx-setupnow-parameters.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/spockfx-setupnow-parameters.txt",
+        "ha-setup-template-parameters.txt": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/ha-setup-template-parameters.txt",
           "status": "present",
           "sha256": "d53974a5d7dab2fd2adb67c0da3621ef208e579a0f9a4bf1da7c095b13570665",
           "bytes": 2857,
           "mtime_utc": "2026-09-28T00:08:18.857Z",
-          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 1.5  # spockfx-setupnow/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # spockfx-setupnow/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 1.0, \"close_fraction\": 0.5}, {\"at_level_ratio\": 1.5, \"close_fraction\": 0.5}]  # spockfx-setupnow/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": 0.0}]  # spockfx-setupnow/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # spockfx-setupnow/config.yaml\n"
+          "text": "capital_mgmt.assumed_leverage = 30.0  # baseline/config.yaml\ncapital_mgmt.atr_multiplier = 2.0  # baseline/config.yaml\ncapital_mgmt.lot_notional_units = 100000.0  # baseline/config.yaml\ncapital_mgmt.min_reward_risk = 1.5  # ha-setup-template/config.yaml\ncapital_mgmt.min_stop_factor = 1.2  # baseline/config.yaml\ncapital_mgmt.min_stop_pips = 5.0  # baseline/config.yaml\ncapital_mgmt.pip_value_per_lot = 10.0  # baseline/config.yaml\ncapital_mgmt.risk_per_trade = 0.03  # baseline/config.yaml\ncapital_mgmt.stop_distance_source = \"swing\"  # baseline/config.yaml\ncapital_mgmt.stop_loss_pips = 20.0  # baseline/config.yaml\ncapital_mgmt.stop_loss_shrink = 0.5  # ha-setup-template/config.yaml\ncapital_mgmt.targets = [{\"at_level_ratio\": 1.0, \"close_fraction\": 0.5}, {\"at_level_ratio\": 1.5, \"close_fraction\": 0.5}]  # ha-setup-template/config.yaml\ncapital_mgmt.trail_stops = [{\"at_level_ratio\": 0.5, \"to_level_ratio\": 0.0}]  # ha-setup-template/config.yaml\nexecution.broker_stop_level_pips = 0.0  # baseline/config.yaml\nexecution.close_on_veto = false  # baseline/config.yaml\nexecution.commission_per_lot = 0.0  # baseline/config.yaml\nexecution.min_hold_bars = 0  # baseline/config.yaml\nexecution.spread_pips = 1.0  # baseline/config.yaml\nfilters = [\"f1_trend\", \"f2_indicator\", \"f3_pattern\", \"f5_risk_guard\", \"f6_capital_mgmt\", \"f7_meta_learner\"]  # baseline/config.yaml\nindicator.macd_hist_threshold = 0.0  # baseline/config.yaml\nindicator.rsi_midline = 50.0  # baseline/config.yaml\nmeta_learner.families = [\"trend\", \"indicator\", \"pattern\"]  # baseline/config.yaml\nmeta_learner.label_horizon_minutes = 15  # baseline/config.yaml\nmeta_learner.regime_gate = false  # baseline/config.yaml\nmeta_learner.theta_high = 0.55  # baseline/config.yaml\nmeta_learner.theta_low = 0.45  # baseline/config.yaml\npattern.bearish_patterns = [\"bearish_engulfing\", \"evening_star\", \"shooting_star\"]  # baseline/config.yaml\npattern.bullish_patterns = [\"bullish_engulfing\", \"hammer\", \"morning_star\"]  # baseline/config.yaml\nprice_features.atr_period = 14  # baseline/config.yaml\nprice_features.ema_fast = 3  # baseline/config.yaml\nprice_features.ema_higher_tf = 60  # baseline/config.yaml\nprice_features.ema_slow = 8  # baseline/config.yaml\nprice_features.macd_fast = 12  # baseline/config.yaml\nprice_features.macd_signal = 9  # baseline/config.yaml\nprice_features.macd_slow = 26  # baseline/config.yaml\nprice_features.rsi_period = 14  # baseline/config.yaml\nprice_features.swing_lookback_bars = 60  # baseline/config.yaml\nrisk_guard.daily_drawdown_limit = -0.05  # baseline/config.yaml\nrisk_guard.max_concurrent_trades_per_account = 2  # baseline/config.yaml\nrisk_guard.max_leverage = 30  # baseline/config.yaml\nrisk_guard.portfolio_at_risk_cap = 0.1  # baseline/config.yaml\nrisk_guard.weekly_drawdown_limit = -0.15  # baseline/config.yaml\nschema_version = 2  # ha-setup-template/config.yaml\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/status.txt",
@@ -680,37 +680,37 @@
         }
       },
       "strategies": {
-        "spockfx-dragon03": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/spockfx-dragon03/config.yaml",
+        "ha-h1-template": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-h1-template/config.yaml",
           "status": "present",
           "sha256": "a97cfc138bd0dc89446354361c3a28761857d6c488c0580ea8836cc02b98f3bf",
           "bytes": 624,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# spockfx-dragon03: spockfx japaDragonStrategy03 plan on the M1 chain: stop cut 50% (stopLossCut 50), no middle target, trail 1.0R -> -0.66R then 1.5R -> breakeven, final target 3R closes all, entry deviation guard absent (not a YAML key yet).\n# Source: related-work/projects/spockfx-metatrader/.../conf/strategies/{dragon,setupnow}.xml + deploy.xml.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
+          "text": "# ha-h1-template: the Heikin-Ashi H1 template plan on the M1 chain: stop cut 50%, no middle target, trail 1.0R -> -0.66R then 1.5R -> breakeven, final target 3R closes all, entry deviation guard absent (not a YAML key yet).\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
         },
-        "spockfx-dragon03-atr": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/spockfx-dragon03-atr/config.yaml",
+        "ha-h1-template-atr": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-h1-template-atr/config.yaml",
           "status": "present",
           "sha256": "181d4228524e377d92fb64211096352658fda29812f294fd6f7d0988491598c4",
           "bytes": 616,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# spockfx-dragon03-atr: dragon03 plan with an ATR stop (2 x ATR14, floor 10 pips) before the 50% cut, 1% risk: the H4-like stop width on M1.\n# Source: related-work/projects/spockfx-metatrader/.../conf/strategies/{dragon,setupnow}.xml + deploy.xml.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 4.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
+          "text": "# ha-h1-template-atr: the Heikin-Ashi H1 template plan with an ATR stop (2 x ATR14, floor 10 pips) before the 50% cut, 1% risk: the H4-like stop width on M1.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  atr_multiplier: 4.0\n  min_stop_pips: 10.0\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 3.0, close_fraction: 1.0}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: -0.66}\n    - {at_level_ratio: 1.5, to_level_ratio: 0.0}\n  min_reward_risk: 3.0\n"
         },
-        "spockfx-dragon05": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/spockfx-dragon05/config.yaml",
+        "ha-1r2r-template": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-1r2r-template/config.yaml",
           "status": "present",
           "sha256": "89844318226adf766b8b7e11b3f9189a0fd4d228b2faa01350572e67ac9e1274",
           "bytes": 534,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# spockfx-dragon05: spockfx japaDragonStrategy05 plan on the M1 chain: stop cut 50%, middle target 1R closes 50%, trail 1.0R -> breakeven, final target 2R.\n# Source: related-work/projects/spockfx-metatrader/.../conf/strategies/{dragon,setupnow}.xml + deploy.xml.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 2.0, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: 0.0}\n  min_reward_risk: 2.0\n"
+          "text": "# ha-1r2r-template: the 1R/2R template plan on the M1 chain: stop cut 50%, middle target 1R closes 50%, trail 1.0R -> breakeven, final target 2R.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 2.0, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 1.0, to_level_ratio: 0.0}\n  min_reward_risk: 2.0\n"
         },
-        "spockfx-setupnow": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/spockfx-setupnow/config.yaml",
+        "ha-setup-template": {
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-27-variant-sweep-sept-b/strategies/ha-setup-template/config.yaml",
           "status": "present",
           "sha256": "99793c50052a030d36163555b5abdb09c9a1e107a4629225e42091236ebb2ba0",
           "bytes": 532,
           "mtime_utc": "2026-09-28T00:08:01.138Z",
-          "text": "# spockfx-setupnow: spockfx setupNowStrategy plan on the M1 chain: middle target 1R closes 50%, trail 0.5R -> breakeven, final target 1.5R; stop cut 50%.\n# Source: related-work/projects/spockfx-metatrader/.../conf/strategies/{dragon,setupnow}.xml + deploy.xml.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 1.5, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 0.5, to_level_ratio: 0.0}\n  min_reward_risk: 1.5\n"
+          "text": "# ha-setup-template: the setup template plan on the M1 chain: middle target 1R closes 50%, trail 0.5R -> breakeven, final target 1.5R; stop cut 50%.\n# Source: the author's earlier Heikin-Ashi trading manager templates (unpublished); values recorded here.\nschema_version: 2\nextends: baseline\n\ncapital_mgmt:\n  stop_loss_shrink: 0.5\n  targets:\n    - {at_level_ratio: 1.0, close_fraction: 0.5}\n    - {at_level_ratio: 1.5, close_fraction: 0.5}\n  trail_stops:\n    - {at_level_ratio: 0.5, to_level_ratio: 0.0}\n  min_reward_risk: 1.5\n"
         }
       }
     },
@@ -871,7 +871,7 @@
           "sha256": "0850699e6f591729ba6a61f0773f5ac297add14282246c8c88c01a40755eb234",
           "bytes": 3882,
           "mtime_utc": "2026-09-27T23:53:07.998Z",
-          "text": "#!/usr/bin/env bash\n# Story 12 main experiment — one-year training protocol (registered 2026-09-27 with the user):\n#   family fitting     2015-03-02 .. 2015-12-31  (GDELT 2.0 collection starts 2015-02-18; March is the first full month)\n#   combiner calibration 2016-01-01 .. 2016-01-31   (thresholds checked here, before simulation)\n#   held-out partition 2016-02-01 .. 2016-02-29   (trainer only, no replay)\n#   simulation         2016-03-01 .. 2016-10-31   one continuous run per strategy, $10,000, A05 plan\n#   (October 2016 finished ingesting 2026-09-27 evening and was added before the job's first stage completed)\n# Isolated data root: completed canonical GDELT months 2015-03..2016-10 linked in, own features.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol\nexport ALGO_DATA_ROOT=\"$JOB/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 LOKY_MAX_CPU_COUNT=6\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\n\nstage link-data\nmkdir -p \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2016\"\nln -sfn \"$SUITE_DATA/parquet/forex\" \"$ALGO_DATA_ROOT/parquet/forex\"\nln -sfn \"$SUITE_DATA/lean-data\" \"$ALGO_DATA_ROOT/lean-data\"\nfor ym in 2015-03 2015-04 2015-05 2015-06 2015-07 2015-08 2015-09 2015-10 2015-11 2015-12 \\\n          2016-01 2016-02 2016-03 2016-04 2016-05 2016-06 2016-07 2016-08 2016-09 2016-10; do\n  y=${ym%-*}; m=${ym#*-}\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=$y/month=$m\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=$y/month=$m\"\ndone\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n\nstage build-event-features\n# Through 2016-11-01 so the last October bar's decision minute (2016-11-01 00:00 UTC) is covered;\n# month 2016-11 is a partial feature partition (one minute of 2016-11-01), never a training input.\nuv run algo-score events --kind gdelt --from 2015-03-01 --to 2016-11-01 > \"$JOB/event-features.log\" 2>&1\n\nstage train-baseline+hybrid\nuv run python algo-backtest/scripts/train_baseline_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/baseline-f7.json\" > \"$JOB/baseline-training.log\" 2>&1 &\nuv run python algo-backtest/scripts/train_hybrid_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/hybrid-f7.json\" > \"$JOB/hybrid-training.log\" 2>&1 &\nwait\nsha256sum \"$JOB/baseline-f7.json\" \"$JOB/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\n\nstage calibrate-thresholds-jan2016\n# Pre-registered rule: keep theta 0.55/0.45 with the gate off unless the January-2016 validation\n# hit rate at 0.55/0.45 is below 0.5; the grid is recorded either way and never uses 2016 data.\nCALIB_JOB=\"$JOB\" uv run python \"$JOB/calibrate_thresholds.py\" \"$JOB/threshold-calibration.json\" > \"$JOB/calibration.log\" 2>&1\n\nstage \"baseline+hybrid-2016-03..10\"\nfor strategy in baseline hybrid; do\n  uv run algo-backtest run --strategy $strategy --symbol EURUSD --from 2016-03-01 --to 2016-10-31 \\\n    --param cash=10000 --model \"$JOB/$strategy-f7.json\" --timeout 43200 \\\n    > \"$JOB/$strategy-simulation.log\" 2>&1 &\ndone\nwait\nstage complete\n"
+          "text": "#!/usr/bin/env bash\n# Story 12 main experiment \u2014 one-year training protocol (registered 2026-09-27 with the user):\n#   family fitting     2015-03-02 .. 2015-12-31  (GDELT 2.0 collection starts 2015-02-18; March is the first full month)\n#   combiner calibration 2016-01-01 .. 2016-01-31   (thresholds checked here, before simulation)\n#   held-out partition 2016-02-01 .. 2016-02-29   (trainer only, no replay)\n#   simulation         2016-03-01 .. 2016-10-31   one continuous run per strategy, $10,000, A05 plan\n#   (October 2016 finished ingesting 2026-09-27 evening and was added before the job's first stage completed)\n# Isolated data root: completed canonical GDELT months 2015-03..2016-10 linked in, own features.\nset -euo pipefail\nSUITE=${SUITE:-/tmp/mba-story12/algo-suite}\nSUITE_DATA=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data\nJOB=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol\nexport ALGO_DATA_ROOT=\"$JOB/data\"\nexport PYTHONUNBUFFERED=1 ALGO_BROKER__ADAPTER=oanda OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 LOKY_MAX_CPU_COUNT=6\ncd \"$SUITE\"\nexec 9>\"$JOB/run.lock\"; flock -n 9 || exit 1\ntrap 'code=$?; printf \"exit_code=%s finished=%s\\n\" \"$code\" \"$(date -Iseconds)\" > \"$JOB/exit-status.txt\"' EXIT\nstage() { printf '%s %s\\n' \"$(date -Iseconds)\" \"$1\" | tee \"$JOB/status.txt\"; }\n\nstage link-data\nmkdir -p \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2015\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=2016\"\nln -sfn \"$SUITE_DATA/parquet/forex\" \"$ALGO_DATA_ROOT/parquet/forex\"\nln -sfn \"$SUITE_DATA/lean-data\" \"$ALGO_DATA_ROOT/lean-data\"\nfor ym in 2015-03 2015-04 2015-05 2015-06 2015-07 2015-08 2015-09 2015-10 2015-11 2015-12 \\\n          2016-01 2016-02 2016-03 2016-04 2016-05 2016-06 2016-07 2016-08 2016-09 2016-10; do\n  y=${ym%-*}; m=${ym#*-}\n  source_dir=\"$SUITE_DATA/parquet/events/gdelt/year=$y/month=$m\"\n  test -f \"$source_dir/.done\"\n  ln -sfn \"$source_dir\" \"$ALGO_DATA_ROOT/parquet/events/gdelt/year=$y/month=$m\"\ndone\ngit -C \"$SUITE\" rev-parse HEAD > \"$JOB/git-revision.txt\"; git -C \"$SUITE\" status --short >> \"$JOB/git-revision.txt\"\n\nstage build-event-features\n# Through 2016-11-01 so the last October bar's decision minute (2016-11-01 00:00 UTC) is covered;\n# month 2016-11 is a partial feature partition (one minute of 2016-11-01), never a training input.\nuv run algo-score events --kind gdelt --from 2015-03-01 --to 2016-11-01 > \"$JOB/event-features.log\" 2>&1\n\nstage train-baseline+hybrid\nuv run python algo-backtest/scripts/train_baseline_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/baseline-f7.json\" > \"$JOB/baseline-training.log\" 2>&1 &\nuv run python algo-backtest/scripts/train_hybrid_meta_learner.py --symbol EURUSD \\\n  --from 2015-03-02 --train-end 2015-12-31 --validation-end 2016-01-31 --test-end 2016-02-29 \\\n  --out \"$JOB/hybrid-f7.json\" > \"$JOB/hybrid-training.log\" 2>&1 &\nwait\nsha256sum \"$JOB/baseline-f7.json\" \"$JOB/hybrid-f7.json\" > \"$JOB/model-hashes.txt\"\nuv run algo-backtest explain-strategy baseline > \"$JOB/baseline-parameters.txt\"\nuv run algo-backtest explain-strategy hybrid > \"$JOB/hybrid-parameters.txt\"\n\nstage calibrate-thresholds-jan2016\n# Pre-registered rule: keep theta 0.55/0.45 with the gate off unless the January-2016 validation\n# hit rate at 0.55/0.45 is below 0.5; the grid is recorded either way and never uses 2016 data.\nCALIB_JOB=\"$JOB\" uv run python \"$JOB/calibrate_thresholds.py\" \"$JOB/threshold-calibration.json\" > \"$JOB/calibration.log\" 2>&1\n\nstage \"baseline+hybrid-2016-03..10\"\nfor strategy in baseline hybrid; do\n  uv run algo-backtest run --strategy $strategy --symbol EURUSD --from 2016-03-01 --to 2016-10-31 \\\n    --param cash=10000 --model \"$JOB/$strategy-f7.json\" --timeout 43200 \\\n    > \"$JOB/$strategy-simulation.log\" 2>&1 &\ndone\nwait\nstage complete\n"
         },
         "status.txt": {
           "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-one-year-protocol/status.txt",
@@ -7311,8 +7311,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/spockfx-dragon03/20260928T000820-8c1aad8bf6ec",
-      "run_id": "spockfx-dragon03/20260928T000820-8c1aad8bf6ec",
+      "key": "2026-09-26-six-month-pilot/ha-h1-template/20260928T000820-8c1aad8bf6ec",
+      "run_id": "ha-h1-template/20260928T000820-8c1aad8bf6ec",
       "job": "2026-09-27-variant-sweep-sept-b",
       "status": "successful",
       "model_sha256_engine": [
@@ -7327,13 +7327,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/run.json",
           "status": "present",
           "sha256": "fde978510bc98629df7d38635102cc814ef5b149ec0fcf9bc54de7992d9a532b",
           "bytes": 314,
           "mtime_utc": "2026-09-28T00:11:31.261Z",
           "value": {
-            "strategy": "spockfx-dragon03",
+            "strategy": "ha-h1-template",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -7347,7 +7347,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/metrics.json",
           "status": "present",
           "sha256": "99b753c01ac78eba57656d827a9988c5cd86851c718c4aadc07df06d40b5f1cd",
           "bytes": 97,
@@ -7360,7 +7360,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/strategy-config.json",
           "status": "present",
           "sha256": "ecee176de3a360c5f65576682b611b1ba7312ed12343e8ca5b6e684ed8b8c935",
           "bytes": 1893,
@@ -7459,7 +7459,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/strategy-config.yaml",
           "status": "present",
           "sha256": "79076a8244c324c3474d2ad244bd7d060c69a01873c47ea2341808603d9c5722",
           "bytes": 1398,
@@ -7467,7 +7467,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 3.0\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.5\n  targets:\n  - at_level_ratio: 3.0\n    close_fraction: 1.0\n  trail_stops:\n  - at_level_ratio: 1.0\n    to_level_ratio: -0.66\n  - at_level_ratio: 1.5\n    to_level_ratio: 0.0\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/strategy-provenance.json",
           "status": "present",
           "sha256": "a5b744ae67867958788bc10320455fc7782a51f888a1fc0ff32bd0c1fd1d2609",
           "bytes": 2456,
@@ -7476,16 +7476,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon03/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-h1-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon03/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon03/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon03/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-h1-template/config.yaml",
+            "capital_mgmt.targets": "ha-h1-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-h1-template/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
@@ -7515,11 +7515,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "spockfx-dragon03/config.yaml"
+            "schema_version": "ha-h1-template/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -7537,7 +7537,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/main-log.txt",
           "status": "present",
           "sha256": "ad978b3a19b1c29c47b31f3ae46cb8ad60c96b3a47021157f6414c5476f20df4",
           "bytes": 77441,
@@ -7558,7 +7558,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/log.txt",
           "status": "present",
           "sha256": "c1536ef877cdb8594cf9ad50d637a627a918faec5b5e501c0f5f212be95510a9",
           "bytes": 127124,
@@ -7579,49 +7579,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/equity.csv",
           "status": "present",
           "sha256": "096af69c83704eb523619b14db88e39ea5a1ccc73493e07e7a2638542a10b17a",
           "bytes": 157197,
           "mtime_utc": "2026-09-28T00:11:31.764Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/trades.json",
           "status": "present",
           "sha256": "7cb47d01dea06563f421ea0235d4e6d0f863f305c4cc79c0d482a1ae5ef40c54",
           "bytes": 86469,
           "mtime_utc": "2026-09-28T00:11:31.261Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/trade-plans.json",
           "status": "present",
           "sha256": "acd61d3b62c2c33ed1897ab4c1b47d4b0eb6115591975dce7c8dc1ce361a7746",
           "bytes": 101644,
           "mtime_utc": "2026-09-28T00:11:25.406Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/main.json",
           "status": "present",
           "sha256": "b90bf14514b3240b3de74d32cfa771ad15d08601befa805e8c7d0b115a2e05ac",
           "bytes": 643098,
           "mtime_utc": "2026-09-28T00:11:25.554Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/main-summary.json",
           "status": "present",
           "sha256": "af732d797897a5c4368f7d692437976873a1863a6dc6f00fc74accefc4d9c384",
           "bytes": 4934,
           "mtime_utc": "2026-09-28T00:11:25.444Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/statement.md",
           "status": "present",
           "sha256": "abfb81be3b1e815509c72ac094b30d12afaf0d385d15ba96c3bff7f4558c4291",
           "bytes": 29863,
           "mtime_utc": "2026-09-28T00:11:31.755Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03/20260928T000820-8c1aad8bf6ec/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template/20260928T000820-8c1aad8bf6ec/decisions.parquet",
           "status": "present",
           "sha256": "5bcc4a324cd6ddc5c8e462d6bf54d30fb65c0cce89d5af957a6793be8c28aaac",
           "bytes": 5351727,
@@ -7755,16 +7755,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon03/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-h1-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon03/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon03/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon03/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-h1-template/config.yaml",
+            "capital_mgmt.targets": "ha-h1-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-h1-template/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
             "price_features.swing_lookback_bars": "baseline/config.yaml"
           }
@@ -7818,8 +7818,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea",
-      "run_id": "spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea",
+      "key": "2026-09-26-six-month-pilot/ha-h1-template-atr/20260928T000821-8c1ab34b3bea",
+      "run_id": "ha-h1-template-atr/20260928T000821-8c1ab34b3bea",
       "job": "2026-09-27-variant-sweep-sept-b",
       "status": "successful",
       "model_sha256_engine": [
@@ -7834,13 +7834,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/run.json",
           "status": "present",
           "sha256": "5b0be6696d8193f3a5e335bca079fb360d614e1958d5a8035c1adf110bbc8d55",
           "bytes": 318,
           "mtime_utc": "2026-09-28T00:31:58.666Z",
           "value": {
-            "strategy": "spockfx-dragon03-atr",
+            "strategy": "ha-h1-template-atr",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -7854,7 +7854,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/metrics.json",
           "status": "present",
           "sha256": "a50c47014539770f3392d5cbd74984a0d58f92d8e9c5463f039900f01296a778",
           "bytes": 97,
@@ -7867,7 +7867,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/strategy-config.json",
           "status": "present",
           "sha256": "557b82527a4f3ad5e3456cb6fea437cab45de5ca2eac948b35048d8ed8fdfedc",
           "bytes": 1892,
@@ -7966,7 +7966,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/strategy-config.yaml",
           "status": "present",
           "sha256": "3733d1a3e61082a368af370a5cb91ad6f82c11bf0964e475efb88b8292a6a129",
           "bytes": 1397,
@@ -7974,25 +7974,25 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 4.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 3.0\n  min_stop_factor: 1.2\n  min_stop_pips: 10.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.01\n  stop_distance_source: atr\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.5\n  targets:\n  - at_level_ratio: 3.0\n    close_fraction: 1.0\n  trail_stops:\n  - at_level_ratio: 1.0\n    to_level_ratio: -0.66\n  - at_level_ratio: 1.5\n    to_level_ratio: 0.0\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/strategy-provenance.json",
           "status": "present",
           "sha256": "9ba3871b94684948dd39e737a0e4681d3051957aa1ccebd07c378ccf4e1158c3",
           "bytes": 2524,
           "mtime_utc": "2026-09-28T00:08:21.055Z",
           "value": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.atr_multiplier": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.min_stop_pips": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.stop_distance_source": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.risk_per_trade": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.stop_distance_source": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.targets": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.trail_stops": "ha-h1-template-atr/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
@@ -8022,11 +8022,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "spockfx-dragon03-atr/config.yaml"
+            "schema_version": "ha-h1-template-atr/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -8044,7 +8044,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/main-log.txt",
           "status": "present",
           "sha256": "d8cd71e2c9d32681b9d40dfeec3079d49fe356b9fd2412a656961ab400b7e26a",
           "bytes": 463726,
@@ -8065,7 +8065,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/log.txt",
           "status": "present",
           "sha256": "a47172b4a10f4f0e61c0564bb39714079cb1ea097ef1f9f77eef715a3581f2ff",
           "bytes": 751153,
@@ -8086,49 +8086,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/equity.csv",
           "status": "present",
           "sha256": "7264d0b81d1550be5daae6d3fba66904cbf46ad0139ec11feb813d0236a8c118",
           "bytes": 157330,
           "mtime_utc": "2026-09-28T00:31:59.165Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/trades.json",
           "status": "present",
           "sha256": "6c794c23423e65440ceb38f65d1c3da943b121e973738e105ee848caf58dd024",
           "bytes": 262131,
           "mtime_utc": "2026-09-28T00:31:58.665Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/trade-plans.json",
           "status": "present",
           "sha256": "6e45ea70be8a8f3623fdc5de617662897ae467605b0a76d00b661c5e390ae3d2",
           "bytes": 303450,
           "mtime_utc": "2026-09-28T00:31:51.746Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/main.json",
           "status": "present",
           "sha256": "e1c976e9fd9a83ceede36eed63f863ade64ef4c38c83608aafd1ef1f128442d3",
           "bytes": 1749179,
           "mtime_utc": "2026-09-28T00:31:51.910Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/main-summary.json",
           "status": "present",
           "sha256": "c347facb4efc74c77baca526b5426f2cacdeb85c22b565df36bcbe824ac0d0d4",
           "bytes": 4948,
           "mtime_utc": "2026-09-28T00:31:51.784Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/statement.md",
           "status": "present",
           "sha256": "8227618cc00fff6fc17930ac299235de0bda75bc856e100a1363de5e653367a2",
           "bytes": 82070,
           "mtime_utc": "2026-09-28T00:31:59.157Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-h1-template-atr/20260928T000821-8c1ab34b3bea/decisions.parquet",
           "status": "present",
           "sha256": "d5fb2e5e959bf3541714bf560809851c1372fb853d9b8520dd6d91f09f0c1161",
           "bytes": 5417839,
@@ -8260,18 +8260,18 @@
           "missing_values": [],
           "provenance": {
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
-            "capital_mgmt.atr_multiplier": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.atr_multiplier": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
-            "capital_mgmt.min_stop_pips": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.min_stop_pips": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
-            "capital_mgmt.risk_per_trade": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.stop_distance_source": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.risk_per_trade": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.stop_distance_source": "ha-h1-template-atr/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon03-atr/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon03-atr/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.targets": "ha-h1-template-atr/config.yaml",
+            "capital_mgmt.trail_stops": "ha-h1-template-atr/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
             "price_features.swing_lookback_bars": "baseline/config.yaml"
           }
@@ -8325,8 +8325,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/spockfx-dragon05/20260928T000821-8c1ab730ce29",
-      "run_id": "spockfx-dragon05/20260928T000821-8c1ab730ce29",
+      "key": "2026-09-26-six-month-pilot/ha-1r2r-template/20260928T000821-8c1ab730ce29",
+      "run_id": "ha-1r2r-template/20260928T000821-8c1ab730ce29",
       "job": "2026-09-27-variant-sweep-sept-b",
       "status": "successful",
       "model_sha256_engine": [
@@ -8341,13 +8341,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/run.json",
           "status": "present",
           "sha256": "1116ac81b4ccd9895a8b0b418efe835cccd3999e756d9e8a9864ea91d3f0da1f",
           "bytes": 312,
           "mtime_utc": "2026-09-28T00:11:52.538Z",
           "value": {
-            "strategy": "spockfx-dragon05",
+            "strategy": "ha-1r2r-template",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -8361,7 +8361,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/metrics.json",
           "status": "present",
           "sha256": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908",
           "bytes": 84,
@@ -8374,7 +8374,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/strategy-config.json",
           "status": "present",
           "sha256": "f28e65bcc6d65813cd6d17db9543c6e16a1010ce9b9baf2cf4c964fd69f5e7dd",
           "bytes": 1891,
@@ -8473,7 +8473,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/strategy-config.yaml",
           "status": "present",
           "sha256": "08110b936269dfdbb574b162d1ae9ff96a03bdfbf71e5913f95cb835b639e3fe",
           "bytes": 1396,
@@ -8481,7 +8481,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 2.0\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.5\n  targets:\n  - at_level_ratio: 1.0\n    close_fraction: 0.5\n  - at_level_ratio: 2.0\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 1.0\n    to_level_ratio: 0.0\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/strategy-provenance.json",
           "status": "present",
           "sha256": "0477c5fa91de044447d90d4c2c0d82e906fd9d82433334b475c823b837f3005e",
           "bytes": 2456,
@@ -8490,16 +8490,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon05/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-1r2r-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon05/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon05/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon05/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-1r2r-template/config.yaml",
+            "capital_mgmt.targets": "ha-1r2r-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-1r2r-template/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
@@ -8529,11 +8529,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "spockfx-dragon05/config.yaml"
+            "schema_version": "ha-1r2r-template/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -8551,7 +8551,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/main-log.txt",
           "status": "present",
           "sha256": "63990f98209bca7cecaa5dc113d0597e861fd35c7c79fd2d538df89b0d4008a2",
           "bytes": 652,
@@ -8572,7 +8572,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/log.txt",
           "status": "present",
           "sha256": "62f43e6e6d14bccca63f2cc8e701a271ac8b36a771a3a7b6feba9491f82590ca",
           "bytes": 8795,
@@ -8593,49 +8593,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/equity.csv",
           "status": "present",
           "sha256": "07814feee2228b7e3f2de5467fc2757983957adc308bbec7124282c284673e4e",
           "bytes": 110529,
           "mtime_utc": "2026-09-28T00:11:52.998Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/trades.json",
           "status": "present",
           "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
           "bytes": 2,
           "mtime_utc": "2026-09-28T00:11:52.538Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/trade-plans.json",
           "status": "present",
           "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
           "bytes": 3,
           "mtime_utc": "2026-09-28T00:11:46.471Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/main.json",
           "status": "present",
           "sha256": "0f175c3a6ace09e0a815ba3a757bf1674d7523de1c456e4a23322c81a2b0aaf8",
           "bytes": 160577,
           "mtime_utc": "2026-09-28T00:11:46.607Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/main-summary.json",
           "status": "present",
           "sha256": "5082942970edf5f3cafa5595d9f97e47ccae0b0102440d74e1fb48a60dbef6dc",
           "bytes": 4508,
           "mtime_utc": "2026-09-28T00:11:46.517Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/statement.md",
           "status": "present",
           "sha256": "d3a65f169f925f3a68d5ac431979b58193debfe3962b01988777eed8030e3f37",
           "bytes": 4638,
           "mtime_utc": "2026-09-28T00:11:52.990Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-dragon05/20260928T000821-8c1ab730ce29/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-1r2r-template/20260928T000821-8c1ab730ce29/decisions.parquet",
           "status": "present",
           "sha256": "ee5335c634ac05dd88c1fca0f4ccbd74c18a83f534eb9116c8d69744d95f4a8e",
           "bytes": 5815120,
@@ -8769,16 +8769,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-dragon05/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-1r2r-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-dragon05/config.yaml",
-            "capital_mgmt.targets": "spockfx-dragon05/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-dragon05/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-1r2r-template/config.yaml",
+            "capital_mgmt.targets": "ha-1r2r-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-1r2r-template/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
             "price_features.swing_lookback_bars": "baseline/config.yaml"
           }
@@ -8832,8 +8832,8 @@
       }
     },
     {
-      "key": "2026-09-26-six-month-pilot/spockfx-setupnow/20260928T000821-8c1ab3550b58",
-      "run_id": "spockfx-setupnow/20260928T000821-8c1ab3550b58",
+      "key": "2026-09-26-six-month-pilot/ha-setup-template/20260928T000821-8c1ab3550b58",
+      "run_id": "ha-setup-template/20260928T000821-8c1ab3550b58",
       "job": "2026-09-27-variant-sweep-sept-b",
       "status": "successful",
       "model_sha256_engine": [
@@ -8848,13 +8848,13 @@
       "processes": [],
       "files": {
         "run.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/run.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/run.json",
           "status": "present",
           "sha256": "6b41341de67e07c72688158490d3e1e941c2acccd7b9bd2a2fc2b61ef0c5aa48",
           "bytes": 312,
           "mtime_utc": "2026-09-28T00:12:13.397Z",
           "value": {
-            "strategy": "spockfx-setupnow",
+            "strategy": "ha-setup-template",
             "symbol": "EURUSD",
             "start": "2015-09-01",
             "end": "2015-09-30",
@@ -8868,7 +8868,7 @@
           }
         },
         "metrics.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/metrics.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/metrics.json",
           "status": "present",
           "sha256": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908",
           "bytes": 84,
@@ -8881,7 +8881,7 @@
           }
         },
         "strategy-config.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/strategy-config.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/strategy-config.json",
           "status": "present",
           "sha256": "b0307b9fa66acfbad345359f99fa9bf1cf697f5d077fc48729a2440865d214fe",
           "bytes": 1891,
@@ -8980,7 +8980,7 @@
           }
         },
         "strategy-config.yaml": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/strategy-config.yaml",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/strategy-config.yaml",
           "status": "present",
           "sha256": "730f99e977ae1bff4cb30b1f3e39fc345f198079eef29f20dc5f8357ffeb277a",
           "bytes": 1396,
@@ -8988,7 +8988,7 @@
           "text": "capital_mgmt:\n  assumed_leverage: 30.0\n  atr_multiplier: 2.0\n  lot_notional_units: 100000.0\n  min_reward_risk: 1.5\n  min_stop_factor: 1.2\n  min_stop_pips: 5.0\n  pip_value_per_lot: 10.0\n  risk_per_trade: 0.03\n  stop_distance_source: swing\n  stop_loss_pips: 20.0\n  stop_loss_shrink: 0.5\n  targets:\n  - at_level_ratio: 1.0\n    close_fraction: 0.5\n  - at_level_ratio: 1.5\n    close_fraction: 0.5\n  trail_stops:\n  - at_level_ratio: 0.5\n    to_level_ratio: 0.0\nexecution:\n  broker_stop_level_pips: 0.0\n  close_on_veto: false\n  commission_per_lot: 0.0\n  min_hold_bars: 0\n  spread_pips: 1.0\nfilters:\n- f1_trend\n- f2_indicator\n- f3_pattern\n- f5_risk_guard\n- f6_capital_mgmt\n- f7_meta_learner\nindicator:\n  macd_hist_threshold: 0.0\n  rsi_midline: 50.0\nmeta_learner:\n  families:\n  - trend\n  - indicator\n  - pattern\n  label_horizon_minutes: 15\n  regime_gate: false\n  theta_high: 0.55\n  theta_low: 0.45\npattern:\n  bearish_patterns:\n  - bearish_engulfing\n  - evening_star\n  - shooting_star\n  bullish_patterns:\n  - bullish_engulfing\n  - hammer\n  - morning_star\nprice_features:\n  atr_period: 14\n  ema_fast: 3\n  ema_higher_tf: 60\n  ema_slow: 8\n  macd_fast: 12\n  macd_signal: 9\n  macd_slow: 26\n  rsi_period: 14\n  swing_lookback_bars: 60\nrisk_guard:\n  daily_drawdown_limit: -0.05\n  max_concurrent_trades_per_account: 2\n  max_leverage: 30\n  portfolio_at_risk_cap: 0.1\n  weekly_drawdown_limit: -0.15\nschema_version: 2\n"
         },
         "strategy-provenance.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/strategy-provenance.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/strategy-provenance.json",
           "status": "present",
           "sha256": "e690b2c59b53db9018248f0bf5b49cba77f45c57924bdf3805e0a533e5cdb5db",
           "bytes": 2456,
@@ -8997,16 +8997,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-setupnow/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-setup-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-setupnow/config.yaml",
-            "capital_mgmt.targets": "spockfx-setupnow/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-setupnow/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-setup-template/config.yaml",
+            "capital_mgmt.targets": "ha-setup-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-setup-template/config.yaml",
             "execution.broker_stop_level_pips": "baseline/config.yaml",
             "execution.close_on_veto": "baseline/config.yaml",
             "execution.commission_per_lot": "baseline/config.yaml",
@@ -9036,11 +9036,11 @@
             "risk_guard.max_leverage": "baseline/config.yaml",
             "risk_guard.portfolio_at_risk_cap": "baseline/config.yaml",
             "risk_guard.weekly_drawdown_limit": "baseline/config.yaml",
-            "schema_version": "spockfx-setupnow/config.yaml"
+            "schema_version": "ha-setup-template/config.yaml"
           }
         },
         "inference-inputs.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/inference-inputs.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/inference-inputs.json",
           "status": "present",
           "sha256": "035c5e4d62525d947a30cc8e57f9bb070f24c3c7c8c196bbe14cb6891dd83765",
           "bytes": 227,
@@ -9058,7 +9058,7 @@
           }
         },
         "main-log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/main-log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/main-log.txt",
           "status": "present",
           "sha256": "b94d9a65fb7d0d216fb4dc4c4db85dec127de451cdf0e26da6ac04f16901eb8b",
           "bytes": 652,
@@ -9079,7 +9079,7 @@
           ]
         },
         "log.txt": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/log.txt",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/log.txt",
           "status": "present",
           "sha256": "8951c07ad59646efd45853ed8f8b8b4d8c0287a74e7767a0f0eb8949cd76e116",
           "bytes": 8795,
@@ -9100,49 +9100,49 @@
           ]
         },
         "equity.csv": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/equity.csv",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/equity.csv",
           "status": "present",
           "sha256": "07814feee2228b7e3f2de5467fc2757983957adc308bbec7124282c284673e4e",
           "bytes": 110529,
           "mtime_utc": "2026-09-28T00:12:13.882Z"
         },
         "trades.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/trades.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/trades.json",
           "status": "present",
           "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
           "bytes": 2,
           "mtime_utc": "2026-09-28T00:12:13.396Z"
         },
         "trade-plans.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/trade-plans.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/trade-plans.json",
           "status": "present",
           "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
           "bytes": 3,
           "mtime_utc": "2026-09-28T00:12:07.337Z"
         },
         "main.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/main.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/main.json",
           "status": "present",
           "sha256": "90557fadd64d39114e359a194b251ce024b0a5063315c6c4aad1fff709e723f4",
           "bytes": 160577,
           "mtime_utc": "2026-09-28T00:12:07.460Z"
         },
         "main-summary.json": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/main-summary.json",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/main-summary.json",
           "status": "present",
           "sha256": "ca04f54296140b4a8b21a76cb2527a3459718a6a7539b20c797430e8527e4a52",
           "bytes": 4508,
           "mtime_utc": "2026-09-28T00:12:07.381Z"
         },
         "statement.md": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/statement.md",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/statement.md",
           "status": "present",
           "sha256": "20f7352b46f3eadb657d9d455f43c119fa83d570c1ddaa8379b25c3bc33f4448",
           "bytes": 4638,
           "mtime_utc": "2026-09-28T00:12:13.871Z"
         },
         "decisions.parquet": {
-          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/spockfx-setupnow/20260928T000821-8c1ab3550b58/decisions.parquet",
+          "path": "/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data/runs/ha-setup-template/20260928T000821-8c1ab3550b58/decisions.parquet",
           "status": "present",
           "sha256": "6921d618aa9cfcff096cca78cd4f010dae42efc26a6f60a2f6a59a33d637d2dc",
           "bytes": 5807148,
@@ -9276,16 +9276,16 @@
             "capital_mgmt.assumed_leverage": "baseline/config.yaml",
             "capital_mgmt.atr_multiplier": "baseline/config.yaml",
             "capital_mgmt.lot_notional_units": "baseline/config.yaml",
-            "capital_mgmt.min_reward_risk": "spockfx-setupnow/config.yaml",
+            "capital_mgmt.min_reward_risk": "ha-setup-template/config.yaml",
             "capital_mgmt.min_stop_factor": "baseline/config.yaml",
             "capital_mgmt.min_stop_pips": "baseline/config.yaml",
             "capital_mgmt.pip_value_per_lot": "baseline/config.yaml",
             "capital_mgmt.risk_per_trade": "baseline/config.yaml",
             "capital_mgmt.stop_distance_source": "baseline/config.yaml",
             "capital_mgmt.stop_loss_pips": "baseline/config.yaml",
-            "capital_mgmt.stop_loss_shrink": "spockfx-setupnow/config.yaml",
-            "capital_mgmt.targets": "spockfx-setupnow/config.yaml",
-            "capital_mgmt.trail_stops": "spockfx-setupnow/config.yaml",
+            "capital_mgmt.stop_loss_shrink": "ha-setup-template/config.yaml",
+            "capital_mgmt.targets": "ha-setup-template/config.yaml",
+            "capital_mgmt.trail_stops": "ha-setup-template/config.yaml",
             "price_features.atr_period": "baseline/config.yaml",
             "price_features.swing_lookback_bars": "baseline/config.yaml"
           }
@@ -10856,48 +10856,21 @@
     "bytes": 19108,
     "mtime_utc": "2026-09-27T04:44:44.552Z",
     "tail": [
-      "│ │        │   nullable=False,                     │                           │",
-      "│ │        │   reference_value=None                │                           │",
-      "│ │        )                                       │                           │",
-      "│ ╰────────────────────────────────────────────────╯                           │",
-      "╰──────────────────────────────────────────────────────────────────────────────╯",
+      "\u2502 \u2502        \u2502   nullable=False,                     \u2502                           \u2502",
+      "\u2502 \u2502        \u2502   reference_value=None                \u2502                           \u2502",
+      "\u2502 \u2502        )                                       \u2502                           \u2502",
+      "\u2502 \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f                           \u2502",
+      "\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f",
       "MissingTradingParameter: missing trading-impactful parameter 'adapter' in ",
       "section 'broker' (reference value: None); run the config_generator to scaffold ",
       "it"
     ],
     "identity_lines": [
       "2026-09-27T04:44:44.482372Z [error    ] unhandled_error                error='MissingTradingParameter(\"missing trading-impactful parameter \\'adapter\\' in section \\'broker\\' (reference value: None); run the config_generator to scaffold it\")'",
-      "│ ❱ 111 │   raise MissingTradingParameter(spec)                                │",
+      "\u2502 \u2771 111 \u2502   raise MissingTradingParameter(spec)                                \u2502",
       "MissingTradingParameter: missing trading-impactful parameter 'adapter' in "
     ]
   },
-  "spockfx_sources": [
-    {
-      "path": "/home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf/deploy.xml",
-      "status": "present",
-      "sha256": "e08fa4a3dd8e447810f1bd12c2f6c52922c13ee6a78afd73253d6ee6a992e3e1",
-      "bytes": 3339,
-      "mtime_utc": "2026-09-26T07:34:31.118Z",
-      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<beans xmlns=\"http://www.springframework.org/schema/beans\"\n\txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:aop=\"http://www.springframework.org/schema/aop\"\n\txsi:schemaLocation=\"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd\">\n\t\n\t<bean id=\"defaultRiskProvider\" parent=\"riskProvider\">\n\t\t<property name=\"className\" value=\"spockfx.engine.DefaultRiskProvider\" />\n\t\t<property name=\"params\">\n\t\t\t<map>\n\t\t\t\t<entry key=\"riskLevel1\" value=\"3.0\" />\n\t\t\t\t<entry key=\"riskLimit1\" value=\"18.0\" />\n\t\t\t</map>\n\t\t</property>\n\t</bean>\t\n\t\n\t<bean id=\"japaDragonInstrumentDeploy\" parent=\"instrumentDeploy\">\n\t\t<property name=\"strategy\" ref=\"japaDragonStrategy08\" />\n\t\t<property name=\"riskProvider\" ref=\"defaultRiskProvider\" />\n\t\t<property name=\"stopLossCut\" value=\"50\" />\n\t\t<property name=\"period\" value=\"240\" />\n\t</bean>\t\n\n\t<bean id=\"buyNowInstrumentDeploy\" parent=\"instrumentDeploy\">\n\t\t<property name=\"strategy\" ref=\"buySetupNowStrategy\" />\n\t\t<property name=\"riskProvider\" ref=\"defaultRiskProvider\" />\n\t\t<property name=\"stopLossCut\" value=\"50\" />\n\t\t<property name=\"period\" value=\"240\" />\n\t</bean>\t\n\t\n\t<bean id=\"standardAccountDeploy\" parent=\"accountDeploy\">\n\t\n\t\t<property name=\"enabled\" value=\"true\" />\n\t\t<property name=\"metatraderName\" value=\"standardMetatrader\" />\n\t\t<property name=\"statement\" ref=\"standardStatement\" />\n\t\t\n\t\t<property name=\"instrumentDeployProviders\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"instrumentDeployProvider\">\n\t\t\t\t\t<property name=\"name\" value=\"instrumentSelectorDeployProvider\" />\n\t\t\t\t\t<property name=\"params\">\n\t\t\t\t\t\t<map>\n\t\t\t\t\t\t\t<entry key=\"period\" value=\"60\" />\n\t\t\t\t\t\t\t<entry key=\"risk\" value=\"3.0\" />\n\t\t\t\t\t\t\t<entry key=\"stoplossCut\" value=\"20.0\" />\n\t\t\t\t\t\t\t<entry key=\"strategyName\" value=\"japaDragonStrategy03\" />\n\t\t\t\t\t\t</map>\n\t\t\t\t\t</property>\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\n\t\t\n\t\t<property name=\"instrumentDeploys\">\n\t\t\t<list>\n\t\t\t\n\t\t\t\t<!-- \n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"EURUSD\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"AUDUSD\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"USDCHF\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"NZDUSD\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"XAUUSD\" />\n\t\t\t\t</bean>\n\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"GBPUSD\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"EURJPY\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"GBPJPY\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"NZDJPY\" />\n\t\t\t\t</bean>\t\t\t\t\t\t\t\t\t\t\t\t\n\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"AUDJPY\" />\n\t\t\t\t</bean>\t\t\t\t\t\t\t\t\t\t\t\t\n\t\t\t\t<bean parent=\"buyNowInstrumentDeploy\">\n\t\t\t\t\t<property name=\"symbol\" value=\"EURCAD\" />\n\t\t\t\t</bean>\t\t\n\t\t\t\t\n\t\t\t\t -->\t\t\t\t\t\t\t\t\t\t\n\n\n\t\t\t</list>\n\t\t</property>\n\t</bean>\n\t\n\t<bean id=\"standardDeploy\" parent=\"deploy\">\n\t\t<property name=\"accountDeploys\">\n\t\t\t<list>\n\t\t\t\t<ref bean=\"standardAccountDeploy\"/>\n\t\t\t</list>\n\t\t</property>\n\t</bean>\n</beans>"
-    },
-    {
-      "path": "/home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf/strategies/dragon.xml",
-      "status": "present",
-      "sha256": "1fc70584faf789b4e20270049484b4fcc8e4b74f7908d360aa883c982bfed95e",
-      "bytes": 4443,
-      "mtime_utc": "2026-09-26T07:34:31.643Z",
-      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<beans xmlns=\"http://www.springframework.org/schema/beans\"\n\txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:aop=\"http://www.springframework.org/schema/aop\"\n\txsi:schemaLocation=\"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd\">\n\n\t<bean id=\"japaDragonEntryDetector\" parent=\"standardEntryDetector\">\n\t\t<property name=\"withTrendLine\" value=\"true\" />\n\t\t<property name=\"trendLineBuffer\" ref=\"trendLine40Buffer\" />\n\t\t<property name=\"sellEntryIndicatorBuffer\" ref=\"japaDragonSellEntryPointIndicatorBuffer\" />\n\t\t<property name=\"buyEntryIndicatorBuffer\" ref=\"japaDragonBuyEntryPointIndicatorBuffer\" />\n\t</bean>\n\n\t<bean id=\"japaDragonEntryDetectorWithTrend\" parent=\"japaDragonEntryDetector\">\n\t\t<property name=\"withTrendLine\" value=\"true\" />\n\t</bean>\n\t\n\t<bean id=\"japaDragonEntryDetectorAgainstTrend\" parent=\"japaDragonEntryDetector\">\n\t\t<property name=\"withTrendLine\" value=\"false\" />\n\t</bean>\n\n\t<bean id=\"japaDragonStrategy\" parent=\"strategy\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy\" />\n\t\t<property name=\"entryDetector\" ref=\"japaDragonEntryDetectorWithTrend\" />\n\t\t<property name=\"sellEntryStopLossIndicatorBuffer\" ref=\"japaDragonSellEntryStopLossIndicatorBuffer\" />\n\t\t<property name=\"buyEntryStopLossIndicatorBuffer\" ref=\"japaDragonBuyEntryStopLossIndicatorBuffer\" />\n\t\t<property name=\"closeByExitPoint\">\n\t\t\t<bean parent=\"closeByExitPoint\">\n\t\t\t\t<property name=\"sellExitIndicatorBuffer\" ref=\"japaDragonSellExitIndicatorBuffer\" />\n\t\t\t\t<property name=\"buyExitIndicatorBuffer\" ref=\"japaDragonBuyExitIndicatorBuffer\" />\n\t\t\t</bean>\n\t\t</property>\n\t</bean>\n\n\t<bean id=\"japaDragonStrategy05\" parent=\"japaDragonStrategy\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy05\" />\n\t\t<property name=\"middleTargets\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"middleTarget\">\n\t\t\t\t\t<property name=\"levelRatio\" value=\"1.0\" />\n\t\t\t\t\t<property name=\"lotPercentage\" value=\"50\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\n\t\t<property name=\"trailStops\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"1.0\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"0.0\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\t\t\n\t\t<property name=\"finalTargetRatio\" value=\"2.0\" />\n\t</bean>\n\t\n\t<bean id=\"japaDragonStrategy03\" parent=\"japaDragonStrategy\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy03\" />\n\t\t<property name=\"trailStops\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"1.0\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"-0.66\" />\n\t\t\t\t\t<property name=\"offsetRisk\" value=\"false\" />\n\t\t\t\t</bean>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"1.5\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"0.0\" />\n\t\t\t\t\t<property name=\"offsetRisk\" value=\"true\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\t\t\n\t\t<property name=\"finalTargetRatio\" value=\"3.0\" />\n\t</bean>\t\n\t\n\t<bean id=\"japaDragonStrategy04\" parent=\"japaDragonStrategy\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy04\" />\n\t\t<property name=\"middleTargets\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"middleTarget\">\n\t\t\t\t\t<property name=\"levelRatio\" value=\"2.0\" />\n\t\t\t\t\t<property name=\"lotPercentage\" value=\"50\" />\n\t\t\t\t\t<property name=\"offsetRisk\" value=\"true\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\n\t\t<property name=\"trailStops\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"2.0\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"0.1\" />\n\t\t\t\t\t<property name=\"offsetRisk\" value=\"true\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\t\t\n\t\t<property name=\"finalTargetRatio\" value=\"4.0\" />\n\t</bean>\t\t\n\t\n\t<bean id=\"japaDragonStrategy08\" parent=\"japaDragonStrategy\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy08\" />\n\t\t<property name=\"middleTargets\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"middleTarget\">\n\t\t\t\t\t<property name=\"levelRatio\" value=\"4.0\" />\n\t\t\t\t\t<property name=\"lotPercentage\" value=\"50\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\n\t\t<property name=\"trailStops\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"2.0\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"0.1\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\t\t\n\t\t<property name=\"finalTargetRatio\" value=\"6.0\" />\n\t</bean>\t\n\t\n\t<bean id=\"japaDragonStrategy05AgainstTrend\" parent=\"japaDragonStrategy05\">\n\t\t<property name=\"name\" value=\"japaDragonStrategy05AgainstTrend\" />\n\t\t<property name=\"entryDetector\" ref=\"japaDragonEntryDetectorAgainstTrend\" />\n\t</bean>\n\t\n</beans>"
-    },
-    {
-      "path": "/home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf/strategies/setupnow.xml",
-      "status": "present",
-      "sha256": "d4f361dc776a3b11548f2883177d3d5c72fc52e42fbb5890cb42564bacc62c85",
-      "bytes": 2318,
-      "mtime_utc": "2026-09-26T07:34:31.642Z",
-      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<beans xmlns=\"http://www.springframework.org/schema/beans\"\n\txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:aop=\"http://www.springframework.org/schema/aop\"\n\txsi:schemaLocation=\"http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd\">\n\t\n\t<bean id=\"setupNowStrategy\" parent=\"strategy\">\n\t\t<property name=\"name\" value=\"setupNowStrategy\" />\n\t\t\n\t\t<property name=\"entryDetector\">\n\t\t\t<bean parent=\"standardEntryDetector\">\n\t\t\t\t<property name=\"sellEntryIndicatorBuffer\" ref=\"setupNowEntryIndicatorBuffer\" />\n\t\t\t\t<property name=\"buyEntryIndicatorBuffer\" ref=\"setupNowEntryIndicatorBuffer\" />\n\t\t\t\t<property name=\"bias\">\n\t\t\t\t\t<bean parent=\"bias\">\n\t\t\t\t\t\t<property name=\"upIndicatorBuffer\" ref=\"upJapaDragonTrendIndicatorBuffer\" />\n\t\t\t\t\t\t<property name=\"downIndicatorBuffer\" ref=\"downJapaDragonTrendIndicatorBuffer\" />\n\t\t\t\t\t</bean>\n\t\t\t\t</property>\n\t\t\t</bean>\n\t\t</property>\t\t\n\t\t\n\t\t<property name=\"sellEntryStopLossIndicatorBuffer\" ref=\"setupNowSellStopLossIndicatorBuffer\" />\n\t\t<property name=\"buyEntryStopLossIndicatorBuffer\" ref=\"setupNowBuyStopLossIndicatorBuffer\" />\n\t\t\n\t\t<property name=\"middleTargets\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"middleTarget\">\n\t\t\t\t\t<property name=\"levelRatio\" value=\"1.0\" />\n\t\t\t\t\t<property name=\"lotPercentage\" value=\"50\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\n\n\t\t<property name=\"trailStops\">\n\t\t\t<list>\n\t\t\t\t<bean parent=\"trailStop\">\n\t\t\t\t\t<property name=\"atLevelRatio\" value=\"0.5\" />\n\t\t\t\t\t<property name=\"toLevelRatio\" value=\"0.0\" />\n\t\t\t\t</bean>\n\t\t\t</list>\n\t\t</property>\t\t\n\t\t\n\t\t<property name=\"finalTargetRatio\" value=\"1.5\" />\t\t\n\t</bean>\n\t\n\t<bean id=\"sellSetupNowStrategy\" parent=\"setupNowStrategy\">\n\t\t<property name=\"name\" value=\"sellSetupNowStrategy\" />\n\t\t<property name=\"entryDetector\">\n\t\t\t<bean parent=\"standardEntryDetector\">\n\t\t\t\t<property name=\"sellEntryIndicatorBuffer\" ref=\"setupNowEntryIndicatorBuffer\" />\n\t\t\t</bean>\n\t\t</property>\n\t</bean>\n\t\n\t<bean id=\"buySetupNowStrategy\" parent=\"setupNowStrategy\">\n\t\t<property name=\"name\" value=\"buySetupNowStrategy\" />\n\t\t<property name=\"entryDetector\">\n\t\t\t<bean id=\"buySetupNowStrategyEntryDetector\" parent=\"standardEntryDetector\">\n\t\t\t\t<property name=\"buyEntryIndicatorBuffer\" ref=\"setupNowEntryIndicatorBuffer\" />\n\t\t\t</bean>\n\t\t</property>\n\t</bean>\n\t\n</beans>"
-    }
-  ],
-  "spockfx_revision": "a1ed6b43b3a7652e9d7564998a97d50e81f0bf8f",
   "clock_confirmed_utc": "2026-09-28 00:36:01 UTC",
   "documentation_worktree": {
     "path": "/tmp/mba-pattern-volume",
@@ -10946,5 +10919,6 @@
       "basis": "sequential run.sh; status still baseline-2015-11; no hybrid November log/run directory observed",
       "effective_parameters": "missing; not inferred from baseline or current defaults"
     }
-  ]
+  ],
+  "sanitization_note": "Sanitized 2026-09-28: variant and experiment names use the Heikin-Ashi template naming; entries recording paths or hashes of copied third-party configuration files were deleted; job directories on disk keep their launch-time names; recorded artifact hashes are unchanged."
 }
