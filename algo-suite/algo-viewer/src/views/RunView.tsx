@@ -5,6 +5,7 @@ import type { DecisionSummaryRow, EquitySample, MonthlyReturn, ParameterRow, Run
 import { barLabel, EXIT_KIND_LABELS, lots, minutes, money, pct, price, priceDecimals, signedPct, when } from "../model/format";
 import { LineChart } from "../charts/LineChart";
 import { MonthlyBarsChart } from "../charts/MonthlyBars";
+import { ChainWorkflow } from "./ChainWorkflow";
 
 interface Props {
   api: ApiClient;
@@ -109,8 +110,12 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
           </dl>
         </section>
       </div>
+      <section className="panel" aria-label="Strategy chain">
+        <h2>Strategy chain <span className="muted">(click a filter for what it does and its parameters)</span></h2>
+        <ChainWorkflow parameters={state.data.params} funnel={funnel} />
+      </section>
       <section className="panel" aria-label="Parameters">
-        <h2>Parameters with provenance</h2>
+        <h2>All parameters with provenance</h2>
         {[...params.entries()].map(([section, rows]) => (
           <details key={section} className="params" open={section === "meta_learner"}>
             <summary>{section} <span className="muted">({rows.length})</span></summary>

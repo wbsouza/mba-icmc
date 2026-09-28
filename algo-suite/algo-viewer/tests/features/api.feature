@@ -18,7 +18,7 @@ Feature: Backend API over the results database
       | /api/runs/20260928T010000-fixture                          | has strategy "hybrid", bar_minutes 60, closed_trades 2 and win_rate 0.5 |
       | /api/runs/20260928T010000-fixture/equity                   | is a list of 5 items                                                    |
       | /api/runs/20260928T010000-fixture/monthly                  | is a list of 2 items                                                    |
-      | /api/runs/20260928T010000-fixture/parameters               | is a list of 10 items                                                   |
+      | /api/runs/20260928T010000-fixture/parameters               | is a list of 13 items                                                   |
       | /api/runs/20260928T010000-fixture/trades                   | is a list of 2 items                                                    |
       | /api/runs/20260928T010000-fixture/decision-summary         | is a list of 3 items                                                    |
       | /api/runs/20260928T010000-fixture/trades/1                 | has 8 filters, 5 bars and 0 trail moves                                 |
