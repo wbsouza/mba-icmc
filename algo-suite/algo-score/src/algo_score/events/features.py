@@ -18,18 +18,24 @@ class EventFeatureSpec:
 
     kind: str
     model: type[EventFeature]
-    make_row: Callable[[datetime, float | None], EventFeature]
+    make_row: Callable[[datetime, DailyValue | None], EventFeature]
 
 
 GPR_SPEC = EventFeatureSpec(
     kind="gpr",
     model=GprFeature,
-    make_row=lambda timestamp, value: GprFeature(timestamp=timestamp, gpr=value),
+    make_row=lambda timestamp, daily: GprFeature(
+        timestamp=timestamp, gpr=daily.value if daily else None
+    ),
 )
 GDELT_SPEC = EventFeatureSpec(
     kind="gdelt",
     model=GdeltFeature,
-    make_row=lambda timestamp, value: GdeltFeature(timestamp=timestamp, event_intensity=value),
+    make_row=lambda timestamp, daily: GdeltFeature(
+        timestamp=timestamp,
+        event_intensity=daily.value if daily else None,
+        available_at=daily.available_at if daily else None,
+    ),
 )
 EVENT_FEATURE_SPECS = {
     GPR_SPEC.kind: GPR_SPEC,
@@ -55,5 +61,7 @@ def feature_rows(
     spec: EventFeatureSpec, daily_values: list[DailyValue], minutes: list[datetime]
 ) -> list[EventFeature]:
     """Forward-fill ``daily_values`` over ``minutes`` and build feature rows."""
-    values = forward_filled_values(daily_values, minutes)
-    return [spec.make_row(minute, value) for minute, value in zip(minutes, values, strict=True)]
+    forward_filled = forward_filled_values(daily_values, minutes)
+    return [
+        spec.make_row(minute, daily) for minute, daily in zip(minutes, forward_filled, strict=True)
+    ]

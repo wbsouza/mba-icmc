@@ -45,6 +45,7 @@ def _event_payload() -> bytes:
     row[32] = "2"
     row[33] = "5"
     row[34] = "-1.25"
+    row[59] = "20200102153000"
     row[60] = "https://example.test/1"
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:

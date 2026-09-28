@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import zipfile
-from datetime import date
+from datetime import UTC, date, datetime
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
 
@@ -24,6 +24,7 @@ _NUM_MENTIONS = 31
 _NUM_SOURCES = 32
 _NUM_ARTICLES = 33
 _AVG_TONE = 34
+_DATE_ADDED = 59
 _SOURCE_URL = 60
 
 
@@ -64,6 +65,7 @@ def _row_to_event(row: list[str], raw_path: Path) -> GdeltEvent:
             num_mentions=int(row[_NUM_MENTIONS]),
             num_sources=int(row[_NUM_SOURCES]),
             num_articles=int(row[_NUM_ARTICLES]),
+            date_added=_parse_yyyymmddhhmmss(row[_DATE_ADDED]),
             source_url=row[_SOURCE_URL],
         )
     except (ValueError, ValidationError) as exc:
@@ -73,3 +75,8 @@ def _row_to_event(row: list[str], raw_path: Path) -> GdeltEvent:
 def _parse_yyyymmdd(value: str) -> date:
     """Parse a GDELT YYYYMMDD date string."""
     return date(int(value[0:4]), int(value[4:6]), int(value[6:8]))
+
+
+def _parse_yyyymmddhhmmss(value: str) -> datetime:
+    """Parse a GDELT DATEADDED YYYYMMDDHHMMSS timestamp string as UTC."""
+    return datetime.strptime(value, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
