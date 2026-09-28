@@ -164,10 +164,10 @@ not profitability. Do not fabricate market or training data.
 | RWT-15 | P1 replay | T7, T11, T14 | In Tasks |
 | RWT-16 | P1 replay | T13 | In Tasks |
 | RWT-17 | P1 replay | T5, T6, T12 | In Tasks |
-| RWT-18 | P2 evidence | T1, T15, T18 | In Tasks |
+| RWT-18 | P2 evidence | T1, T15, T18 | Implemented (T1) |
 | RWT-19 | P2 evidence | T14, T15, T16, T18 | In Tasks |
 | RWT-20 | P2 evidence | T16 | In Tasks |
-| RWT-21 | P2 evidence | T1, T16, T17, T18, T19 | In Tasks |
+| RWT-21 | P2 evidence | T1, T16, T17, T18, T19 | Implemented (T1) |
 | RWT-22 | P2 evidence | T17, T19 | In Tasks |
 | RWT-23 | P1 replay | T2, T10 | In Tasks |
 | RWT-24 | P1 replay | T2, T9 | In Tasks |
@@ -175,10 +175,10 @@ not profitability. Do not fabricate market or training data.
 | RWT-26 | P1 replay | T10, T11, T12 | In Tasks |
 | RWT-27 | P1 replay | T10, T15 | In Tasks |
 | RWT-28 | P1 replay | T11 | In Tasks |
-| RWT-29 | P2 evidence | T1, T16 | In Tasks |
+| RWT-29 | P2 evidence | T1, T16 | Implemented (T1) |
 | RWT-30 | P1 replay | T9, T12 | In Tasks |
 
-Coverage: 30 requirements, all mapped, none implemented or verified. RWT-29/30
+Coverage: 30 requirements, all mapped; the Status column tracks each task. RWT-29/30
 make the review's prediction and repeatability evidence explicit; original IDs
 are retained.
 

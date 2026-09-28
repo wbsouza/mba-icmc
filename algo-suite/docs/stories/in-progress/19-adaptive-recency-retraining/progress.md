@@ -1,15 +1,16 @@
 # Story 19 progress and handoff
 
-Status: planned draft. Updated September 28, 2026. Planning owner: Codex.
-Implementation owner: unassigned. No experiment, model fit or engine change has
-been started for this story.
+Status: in progress, Phase 1 (T1 through T5). Updated September 28, 2026.
+Planning owner: Codex. Implementation owner for Phase 1: Claude coder, Lane A.
+No experiment run has been started; the frozen protocol is
+[method-design.md](method-design.md).
 
 ## Working tree and ownership
 
 | Agent | Working tree | Branch | Scope |
 | --- | --- | --- | --- |
 | Codex | /home/wellington/workspace/mba-agents/mba-main | main at 35a0dc9 | Story 19 and parallel coordination documents only |
-| Implementation workers | Not created | Not created | Await explicit execution authorization |
+| Claude coder, Lane A | /tmp/mba-impl-19 | feat/19-adaptive-retraining, base ef0111d | Phase 1 T1 through T5: `algo-backtest/src/algo_backtest/retraining/`, the F7 family-weights patch, their feature/step files, this story's docs |
 
 The earlier 199a4df planning baseline is now merged; session 2 is done Story 20.
 Planning began at 6568120; main advanced to 35a0dc9 when the supervised Story 21
@@ -43,9 +44,9 @@ and exponential weighting without changing entry/risk filters.
 The canonical task definitions and dependencies are in
 [tasks.md](../../../../../.specs/features/recency-weighted-retraining/tasks.md).
 This checklist mirrors those IDs for the repository's per-story progress
-convention; update both in the same tested task commit. All remain pending.
+convention; update both in the same tested task commit.
 
-- [ ] T1: Register the adaptive comparison protocol.
+- [x] T1: Register the adaptive comparison protocol.
 - [ ] T2: Build the incremental data and label-maturity adapter.
 - [ ] T3: Implement exact-UTC epoch planning.
 - [ ] T4: Implement exponential weights and feasibility checks.
@@ -64,6 +65,47 @@ convention; update both in the same tested task commit. All remain pending.
 - [ ] T17: Document the adaptive methodology in Chapter 3.
 - [ ] T18: Execute and archive the registered five-policy study.
 - [ ] T19: Write verified findings into Chapter 4.
+
+## Implementation log
+
+### 2026-09-28 T1: Register the adaptive comparison protocol (Claude coder, Lane A)
+
+What changed and why: wrote [method-design.md](method-design.md), the frozen
+protocol (five policies, temporal contract, weighting, support minima, seed,
+baseline identity with sha256, data inventory with partition checksums,
+analysis plan with the analyzer feasibility check, attempt budget, measured
+resource cap, native-coordination gate, approval of disposition items 1 to 10,
+and the seven pinned readings the specifier fixed). The T0 pre-check and D60
+trial (commits `ca76847`, `0d66abf`) are recorded as prior evidence outside the
+frozen matrix because the parallel-plan commit `ef0111d` dropped those
+amendment sections from this story's `review.md` and the canonical plan never
+absorbed them; a D60 arm needs a separate amendment.
+
+Baseline recorded before any Phase 1 change (cwd `/tmp/mba-impl-19/algo-suite`):
+
+- `uv run pytest algo-backtest/tests -q --co -p no:cacheprovider | tail -1`:
+  `1598/1651 tests collected (53 deselected)`, exit 0.
+- `uv run pytest algo-backtest/tests/steps/test_f7_meta_learner.py
+  algo-backtest/tests/steps/test_f7_model_io.py
+  algo-backtest/tests/steps/test_training_family_contract.py -q`: 86 passed, exit 0.
+- `uv run ruff check algo-backtest`: clean, exit 0. `uv run mypy --strict
+  algo-backtest`: clean (63 source files), exit 0. `uv run ruff format --check
+  algo-backtest`: 66 pre-existing files would be reformatted (exit 1), none in
+  this lane's scope; Phase 1 gates format only on touched files.
+
+Docs gate (cwd `/tmp/mba-impl-19`):
+
+- `git diff --check`: no output, exit 0.
+- `python3 /home/wellington/.claude/skills/tlc-spec-driven/scripts/validate_spec.py
+  .specs/features/recency-weighted-retraining/spec.md --strict`: 0 errors,
+  0 warnings, exit 0.
+- `python3 /home/wellington/.claude/skills/tlc-spec-driven/scripts/validate_tasks.py
+  .specs/features/recency-weighted-retraining/tasks.md --strict`: 0 errors,
+  0 warnings, exit 0.
+
+Data root access: read-only listing and `sha256sum` on
+`/home/wellington/workspace/mba-agents/mba-main/algo-suite/data`; nothing
+written there. Commit: recorded in the git log under the T1 subject. Next: T2.
 
 ## Earlier planning verification (before this amendment)
 
