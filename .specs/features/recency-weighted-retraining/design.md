@@ -44,10 +44,20 @@ Paths below are relative to algo-suite.
 | Protection | algo-backtest/src/algo_backtest/engine/chain_algorithm.py:361 | Preserve minute management and calendar PnL ordering. |
 | Statistical reporting | algo-analyze/src/algo_analyze/reports.py | Reuse strict daily-equity alignment and paired stationary bootstrap. |
 
-Existing session-2 registration is in PR 74 at commit 4be718a, under
-algo-suite/docs/stories/in-progress/15-session-2-clean-rerun/registration.md.
-It is not yet in this checkout. Reference its immutable source; do not assume a
-merge or copy its simulation output into new evidence.
+Session-2 registration and evidence are now in
+algo-suite/docs/stories/done/20-session-2-clean-rerun/. The old PR 74 revision
+remains historical provenance, not the current story location. Do not copy
+its simulation output into new evidence.
+
+## Parallel integration boundary
+
+Follow the [shared delivery plan](../../../algo-suite/docs/stories/parallel-19-21-22.md).
+The retraining lane owns new retraining components and F7 fitting changes.
+An integration owner serializes shared F7, engine, schema, CLI and monograph
+patches. Keep feature contracts pinned: a candle-encoder upgrade is not an
+implicit change to this experiment. No combined research matrix is authorized.
+The [review disposition](../../../algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/review-disposition.md)
+is a T1 review gate; the five-policy design below remains a draft.
 
 ## Proposed study matrix
 

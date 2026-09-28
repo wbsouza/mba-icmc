@@ -8,17 +8,21 @@ been started for this story.
 
 | Agent | Working tree | Branch | Scope |
 | --- | --- | --- | --- |
-| Codex | /home/wellington/workspace/mba-agents/mba-main | docs/13-candlestick-context-plan | Story 19 planning documents only |
+| Codex | /home/wellington/workspace/mba-agents/mba-main | main at 35a0dc9 | Story 19 and parallel coordination documents only |
 | Implementation workers | Not created | Not created | Await explicit execution authorization |
 
-Source baseline inspected: 199a4df. PRs 74–77 are now merged on remote main.
-Intended publication branch: `docs/19-adaptive-recency-retraining`, from main.
-Publication is blocked: local Git metadata is read-only, and the Forgejo branch
-creation call requires approval unavailable under this session's policy.
-No branch, commit or PR was created for Story 19. The local checkout remains on
-its original branch with planning edits retained.
-No new local worktree or subagent was created. Story 19 avoids the Story 18
-market-context allocation. Preserve other stories and PR work.
+The earlier 199a4df planning baseline is now merged; session 2 is done Story 20.
+Planning began at 6568120; main advanced to 35a0dc9 when the supervised Story 21
+documentation update merged as PR 87. The existing move into in-progress is preserved;
+it does not imply implementation has begun. See the
+[parallel plan](../../parallel-19-21-22.md) for future branches/worktrees and all
+planning-helper ownership. No implementation worktrees/workers were created.
+The [review disposition](review-disposition.md) records decisions required at T1.
+
+Intended planning publication branch: `docs/parallel-19-21-22-plan`.
+Creation failed: local Git metadata is read-only; Forgejo requires approval
+unavailable in this session. No new branch, commit, push or PR is claimed for
+this amendment. Existing merged planning commits are not affected.
 
 ## What changed and why
 
@@ -61,7 +65,7 @@ convention; update both in the same tested task commit. All remain pending.
 - [ ] T18: Execute and archive the registered five-policy study.
 - [ ] T19: Write verified findings into Chapter 4.
 
-## Planning verification
+## Earlier planning verification (before this amendment)
 
 - Strict skill spec validator: exit 0, zero errors/warnings.
 - Strict skill tasks validator: exit 0, zero errors/warnings.
@@ -72,13 +76,18 @@ convention; update both in the same tested task commit. All remain pending.
 - Earlier dependency audit in this session was blocked by uncached TA-Lib and
   disabled network; no clean audit result is claimed and no dependency changed.
 
+The parallel amendment adds RWT-29/30 for registered prediction metrics and
+semantic repeatability, retaining the 19 task IDs. Current checks are recorded
+in the shared parallel plan after all three document sets are reconciled.
+
 ## Takeover procedure
 
 1. Read the story entry, canonical requirements, context, design and tasks.
 2. Reconcile Git and PR heads; choose an isolated implementation worktree when
    permitted. Use Story 19; Story 18 is the separate market-context plan.
-3. Obtain plan approval and execution authorization. Confirm tools and proposed
-   sequential whole-phase delegation before starting any worker.
+3. Obtain plan approval and execution authorization. Confirm tools and the
+   parallel plan's worktree ownership; execute whole-phase batches sequentially
+   within this lane and serialize shared-file integration across lanes.
 4. Freeze T1 protocol and verify source/config/data identities. The half-life,
    window, cadence and support minima are proposed, not optimized settings.
 5. Complete each task with its Gherkin tests and actual gate evidence. Record
@@ -98,10 +107,3 @@ dates is exploratory. No unexamined confirmation dataset or live readiness is
 claimed. TD-71 execution failures remain failures and cannot be patched away in
 the report. Historical replay can pause simulated time during a bounded model
 fit; this is not evidence of meeting a live wall-clock deployment deadline.
-
-## T0 pre-checks — 2026-09-28
-
-- [x] Monthly refit pre-check (frozen / rolling 3 / rolling 6 / expanding): rolling 3-month refit 0.529 vs frozen 0.502 on the q10 cut bars, log-loss 0.6932 vs 0.6948; table and reading in `review.md`.
-- [x] D60 trial as a backtest (60-day window refitted monthly, 23/24 months): H1 −45.4 % vs frozen −51.3 % (p = 0.73 untouched), H4 −12.3 % vs −4.3 % (p = 0.33); 60-day models at or above coin-flip log-loss; `evidence/d60-trial-results.md`.
-- [ ] Daily refit pre-check (15/30/45/60-day windows, thresholds-only and full refit): running; append the table to `review.md`.
-- [ ] Fold the policy changes of the amendment (D60 arm, daily bundles loaded on demand, prediction-quality endpoint, calibration-month gate) into `.specs/features/recency-weighted-retraining/` before T1.

@@ -2,7 +2,12 @@
 
 ## New planned research stories — September 28, 2026
 
-[Story 19 — adaptive rolling and exponentially weighted retraining](planned/19-adaptive-recency-retraining/spec.md)
+[Parallel delivery plan for Stories 19, 21 and 22](parallel-19-21-22.md)
+defines three independent implementation lanes, shared-file integration leases,
+test gates and separate experiment matrices. Planning only: no new engine code,
+training or backtests. Laya is deferred, not an optional active task.
+
+[Story 19 — adaptive rolling and exponentially weighted retraining](in-progress/19-adaptive-recency-retraining/spec.md)
 plans the full consume/mature-label/train/validate/publish/load-on-demand cycle.
 Five controlled policies compare frozen, threshold-only, rolling, expanding and
 exponentially weighted training while preserving account and risk state.
@@ -10,17 +15,24 @@ The [19-task plan](../../../.specs/features/recency-weighted-retraining/tasks.md
 includes Gherkin gates and future Chapter 3/4 updates. Planning only; no models
 or experiments launched. Story 19 avoids the market-context Story 18 allocation.
 
-[Story 22 — candlestick context extension (planned; split out of story 13 on closure)](planned/22-candlestick-context-extension/candlestick-extension.md)
+[Story 21 — confluence chain](in-progress/21-confluence-chain/spec.md)
+plans an agreement terminal, momentum context, causal relative-intensity trigger
+and horizon-matched exit, with matched controls and explicit timing semantics.
+Its [task breakdown](../../../.specs/features/confluence-chain/tasks.md) follows
+the shared-file handoffs in the parallel plan. No new empirical outcome is claimed.
+
+[Story 22 — candlestick context extension (planning; split out of story 13 on closure)](in-progress/22-candlestick-context-extension/candlestick-extension.md)
 adds Bigalow's *High Profit Candlestick Patterns*, the supplied CMT presentation,
-timestamped webinar notes, and Laya as a proposed learned pattern/context
-complement to TA-Lib. The original pattern/volume experiments already exist;
+and timestamped webinar notes as sources for deterministic patterns and context
+beyond the six legacy labels. Laya and its learned-provider work are deferred.
+The original pattern/volume experiments already exist;
 the extension is **planned**, not implemented or validated. It requires frozen
 model versions, causal inputs, independent recognition review,
 and controlled comparisons. See the updated
-[progress and handoff](planned/22-candlestick-context-extension/progress.md); story 13 itself is done.
+[progress and handoff](in-progress/22-candlestick-context-extension/progress.md); story 13 itself is done.
 Its [tlc-spec-driven task plan](../../../.specs/features/candlestick-context/tasks.md)
-splits the extension into 24 pending tasks across rules, integration, optional
-learned context, and evaluation/publication. Planning only; execution is deferred.
+retains 19 active tasks across rules, integration and evaluation/publication;
+five learned-provider tasks are explicitly deferred. Planning only; execution is deferred.
 
 [Story 15 — Miner-inspired strategy review and adaptation](planned/15-miner-strategy-adaptation/spec.md)
 reviews Robert C. Miner's supplied book against the existing engine, reuses

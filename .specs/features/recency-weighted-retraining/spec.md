@@ -29,7 +29,7 @@ account or selecting only successful trades.
 | Feature | Reason |
 | --- | --- |
 | Running or implementing now | Current authorization is planning only. |
-| New candlestick/volume rules or Laya | Separate Story 13 extension; would confound the comparison. |
+| New candlestick/volume rules or Laya | Separate Story 22; would confound this comparison. Laya is deferred by the user. |
 | Live-account deployment | Backtest evidence cannot authorize live trading. |
 | Averaging model parameters or smoothing predictions | Exponential weights apply to training observations. |
 | Online per-tick learning or drift-triggered schedules | Fixed monthly schedule keeps the initial study bounded. |
@@ -56,6 +56,9 @@ account or selecting only successful trades.
 | Publication | Plan now; methodology and verified results later | Never present proposed execution as empirical evidence | Yes |
 
 **Open questions:** none unrecorded. All proposed defaults require review.
+The [review disposition](../../../algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/review-disposition.md)
+records conflicting review requests explicitly; T1 must approve those choices
+before freezing the protocol. Planning this lane does not approve the defaults.
 T1 freezes exact resolved configuration, data availability, inference settings
 and run budget before any new fitting. If these defaults are infeasible, amend
 the protocol with reasons before examining comparative outcomes.
@@ -97,6 +100,7 @@ look-ahead and in-sample stacking leakage.
 11. WHEN a validated replacement becomes eligible THEN the loader SHALL activate it only for subsequent decision events and leave earlier recorded decisions unchanged. (RWT-26)
 12. IF an adaptive cycle fails THEN the coordinator SHALL record its failed stage and prevent replay from silently advancing with an unregistered fallback. (RWT-27)
 13. WHEN an eligible bundle is requested THEN the loader SHALL deserialize it on demand with a configurable bounded cache that retains the currently active bundle. (RWT-28)
+14. WHEN the complete cycle is repeated with identical pinned inputs and runtime THEN it SHALL produce identical semantic model payload hashes and decision payloads, excluding only separately recorded volatile telemetry. (RWT-30)
 
 **Independent Test**: A native LEAN fixture crosses a month boundary while
 holding a trade; the model changes once, protective orders and risk anchors do
@@ -110,6 +114,7 @@ not reset, and an unscheduled run reproduces its legacy fixture.
 3. WHEN policies are compared THEN analysis SHALL use paired UTC-daily equity over the same dates rather than treating trades, epochs or repeated seeds as independent market replications. (RWT-20)
 4. WHEN previously inspected dates are reported THEN the report SHALL label their findings exploratory even if the new protocol was registered before its own runs. (RWT-21)
 5. WHEN the monograph describes this study THEN it SHALL distinguish proposed methodology from completed results and trace every reported numerical result to an immutable artifact. (RWT-22)
+6. WHEN prediction quality is reported THEN analysis SHALL compare E and U on identical mature evaluation-row keys and publish log-loss, Brier score, directional accuracy and sample counts separately from trading returns. (RWT-29)
 
 **Independent Test**: A miniature report includes a failed candidate, every
 policy's settings and the exploratory label; an unavailable inferential result
@@ -170,8 +175,12 @@ not profitability. Do not fabricate market or training data.
 | RWT-26 | P1 replay | T10, T11, T12 | In Tasks |
 | RWT-27 | P1 replay | T10, T15 | In Tasks |
 | RWT-28 | P1 replay | T11 | In Tasks |
+| RWT-29 | P2 evidence | T1, T16 | In Tasks |
+| RWT-30 | P1 replay | T9, T12 | In Tasks |
 
-Coverage: 28 requirements, all mapped, none implemented or verified.
+Coverage: 30 requirements, all mapped, none implemented or verified. RWT-29/30
+make the review's prediction and repeatability evidence explicit; original IDs
+are retained.
 
 ## Success Criteria
 

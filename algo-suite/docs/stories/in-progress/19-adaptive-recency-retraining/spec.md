@@ -17,11 +17,13 @@ tlc-spec-driven, not implement or execute it yet.
 
 ## Canonical plan
 
-- [Requirements and acceptance criteria](../../../../../.specs/features/recency-weighted-retraining/spec.md): 28 traceable requirements.
+- [Requirements and acceptance criteria](../../../../../.specs/features/recency-weighted-retraining/spec.md): 30 traceable requirements.
 - [Architecture and proposed experiment](../../../../../.specs/features/recency-weighted-retraining/design.md): lifecycle, temporal boundaries, controls and risks.
 - [Implementation tasks](../../../../../.specs/features/recency-weighted-retraining/tasks.md): 19 tasks with tests, gates and dependencies.
 - [Decisions and proposed defaults](../../../../../.specs/features/recency-weighted-retraining/context.md).
 - [Progress and takeover instructions](progress.md).
+- [Review disposition before T1](review-disposition.md).
+- [Parallel lanes and shared-file handoffs](../../parallel-19-21-22.md).
 
 This file is the story entry, not a second competing requirement specification.
 
@@ -47,9 +49,8 @@ half-life is 60 calendar days; it is not an empirically selected optimum.
 | R: rolling | Monthly refit with uniform trailing 180-day family history. |
 | U: expanding | Monthly refit with uniform expanding history. |
 | E: exponential | Same history as U, with exponential sample weights. |
-| D60: daily, 60-day window | Fit daily on the trailing 60 days (combiner on its last 5 days), thresholds from the same window; bundle loaded on demand at the first decision after a trade closes (amendment 2026-09-28, user proposal). Trial done the same day: no improvement over F at either clock, models at coin-flip log-loss; kept as the short-window control, see `review.md`. |
 
-Primary comparison E-U isolates weighting; D60-F (daily short window vs frozen) is the second registered contrast, motivated by the monthly pre-check in `review.md` (rolling 3-month refit 0.529 vs frozen 0.502 on the cut bars). Keep existing H1 q10 price-only
+Primary comparison E-U isolates weighting. Keep existing H1 q10 price-only
 features, filters, costs, sizing and exits fixed. The candlestick/Laya extension
 is independent and must not be introduced into this comparison.
 
