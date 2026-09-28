@@ -10,6 +10,7 @@
  *   GET /api/runs/:id/parameters                 ParameterRow[]
  *   GET /api/runs/:id/trades                     TradeRow[]
  *   GET /api/runs/:id/decision-summary           DecisionSummaryRow[]
+ *   GET /api/runs/:id/open-positions             OpenPosition[] (still open at the end of the run)
  *   GET /api/runs/:id/trades/:tradeId            TradeDetail (with the events while the trade was open)
  *   GET /api/runs/:id/decisions?mode=vetoes&page=1&size=200   DecisionLogPage (mode vetoes|entries|all; size 1..1000)
  *   GET /api/runs/:id/decisions/:decisionId      DecisionDetail (one bar's chain with the run's parameters)
@@ -28,6 +29,7 @@ import {
   getRun,
   listRuns,
   monthlyReturns,
+  openPositions,
   parameters,
   patternExamples,
   tradeDetail,
@@ -51,6 +53,7 @@ const RUN_RESOURCES: Record<string, RunQuery> = {
   parameters,
   trades,
   "decision-summary": decisionSummary,
+  "open-positions": openPositions,
 };
 
 function ok(body: unknown): ApiResponse {

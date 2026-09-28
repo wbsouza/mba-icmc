@@ -13,7 +13,7 @@ Feature: Backend API over the results database
 
     Examples:
       | path                                                       | shape                                                                   |
-      | /api/health                                                | has schema_version 1 and runs 1                                         |
+      | /api/health                                                | has schema_version 2 and runs 1                                         |
       | /api/runs                                                  | is a list of 1 item                                                     |
       | /api/runs/20260928T010000-fixture                          | has strategy "hybrid", bar_minutes 60, closed_trades 2 and win_rate 0.5 |
       | /api/runs/20260928T010000-fixture/equity                   | is a list of 5 items                                                    |
@@ -21,6 +21,7 @@ Feature: Backend API over the results database
       | /api/runs/20260928T010000-fixture/parameters               | is a list of 13 items                                                   |
       | /api/runs/20260928T010000-fixture/trades                   | is a list of 2 items                                                    |
       | /api/runs/20260928T010000-fixture/decision-summary         | is a list of 5 items                                                    |
+      | /api/runs/20260928T010000-fixture/open-positions           | is a list of 1 item                                                     |
       | /api/runs/20260928T010000-fixture/decisions                | is a decision log of 5 bars in 4 groups, page 1                         |
       | /api/runs/20260928T010000-fixture/decisions?mode=all&size=2&page=2 | is a decision log of 7 bars in 6 groups, page 2                 |
       | /api/runs/20260928T010000-fixture/decisions/7              | is the chain of a bar vetoed by "f4_news_context" with 4 filters        |
@@ -91,7 +92,7 @@ Feature: Backend API over the results database
     Examples:
       | version | message                                              |
       | none    | is not a results database                            |
-      | 7       | schema version 7 is not the 1 this server reads      |
+      | 7       | schema version 7 is not the 2 this server reads      |
 
   Scenario Outline: the CLI parses its flags and refuses unknown ones
     When I parse the CLI arguments "<argv>"
