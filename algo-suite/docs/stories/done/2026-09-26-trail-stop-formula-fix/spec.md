@@ -15,7 +15,7 @@ this lane closes.
 
 While auditing `algo_backtest`'s money-management port against the real fx-manager source
 (`specs.md` §14, both the original JavaEE/EJB `StrategyMoneyManagementFacadeBean.java` and its
-later Spring reimplementation in the sibling `spockfx-engine` project — see the
+later Spring reimplementation in the author's later Heikin-Ashi trading manager — see the
 `fx-manager-borrow-analysis` memory note), `rules/trail_stop.py::trail_stop_to_level`'s own
 docstring admitted it was written **without** the real fx-manager source available in this
 checkout, and documented its sign-handling as "a deliberate reading of an ambiguous ±."
@@ -40,10 +40,9 @@ Real fx-manager formula, cited precisely (not prose-only — a future reader can
   method `resolveTrailStopToLevel` (~lines 147–159), fx-manager repo
   (`ssh://git@forge.wiseprax.ai/algo-trading/fx-manager.git`), commit `902ec7e4d608ebc8c98fbdabe7d384b65f0fcba0`
   (last touching that file, 2021-03-21).
-- `spockfx-engine`'s `MoneyManagementCalculator.java`, method `setTrailStopLevels` (~lines 111–136),
-  `related-work/projects/spockfx-metatrader` at commit `a1ed6b43b3a7652e9d7564998a97d50e81f0bf8f`
-  (2025-02-24) — a later, independent Spring reimplementation by the same author; agrees with the
-  EJB version on this formula.
+- the later Heikin-Ashi trading manager's money-management calculator, trail-stop level method
+  (unpublished source, revision of 2025-02-24) — a later, independent Spring reimplementation by
+  the same author; agrees with the EJB version on this formula.
 
 Same shape as `target_level`/`trail_stop_at_level`:
 
@@ -69,7 +68,7 @@ BUY/entry=1.1000/SL=1.0950/spread=0.0002/factor=-0.66 case, matching the correct
 calculation exactly.
 
 **Why it matters:** `trail_stop_to_level_factor` can be positive in real deployed configs
-(`japaDragonStrategy04`'s `0.1`, locking in partial profit once a trail arms) — the old
+(a legacy Heikin-Ashi template's `0.1`, locking in partial profit once a trail arms) — the old
 `abs()` call silently discarded that sign, meaning any future config using a positive factor
 would have gotten a *loss-side* destination instead of a *profit-side* one. This is exactly the
 kind of trading-impactful silent-wrong-default this repo's fail-fast policy exists to prevent —
@@ -118,7 +117,7 @@ algo-suite/.venv && uv sync` before chasing a pytest-bdd-specific hypothesis.
 ## 4. Follow-up (2026-09-26, commit `94bee52`): `trail_stop_at_level`'s own spread-term gap
 
 While validating this fix's citations against the real source directly (rather than trusting the
-prose summary), the same method (`MoneyManagementCalculator.setTrailStopLevels`, `atLevelDiff`)
+prose summary), the same method (the later trading manager's trail-stop level computation)
 showed `trail_stop_at_level` — untouched by the original fix, pre-existing before this PR — is
 **also missing its `(factor + 1) * spread` term entirely**, unlike `target_level` and (now)
 `trail_stop_to_level`. Since only `tests/steps/test_trail_stop.py` calls this function (no

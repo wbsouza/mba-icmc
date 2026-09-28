@@ -1,7 +1,7 @@
 # Progress — Spec 04i (trail_stop_to_level formula fix + test-runner staleness)
 
 - [x] Confirmed the formula bug against both independent production sources (fx-manager EJB commit
-      `902ec7e4d`, spockfx-engine Spring commit `a1ed6b43b`) — `trail_stop_to_level` was `abs()`-ing
+      `902ec7e4d`, and the later Heikin-Ashi trading manager's Spring source) — `trail_stop_to_level` was `abs()`-ing
       the factor and hard-coding a loss-side subtraction; real formula is `entry + sign*diff` like
       `target_level`, factor used signed.
 - [x] Fixed `rules/trail_stop.py::trail_stop_to_level` + docstrings.
