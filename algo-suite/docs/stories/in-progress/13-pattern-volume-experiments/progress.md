@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 01:08 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 01:11 UTC (September 27, America/Vancouver).
 Owner: Codex. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -139,7 +139,8 @@ consolidation plan. Pushed to `origin/feat/13-pattern-volume-experiments`.
 pushed.
 `28cc7d9` — closed-bar signals, canonical activity provenance, immutable runner and
 both independent-review fixes; pushed. `de34647` — detailed test/handoff procedure;
-pushed. Full execution-chain tests are still running.
+pushed. `4636ce7` — baseline outcome and inode-safe retry record; pushed.
+Full execution-chain tests are still running.
 
 ### Experiment execution and infrastructure incident
 
@@ -157,16 +158,20 @@ directory was **moved, not deleted**, to
 `/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-pytest-5972-inode-failure`.
 Approximately 278,000 inodes were freed without removing user data/worktrees.
 
-The unchanged hybrid matrix is rerunning in fresh
-`build/experiments/20260928-hybrid-h4-v2` (session 29828). The failed v1 archive is
+The unchanged hybrid matrix completed in fresh
+`build/experiments/20260928-hybrid-h4-v2` (session 29828 ended with exit 0).
+All four cells succeeded and its final immutable-input check is `ok: true`.
+All eight accepted runs therefore have successful parent/cell and integrity records.
+Hybrid returns/trade counts/drawdowns match the baseline at these fixed settings.
+The failed v1 archive is
 preserved; its stale running statuses do not mean processes are still executing.
 The broad test retry uses the fresh **disk-backed** basetemp
 `/home/wellington/workspace/mba-agents/experiment-test-archives/story13-workspace-recheck-20260928`
 (session 94754). See [qa-procedure.md](qa-procedure.md) for exact tests and takeover.
 
 1. Risk-calendar/trainer regressions and implementation freeze are complete and pushed.
-2. Fresh disjoint matrices prepared; baseline complete, hybrid infrastructure retry running.
-3. Finish hybrid, archive every outcome and show settings alongside results.
+2. Both fresh matrices completed; failed hybrid v1 is preserved separately.
+3. Archive every outcome and show settings alongside results.
 4. Append a new evidence snapshot and monograph update; commit/push documentation.
 5. Consolidate only after checking branch ancestry and dirty files. Story 13 already
    includes Story 12 through `7165308`; do not blindly reapply those commits or the
@@ -189,3 +194,19 @@ Check an implementation item only after its changes are committed and tests pass
 - [ ] Verify native/offline parity, offline gates and dependency audit.
 - [ ] Train separate models, execute experiments and archive all outcomes.
 - [ ] Update monograph and parameter/result evidence for the new comparisons.
+
+### Why the pattern-on/off results match
+
+Replay confirms TA-Lib operated on 110 complete September H4 bars and found 24 labels.
+The first 59 bars were indicator warm-up; only 51 decisions remained, from September
+16 20:00 through September 30 20:00 UTC. F1 vetoed 11, leaving 40 reaching F3.
+TA-Lib produced eight non-abstaining recommendations there (four bearish engulfings,
+three bullish engulfings, one hammer). The enabled pattern-family model has 50 trees
+with three leaves, not the disabled model's constant prediction.
+
+The combined F7 probabilities changed slightly but stayed below the fixed 0.45 SELL
+threshold (disabled 0.408089–0.428667; enabled 0.408195–0.428762). Consequently the
+final decisions and equity matched. Activity vetoed 17 of 40 eligible bars, leaving
+23 SELL decisions instead of 40. This is threshold insensitivity in a small sample,
+not failed detection or general evidence that patterns/news do not matter.
+No threshold or period was adjusted after observing these results.

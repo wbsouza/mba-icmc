@@ -71,7 +71,7 @@ The order-chain batch uses `build/chain-native-final` and is still running at th
 handoff. Never reuse these basetemp directories: pytest may clear them. Let pytest
 choose a fresh default or choose a new uniquely named directory.
 
-Baseline verified counts before final rerun: offline 1,351 passed; native combined 3;
+Final offline backtest rerun: **1,364 passed, 53 deselected**. Native combined 3;
 legacy 8; risk calendar 4; targeted runner/activity/trainer batch 54. These overlap:
 **do not sum them into a unique test total**. Final full rerun adds the trainer scenarios.
 Scoped lint/type/architecture/audit pass. Whole-workspace lint/type still report
@@ -90,7 +90,10 @@ Two fresh matrices were prepared and launched from the frozen implementation:
 Hybrid v1 subsequently failed with `ENOSPC` before its last two result directories
 could be created and before final checkpoint persistence. Its first two completed
 cells are not a completed matrix; stale `backtest_running` statuses are not liveness.
-A fresh `20260928-hybrid-h4-v2` uses the same code/settings after infrastructure repair.
+A fresh `20260928-hybrid-h4-v2` used the same code/settings after infrastructure repair.
+It finished successfully (session 29828, exit 0), with all four cells `succeeded`
+and `final-input-check.json` reporting `ok: true`. Baseline v1 also finished with
+parent exit 0 and all four cell/integrity checks passing. **Do not relaunch either.**
 
 Session IDs are assistant-session handles, not operating-system PIDs. On takeover,
 read each `execution-started.json` for its PID and check that process's exact command
