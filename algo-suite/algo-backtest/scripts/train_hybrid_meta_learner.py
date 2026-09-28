@@ -101,7 +101,11 @@ def _parse_args() -> argparse.Namespace:
         "--test-end", type=date.fromisoformat, required=True, help="YYYY-MM-DD, inclusive"
     )
     parser.add_argument("--out", type=Path, default=_DEFAULT_OUT)
+    parser.add_argument("--strategy", default="hybrid")
+    parser.add_argument("--strategies-dir", type=Path)
     args = parser.parse_args()
+    if (args.strategy != "hybrid" or args.strategies_dir) and args.out == _DEFAULT_OUT:
+        parser.error("external signal candidates require --out; preserve the frozen hybrid model")
     if args.start > args.train_end:
         parser.error(f"--from {args.start} is after --train-end {args.train_end}")
     return args
@@ -110,16 +114,32 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Read the window's Parquet, build rows, split, train, persist model + manifest."""
     args = _parse_args()
+    config = load_strategy_chain_config(args.strategy, root=args.strategies_dir)
+    if config.f7 is None:
+        raise ValueError(
+            f"strategy {args.strategy!r} does not list f7_meta_learner; enable it before training"
+        )
+    expected = sorted(family.value for family in _FAMILIES)
+    if sorted(config.meta_learner_families) != expected:
+        raise ValueError(
+            f"hybrid trainer requires families {expected}, but strategy {args.strategy!r} "
+            f"declares {list(config.meta_learner_families)}; use the matching training script "
+            "or align meta_learner.families"
+        )
+    if "f4_news_context" not in config.filters:
+        raise ValueError(
+            f"hybrid trainer requires f4_news_context for strategy {args.strategy!r}; "
+            "enable the news filter or use the baseline trainer with price-only families"
+        )
     data_root = layout.data_root()
     instrument = build_instrument(args.symbol)
     bars = load_m1_bars(data_root, instrument, args.start, args.test_end)
     event_intensity = load_event_intensity(data_root, args.start, args.test_end)
-    config = load_strategy_chain_config("hybrid")
-    assert config.f7 is not None, "strategy 'hybrid' does not list f7_meta_learner"
     rows = build_training_rows(
         bars, event_intensity, instrument=instrument, perception=config.perception,
         price_features_config=config.price_features,
         horizon_minutes=config.f7.label_horizon_minutes,
+        pattern_config=config.pattern, volume_config=config.volume_strength,
     )
     split = walk_forward_split(
         rows, train_end=args.train_end, validation_end=args.validation_end, test_end=args.test_end
@@ -129,7 +149,7 @@ def main() -> None:
         model,
         args.out,
         {
-            "strategy": "hybrid",
+            "strategy": args.strategy,
             "strategy_config": dict(config.raw),
             "symbol": args.symbol,
             "window": {"from": args.start.isoformat(), "to": args.test_end.isoformat()},

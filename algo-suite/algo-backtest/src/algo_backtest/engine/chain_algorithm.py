@@ -25,11 +25,23 @@ recorded to ``trade-plans.json`` next to ``decisions.parquet``.
 
 from __future__ import annotations
 
-from datetime import UTC, date
+from datetime import UTC, date, timedelta
 from pathlib import Path
 
 from algo_core.atomicio import write_text_atomic
+from algo_core.bars import QuoteBar as CanonicalQuoteBar
+from algo_core.instrument import build_instrument
 from AlgorithmImports import *  # noqa: F403  (LEAN injects its API into this namespace)
+from AlgorithmImports import (  # noqa: E402
+    AverageTrueRange,
+    ExponentialMovingAverage,
+    Maximum,
+    Minimum,
+    MovingAverageConvergenceDivergence,
+    MovingAverageType,
+    RelativeStrengthIndex,
+    TradeBar,
+)
 from engine.algorithm import ExecutionAlgorithm  # noqa: E402
 from engine.order_executor import Decision as OrderDecision  # noqa: E402
 from engine.order_executor import FillStatus  # noqa: E402
@@ -38,6 +50,7 @@ from algo_backtest.artifacts import write_strategy_config
 from algo_backtest.chain.decision_recorder import DecisionRecorder
 from algo_backtest.chain.filters.f4_news_context import NewsContextIndex
 from algo_backtest.chain.filters.f7_model_io import load_model, require_families
+from algo_backtest.chain.market_signals import MarketSignals
 from algo_backtest.chain.model import ChainOutcome, ExecutionState, FilterChain
 from algo_backtest.chain.price_features import PriceFeatureConfig
 from algo_backtest.chain.terminal import F7TerminalDecision, decision_to_order_action
@@ -68,7 +81,9 @@ from algo_backtest.engine.trade_plan import (
     target_quantities,
     trail_update,
 )
+from algo_backtest.perception.bar_clock import ClosedBarClock
 from algo_backtest.perception.config import PerceptionConfig
+from algo_backtest.perception.tick_activity import TickActivityIndex
 from algo_backtest.rules.trail_stop import Direction
 from algo_backtest.strategies import load_resolved_strategy
 
@@ -136,6 +151,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
             name=self.get_parameter("chain_config") or self.strategy_name,
         )
         self._subscribe_indicators(config.perception, config.price_features)
+        self._configure_signals(config)
         self.debug(f"{self.log_tag}_PERCEPTION_SOURCE={config.perception.source}")
         write_strategy_config(Path(DECISIONS_FILE).parent, config)
 
@@ -184,7 +200,15 @@ class ChainAlgorithm(ExecutionAlgorithm):
         mean the documented defaults."""
         perception = perception if perception is not None else PerceptionConfig()
         periods = price_features_config or PriceFeatureConfig()
+        self._price_periods = periods
         self._trend_perception = None
+        if periods.bar_minutes != 1:
+            if perception.source != "ema":
+                raise ValueError(
+                    "multi-minute decisions require EMA perception; set perception_source=ema"
+                )
+            self._manual_indicators(periods)
+            return
         if perception.source == "double_smoothed_heikin_ashi":
             from algo_backtest.perception.multi_timeframe import MultiTimeframeHeikinAshi
 
@@ -207,6 +231,61 @@ class ChainAlgorithm(ExecutionAlgorithm):
         lookback = periods.swing_lookback_bars
         self._swing_low = self.min(self._symbol, lookback, minute, Field.LOW)  # noqa: F405
         self._swing_high = self.max(self._symbol, lookback, minute, Field.HIGH)  # noqa: F405
+
+    def _manual_indicators(self, periods: PriceFeatureConfig) -> None:
+        """Update native LEAN indicators only when the shared UTC decision candle closes."""
+        self._ema_fast = ExponentialMovingAverage(periods.ema_fast)
+        self._ema_slow = ExponentialMovingAverage(periods.ema_slow)
+        self._ema_htf = ExponentialMovingAverage(periods.ema_higher_tf)
+        self._rsi = RelativeStrengthIndex(periods.rsi_period, MovingAverageType.WILDERS)
+        self._macd = MovingAverageConvergenceDivergence(
+            periods.macd_fast, periods.macd_slow, periods.macd_signal,
+            MovingAverageType.EXPONENTIAL)
+        self._atr = AverageTrueRange(periods.atr_period, MovingAverageType.WILDERS)
+        self._swing_low = Minimum(periods.swing_lookback_bars)
+        self._swing_high = Maximum(periods.swing_lookback_bars)
+
+    def _configure_signals(self, config) -> None:
+        """Preserve canonical tick counts via a separate read-only source, never quote sizes."""
+        self._bar_clock = ClosedBarClock(config.price_features.bar_minutes)
+        self._signals = MarketSignals(config.pattern, config.volume_strength)
+        self._signal_features = {}
+        self._tick_activity = None
+        if config.volume_strength is not None:
+            self._tick_activity = TickActivityIndex(
+                Path(self._required("activity_data_root")), build_instrument(str(self._symbol)))
+
+    def _closed_signal_bar(self, quote) -> bool:
+        """Normalize an actual delivered minute, then publish only a complete UTC bucket."""
+        start = self.utc_time.replace(tzinfo=UTC) - timedelta(minutes=1)
+        count = (self._tick_activity.count_at(start, fill_forward=bool(quote.is_fill_forward))
+                 if self._tick_activity is not None else 0)
+        minute = CanonicalQuoteBar(
+            timestamp=start,
+            bid_open=float(quote.bid.open), bid_high=float(quote.bid.high),
+            bid_low=float(quote.bid.low), bid_close=float(quote.bid.close),
+            ask_open=float(quote.ask.open), ask_high=float(quote.ask.high),
+            ask_low=float(quote.ask.low), ask_close=float(quote.ask.close), tick_count=count)
+        closed = self._bar_clock.update(minute)
+        if closed is None:
+            return False
+        self._signal_features = self._signals.update(closed)
+        if self._price_periods.bar_minutes != 1:
+            self._update_closed_indicators(closed)
+        return True
+
+    def _update_closed_indicators(self, bar: CanonicalQuoteBar) -> None:
+        """Feed midpoint OHLC into the same LEAN indicator types used for minute decisions."""
+        close = (bar.bid_close + bar.ask_close) / 2
+        low, high = (bar.bid_low + bar.ask_low) / 2, (bar.bid_high + bar.ask_high) / 2
+        for indicator in (self._ema_fast, self._ema_slow, self._ema_htf, self._rsi, self._macd):
+            indicator.update(self.time, close)
+        self._swing_low.update(self.time, low)
+        self._swing_high.update(self.time, high)
+        native = TradeBar(bar.timestamp.replace(tzinfo=None), self._symbol,
+                          (bar.bid_open + bar.ask_open) / 2, high, low, close,
+                          0, timedelta(minutes=self._price_periods.bar_minutes))
+        self._atr.update(native)
 
     def _pip_size(self) -> float:
         """The pair's pip in price units, from the security's symbol properties.
@@ -258,6 +337,7 @@ class ChainAlgorithm(ExecutionAlgorithm):
         )
         if self._trend_perception is not None:
             market.update(self._trend_perception.features())
+        market.update(getattr(self, "_signal_features", {}))
         return {**market, **account_features(account, price, self._economics)}
 
     def _state(self) -> ExecutionState:
@@ -277,8 +357,17 @@ class ChainAlgorithm(ExecutionAlgorithm):
         """Each bar: run the chain, manage the open plan, act on the Decision, record a row."""
         if self._symbol not in data.quote_bars:
             return
+        # Calendar risk anchors must observe every delivered minute, including
+        # midnight bars that never complete an H4 candle after a market break.
+        self._pnl.update(self.time, self.portfolio.total_portfolio_value)
         if self._trend_perception is not None:
             self._trend_perception.update(data.quote_bars[self._symbol])
+        closed = self._closed_signal_bar(data.quote_bars[self._symbol])
+        # Stops, targets and trailing management retain minute granularity even when
+        # entries are evaluated only on complete H1/H4 candles.
+        self._manage_open(self.securities[self._symbol].price)
+        if not closed:
+            return
         if not self._indicators_ready():
             return
         self._bar_index += 1
@@ -286,7 +375,6 @@ class ChainAlgorithm(ExecutionAlgorithm):
         action = decision_to_order_action(outcome.decision)
         self.debug(f"{self.log_tag}_DECISION|decision={outcome.decision}|action={action}")
 
-        self._manage_open(self.securities[self._symbol].price)
         if action == "execute":
             self._on_signal(outcome)
         elif action == "stand_aside" and self.portfolio.invested and self._execution.close_on_veto:

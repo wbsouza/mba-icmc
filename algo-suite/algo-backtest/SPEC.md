@@ -105,8 +105,8 @@ are pure derivations of the artifacts above (no LEAN import) and `algo-backtest 
   the cap and the env var to raise it, never a silent/confusing failure.
   Automated backtests are driven via **testcontainers** (no `lean` CLI, no QC account;
   see `tests/integration/`); the `lean` CLI remains an option for manual runs.
-- **TA-Lib** (C lib + wrapper) for `CDL*` candlestick recognition (planned — not a
-  dependency yet; F3's pattern input is never populated, TD-51); LEAN-native
+- **TA-Lib** (C lib + wrapper) for optional `CDL*` candlestick recognition
+  (`pattern.detector: talib`, Story 13; disabled for frozen legacy models); LEAN-native
   indicators (`self.RSI`, `self.ATR`, …) for the rest.
 - **lightgbm** + **scikit-learn** + **numpy** for F7 training on the host; the model
   is persisted as JSON (`chain/filters/f7_model_io.py`) because the LEAN image ships
@@ -576,7 +576,7 @@ variation × 10 live and `Instrument.unit_size` offline — for F6's stop distan
 12; every key defaults; recorded in the model's provenance and checked by
 `run --model`), `indicator` (F2: `rsi_midline`,
 `macd_hist_threshold`; defaults), `pattern` (F3: `bullish_patterns`,
-`bearish_patterns`; defaults), `news_context`
+`bearish_patterns`, `detector: disabled|talib`; defaults), `news_context`
 (F4: `event_intensity_veto_threshold`, `sentiment_direction_threshold`, `null`
 disables a half), `risk_guard` (F5: the five caps, `null` disables one),
 `capital_mgmt` (F6: `risk_per_trade`, `stop_loss_pips`, `pip_value_per_lot`,

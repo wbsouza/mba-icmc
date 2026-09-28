@@ -3,21 +3,23 @@
 Keeps train and serve on one feature definition: every row's features come from
 `chain.wiring.price_features` (the same function `engine/chain_algorithm.py` calls live)
 over plain-Python re-implementations of LEAN's EMA/RSI/MACD/ATR/Minimum/Maximum and
-config-selected DSHA direction features. News lookups are keyed
-on the bar's *decision time* (bar start + one minute), which is what LEAN's `self.time`
-is inside `on_data` — so a feature never sees a later value at train time than it would
-at backtest time.
+config-selected DSHA direction features. EMA-based strategies can use complete,
+UTC-anchored multi-minute bars. News lookups use the closed bar's decision time
+(start + configured duration), matching LEAN rather than looking into its future.
+`MarketSignals` supplies the same optional TA-Lib labels and relative quote activity
+offline and online. Activity is a separate veto, not an additional F7 feature family.
 
 SMOKE-TEST scope, not a methodology result (docs/technical-debt.md TD-51): the label is
-a simple fixed-horizon up/down move, and `candlestick_pattern`/`news_sentiment_score`
-are always missing (no detector; TD-48) — deliberately, in the same shape as live.
+a simple fixed-horizon up/down move over delivered complete bars; market closures
+can extend its elapsed duration. Candlesticks are missing only when disabled, while
+`news_sentiment_score` remains missing (TD-48), in the same shape as live.
 """
 
 from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from importlib import metadata
 from pathlib import Path
 
@@ -28,18 +30,22 @@ from algo_core.repository.parquet import ParquetRepository
 from algo_score.events.models import GdeltFeature
 from algo_score.events.paths import feature_path as event_feature_path
 
+from algo_backtest.chain.filters.f3_pattern import PatternConfig
 from algo_backtest.chain.filters.f7_meta_learner import TrainedMetaLearner, TrainingRow
 from algo_backtest.chain.filters.f7_model_io import dump_model
+from algo_backtest.chain.filters.volume_strength import VolumeConfig
+from algo_backtest.chain.market_signals import MarketSignals
 from algo_backtest.chain.price_features import PriceFeatureConfig, warmup_bars
 from algo_backtest.chain.wiring import price_features
 from algo_backtest.market_hours import exchange_time, lean_delivers
 from algo_backtest.months import BAR_DURATION, months_between
+from algo_backtest.perception.bar_clock import aggregate_closed_bars
 from algo_backtest.perception.config import PerceptionConfig
 from algo_backtest.perception.heikin_ashi import OHLC
 from algo_backtest.perception.offline import OfflineMultiTimeframeHeikinAshi
 
 _RSI_NEUTRAL = 50.0
-_MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow")
+_MANIFEST_PACKAGES = ("lightgbm", "scikit-learn", "numpy", "pyarrow", "TA-Lib")
 
 
 def mid(bar: QuoteBar) -> float:
@@ -128,8 +134,12 @@ def swing_levels(bars: Sequence[QuoteBar], lookback: int) -> list[tuple[float, f
 
 
 def _rsi_value(avg_gain: float, avg_loss: float) -> float:
-    """RSI from Wilder-smoothed average gain/loss."""
-    return 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    """Match LEAN's Math.Round(nonnegative AverageLoss, 10) == 0 overflow guard.
+
+    The half-even rounding boundary is inclusive at 5e-11. Python's binary
+    round(5e-11, 10) rounds upward, so use the equivalent nonnegative interval.
+    """
+    return 100.0 if avg_loss <= 5e-11 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
 
 
 def rsi_series(values: Sequence[float], period: int) -> list[float]:
@@ -304,6 +314,8 @@ def build_training_rows(
     perception: PerceptionConfig | None = None,
     price_features_config: PriceFeatureConfig | None = None,
     horizon_minutes: int = 15,
+    pattern_config: PatternConfig | None = None,
+    volume_config: VolumeConfig | None = None,
 ) -> list[TrainingRow]:
     """Labeled `TrainingRow`s from m1 bars (+ NEWS features when given).
 
@@ -311,11 +323,12 @@ def build_training_rows(
     algorithm's LEAN indicators consume — so indicator state, warm-up and the label
     horizon (counted in delivered bars) match the backtest.
 
-    Label: 1 if the mid price is strictly higher `horizon_minutes` bars later, else 0
+    Label: 1 if the mid price is strictly higher `horizon_minutes / bar_minutes`
+    complete decision bars later, else 0
     (flat is 0). `label_time` is the close of that horizon bar, so
     `walk_forward_split` can purge rows whose label reaches into the next span. The
     first `warmup_bars(price_features_config)` bars and any additional DSHA warm-up bars
-    yield no row, matching live readiness. The last `horizon_minutes` bars have no label.
+    yield no row, matching live readiness. The last horizon's bars have no label.
     Perception, the indicator periods and the horizon come from the strategy config
     (`config.perception`, `config.price_features`, `config.f7.label_horizon_minutes`);
     omitted means the documented defaults. `instrument` supplies the pip
@@ -325,7 +338,11 @@ def build_training_rows(
     assumed.
     """
     periods = price_features_config or PriceFeatureConfig()
-    bars = lean_bar_stream(bars)
+    horizon_bars = _horizon_bars(horizon_minutes, periods.bar_minutes)
+    bars = _training_bars(bars, periods, perception)
+    signals = MarketSignals(pattern_config, volume_config)
+    signal_features = [signals.update(bar) for bar in bars]
+    duration = timedelta(minutes=periods.bar_minutes)
     directions = _perception_features(bars, perception or PerceptionConfig())
     prices = [mid(bar) for bar in bars]
     fast = ema_series(prices, periods.ema_fast)
@@ -337,7 +354,7 @@ def build_training_rows(
     swings = swing_levels(bars, periods.swing_lookback_bars)
     pip = instrument.unit_size
     rows: list[TrainingRow] = []
-    for i in range(warmup_bars(periods), len(bars) - horizon_minutes):
+    for i in range(warmup_bars(periods), len(bars) - horizon_bars):
         direction = directions[i]
         if direction is None:
             continue
@@ -353,18 +370,37 @@ def build_training_rows(
             swing_high_pips=(swings[i][1] - prices[i]) / pip,
         )
         features.update(direction)
+        features.update(signal_features[i])
         if event_intensity is not None:
-            features |= _news_features(event_intensity, bars[i].timestamp + BAR_DURATION)
-        horizon = i + horizon_minutes
+            features |= _news_features(event_intensity, bars[i].timestamp + duration)
+        horizon = i + horizon_bars
         rows.append(
             TrainingRow(
                 timestamp=bars[i].timestamp,
                 features=features,
                 label=1 if prices[horizon] > prices[i] else 0,
-                label_time=bars[horizon].timestamp + BAR_DURATION,
+                label_time=bars[horizon].timestamp + duration,
             )
         )
     return rows
+
+
+def _horizon_bars(minutes: int, bar_minutes: int) -> int:
+    """Require an explicit whole number of decision bars, rather than silently rounding."""
+    if type(minutes) is not int or minutes < bar_minutes or minutes % bar_minutes:
+        raise ValueError(
+            "label_horizon_minutes must be a positive multiple of bar_minutes; retrain"
+        )
+    return minutes // bar_minutes
+
+
+def _training_bars(
+    bars: Sequence[QuoteBar], periods: PriceFeatureConfig, perception: PerceptionConfig | None
+) -> list[QuoteBar]:
+    """Aggregate the delivered minute stream without changing DSHA's minute-only contract."""
+    if periods.bar_minutes != 1 and perception is not None and perception.source != "ema":
+        raise ValueError("multi-minute decision bars require EMA perception; use M1 for DSHA")
+    return aggregate_closed_bars(lean_bar_stream(bars), periods.bar_minutes)
 
 
 def file_digest(path: Path) -> str:

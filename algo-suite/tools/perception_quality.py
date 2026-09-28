@@ -26,6 +26,10 @@ ALLOWED = {
     "config": set(),
     "heikin_ashi": set(),
     "offline": {"algo_backtest.perception.heikin_ashi"},
+    "bar_clock": set(),
+    "candlestick": {"algo_backtest.perception.heikin_ashi"},
+    "volume": set(),
+    "tick_activity": {"algo_backtest.months"},
     "lean_indicator": {"algo_backtest.perception.heikin_ashi", "QuantConnect.Indicators"},
     "multi_timeframe": {
         "algo_backtest.perception.heikin_ashi",

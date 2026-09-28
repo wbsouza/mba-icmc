@@ -14,6 +14,7 @@ dependencies = [
     "lightgbm>=4.5",
     "scikit-learn>=1.5",
     "numpy>=1.26",
+    "TA-Lib>=0.6.7,<0.9",
     "matplotlib>=3.8",
 ]
 

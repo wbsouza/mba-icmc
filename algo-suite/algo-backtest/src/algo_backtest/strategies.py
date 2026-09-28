@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +61,7 @@ from algo_backtest.chain.filters.f6_capital_mgmt import (
     parse_capital_mgmt_config,
 )
 from algo_backtest.chain.filters.f7_meta_learner import F7Config, parse_f7_config
+from algo_backtest.chain.filters.volume_strength import VolumeConfig, parse_volume_config
 from algo_backtest.chain.price_features import (
     PriceFeatureConfig,
     parse_price_features_config,
@@ -76,7 +77,7 @@ SCHEMA_VERSION = 2
 KNOWN_FILTERS: frozenset[str] = frozenset(
     {
         "f1_trend", "f2_indicator", "f3_pattern", "f4_news_context", "f5_risk_guard",
-        "f6_capital_mgmt", "f7_meta_learner",
+        "f6_capital_mgmt", "f7_meta_learner", "volume_strength",
     }
 )
 
@@ -90,6 +91,7 @@ _SECTION_FOR_FILTER: dict[str, str] = {
     "f4_news_context": "news_context",
     "f5_risk_guard": "risk_guard",
     "f6_capital_mgmt": "capital_mgmt",
+    "volume_strength": "volume_strength",
 }
 _DEFAULTABLE_FILTERS = frozenset({"f2_indicator", "f3_pattern"})
 _F7_KEYS = ("theta_high", "theta_low", "regime_gate")
@@ -120,6 +122,7 @@ class StrategyChainConfig:
     risk_guard: RiskGuardCaps | None = None
     capital_mgmt: CapitalMgmtConfig | None = None
     f7: F7Config | None = None
+    volume_strength: VolumeConfig | None = None
     # dotted parameter path -> the `<name>/config.yaml` in the extends chain that set it,
     # or "default" for a value the loader filled in. Informational: excluded from equality.
     provenance: Mapping[str, str] = field(default_factory=dict, compare=False)
@@ -392,8 +395,21 @@ def _typed_sections(
         ),
         "risk_guard": parse_risk_guard_caps(risk, strategy=name) if risk is not None else None,
         "capital_mgmt": _capital_mgmt(name, merged, filters),
+        "volume_strength": _volume_section(name, merged, filters),
         **_defaulted_sections(name, merged, filters, meta_learner),
     }
+
+
+def _volume_section(
+    name: str, merged: dict[str, Any], filters: tuple[str, ...]
+) -> VolumeConfig | None:
+    """Resolve every volume parameter so reports never omit default threshold values."""
+    raw = _filter_section(name, merged, filters, "volume_strength")
+    if raw is None:
+        return None
+    config = parse_volume_config(raw, strategy=name)
+    merged["volume_strength"] = asdict(config)
+    return config
 
 
 def load_strategy_chain_config(name: str, *, root: Path | None = None) -> StrategyChainConfig:
@@ -495,9 +511,20 @@ def _from_merged(
     families_raw = meta_learner.get("families", ())
     families = tuple(_ensure_str_list(name, "meta_learner.families", families_raw))
     typed = _typed_sections(name, merged, filters, meta_learner)
+    _validate_clock(typed, parse_perception_config(merged))
     for path in _leaf_paths(merged):
         provenance.setdefault(path, "default")
     return StrategyChainConfig(
         name=name, filters=filters, meta_learner_families=families, extends=base_name, raw=merged,
         perception=parse_perception_config(merged), provenance=provenance, **typed,
     )
+
+
+def _validate_clock(typed: Mapping[str, Any], perception: PerceptionConfig) -> None:
+    """Reject unsupported minute contracts before launching a model or the engine."""
+    minutes = typed["price_features"].bar_minutes
+    if minutes != 1 and perception.source != "ema":
+        raise ValueError("multi-minute decision bars require EMA perception; use M1 for DSHA")
+    f7 = typed["f7"]
+    if f7 is not None and f7.label_horizon_minutes % minutes:
+        raise ValueError("label_horizon_minutes must be a multiple of bar_minutes; fix config")

@@ -20,7 +20,7 @@ _SECTION = "price_features"
 
 @dataclass(frozen=True)
 class PriceFeatureConfig:
-    """Indicator periods, in minute bars. Defaults are the pilot's original constants."""
+    """Periods in complete decision bars; `bar_minutes` defaults to the M1 pilot clock."""
 
     ema_fast: int = 3
     ema_slow: int = 8
@@ -31,12 +31,15 @@ class PriceFeatureConfig:
     macd_signal: int = 9
     atr_period: int = 14
     swing_lookback_bars: int = 60
+    bar_minutes: int = 1
 
     def __post_init__(self) -> None:
         """Fail fast on a non-positive period or an inverted fast/slow ordering."""
         for name, value in asdict(self).items():
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer, got {value!r}")
+        if 1440 % self.bar_minutes:
+            raise ValueError("bar_minutes must divide 1440 for complete UTC daily buckets")
         if not self.ema_fast < self.ema_slow:
             raise ValueError(f"ema_fast ({self.ema_fast}) must be below ema_slow ({self.ema_slow})")
         if not self.ema_slow < self.ema_higher_tf:

@@ -29,6 +29,7 @@ class main(ChainAlgorithm):  # noqa: N801
         self.set_end_date(int(day[:4]), int(day[4:6]), int(day[6:8]))
         self._symbol = self.add_forex("EURUSD", Resolution.MINUTE, Market.OANDA).symbol  # noqa: F405
         config = load_strategy_chain_config(self.get_parameter("chain_config") or "baseline")
+        self._economics = config.capital_mgmt
         raw = dict(config.raw)
         settings = self.get_parameter("smoothing")
         if settings:

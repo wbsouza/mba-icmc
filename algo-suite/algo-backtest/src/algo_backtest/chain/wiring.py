@@ -39,6 +39,7 @@ from algo_backtest.chain.filters.f4_news_context import F4NewsContextFilter, New
 from algo_backtest.chain.filters.f5_risk_guard import RiskGuardFilter
 from algo_backtest.chain.filters.f6_capital_mgmt import CapitalMgmtConfig, CapitalMgmtFilter
 from algo_backtest.chain.filters.f7_meta_learner import F7MetaLearnerFilter, TrainedMetaLearner
+from algo_backtest.chain.filters.volume_strength import VolumeStrengthFilter
 from algo_backtest.chain.model import Filter
 from algo_backtest.strategies import KNOWN_FILTERS, StrategyChainConfig
 
@@ -96,8 +97,8 @@ def price_features(
 ) -> dict[str, object]:
     """The F1/F2/F3 (and F7 TREND/INDICATOR/PATTERN family) inputs for one bar.
 
-    `candlestick_pattern` is always `None`: no real detector is wired yet
-    (`f3_pattern.py`'s documented gap) — deliberately missing, not fabricated.
+    `candlestick_pattern` starts as `None`; the shared `MarketSignals` perception
+    layer overwrites it when the strategy enables TA-Lib on closed decision bars.
     The F6 stop-distance readings — `atr_pips` (the bar's Wilder ATR in pips),
     `swing_low_pips` / `swing_high_pips` (pips from the mid close down to the look-back
     window's lowest low / up to its highest high) — are each added under their key only
@@ -245,6 +246,9 @@ def _build_f4(
 
 _Builder = Callable[[StrategyChainConfig, TrainedMetaLearner, NewsContextIndex | None], Filter]
 _BUILDERS: dict[str, _Builder] = {
+    "volume_strength": lambda c, m, n: VolumeStrengthFilter(
+        config=_section(c.volume_strength, "volume_strength", c)
+    ),
     "f1_trend": lambda c, m, n: F1TrendFilter(),
     "f2_indicator": lambda c, m, n: F2IndicatorFilter(
         config=_section(c.indicator, "indicator", c)

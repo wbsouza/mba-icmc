@@ -28,6 +28,7 @@ class main(ChainAlgorithm):  # noqa: N801
         self.set_end_date(day.year, day.month, day.day)
         self._symbol = self.add_forex("EURUSD", Resolution.MINUTE, Market.OANDA).symbol  # noqa: F405
         self._subscribe_indicators()
+        self._economics = load_strategy_chain_config("hybrid").capital_mgmt
         self._pnl = PnlWindows()
         index = load_news_context_window(
             Path(self.get_parameter("news_data_root")), "EURUSD", day, day

@@ -1,6 +1,6 @@
 # Experiment takeover and consolidation progress
 
-Updated: 2026-09-28 00:56 UTC (September 27, America/Vancouver).
+Updated: 2026-09-28 01:02 UTC (September 27, America/Vancouver).
 Owner: Codex. User stopped Claude and authorized implementation, experiments,
 parallel agents, monograph updates, and incremental commits/pushes.
 
@@ -29,8 +29,8 @@ integrates, commits and pushes their combined work on the Story 13 branch.
 | Agent | Agent ID | Git worktree / branch | Ownership and status |
 | --- | --- | --- | --- |
 | Parent Codex | main session | `/tmp/mba-pattern-volume` / `feat/13-pattern-volume-experiments` | Integration, native parity, experiments, resource limits, Git and this log; active |
-| Mendel | `01a0e56c-9c4e-7fa2-b824-94e042fc7b83` | Same Story 13 worktree/branch | TA-Lib detector and BDD complete; independent review found risk-calendar issue; writing focused regression |
-| Poincare | `01a0e56c-9c8c-7960-b046-eec4b1aa7a5e` | Same Story 13 worktree/branch | Quote-activity calculation/filter, canonical input reader and hashes, BDD complete; tightening trainer family validation |
+| Mendel | `01a0e56c-9c4e-7fa2-b824-94e042fc7b83` | Same Story 13 worktree/branch | TA-Lib detector complete; independent review and four native risk-calendar regressions complete |
+| Poincare | `01a0e56c-9c8c-7960-b046-eec4b1aa7a5e` | Same Story 13 worktree/branch | Quote-activity/filter/provenance complete; trainer family validation and 16 targeted BDD scenarios pass |
 | Herschel | `01a0e56c-c91f-70e2-bd1d-b84207343b70` | Same Story 13 worktree/branch | Complete-bar clock, fixed experiment matrix/runner and BDD complete; no job launched by agent |
 | Ampere | `01a0e56c-9cc0-7cb1-b9e2-005b5432f357` | Same Story 13 worktree/branch | Prior-run inventory, per-filter appendices, figures and monograph chapters 04/05 complete; awaiting new results |
 
@@ -73,8 +73,8 @@ infer that an old worktree represents unmerged work.
   the offline implementation now follows that boundary. Old parity probes also
   needed the Story 12 capital-management setup; production fallback was not added.
 - Independent review found H4 decisions could skip daily equity-anchor updates and
-  understate overnight losses. Parent added minute-level updates; regression pending.
-  Trainer family compatibility is being checked before expensive input loading.
+  understate overnight losses. Minute-level updates and four native regression
+  scenarios now pass. Trainer family compatibility is checked before input loading.
 - Fixed exploratory 2×2 pattern on/off × activity on/off matrix, separately for
   baseline and hybrid. SpockFX Dragon08 H4 risk/exit settings are mapped explicitly;
   EMA/swing entry logic remains a proxy, not an exact JapaDragon reproduction.
@@ -89,6 +89,8 @@ infer that an old worktree represents unmerged work.
 - Offline backtest suite: **1,351 passed, 49 integration scenarios deselected**.
 - New native signal parity: M1/H1/H4 **3 passed**.
 - Legacy native feature/news/DSHA parity after probe repair: **8 passed**.
+- Calendar-risk native regressions: **4 passed in 13.24 seconds**.
+- Trainer-family/provenance/runner targeted regression batch: **54 passed**.
 - Scoped backtest/runner Ruff and strict mypy: pass (64 checked source files).
 - Perception and inference architecture checks: pass.
 - `make audit`: no known dependency vulnerabilities; editable workspace packages
@@ -133,9 +135,10 @@ settings are unchanged. No model weights or Torch/Transformers were installed.
 `3a705ef` — documentation: agent/worktree ownership, decisions, verification and
 consolidation plan. Pushed to `origin/feat/13-pattern-volume-experiments`.
 `2be2af2` — moved this file into the Story 13 directory as requested; pushed.
-The next documentation commit archives the verified predecessor results and
-monograph update, independently of the still-in-review implementation.
-Implementation and evidence remain uncommitted pending the two review regressions.
+`6873b91` — verified predecessor results, parameter appendix, figures and monograph;
+pushed. This implementation commit contains the closed-bar signals, provenance,
+runner and both independently identified review fixes. Scoped verification passes;
+full execution-chain tests are still running, and experimental results are pending.
 
 1. Finish risk-calendar and trainer-family regressions; freeze code and commit/push.
 2. Prepare fresh disjoint output directories with the immutable matrix/settings.

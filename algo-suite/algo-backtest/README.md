@@ -192,12 +192,38 @@ trained offline by `scripts/train_*_meta_learner.py` over LEAN's delivered bar s
 (`training.py`, `market_hours.py`), with train/serve feature parity proven in real LEAN.
 The bundled models were trained on EUR/USD 2015-02-02 → 2015-07-31 (train +
 validation), holding out 2015-08-01 → 2016-01-31. These are **wiring smoke tests, not
-methodology results** — F3 has no real pattern detector, F5/F6 use placeholder
-economics, F4's sentiment half is best-effort (TD-48); see `docs/technical-debt.md`
+methodology results** — their F3 detector remains disabled; new configurations may
+enable the Story 13 TA-Lib detector with a freshly trained F7 model. Story 12 supplies
+explicit execution/risk parameters; F4's sentiment half is best-effort (TD-48); see
+`docs/technical-debt.md`
 TD-51. Still planned: richer analytics (CPCV, equity curves, `trades.parquet` schema);
 read-through caching.
 
 Spec: [`SPEC.md`](SPEC.md).
+
+### Closed-bar candlestick and quote-activity experiments
+
+The [SpockFX comparison plan](../experiments/spockfx-signals/README.md) fixes an
+exploratory 2×2 comparison: TA-Lib disabled/enabled × quote-activity veto off/on.
+`price_features.bar_minutes` sets complete UTC-anchored decision bars (1 by default,
+60 for H1, 240 for H4); indicator periods count these bars. Multi-minute decisions
+currently require EMA perception. Position stops and exits still run every minute.
+
+`pattern.detector: talib` recognizes bullish/bearish engulfing, hammer,
+shooting star, morning star and evening star from closed bid/ask midpoint OHLC.
+Opposing simultaneous labels abstain; same-direction ties choose the first label
+alphabetically, not the largest score. TA-Lib scores are not probabilities.
+
+Add `volume_strength` to the filter list and its explicit configuration section to
+enable the separate veto: `lookback: 20`, `min_relative_activity: 1.0`. Strength is
+the current closed bar's tick count divided by the prior 20 complete bars' mean.
+Warm-up or zero denominator vetoes. Counts come from canonical M1 Parquet;
+missing real-bar evidence fails rather than substituting LEAN QuoteBar volume.
+This measures quote activity, **not centralized FX traded volume**.
+
+Changing the detector or decision-bar duration requires retraining F7; incompatible
+models are rejected. The experiment runner archives source/configuration hashes and
+every filter's effective parameters alongside successful and failed outcomes.
 
 ### Double-smoothed Heikin-Ashi perception ablation
 

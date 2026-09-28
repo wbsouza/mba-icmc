@@ -48,6 +48,7 @@ from algo_backtest.chain.price_features import (
 )
 from algo_backtest.container_paths import NEWS_DATA_ROOT, NEWS_SUBPATH
 from algo_backtest.lean_runner import run_lean
+from algo_backtest.perception.tick_activity import activity_provenance
 from algo_backtest.results import RunResult, parse_results
 from algo_backtest.strategies import (
     StrategyChainConfig,
@@ -225,8 +226,9 @@ class StrategySpec:
 # config.yaml-driven filter chain on the shared `engine/chain_algorithm.py`. `baseline`
 # runs F1+F2+F3+F5+F6+F7 (no F4/news); `hybrid` adds F4/news on top of the identical
 # chain (`strategies/hybrid/config.yaml`'s `extends: baseline`). Known simplifications:
-# F3's candlestick pattern is never populated (no real detector), F5/F6 use fixed
-# placeholder economics (`chain/wiring.py`), and the bundled F7 models come from the
+# The bundled configurations keep F3 detection disabled; Story 13 enables TA-Lib only
+# for explicitly configured, freshly trained variants. F5/F6 use the resolved risk and
+# execution plan (Story 12), and the bundled F7 models come from the
 # walk-forward split recorded in each model's provenance (2015-02..07 in-sample,
 # 2015-08..2016-01 held out). `hybrid`'s F4 sentiment half stays best-effort/ABSTAIN
 # pending TD-48 (its GDELT event-intensity veto is real). Wiring proof, not a Chapter-4
@@ -356,6 +358,9 @@ def _require_feature_parity(path: Path, strategy: str, config: StrategyChainConf
         ValueError: naming every differing period, or the differing label horizon.
     """
     provenance = load_provenance(path)
+    from algo_backtest.signal_contract import require_signal_contract
+
+    require_signal_contract(provenance, config)
     _require_same_price_features(
         path, strategy, _trained_price_features(provenance, path), config.price_features
     )
@@ -525,11 +530,26 @@ def run_strategy(
         data_mounts.update(_news_mounts(data_root))
         parameters["news_data_root"] = str(NEWS_DATA_ROOT)
     algo_files: dict[str, Path] = {}
+    activity_inputs: dict[str, str] | None = None
     if model is not None and spec.model_file:
         algo_files[spec.model_file] = model
     with tempfile.TemporaryDirectory(prefix="lean-strategy-") as scratch:
         if spec.model_file:  # a chain strategy: ship its resolved YAML next to main.py
             config = load_strategy_chain_config(strategy, root=strategies_root)
+            if config.volume_strength is not None:
+                price_root = data_root / "parquet" / instrument.security_type
+                if not price_root.is_dir():
+                    raise ValueError(
+                        "volume filter requires canonical prices Parquet; materialize prices"
+                    )
+                data_mounts[f"activity/parquet/{instrument.security_type}"] = price_root
+                parameters["activity_data_root"] = "/Lean/Data/activity"
+                activity_inputs = activity_provenance(data_root, instrument, start, end)
+                write_text_atomic(
+                    results_dir / "activity-inputs.json",
+                    json.dumps({"schema_version": 1, "source": "quote_tick_count",
+                                "files": activity_inputs}, indent=2, sort_keys=True) + "\n",
+                )
             resolved = Path(scratch) / _RESOLVED_STRATEGY_FILE
             resolved.write_text(resolved_yaml(config))
             algo_files[_RESOLVED_STRATEGY_FILE] = resolved
@@ -544,4 +564,7 @@ def run_strategy(
             algo_dir, results_dir, data_mounts=data_mounts,
             parameters=parameters, timeout=timeout, algo_files=algo_files,
         )
+    if (activity_inputs is not None
+            and activity_provenance(data_root, instrument, start, end) != activity_inputs):
+        raise ValueError("canonical tick activity changed during execution; discard this run")
     return parse_results(results_dir, success=run.exit_code == 0)
