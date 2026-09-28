@@ -38,8 +38,8 @@ def build_close_ladder(original_lot_size: float, portions: Sequence[float]) -> C
     (the running remainder) rather than trusting `original_lot_size * portion` —
     independent per-rung percentages are not guaranteed to sum to exactly 1.0 after
     floating-point rounding, so that rung derives its size from what's actually left
-    instead of risking a residual under-close (spockfx-engine's `MoneyManagementCalculator
-    .setTargetLevels()`, specs.md §14.8 amendment 2026-09-26). A ladder whose portions sum
+    instead of risking a residual under-close (the later Heikin-Ashi trading manager's
+    target-level calculation, specs.md §14.8 amendment 2026-09-26). A ladder whose portions sum
     to strictly less than 1.0 is a valid *partial* close (e.g. scaling out of most of a
     position while leaving a runner) — every rung, including the last, closes exactly its
     own declared portion in that case, and `lot_remaining` reports the still-open fraction.

@@ -1,12 +1,12 @@
-# Exploratory Dragon08 H4 proxy; sources and unsupported semantics: ../../README.md.
-extends: hybrid
+# Exploratory Heikin-Ashi H4 template proxy; reference settings and unsupported semantics: ../../README.md.
+extends: baseline
 schema_version: 2
 perception_source: ema
 filters:
   - f1_trend
   - f2_indicator
   - f3_pattern
-  - f4_news_context
+  - volume_strength
   - f5_risk_guard
   - f6_capital_mgmt
   - f7_meta_learner
@@ -28,9 +28,9 @@ pattern:
   detector: disabled
   bullish_patterns: [bullish_engulfing, hammer, morning_star]
   bearish_patterns: [bearish_engulfing, shooting_star, evening_star]
-news_context:
-  event_intensity_veto_threshold: -0.5
-  sentiment_direction_threshold: 0.15
+volume_strength:
+  lookback: 20
+  min_relative_activity: 1.0
 risk_guard:
   portfolio_at_risk_cap: 0.18
   daily_drawdown_limit: -0.05
@@ -55,7 +55,7 @@ capital_mgmt:
   min_reward_risk: 2.0
   atr_multiplier: 2.0
 meta_learner:
-  families: [trend, indicator, pattern, news]
+  families: [trend, indicator, pattern]
   theta_high: 0.55
   theta_low: 0.45
   regime_gate: false

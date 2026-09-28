@@ -25,7 +25,7 @@ pending that review/consolidation. Local verification is not remote CI certifica
 ## Current objective and boundaries
 
 Implement causal candlestick and relative quote-activity filters, apply explicitly
-mapped SpockFX settings, run controlled exploratory comparisons, and show every
+mapped Heikin-Ashi template settings, run controlled exploratory comparisons, and show every
 filter's effective parameters beside each result. Preserve prior jobs, data, and
 worktrees. Never label a running job or a successful shell `wait` as a completed run.
 
@@ -94,9 +94,9 @@ infer that an old worktree represents unmerged work.
   understate overnight losses. Minute-level updates and four native regression
   scenarios now pass. Trainer family compatibility is checked before input loading.
 - Fixed exploratory 2×2 pattern on/off × activity on/off matrix, separately for
-  baseline and hybrid. SpockFX Dragon08 H4 risk/exit settings are mapped explicitly;
-  EMA/swing entry logic remains a proxy, not an exact JapaDragon reproduction.
-- Each runner cell archives effective filter settings, XML/config/code/input/model
+  baseline and hybrid. The Heikin-Ashi H4 template's risk/exit settings are mapped explicitly;
+  EMA/swing entry logic remains a proxy, not an exact reproduction of the earlier system.
+- Each runner cell archives effective filter settings, config/code/input/model
   hashes, exact commands, resource budget, status, logs and results. Immutable input
   checks bracket batches; failed cells stop subsequent batches.
 - Chapters 04/05 now contain verified intermediate predecessor results, including
@@ -262,7 +262,7 @@ R17/R18 0 trades. Monograph rebuilt: 106 pages, no undefined references.
 
 ### Proposed broader-window protocol (to register before any outcome is viewed)
 
-Same 2×2 pattern (disabled / TA-Lib) × activity (off / on) for baseline and hybrid, Dragon08 H4
+Same 2×2 pattern (disabled / TA-Lib) × activity (off / on) for baseline and hybrid, Heikin-Ashi H4
 clock, common capital/costs/risk, six canonical patterns, activity lookback 20 / threshold 1.0,
 thresholds 0.55/0.45 gate off. Splits: fit 2015-03-02 → 2015-12-31, calibrate 2016-01,
 hold out 2016-02, evaluate 2016-03-01 → 2016-11-30 as one continuous run per cell.
@@ -314,14 +314,14 @@ Check an implementation item only after its changes are committed and tests pass
 - [x] Add relative quote-activity calculation and configurable veto with BDD tests.
 - [x] Wire identical closed-bar signals into offline training and LEAN execution.
 - [x] Reject models trained with an incompatible signal/family contract.
-- [x] Map SpockFX parameters and register controlled exploratory comparisons.
+- [x] Map the Heikin-Ashi template parameters and register controlled exploratory comparisons.
 - [x] Verify native/offline parity, offline gates and dependency audit.
 - [x] Train separate models, execute experiments and archive all outcomes.
 - [x] Update monograph and parameter/result evidence for the new comparisons.
 
 Final deliverables: [eight-run results](evidence/h4-results-20260928T011114Z.md),
 [all per-run/filter parameters](evidence/h4-parameters-20260928T011114Z.md),
-[raw models/results/failure archive](evidence/h4-run-artifacts-20260928T011114Z.tar.gz),
+raw models/results/failure archive (retained locally; see the [removal note](evidence/h4-run-artifacts-20260928T011114Z.REMOVED.md)),
 and [test/takeover procedure](qa-procedure.md). Seven evidence BDD scenarios and
 scoped Ruff/mypy pass; monograph verification passes at 96 pages. Final archive
 comparison against all three original matrix roots passes. No current Codex agent
@@ -367,3 +367,7 @@ final decisions and equity matched. Activity vetoed 17 of 40 eligible bars, leav
 23 SELL decisions instead of 40. This is threshold insensitivity in a small sample,
 not failed detection or general evidence that patterns/news do not matter.
 No threshold or period was adjusted after observing these results.
+
+Note: variant names sanitized 2026-09-28; job directories keep the launch-time names. The
+evidence tests resolve recorded paths through the optional map named by `STORY13_LOCAL_PATHS`
+(default `~/workspace/mba-agents/experiment-test-archives/story13-local-paths.json`).

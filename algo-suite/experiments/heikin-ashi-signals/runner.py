@@ -30,7 +30,6 @@ from algo_score.paths import symbol_path
 
 HERE = Path(__file__).resolve().parent
 SUITE = HERE.parents[1]
-XML_SOURCES = ("deploy.xml", "strategies/dragon.xml", "strategies/setupnow.xml")
 DEFAULT_PLAN = HERE / "plan.yaml"
 DATE_KEYS = (
     "train_start",
@@ -224,19 +223,12 @@ def input_files(root: Path, plan: dict[str, Any]) -> list[Path]:
     return sorted(set(paths + extras + news))
 
 
-def validate_roots(
-    input_root: Path, output_root: Path, source_conf: Path, plan: dict[str, Any]
-) -> list[Path]:
-    """Refuse overlap, reuse, absent XML, and absent inputs before creating output."""
+def validate_roots(input_root: Path, output_root: Path, plan: dict[str, Any]) -> list[Path]:
+    """Refuse overlap, reuse, and absent inputs before creating output."""
     if output_root.exists() or output_root.is_symlink():
         raise ValueError("Output already exists; choose a fresh experiment output directory.")
     if output_root.is_relative_to(input_root) or input_root.is_relative_to(output_root):
         raise ValueError("Input and output roots overlap; choose disjoint directories.")
-    if output_root.is_relative_to(source_conf) or source_conf.is_relative_to(output_root):
-        raise ValueError("XML source and output roots overlap; choose disjoint directories.")
-    for name in XML_SOURCES:
-        if not (source_conf / name).is_file():
-            raise ValueError(f"Missing XML source {source_conf / name}; supply --spockfx-conf.")
     return input_files(input_root, plan)
 
 
@@ -319,9 +311,9 @@ def archive_run(run_dir: Path, manifest: dict[str, Any]) -> None:
         f"# {run_dir.name}\n\n"
         f"Exploratory, previously inspected {window_label(manifest['plan'])} window; "
         "not confirmatory.\n\n"
-        "See provenance.json for exact windows, inputs and XML source hashes.\n\n"
-        "See source-mapping.md for every XML mapping and unsupported semantic; "
-        "source-configs/ and source-xml/ preserve the original files.\n\n"
+        "See provenance.json for exact windows, inputs and plan hashes.\n\n"
+        "See template-settings.md for the reference template settings and every "
+        "unsupported semantic; source-configs/ preserves the original YAML files.\n\n"
         f"```text\n{parameters}\n```\n\n"
         f"```json\n{json.dumps(manifest['plan'], indent=2)}\n```\n",
     )
@@ -335,9 +327,8 @@ def window_label(plan: dict[str, Any]) -> str:
 
 
 def archive_sources(run_dir: Path) -> None:
-    """Keep original YAML inheritance and XML/source explanations beside every run."""
-    shutil.copyfile(HERE / "README.md", run_dir / "source-mapping.md")
-    shutil.copytree(run_dir.parent / "source-xml", run_dir / "source-xml")
+    """Keep original YAML inheritance and the template explanation beside every run."""
+    shutil.copyfile(HERE / "README.md", run_dir / "template-settings.md")
     sources = {run_dir.name: HERE / "strategies" / run_dir.name / "config.yaml"}
     for name in ("baseline", "hybrid"):
         sources[name] = strategies_root() / name / "config.yaml"
@@ -350,7 +341,6 @@ def archive_sources(run_dir: Path) -> None:
 def prepare(
     input_root: Path,
     output_root: Path,
-    source_conf: Path,
     *,
     mode: str = "baseline",
     workers: int | None = None,
@@ -359,12 +349,12 @@ def prepare(
     """Prepare four runs without training, launching LEAN, or mutating input trees."""
     if output_root.is_symlink():
         raise ValueError("Output is a symlink; choose a fresh experiment output directory.")
-    input_root, output_root, source_conf, plan_path = (
-        path.resolve() for path in (input_root, output_root, source_conf, plan_path)
+    input_root, output_root, plan_path = (
+        path.resolve() for path in (input_root, output_root, plan_path)
     )
     plan = select_plan(mode, plan_path)
     plan["resources"] = resource_budget(plan, workers)
-    paths = validate_roots(input_root, output_root, source_conf, plan)
+    paths = validate_roots(input_root, output_root, plan)
     for name in plan["variants"]:
         load_strategy_chain_config(name, root=HERE / "strategies")
     manifest = {
@@ -372,7 +362,6 @@ def prepare(
         "input_root": str(input_root),
         "code": code_hashes(),
         "inputs": {str(p): digest(p) for p in paths},
-        "source_xml": {str(source_conf / n): digest(source_conf / n) for n in XML_SOURCES},
         "plan_source": {str(plan_path): digest(plan_path)},
         "prepared_at": datetime.now(UTC).isoformat(),
         "packages": {
@@ -396,10 +385,6 @@ def prepare(
     write_json(output_root / "manifest.json", manifest)
     shutil.copyfile(HERE / "README.md", output_root / "README.md")
     shutil.copyfile(plan_path, output_root / "plan.yaml")
-    for name in XML_SOURCES:
-        target = output_root / "source-xml" / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source_conf / name, target)
     for name in plan["variants"]:
         archive_run(output_root / name, manifest)
     snapshots = [p for p in output_root.rglob("*") if p.is_file()]
@@ -531,9 +516,7 @@ def model_hashes(output_root: Path, manifest: dict[str, Any]) -> dict[str, str]:
 def immutable_check(output_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
     """Compare source/input identities with the manifest, never mutable prepared-status hashes."""
     errors = []
-    groups = {
-        key: check_hashes(manifest[key]) for key in ("code", "inputs", "source_xml", "plan_source")
-    }
+    groups = {key: check_hashes(manifest[key]) for key in ("code", "inputs", "plan_source")}
     try:
         groups["models"] = check_hashes(model_hashes(output_root, manifest))
         if code_hashes() != manifest["code"]:
@@ -700,7 +683,7 @@ def main() -> int:
         default=DEFAULT_PLAN,
         help="registered plan document; defaults to the bundled pilot plan.yaml",
     )
-    for option in ("input-root", "output-root", "spockfx-conf"):
+    for option in ("input-root", "output-root"):
         prepare_parser.add_argument(f"--{option}", type=Path, required=True)
     execute_parser = sub.add_parser("execute")
     execute_parser.add_argument("--output-root", type=Path, required=True)
@@ -712,7 +695,6 @@ def main() -> int:
             prepare(
                 args.input_root,
                 args.output_root,
-                args.spockfx_conf,
                 mode=args.mode,
                 workers=args.workers,
                 plan_path=args.plan,

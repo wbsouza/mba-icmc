@@ -36,10 +36,10 @@ archived configuration fields.
 | [R12](#r12) | `hybrid/20260927T100447-5e124bec56dc` | successful | 2015-09-01 to 2015-09-30 | 1069 | 0.51 | 1.50 |
 | [R13](#r13) | `hybrid/20260927T235410-8b548f4bfa30` | successful | 2015-09-01 to 2015-09-30 | 322 | -52.75 | 54.00 |
 | [R14](#r14) | `hybrid/20260928T001007-8c33716e9a9f` | successful | 2015-10-01 to 2015-10-31 | 349 | -51.37 | 53.30 |
-| [R15](#r15) | `spockfx-dragon03/20260928T000820-8c1aad8bf6ec` | successful | 2015-09-01 to 2015-09-30 | 144 | -53.47 | 55.80 |
-| [R16](#r16) | `spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea` | successful | 2015-09-01 to 2015-09-30 | 437 | -42.16 | 50.10 |
-| [R17](#r17) | `spockfx-dragon05/20260928T000821-8c1ab730ce29` | successful | 2015-09-01 to 2015-09-30 | 0 | 0.00 | 0.00 |
-| [R18](#r18) | `spockfx-setupnow/20260928T000821-8c1ab3550b58` | successful | 2015-09-01 to 2015-09-30 | 0 | 0.00 | 0.00 |
+| [R15](#r15) | `ha-h1-template/20260928T000820-8c1aad8bf6ec` | successful | 2015-09-01 to 2015-09-30 | 144 | -53.47 | 55.80 |
+| [R16](#r16) | `ha-h1-template-atr/20260928T000821-8c1ab34b3bea` | successful | 2015-09-01 to 2015-09-30 | 437 | -42.16 | 50.10 |
+| [R17](#r17) | `ha-1r2r-template/20260928T000821-8c1ab730ce29` | successful | 2015-09-01 to 2015-09-30 | 0 | 0.00 | 0.00 |
+| [R18](#r18) | `ha-setup-template/20260928T000821-8c1ab3550b58` | successful | 2015-09-01 to 2015-09-30 | 0 | 0.00 | 0.00 |
 | [R19](#r19) | `baseline/20260928T000117-8bb8148c2302` | running_no_final_manifest | missing final manifest; see process/script | missing | missing | missing |
 | [R20](#r20) | `hybrid/20260928T000142-8bbdd0d8fd2c` | running_no_final_manifest | missing final manifest; see process/script | missing | missing | missing |
 
@@ -642,7 +642,7 @@ Runtime identity evidence:
 
 ## R15
 
-Run: `spockfx-dragon03/20260928T000820-8c1aad8bf6ec`.
+Run: `ha-h1-template/20260928T000820-8c1aad8bf6ec`.
 Job: `2026-09-27-variant-sweep-sept-b`. Status: **successful**.
 
 Result: 144 closed trades; return -53.47%; max drawdown 55.80%.
@@ -685,7 +685,7 @@ Runtime identity evidence:
 
 ## R16
 
-Run: `spockfx-dragon03-atr/20260928T000821-8c1ab34b3bea`.
+Run: `ha-h1-template-atr/20260928T000821-8c1ab34b3bea`.
 Job: `2026-09-27-variant-sweep-sept-b`. Status: **successful**.
 
 Result: 437 closed trades; return -42.16%; max drawdown 50.10%.
@@ -728,7 +728,7 @@ Runtime identity evidence:
 
 ## R17
 
-Run: `spockfx-dragon05/20260928T000821-8c1ab730ce29`.
+Run: `ha-1r2r-template/20260928T000821-8c1ab730ce29`.
 Job: `2026-09-27-variant-sweep-sept-b`. Status: **successful**.
 
 Result: 0 closed trades; return 0.00%; max drawdown 0.00%.
@@ -771,7 +771,7 @@ Runtime identity evidence:
 
 ## R18
 
-Run: `spockfx-setupnow/20260928T000821-8c1ab3550b58`.
+Run: `ha-setup-template/20260928T000821-8c1ab3550b58`.
 Job: `2026-09-27-variant-sweep-sept-b`. Status: **successful**.
 
 Result: 0 closed trades; return 0.00%; max drawdown 0.00%.

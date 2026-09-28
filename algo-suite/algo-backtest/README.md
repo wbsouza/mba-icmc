@@ -237,7 +237,7 @@ Spec: [`SPEC.md`](SPEC.md).
 
 ### Closed-bar candlestick and quote-activity experiments
 
-The [SpockFX comparison plan](../experiments/spockfx-signals/README.md) fixes an
+The [Heikin-Ashi comparison plan](../experiments/heikin-ashi-signals/README.md) fixes an
 exploratory 2×2 comparison: TA-Lib disabled/enabled × quote-activity veto off/on.
 `price_features.bar_minutes` sets complete UTC-anchored decision bars (1 by default,
 60 for H1, 240 for H4); indicator periods count these bars. Multi-minute decisions

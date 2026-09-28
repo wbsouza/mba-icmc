@@ -49,7 +49,7 @@ Take over Story 13 from Codex. First read these files in
    otherwise label the new evaluation exploratory. Do not invent missing data.
 4. Register the broader-window protocol BEFORE viewing outcomes: retain baseline
    and hybrid and the same 2×2 pattern/activity ablation, common capital/costs/risk,
-   H4 clock and SpockFX mapping. State all settings, seeds, budgets, trial ledger,
+   H4 clock and Heikin-Ashi template settings. State all settings, seeds, budgets, trial ledger,
    primary comparison and multiplicity treatment. Preserve the six canonical
    patterns and activity lookback 20/threshold 1.0 unless a separately registered
    rationale changes them. No post-hoc threshold tuning to September results.

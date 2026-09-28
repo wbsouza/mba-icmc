@@ -5,7 +5,7 @@ Feature: F6 — capital-management filter
   `stop_loss_shrink`; floored at `max(min_stop_pips, min_stop_factor × broker stop
   level)`), the fixed-fractional lot from `rules/risk_math.py`, every target and trailing
   step in pips with the spread added exactly as `rules/trail_stop.py` (the formulas
-  confirmed against the fx-manager / spockfx-engine source), and the reward:risk ratio.
+  confirmed against the fx-manager source and the author's later trading manager), and the reward:risk ratio.
   It vetoes when the plan's reward:risk falls below `min_reward_risk` or the lot would
   need more margin than is available. Every number traces to a `capital_mgmt` or
   `execution` YAML key or to a market feature; nothing is a code constant.

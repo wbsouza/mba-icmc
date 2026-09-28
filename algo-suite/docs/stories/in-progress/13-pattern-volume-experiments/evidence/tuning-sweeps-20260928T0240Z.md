@@ -13,7 +13,7 @@ Exploratory. One-year splits for every model (fit 2015-03-02..2015-12-31, combin
 | t05-theta-60-40 | `t05-theta-60-40/20260928T014702-917d5042911b` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
 | t06-theta-52-48 | `t06-theta-52-48/20260928T014702-917d4fd6c89f` | 56 | 18 | -14.60% | -5.01% | -19.01% | 22.5% | +1.6 | +1.0 | -4.3 | -2.0 | -3.2 | -0.7 | +2.9 | -10.4 | -5.0 |
 | t07-gate-on | `t07-gate-on/20260928T014804-918bb85c89bf` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
-| t08-plan-dragon05 | `t08-plan-dragon05/20260928T014816-918eb6cd6922` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
+| t08-plan-1r2r | `t08-plan-1r2r/20260928T014816-918eb6cd6922` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
 | t09-atr-stop | `t09-atr-stop/20260928T014818-918f2940cc43` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
 | t10-order-vol-first | `t10-order-vol-first/20260928T014818-918f304bd087` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
 | t11-nocandle-vol-on | `t11-nocandle-vol-on/20260928T014835-919312a70746` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
@@ -37,7 +37,7 @@ a7c4ef2e48ce6f9eb137a5efd3ab7252642f944a0534e1395f56e28f56977bdc  /home/wellingt
 | q05-base | `q05-base/20260928T015629-920150be316a` | 87 | 30 | -8.92% | -4.09% | -12.65% | 18.4% | -0.7 | -3.0 | +2.0 | -9.1 | -4.6 | -2.1 | +5.6 | +3.5 | -4.1 |
 | q15-base | `q15-base/20260928T015629-92015eaf2311` | 133 | 32 | -4.79% | -1.71% | -6.42% | 20.5% | -0.8 | -1.5 | -3.4 | -7.9 | -7.6 | +10.2 | +3.7 | +3.7 | -1.7 |
 | q10-gate-on | `q10-gate-on/20260928T015629-9201570df1a9` | 16 | 25 | -20.23% | -4.76% | -23.98% | 26.1% | +0.8 | -4.4 | +3.4 | -9.7 | -1.6 | -5.7 | -7.7 | +3.5 | -4.8 |
-| q10-plan-dragon05 | `q10-plan-dragon05/20260928T015629-92015a2799cb` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
+| q10-plan-1r2r | `q10-plan-1r2r/20260928T015629-92015a2799cb` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
 | q10-atr-stop | `q10-atr-stop/20260928T015935-922ca17ded10` | 65 | 46 | +9.04% | -6.03% | +2.27% | 25.0% | -4.2 | +0.7 | -12.4 | +12.8 | +2.3 | -1.9 | +21.8 | -6.4 | -6.0 |
 | q10-vol-0.8 | `q10-vol-0.8/20260928T020015-92361c5b236c` | 134 | 34 | -8.56% | -0.29% | -8.82% | 19.1% | -0.9 | -3.9 | -2.1 | -6.9 | -5.6 | +6.9 | +7.0 | -2.4 | -0.3 |
 | q10-nocandle | `q10-nocandle/20260928T020143-924a7ef07eae` | 104 | 32 | -12.31% | -1.08% | -13.26% | 22.9% | -0.7 | -6.2 | -1.7 | -5.9 | -6.4 | -1.3 | +5.6 | +4.2 | -1.1 |
@@ -85,7 +85,7 @@ e07a4b6e893aa381d7c134bf2358814f9d3e1152eeaa66c32b003226697addf4  /home/wellingt
 | h1-gate-on | `h1-gate-on/20260928T021518-93082d4fbca9` | 3 | 67 | +3.12% | +0.00% | +3.12% | 5.9% | +0.0 | -3.2 | +0.1 | +0.0 | +0.0 | +6.3 | +0.0 | +0.0 | +0.0 |
 | h1-theta-53-47 | `h1-theta-53-47/20260928T021518-93082eba325f` | 209 | 25 | -23.33% | -3.51% | -26.26% | 48.7% | +23.7 | +2.0 | -15.1 | -12.1 | -1.6 | +1.8 | -4.9 | -14.4 | -3.5 |
 | h1-theta-57-43 | `h1-theta-57-43/20260928T021518-93082c234704` | 0 | 0 | +0.00% | +0.00% | +0.00% | 0.0% | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 | +0.0 |
-| h1-plan-dragon05 | `h1-plan-dragon05/20260928T021518-93082dbbe3f9` | 20 | 50 | +4.48% | -1.35% | +3.07% | 5.6% | -0.5 | -5.0 | +5.2 | -1.3 | +4.1 | +2.4 | +0.0 | -0.3 | -1.4 |
+| h1-plan-1r2r | `h1-plan-1r2r/20260928T021518-93082dbbe3f9` | 20 | 50 | +4.48% | -1.35% | +3.07% | 5.6% | -0.5 | -5.0 | +5.2 | -1.3 | +4.1 | +2.4 | +0.0 | -0.3 | -1.4 |
 | h1-vol-0.8 | `h1-vol-0.8/20260928T021931-9343415445c7` | 21 | 52 | +14.80% | -2.46% | +11.98% | 8.0% | +4.8 | -4.9 | -1.0 | -1.3 | +5.5 | +9.8 | +2.0 | -0.3 | -2.5 |
 | h1-vol-1.2 | `h1-vol-1.2/20260928T021935-934438479cdf` | 14 | 36 | +4.74% | -2.46% | +2.17% | 3.8% | +4.8 | -1.8 | -1.1 | -0.3 | +1.5 | +3.0 | -0.9 | -0.3 | -2.5 |
 
@@ -126,17 +126,17 @@ e07a4b6e893aa381d7c134bf2358814f9d3e1152eeaa66c32b003226697addf4  /home/wellingt
 
 | cell | trades | return | max DD |
 |---|---:|---:|---:|
-| dragon08-h4-disabled-volume-off | 1 | -3.00% | 4.0% |
-| dragon08-h4-disabled-volume-on | 0 | +0.00% | 0.0% |
-| dragon08-h4-talib-volume-off | 1 | -3.00% | 4.0% |
-| dragon08-h4-talib-volume-on | 0 | +0.00% | 0.0% |
+| heikin-ashi-h4-disabled-volume-off | 1 | -3.00% | 4.0% |
+| heikin-ashi-h4-disabled-volume-on | 0 | +0.00% | 0.0% |
+| heikin-ashi-h4-talib-volume-off | 1 | -3.00% | 4.0% |
+| heikin-ashi-h4-talib-volume-on | 0 | +0.00% | 0.0% |
 
 Final immutable-input check (baseline): ok=True, errors=[]
 
-| dragon08-h4-hybrid-disabled-volume-off | 1 | -3.00% | 4.0% |
-| dragon08-h4-hybrid-disabled-volume-on | 0 | +0.00% | 0.0% |
-| dragon08-h4-hybrid-talib-volume-off | 1 | -3.00% | 4.0% |
-| dragon08-h4-hybrid-talib-volume-on | 0 | +0.00% | 0.0% |
+| heikin-ashi-h4-hybrid-disabled-volume-off | 1 | -3.00% | 4.0% |
+| heikin-ashi-h4-hybrid-disabled-volume-on | 0 | +0.00% | 0.0% |
+| heikin-ashi-h4-hybrid-talib-volume-off | 1 | -3.00% | 4.0% |
+| heikin-ashi-h4-hybrid-talib-volume-on | 0 | +0.00% | 0.0% |
 
 Final immutable-input check (hybrid): ok=True, errors=[]
 
@@ -149,6 +149,6 @@ H4 models: p_hat on the 99 January-2016 validation bars spans 0.517–0.539 (`20
 - No variant is profitable on the untouched month, November 2016. Every variant that traded in November lost (−0.1 % to −8.8 %); the two zero-trade H2 cells and the gated H1 cell were flat.
 - The only positive March..October returns are small-sample, low-frequency settings: H1 with fixed thresholds (17–33 long-only trades, +8 to +15 %) and the H4 ATR-stop variant (65 trades, +9 %). Each lost in November (−2.5 % and −6.0 %). Making the same H1 models trade more through calibrated symmetric thresholds turns the sign: 114 trades −5 %, 196 trades −30 %, 316 trades −55 %. Loss grows monotonically with trade count at every timeframe.
 - The TA-Lib detector does not move the outcome: candle-on and candle-off pairs differ by less than 0.1 % at H4 and M15 (identical pattern-family probability ranges). The quote-activity gate reduces trades; at H4 it worsens every pair, at H1 (fixed thresholds) it removes a few losing trades.
-- The regime gate is the worst or emptiest setting at every timeframe. The Dragon05 plan is viable only with `min_reward_risk` 1.0 (H1: 20 trades, +4.5 % Mar..Oct, −1.4 % Nov); with 2.0 it vetoes every entry.
+- The regime gate is the worst or emptiest setting at every timeframe. The 1R/2R template plan is viable only with `min_reward_risk` 1.0 (H1: 20 trades, +4.5 % Mar..Oct, −1.4 % Nov); with 2.0 it vetoes every entry.
 - Filter order (`t10-order-vol-first`) changes nothing: vetoes compose, so the same bars are blocked whichever filter blocks first.
 - Picking the best March..October variant and reading November is the pre-declared test; it fails for the H4 pick (q10-atr-stop −6.0 %) and for the H1 pick (h1-hybrid-vol-off −2.6 %). With 51 trials, one or two positive development-window results are expected under the null.

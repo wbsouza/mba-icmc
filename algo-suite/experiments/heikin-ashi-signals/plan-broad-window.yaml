@@ -1,9 +1,9 @@
 # Second registered protocol: the broader-window H4 matrix. Prepared with
-# `runner.py prepare --plan experiments/spockfx-signals/plan-broad-window.yaml`.
+# `runner.py prepare --plan experiments/heikin-ashi-signals/plan-broad-window.yaml`.
 # Every window boundary below was registered before any outcome on 2016-11 was viewed.
 schema_version: 1
 classification: exploratory
-family: dragon08-h4-swing-proxy
+family: heikin-ashi-h4-template
 symbol: EURUSD
 cash: 10000
 broker_adapter: oanda
@@ -26,15 +26,15 @@ resources:
   training_device: cpu
 mode: baseline
 variants:
-  - dragon08-h4-disabled-volume-off
-  - dragon08-h4-disabled-volume-on
-  - dragon08-h4-talib-volume-off
-  - dragon08-h4-talib-volume-on
+  - heikin-ashi-h4-disabled-volume-off
+  - heikin-ashi-h4-disabled-volume-on
+  - heikin-ashi-h4-talib-volume-off
+  - heikin-ashi-h4-talib-volume-on
 hybrid_variants:
-  - dragon08-h4-hybrid-disabled-volume-off
-  - dragon08-h4-hybrid-disabled-volume-on
-  - dragon08-h4-hybrid-talib-volume-off
-  - dragon08-h4-hybrid-talib-volume-on
+  - heikin-ashi-h4-hybrid-disabled-volume-off
+  - heikin-ashi-h4-hybrid-disabled-volume-on
+  - heikin-ashi-h4-hybrid-talib-volume-off
+  - heikin-ashi-h4-hybrid-talib-volume-on
 registration:
   registered_at: '2026-09-28T01:44:00Z'
   # 2016-03..2016-10 stays exploratory: the M1 one-year outcomes on that span were read

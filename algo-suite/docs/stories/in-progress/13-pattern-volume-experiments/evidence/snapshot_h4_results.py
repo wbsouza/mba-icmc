@@ -89,7 +89,7 @@ def collect_cell(root: Path, reference: str) -> dict[str, Any]:
                     "strategy-config.json", "strategy-config.yaml", "strategy-provenance.json",
                     "inference-inputs.json")
     files = {name: artifact(root / "results" / name) for name in result_names}
-    for name in ("status.json", "hashes.json", "commands.json", "source-mapping.md",
+    for name in ("status.json", "hashes.json", "commands.json", "template-settings.md",
                  "parameters.md", "training.log", "backtest.log"):
         files[name] = artifact(root / name)
     files["prepared-config.json"] = artifact(root / "strategy-config.json")

@@ -139,8 +139,8 @@
    "2016-11": 0.0
   }
  },
- "t08-plan-dragon05": {
-  "run_id": "t08-plan-dragon05/20260928T014816-918eb6cd6922",
+ "t08-plan-1r2r": {
+  "run_id": "t08-plan-1r2r/20260928T014816-918eb6cd6922",
   "trades": 0,
   "win": 0.0,
   "mar_oct": 0.0,
@@ -379,8 +379,8 @@
    "2016-11": -4.757542072257726
   }
  },
- "q10-plan-dragon05": {
-  "run_id": "q10-plan-dragon05/20260928T015629-92015a2799cb",
+ "q10-plan-1r2r": {
+  "run_id": "q10-plan-1r2r/20260928T015629-92015a2799cb",
   "trades": 0,
   "win": 0.0,
   "mar_oct": 0.0,
@@ -799,8 +799,8 @@
    "2016-11": 0.0
   }
  },
- "h1-plan-dragon05": {
-  "run_id": "h1-plan-dragon05/20260928T021518-93082dbbe3f9",
+ "h1-plan-1r2r": {
+  "run_id": "h1-plan-1r2r/20260928T021518-93082dbbe3f9",
   "trades": 20,
   "win": 50.0,
   "mar_oct": 4.483376000000017,

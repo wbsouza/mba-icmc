@@ -1,15 +1,16 @@
-# SpockFX signal ablation — exploratory H4 pilot
+# Heikin-Ashi signal ablation — exploratory H4 pilot
 
 This is an **exploratory, previously inspected 2015 window**, not a confirmatory
-test, reproduction of proprietary JapaDragon signals, or walk-forward thesis result.
-The initial matrix contains exactly four EURUSD Dragon08 H4 **swing proxies**:
+test, reproduction of the author's earlier Heikin-Ashi trading manager, or
+walk-forward thesis result. The initial matrix contains exactly four EURUSD
+Heikin-Ashi H4 **template proxies**:
 
 | Strategy | Pattern detector | Volume gate |
 | --- | --- | --- |
-| dragon08-h4-disabled-volume-off | disabled | absent |
-| dragon08-h4-disabled-volume-on | disabled | present |
-| dragon08-h4-talib-volume-off | TA-Lib | absent |
-| dragon08-h4-talib-volume-on | TA-Lib | present |
+| heikin-ashi-h4-disabled-volume-off | disabled | absent |
+| heikin-ashi-h4-disabled-volume-on | disabled | present |
+| heikin-ashi-h4-talib-volume-off | TA-Lib | absent |
+| heikin-ashi-h4-talib-volume-on | TA-Lib | present |
 
 The default four YAMLs extend the bundled baseline and explicitly repeat each active
 filter's parameters. F4/news is absent from this initial family. There is no pattern skill dependency: the detector
@@ -20,7 +21,7 @@ feature. F7 keeps the trend/indicator/pattern families in every cell, including
 the neutral pattern family when detection is disabled.
 
 An optional `--mode hybrid` selects exactly four matched counterparts:
-`dragon08-h4-hybrid-{disabled,talib}-volume-{off,on}`. These explicitly extend
+`heikin-ashi-h4-hybrid-{disabled,talib}-volume-{off,on}`. These explicitly extend
 the bundled hybrid configuration and differ from the paired baseline ONLY by
 F4/news context and the added F7 news family. All price/label periods, costs,
 risk/exit rules, thresholds, date windows, and pattern/volume treatments match.
@@ -31,45 +32,58 @@ There is no combined mode or automatic H1/H4 × baseline/hybrid 16-run sweep.
 
 Hybrid's `news_context.event_intensity_veto_threshold=-0.5` and
 `sentiment_direction_threshold=0.15` come from the bundled
-`algo-backtest/src/algo_backtest/strategies/hybrid/config.yaml`, not SpockFX XML.
-Consequently baseline versus hybrid measures adding both the F4 gate/opinion
-and news late fusion; it is not a pure F7-family-only ablation.
+`algo-backtest/src/algo_backtest/strategies/hybrid/config.yaml`, not from the
+reference template. Consequently baseline versus hybrid measures adding both the
+F4 gate/opinion and news late fusion; it is not a pure F7-family-only ablation.
 
-## Source mapping
+## Reference template settings
 
-Sources are the user's files under
-`related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf/`:
-`deploy.xml`, `strategies/dragon.xml`, and `strategies/setupnow.xml`.
-The runner requires their directory explicitly, copies all three files, and
-records the SHA-256 of every source. These are historical configuration values,
-not evidence that the original strategy has been reproduced.
+The Heikin-Ashi H4 template is the H4 configuration of the author's earlier
+Heikin-Ashi trading manager (unpublished). Only its risk and exit settings are
+carried over, as the YAML values below; `plan.yaml` and the variant YAMLs hold
+every value, and the runner copies, hashes or reads nothing else from that
+system. These are historical configuration values, not evidence that the
+original strategy has been reproduced.
 
-| Source and exact setting | Candidate mapping or limitation |
-| --- | --- |
-| deploy.xml: defaultRiskProvider.params.riskLevel1 = 3.0 | capital_mgmt.risk_per_trade = 0.03 |
-| deploy.xml: defaultRiskProvider.params.riskLimit1 = 18.0 | risk_guard.portfolio_at_risk_cap = 0.18; existing account-risk gate, not a reproduction of the original provider's allocation logic |
-| deploy.xml: japaDragonInstrumentDeploy.strategy = japaDragonStrategy08 | Primary H4 research family; the template is distinct from the active H1 selector |
-| deploy.xml: japaDragonInstrumentDeploy.period = 240 | price_features.bar_minutes = 240, exact complete UTC buckets |
-| deploy.xml: japaDragonInstrumentDeploy.stopLossCut = 50 | capital_mgmt.stop_loss_shrink = 0.50, applied to the swing proxy stop |
-| dragon.xml: japaDragonStrategy08.middleTargets levelRatio = 4.0, lotPercentage = 50 | target at 4R, close_fraction = 0.5 of original position |
-| dragon.xml: japaDragonStrategy08.finalTargetRatio = 6.0 | target at 6R closes the remaining 0.5 of original position |
-| dragon.xml: japaDragonStrategy08.trailStops atLevelRatio = 2.0, toLevelRatio = 0.1 | one trail step arms at 2R and moves to +0.1R; repository spread-aware formulas apply |
-| dragon.xml: japaDragonEntryDetector.withTrendLine = true, trendLineBuffer = trendLine40Buffer | Unsupported proprietary trend buffer; baseline EMA directions are a research proxy, not equivalent |
-| dragon.xml: JapaDragon buy/sell entry and stop-loss indicator buffers | Unsupported proprietary detector and stop placement; F1/F2/F3/F7 entries plus rolling swing stop are explicit substitutions |
-| dragon.xml: japaDragonStrategy.closeByExitPoint buy/sell exit buffers | Unsupported proprietary exits; close_on_veto=false does not implement these exits; baseline opposite-signal and planned-order exits remain |
-| dragon.xml: Dragon08 trail/middle target offsetRisk is not explicitly set | No claim about inherited/default offsetRisk; current trade-plan schema has no offsetRisk setting |
-| deploy.xml: standardAccountDeploy.enabled=true, metatraderName=standardMetatrader, statement=standardStatement | No MetaTrader/account/statement deployment integration; OANDA simulated adapter and local reports only |
-| deploy.xml: instrumentSelectorDeployProvider period=60, risk=3.0, stoplossCut=20.0, strategyName=japaDragonStrategy03 | Optional H1 Dragon03 second family, NOT included or launched by this setup |
-| dragon.xml: Dragon03 trail 1R -> -0.66R, offsetRisk=false; 1.5R -> 0R, offsetRisk=true; finalTargetRatio=3.0 | Documented H1 source; offsetRisk=true cannot be faithfully represented by current schema; no H1 YAMLs generated |
-| deploy.xml: buyNowInstrumentDeploy period=240, stopLossCut=50, strategy=buySetupNowStrategy | Separate SetupNow template, not the Dragon08 candidate |
-| setupnow.xml: setupNowStrategy middleTarget=1R/50%, trail=0.5R -> 0R, finalTargetRatio=1.5 | Different management family, deliberately excluded from these four runs |
-| setupnow.xml: setupNowEntryIndicatorBuffer; up/down JapaDragon bias; directional buy/sell subclasses | Unsupported original signal/bias buffers; not substituted into Dragon08 |
-| deploy.xml: instrumentDeploys buyNow symbol list is commented out | No active explicit symbol deployment inferred from these comments; EURUSD is a research choice |
+| YAML key | Value | Note |
+| --- | --- | --- |
+| `capital_mgmt.risk_per_trade` | 0.03 | template risk per trade |
+| `risk_guard.portfolio_at_risk_cap` | 0.18 | existing account-risk gate, not a reproduction of the template's allocation logic |
+| `price_features.bar_minutes` | 240 | exact complete UTC buckets |
+| `capital_mgmt.stop_loss_shrink` | 0.50 | applied to the swing proxy stop |
+| `capital_mgmt.targets[0]` | `at_level_ratio: 4.0, close_fraction: 0.5` | target at 4R closes half of the original position |
+| `capital_mgmt.targets[1]` | `at_level_ratio: 6.0, close_fraction: 0.5` | target at 6R closes the remaining half of the original position |
+| `capital_mgmt.trail_stops[0]` | `at_level_ratio: 2.0, to_level_ratio: 0.1` | one trail step arms at 2R and moves to +0.1R; repository spread-aware formulas apply |
 
-Dragon05 (1R/50%, trail 1R -> 0R, final 2R), Dragon04 (2R/50% with
-offsetRisk=true, trail 2R -> 0.1R with offsetRisk=true, final 4R), and the
-Dragon05AgainstTrend variant are also present in dragon.xml. They are outside
-this matrix; no unsupported options are silently mapped onto Dragon08.
+Unsupported template semantics, never silently mapped onto this matrix:
+
+- The template's proprietary trend-line buffer and its buy/sell entry and
+  stop-loss indicator buffers are not implemented; baseline EMA directions,
+  F1/F2/F3/F7 entries and the rolling swing stop are explicit research
+  substitutions, not equivalents.
+- The template's exit-point buffers are not implemented; `close_on_veto=false`
+  does not implement them, and baseline opposite-signal and planned-order exits
+  remain.
+- The template's trail/target risk-offset flag is not explicitly set in the H4
+  template; no claim is made about an inherited default, and the current
+  trade-plan schema has no such setting.
+- No MetaTrader/account/statement deployment integration; OANDA simulated
+  adapter and local reports only.
+- The Heikin-Ashi H1 template (60-minute selector with a 20 % stop cut; trail
+  1R -> -0.66R without risk offset, then 1.5R -> 0R with risk offset; final
+  target 3R) is documented but NOT included or launched by this setup; its risk
+  offset cannot be faithfully represented by the current schema, and no H1 YAMLs
+  are generated.
+- The setup template (240-minute deployment, 50 % stop cut; middle target 1R
+  closing 50 %, trail 0.5R -> 0R, final target 1.5R) and its directional bias
+  buffers are a different management family, deliberately excluded from these
+  four runs.
+- No active explicit symbol deployment is inherited; EURUSD is a research choice.
+
+The 1R/2R template (1R/50 %, trail 1R -> 0R, final 2R), a 2R/50 % variant with
+risk offset (trail 2R -> 0.1R with risk offset, final 4R), and an against-trend
+variant also exist in the earlier system. They are outside this matrix; no
+unsupported options are silently mapped onto the Heikin-Ashi H4 template.
 
 ## Explicit research assumptions
 
@@ -86,7 +100,7 @@ the baseline's 15-minute horizon cannot be used on 240-minute bars because 15
 is not divisible by 240. Completed-bar aggregation omits partial buckets and
 never fills market gaps. Main must establish training/live parity before launch.
 
-The following values are baseline/research choices, **not SpockFX parameters**:
+The following values are baseline/research choices, **not reference template parameters**:
 
 | Area | Explicit settings |
 | --- | --- |
@@ -97,9 +111,9 @@ The following values are baseline/research choices, **not SpockFX parameters**:
 | F5 | Daily drawdown -5%, weekly -15%, max concurrent trades 2, max leverage 30; retained baseline caps |
 | F6/stop | swing source, 60 H4 bars; minimum 5 pips and broker-minimum factor 1.2; min reward:risk 2.0 |
 | F6/economics | $10 per pip/lot, 100000 units/lot, leverage 30; fixed stop 20 pips and ATR multiplier 2.0 are declared but inactive for swing |
-| F7 | theta_high=0.55, theta_low=0.45, regime_gate=false explicitly retains the baseline pilot choice; no XML analogue |
+| F7 | theta_high=0.55, theta_low=0.45, regime_gate=false explicitly retains the baseline pilot choice; no template analogue |
 | Execution | Spread 1 pip, commission 0, broker stop level 0, min_hold_bars=0, close_on_veto=false |
-| Account | EURUSD, USD cash 10000, simulated OANDA; these XML files do not establish these economics |
+| Account | EURUSD, USD cash 10000, simulated OANDA; the reference template does not establish these economics |
 | Resource limits | plan.yaml resources: workers=1 (prepare-time option 2), lean_max_concurrent=6, lean_container_cpus=4, lean_container_mem_gib=8, training_numeric_threads=4, training_device=cpu; training timeout 7200s, LEAN timeout 1800s, host grace 60s |
 
 The current runner trains four separate models. Sharing the same-pattern model
@@ -137,11 +151,10 @@ Run with this checkout's existing environment; no dependency synchronization or
 input downloads are performed. From `algo-suite/`:
 
 ```sh
-.venv/bin/python experiments/spockfx-signals/runner.py prepare \
+.venv/bin/python experiments/heikin-ashi-signals/runner.py prepare \
   --mode baseline \
   --input-root /home/wellington/workspace/mba-agents/mba-main/algo-suite/data \
-  --output-root /tmp/spockfx-dragon08-h4-REPLACE-WITH-UNIQUE-ID \
-  --spockfx-conf /home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf
+  --output-root /tmp/heikin-ashi-h4-REPLACE-WITH-UNIQUE-ID
 ```
 
 For the optional comparable hybrid family, use the same command with
@@ -172,8 +185,8 @@ prepare against a checkout still being edited; code drift invalidates the plan.
 After main finishes parity checks, it may explicitly execute:
 
 ```sh
-.venv/bin/python experiments/spockfx-signals/runner.py execute \
-  --output-root /tmp/spockfx-dragon08-h4-REPLACE-WITH-UNIQUE-ID
+.venv/bin/python experiments/heikin-ashi-signals/runner.py execute \
+  --output-root /tmp/heikin-ashi-h4-REPLACE-WITH-UNIQUE-ID
 ```
 
 Each child is awaited individually; its exact return code is recorded. Execution
@@ -197,7 +210,7 @@ Only the parent executor checks immutable inputs before each batch and after
 all its cells have joined. It writes atomic `batch-NN-before-input-check.json`
 and `batch-NN-after-input-check.json` reports. It also writes atomic
 `final-input-check.json` on normal success, child failure, or a handled execution
-error. Reports compare code, original XML sources and market/news inputs against
+error. Reports compare code and market/news inputs against
 the manifest's SHA-256 values, record expected/observed hashes and errors, and
 detect input/code file-set changes. Sealed per-cell model hashes are checked too;
 each backtest child independently checks its model before LEAN starts.
@@ -217,17 +230,17 @@ model hash is explicitly null/not_trained; after training its SHA-256 is written
 before the LEAN child starts. Status is updated atomically on child exit.
 Standard LEAN results, metrics, trade ledger, statement, equity and report live
 in each run's `results/`; settings and logs are alongside that directory.
-Each run also contains `source-mapping.md`, copies of all three XML files in
-`source-xml/`, and its original variant plus bundled baseline/hybrid YAMLs in
-`source-configs/`. Per-leaf provenance names the source for every resolved filter
-setting; the mapping explains original values, research choices and unsupported
-semantics. News availability and hashes are recorded per run in `provenance.json`.
+Each run also contains `template-settings.md` (a copy of this document) and its
+original variant plus bundled baseline/hybrid YAMLs in `source-configs/`.
+Per-leaf provenance names the source for every resolved filter setting; the
+template-settings document explains reference values, research choices and
+unsupported semantics. News availability and hashes are recorded per run in `provenance.json`.
 
 ## Second registered plan: the broader window (`--plan`)
 
 `prepare --plan PATH` selects a registered plan document; omitting it keeps the
 bundled pilot `plan.yaml`. The chosen path and its SHA-256 are archived in the
-manifest's `plan_source` beside the XML sources, the file is copied to the output
+manifest's `plan_source` beside the inputs, the file is copied to the output
 root as `plan.yaml`, and the immutable checks re-verify it before and after every
 batch. Nothing in the pilot's plan or output changes when `--plan` is omitted.
 
@@ -264,12 +277,11 @@ untouched month. Prepare it against a data root holding 2015-03..2016-11 M1
 partitions, every 2016-03..2016-11 weekday zip and, for hybrid, GDELT 2015-03..2016-12:
 
 ```sh
-.venv/bin/python experiments/spockfx-signals/runner.py prepare \
-  --plan experiments/spockfx-signals/plan-broad-window.yaml \
+.venv/bin/python experiments/heikin-ashi-signals/runner.py prepare \
+  --plan experiments/heikin-ashi-signals/plan-broad-window.yaml \
   --mode baseline \
   --input-root /path/to/broad-window-data-root \
-  --output-root /path/to/fresh/output/root \
-  --spockfx-conf /home/wellington/workspace/mba-agents/mba-main/related-work/projects/spockfx-metatrader/spockfx-engine/src/main/resources/conf
+  --output-root /path/to/fresh/output/root
 ```
 
 ## Input/output isolation and current integration boundary
@@ -299,7 +311,7 @@ and code hashes capture the implementation actually used when preparation runs.
 Scoped checks (these do not train or launch LEAN):
 
 ```sh
-.venv/bin/pytest algo-backtest/tests/steps/test_spockfx_experiments.py -q
-.venv/bin/ruff check experiments/spockfx-signals/runner.py algo-backtest/tests/steps/test_spockfx_experiments.py
-.venv/bin/mypy experiments/spockfx-signals/runner.py
+.venv/bin/pytest algo-backtest/tests/steps/test_heikin_ashi_experiments.py -q
+.venv/bin/ruff check experiments/heikin-ashi-signals/runner.py algo-backtest/tests/steps/test_heikin_ashi_experiments.py
+.venv/bin/mypy experiments/heikin-ashi-signals/runner.py
 ```
