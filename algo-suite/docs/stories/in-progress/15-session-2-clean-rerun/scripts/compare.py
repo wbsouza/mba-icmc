@@ -6,10 +6,10 @@ CELLS = {"h1-q05-base": "h1-q05-base", "h4-q10-base": "q10-vol-off", "h4-q10-hyb
 MODELS = {"h1-baseline": "2026-09-28-tf-sweep/models/h1-baseline-talib.json", "h1-hybrid": "2026-09-28-tf-sweep/models/h1-hybrid-talib.json", "h4-baseline": "2026-09-28-h4-tuning-sweep/models/A-baseline-talib.json", "h4-hybrid": "2026-09-28-h4-tuning-sweep/models/C-hybrid-talib.json", "m5-baseline": "2026-09-28-tf-year/models/m5-baseline.json", "m5-hybrid": "2026-09-28-tf-year/models/m5-hybrid.json", "m15-baseline": "2026-09-28-tf-year/models/m15-baseline.json", "m15-hybrid": "2026-09-28-tf-year/models/m15-hybrid.json", "m30-baseline": "2026-09-28-tf-year/models/m30-baseline.json", "m30-hybrid": "2026-09-28-tf-year/models/m30-hybrid.json", "news-only-h1": "2026-09-28-news-only/models/news-only-h1.json", "news-only-h4": "2026-09-28-news-only/models/news-only-h4.json"}
 sha = lambda p: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()[:12]
 def strip(o):
-    if isinstance(o, dict): return {k: strip(v) for k, v in o.items() if k not in ("trained_at", "strategy", "source", "path", "created")}
+    if isinstance(o, dict): return {k: strip(v) for k, v in o.items() if k not in ("trained_at", "strategy", "source", "path", "created", "provenance")}
     if isinstance(o, list): return [strip(x) for x in o]
     return o
-print("## Models (session 2 vs session 1)\n\n| model | sha256 s2 | sha256 s1 | identical bytes | identical after dropping metadata | differing keys |\n|---|---|---|---|---|---|")
+print("## Models (session 2 vs session 1)\n\n| model | sha256 s2 | sha256 s1 | identical bytes | identical after dropping provenance | differing keys (outside provenance) |\n|---|---|---|---|---|---|")
 for m, old in MODELS.items():
     n, o = JOB / "models" / f"{m}.json", A / old
     if not n.exists() or not o.exists(): print(f"| {m} | {'—' if not n.exists() else sha(n)} | {'—' if not o.exists() else sha(o)} | n/a | n/a | missing file |"); continue
@@ -17,7 +17,7 @@ for m, old in MODELS.items():
     diff = [k for k in set(jn) | set(jo) if strip(jn.get(k)) != strip(jo.get(k))]
     print(f"| {m} | {sha(n)} | {sha(o)} | {'yes' if sha(n) == sha(o) else 'no'} | {'yes' if same else 'no'} | {', '.join(sorted(diff)) or '—'} |")
 def latest(root, name):
-    d = sorted(glob.glob(f"{root}/{name}/*/")); return pathlib.Path(d[-1]) if d else None
+    d = [x for x in sorted(glob.glob(f"{root}/{name}/*/")) if pathlib.Path(x, "equity.csv").exists()]; return pathlib.Path(d[-1]) if d else None
 def summary(d):
     rows = list(csv.DictReader(open(d / "equity.csv"))); tr = [t for t in json.load(open(d / "trades.json")) if t.get("orderIds")]
     return {"trades": len(tr), "final": float(rows[-1]["equity"]), "equity_sha": sha(d / "equity.csv"), "pl": [round(t["profitLoss"], 2) for t in tr]}

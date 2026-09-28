@@ -1,12 +1,12 @@
 """Month-by-month table (markdown) for a list of run names under a runs root; first arg runs root, rest names."""
-import json, sys, csv, glob, collections
+import json, sys, csv, glob, collections, os
 R = sys.argv[1]; names = sys.argv[2:]
 months = [f"2016-{m:02d}" for m in range(3, 13)] + ["2017-01", "2017-02"]
 print("| variant | trades | win% | Mar–Oct | Nov | Dec | Jan | Feb | full | max DD | " + " | ".join(m[5:] for m in months) + " |")
 print("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|" + "---:|" * len(months))
 for n in names:
-    dirs = sorted(glob.glob(f"{R}/{n}/*/"))
-    if not dirs: print(f"| {n} | (no run) |"); continue
+    dirs = [d for d in sorted(glob.glob(f"{R}/{n}/*/")) if os.path.exists(d + "equity.csv") and os.path.exists(d + "metrics.json")]
+    if not dirs: print(f"| {n} | (no finished run: statement step failed, see logs) |"); continue
     d = dirs[-1]; rows = list(csv.DictReader(open(d + "equity.csv"))); trades = [t for t in json.load(open(d + "trades.json")) if t.get("orderIds")]
     met = json.load(open(d + "metrics.json")); by = collections.OrderedDict()
     for r in rows: by.setdefault(r["time"][:7], [float(r["equity"]), None])[1] = float(r["equity"])

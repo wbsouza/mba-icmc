@@ -16,7 +16,7 @@ MODELS = json.load(open(JOB / "train-map.json"))
 SHARES = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40); out = {}
 for model_name, strategy in MODELS.items():
     config = load_strategy_chain_config(strategy, root=root); assert config.f7 is not None
-    uses_news = "news" in config.f7.families
+    uses_news = "news" in config.meta_learner_families
     rows = build_training_rows(bars, intensity if uses_news else None, instrument=instrument, perception=config.perception, price_features_config=config.price_features, horizon_minutes=config.f7.label_horizon_minutes, pattern_config=config.pattern, volume_config=config.volume_strength)
     split = walk_forward_split(rows, train_end=train_end, validation_end=val_end, test_end=test_end)
     model = load_model(JOB / "models" / f"{model_name}.json")
