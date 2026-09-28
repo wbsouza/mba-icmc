@@ -1013,3 +1013,59 @@ un-fabricated number, not a validated trading result.
 
 Commit: `feat(retraining): wire the on-demand provider into the live engine
 (minimum viable slice for today's delivery)`.
+
+### 2026-09-28 Phase 3 minimum-viable slice, second entry: real full-year run,
+policy F, the registered study window (do not confuse with the smoke-window entry
+above — same wiring, different bundle, different window, both kept distinct)
+
+Follow-up requested after the first entry above: rerun the same single-pinned-
+bundle wiring, but honestly and over the actual registered study window, not
+the 4-day smoke window. Reusing the earlier entry's bundle (fit tagged
+policy U, deploying 2016-01) unchanged across a full year would have
+misrepresented policy U: per `schedule.stage_spans`, U's model anchor is the
+*current* epoch's own start, so a U bundle is only ever meant to represent
+one month before the next month's refit — the exact mid-replay retraining
+this slice's wiring deliberately does not implement (see the first entry
+above). Policy F's anchor is instead the whole registered schedule's first
+month (`epoch.schedule_start`), i.e. F is defined to be fit once and reused
+unchanged for the entire horizon — precisely what this slice's wiring already
+does. So a **new** bundle was fit, honestly labeled F, anchored at the real
+registered study's D0.
+
+Registered study window (`.specs/features/recency-weighted-retraining/spec.md`,
+"Study dates"): 2016-03-01 through 2017-02-28. Policy F's real spans for this
+D0 (`schedule.stage_spans(epochs[0], "F")`, verified by calling the production
+function directly rather than hand-derived): family `[2015-03-02, 2015-12-31)`
+311,737 rows, combiner `[2015-12-31, 2016-01-30)` 29,825 rows, threshold
+`[2016-01-30, 2016-02-29)` 28,801 rows — all far over the registered minima
+(1000/100/100). `bundle_id
+e9681f4666891b5a704668c5b294b2781f3319763cdc951c7d6dec566d407ecb`.
+
+**The real backtest** (baseline chain, EURUSD, 2016-03-01 to 2017-02-28 — the
+full registered window, not a smoke window — cash 10000, this one frozen
+bundle as the sole F7 model for the whole year, real LEAN, real market data,
+container log confirms `BUNDLEPROVIDER_BUNDLE_ID=e9681f46...` and
+`BUNDLEPROVIDER_MODEL_SHA256=5755a6cb...` logged at 2016-03-01 00:00:00):
+
+- Total orders 4964, closed trades 1603.
+- Win rate 26%, loss rate 74%, profit/loss ratio 1.97.
+- Net profit -97.782% (start equity 10000.00, end equity 221.82).
+- Compounding annual return -97.782%, Sharpe -1.499, Sortino -2.541.
+- Max drawdown 97.9%.
+
+A near-total account wipeout under this frozen single-bundle wiring across the
+full registered year — consistent with the standing finding that every arm
+was negative over a full trading year (see the story-12/14 record). Reported
+undisguised: not a fabricated number, not softened, not a validated
+methodology result either (still the same minimum-viable-slice wiring, no
+mid-replay retraining, no bundle-sourced theta override — same caveats as the
+first entry above).
+
+Gate evidence: same code path as the first entry (no source changed for this
+run, only a second bundle fit and a second backtest); the fit and run scripts,
+the fitted bundle's registry, the full 2.3 MB container log and the extracted
+`STATISTICS::` block are all under `/tmp/mba-fast19-window-job-1790634718`
+(scratch only — nothing written to this worktree or the real data root by the
+run itself).
+
+Commit: `docs(retraining): record the real full-year policy-F backtest result`.
