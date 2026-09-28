@@ -62,7 +62,7 @@ no new branch, commit, push or PR is claimed. Preserve the existing directory mo
 - [x] T1 Review and freeze the source-rule ledger
 - [x] T2 Define immutable pattern evidence and configuration
 - [x] T3 Implement the expanded geometry catalog
-- [ ] T4 Implement causal context evaluation
+- [x] T4 Implement causal context evaluation
 - [ ] T5 Implement next-bar confirmation state machine
 - [ ] T6 Implement explicit F3 policy modes
 - [ ] T7 Integrate shared closed-bar evidence into native signals
@@ -218,4 +218,68 @@ T17–T21 are DEFERRED and never implemented.
   Check D: Gherkin-first with `scenarios("../features/candle_catalog.feature")`.
 - Status: tasks.md T3 boxes ticked; spec.md CND-01 → `Implemented (T1, T3)`, CND-02 →
   `Implemented (T2, T3)`, CND-04/05/09 → `Implemented (T3)`.
-- Commit: `feat(candles): implement the expanded geometry catalog` (SHA in the next entry).
+- Commit: `feat(candles): implement the expanded geometry catalog` (`ea95c24`); pushed.
+
+### 2026-09-28 — T4 causal context evaluation (CND-03, CND-04, CND-05, CND-06)
+
+- Files: `perception/candle_context.py` (new: `ema_value` seeded like
+  `training.ema_series`, `stochastic_evidence`/`_raw_k`/`_smoothed`/`_zone` for the
+  12,3,3 stochastic with strict 80/20 zones, `level_evidence` for the SMA 20/50/200
+  normalized distances, `_t_line_position`/`_TREND` for trend, `evaluate_context` and
+  the streaming `ContextEvaluator`), `tests/features/candle_context.feature`
+  (specifier, unchanged), `tests/steps/test_candle_context.py` (new),
+  `tools/perception_quality.py` (registration: `candle_context` may import
+  `candle_contract` only — carried over from the prior session's hand-off, verified
+  correct and unchanged).
+- Assumptions: none beyond the ledger's pinned choices (gaps 12–14 in
+  `qa-procedure-phase1.md`): `ContextEvaluator` is a thin streaming wrapper around
+  `evaluate_context` bound to a `CandleHistory`; `evaluate_context` itself is a pure
+  function of the retained closed-bar window so both the streaming and static paths
+  share one implementation (prefix invariance follows structurally).
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_candle_context.py -q -p no:cacheprovider`
+  → 52 passed;
+  `uv run pytest algo-backtest/tests/steps/test_candle_contract.py algo-backtest/tests/steps/test_candle_catalog.py algo-backtest/tests/steps/test_candle_context.py -q -p no:cacheprovider`
+  → 270 passed; `uv run ruff check algo-backtest tools` → clean;
+  `uv run mypy --strict algo-backtest tools/perception_quality.py` → 67 files clean;
+  `make check-perception-architecture` → PASS.
+  Pure gate host-side line (the `make check-perception` pytest --cov line plus the
+  three new step files): 553 passed, 9 deselected; `candle_context.py` 98.75% covered;
+  `candle_contract.py` rose from T3's 90% to 95.4% (`ContextEvidence`,
+  `IndicatorValue`, `StochasticEvidence`, `LevelEvidence` validators now exercised;
+  `SequenceEvidence` and the confirmation branch of `CandleEvidence.__post_init__`
+  remain uncovered pending T5/T6, as T3 predicted).
+  `uv run python tools/perception_quality.py --coverage build/perception-host-coverage.json`
+  (informative, without the native merge): every `candle_context.py` function CRAP <= 8
+  (highest `_smoothed` CRAP 4.03); the two `candle_contract.py` FAILs
+  (`SequenceEvidence.__post_init__` CRAP 14.08, `CandleEvidence.__post_init__` CRAP
+  8.13) and the two pre-existing `lean_indicator.py` FAILs are all coverage-driven by
+  branches T5/T6/native-runtime tests exercise, not by this task's code; re-checked at
+  phase end. Docker lines of `make check-perception` (native LEAN assertions, feature
+  parity, closed-signal parity, mutations): BLOCKED in this lane until the phase-end
+  attempt (recorded there).
+- Adequacy review (file `tests/steps/test_candle_context.py`): CND-06 separately typed
+  fields → `assert_fields` :396 (`ema`/`stochastic`/`levels`/`trend` all present),
+  `assert_own_status` :403 (each field's own status), `assert_no_hits` :414 (no pattern
+  hit or confirmation field on context evidence); CND-04 per-indicator WARMUP →
+  `assert_ema` :281, `assert_raw_k` :299, `assert_slow_k` :305, `assert_d` :311,
+  `assert_level_statuses` :357, `assert_status` :364 (hand-calculated EMA(8) seed,
+  stochastic 12/14/16-bar readiness, SMA 20/50/200 per-period readiness); CND-04 flat/
+  zero-range handling without NaN → `assert_zone` :317, `assert_finite` :337
+  (UNDEFINED value/status, `math.isnan`/`isinf` false on every field); CND-05 causal,
+  prefix-invariant evidence → `assert_prefix_invariance` :421 (`first == second` across
+  a rising and a falling suffix), `assert_prefix_ema` :429, `assert_history_count` :390
+  (256-bar eviction); CND-03 fail-fast configuration/input validation without state
+  mutation → `assert_context_rejected` :267, `assert_candle_rejected` :274,
+  `assert_rejected` :370, `assert_recovers` :383 (a rejected bar leaves ema/status
+  unchanged, then the next valid close is hand-calculated); boundary exactness →
+  `assert_distances` :343, `assert_close_time` :435. Check B: every assertion compares
+  a value/status/field set or a rejection-message fragment; none is call-count or
+  no-throw-only. Check C: every scenario maps to a ledger parameter (T-line, 12,3,3
+  stochastic, SMA 20/50/200), a tasks.md T4 listed case (hand-calculated values, exact
+  boundaries, warmup by indicator, flat/zero-range, invalid configuration, unchanged
+  prefixes) or CND-03/04/05/06; none removed. Check D: Gherkin-first with
+  `scenarios("../features/candle_context.feature")`, one-line docstring on every step.
+- Status: tasks.md T4 boxes ticked; spec.md CND-03 → `Implemented (T2, T4)`, CND-04 →
+  `Implemented (T3, T4)`, CND-05 → `Implemented (T3, T4)`, CND-06 → `Implemented (T4)`.
+- Commit: `feat(candles): implement causal context evaluation` (SHA in the next entry).

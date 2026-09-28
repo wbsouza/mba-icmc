@@ -29,6 +29,7 @@ ALLOWED = {
     "bar_clock": set(),
     "candlestick": {"algo_backtest.perception.heikin_ashi"},
     "candle_contract": set(),
+    "candle_context": {"algo_backtest.perception.candle_contract"},
     "candle_catalog": {
         "algo_backtest.perception.candle_contract",
         "algo_backtest.perception.candlestick",
