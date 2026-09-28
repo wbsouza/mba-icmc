@@ -143,3 +143,9 @@ ol.workflow .terminal .label { padding: 8px 12px; border: 1px dashed var(--borde
 .filter-details { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg); }
 .filter-details h3 { margin: 0 0 6px; text-transform: none; letter-spacing: 0; color: var(--text); font-size: 14px; }
 .filter-details dl { margin: 8px 0 10px; }
+.chart-with-guides { position: relative; }
+.chart-with-guides .guides { position: absolute; inset: 0 0 26px 0; pointer-events: none; z-index: 5; }
+.vguide { position: absolute; top: 0; bottom: 0; border-left: 2px dotted; width: 0; }
+.vguide span { position: absolute; left: 4px; font-size: 11px; font-weight: 700; padding: 1px 4px; border-radius: 4px; color: #fff; }
+.vguide.entry span { top: 4px; background: #0b4fbf; }
+.vguide.exit span { bottom: 4px; background: #6a1b9a; }

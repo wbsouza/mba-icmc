@@ -6,6 +6,8 @@ import { createElement } from "react";
 import { explainFilter } from "../../src/model/explain";
 import type { FilterRow } from "../../src/model/types";
 import { TradeDrawer } from "../../src/views/TradeDrawer";
+import { verticalGuides } from "../../src/charts/CandleChart";
+import type { EntryBar } from "../../src/model/types";
 import { apiClient } from "../support/server";
 
 let filterRow: FilterRow | null = null;
@@ -116,4 +118,24 @@ Then("the chart caption reads {string} and {string}", function (entry: string, e
   const exitText = caption.querySelector(".exit")?.textContent ?? "";
   assert.equal(entryText.replace(/\s+/g, " ").trim(), entry);
   assert.equal(exitText.replace(/\s+/g, " ").trim(), exit);
+});
+
+let guideBars: EntryBar[] = [];
+let guideTrade = { exit_time: "" };
+
+Given("entry bars every {int} minutes from {word} for {int} bars", function (minutes: number, first: string, count: number) {
+  const start = new Date(first).getTime();
+  guideBars = Array.from({ length: count }, (_, i) => ({
+    offset: i - 2, time: new Date(start + i * minutes * 60_000).toISOString().replace(".000Z", "+00:00"),
+    open: 1, high: 1, low: 1, close: 1,
+  }));
+});
+
+Given("a trade entered at {word} and exited at {word}", function (_entry: string, exit: string) {
+  guideTrade = { exit_time: exit };
+});
+
+Then("the vertical guides are {}", function (expected: string) {
+  const actual = verticalGuides(guideBars, guideTrade).map((g) => `${g.kind}@${g.time}`);
+  assert.deepEqual(actual, expected.split(",").map((s) => s.trim()));
 });
