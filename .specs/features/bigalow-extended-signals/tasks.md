@@ -51,7 +51,7 @@ Assumptions table (Meeting Line tolerance, Fibonacci swing reuse).
 **Tests**: Documentation checks.
 **Gate**: Docs (commands above).
 **Done when**:
-- [ ] Every new rule has a citation, one positive/negative/boundary example, and the chosen convention stated explicitly.
+- [x] Every new rule has a citation, one positive/negative/boundary example, and the chosen convention stated explicitly.
 
 **Commit**: `docs(candles): freeze the bigalow extended-signals rule ledger addendum`
 

@@ -6,7 +6,10 @@
   Line, Methods Rising, Fibonacci confluence — Tweezer deferred, two
   unresolved conventions); named/factory filter-instance architecture
   explicitly deferred to a future story (user decision, time-boxed).
-- [ ] T1: Freeze the extension's source-rule ledger addendum.
+- [x] 2026-09-28 — T1: froze `rule-ledger-addendum.md` (Counterattack Line,
+      Methods Rising and Fibonacci confluence geometry, citations, the two
+      spec.md conventions plus one implementation-only tie-break convention,
+      and positive/negative/boundary OHLC examples for every rule).
 - [ ] T2: Add Meeting Line and Methods Rising to the catalog.
 - [ ] T3: Add Fibonacci confluence to the context evaluator.
 - [ ] T4: Publish the extension summary.
