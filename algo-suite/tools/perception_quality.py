@@ -34,6 +34,10 @@ ALLOWED = {
         "algo_backtest.perception.candle_contract",
         "algo_backtest.perception.candlestick",
     },
+    "candle_sequence": {
+        "algo_backtest.perception.candle_contract",
+        "algo_backtest.perception.candle_catalog",
+    },
     "volume": set(),
     "tick_activity": {"algo_backtest.months"},
     "lean_indicator": {"algo_backtest.perception.heikin_ashi", "QuantConnect.Indicators"},

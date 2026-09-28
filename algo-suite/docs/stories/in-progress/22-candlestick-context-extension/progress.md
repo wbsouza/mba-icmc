@@ -63,7 +63,7 @@ no new branch, commit, push or PR is claimed. Preserve the existing directory mo
 - [x] T2 Define immutable pattern evidence and configuration
 - [x] T3 Implement the expanded geometry catalog
 - [x] T4 Implement causal context evaluation
-- [ ] T5 Implement next-bar confirmation state machine
+- [x] T5 Implement next-bar confirmation state machine
 - [ ] T6 Implement explicit F3 policy modes
 - [ ] T7 Integrate shared closed-bar evidence into native signals
 - [ ] T8 Fingerprint the complete signal contract
@@ -282,4 +282,74 @@ T17–T21 are DEFERRED and never implemented.
   `scenarios("../features/candle_context.feature")`, one-line docstring on every step.
 - Status: tasks.md T4 boxes ticked; spec.md CND-03 → `Implemented (T2, T4)`, CND-04 →
   `Implemented (T3, T4)`, CND-05 → `Implemented (T3, T4)`, CND-06 → `Implemented (T4)`.
-- Commit: `feat(candles): implement causal context evaluation` (SHA in the next entry).
+- Commit: `feat(candles): implement causal context evaluation` (`4a0d4d7`); pushed.
+
+### 2026-09-28 — T5 next-bar confirmation state machine (CND-05, CND-07, CND-08)
+
+- Files: `perception/candle_sequence.py` (new: `ScheduledClosure`/`CalendarPolicy`,
+  `_expected_next_close`/`_aligned_strictly_after` for the calendar-aware next-close
+  computation, `_confirmation_direction` for the inclusive-edge engulfing check,
+  `_is_doji` reusing T3's `evaluate_catalog` with a single-rule `CandleConfig`, and
+  the streaming `SequenceEvaluator`), `tests/features/candle_sequence.feature`
+  (specifier, unchanged), `tests/steps/test_candle_sequence.py` (new),
+  `tools/perception_quality.py` (registration: `candle_sequence` may import
+  `candle_contract` and `candle_catalog`).
+- Assumptions: none beyond the ledger's pinned choices (gaps 3, 4, 16, 17 in
+  `qa-procedure-phase1.md`). `SequenceEvaluator` reuses T2's `validate_bar` directly
+  (not `CandleHistory`, whose `last_gap` only tracks the continuous grid and cannot
+  express a scheduled closure) so ordering/duplicate rejection and the calendar
+  policy share one bar-timestamp check. `evaluate_catalog` on a single bar with
+  `enabled_rules=("doji",)` reuses T3's exact doji geometry rather than
+  reimplementing it; discovered mid-task that a READY-but-non-firing rule is
+  *omitted* from `evaluate_catalog`'s output (gap 2), not returned as a false hit,
+  so `_is_doji` treats an empty result as "not a doji" rather than indexing into it.
+- Gate (cwd `algo-suite`, all exit 0):
+  `uv run pytest algo-backtest/tests/steps/test_candle_sequence.py -q -p no:cacheprovider`
+  → 20 passed;
+  `uv run pytest algo-backtest/tests/steps/test_candle_contract.py algo-backtest/tests/steps/test_candle_catalog.py algo-backtest/tests/steps/test_candle_context.py algo-backtest/tests/steps/test_candle_sequence.py -q -p no:cacheprovider`
+  → 290 passed; `uv run ruff check algo-backtest tools` → clean;
+  `uv run mypy --strict algo-backtest tools/perception_quality.py` → 68 files clean;
+  `make check-perception-architecture` → PASS.
+  Pure gate host-side line (the `make check-perception` pytest --cov line plus the
+  four new step files): 573 passed, 9 deselected; `candle_sequence.py` 96.7% covered,
+  `candle_catalog.py` 100%; `candle_contract.py` rose to 97.0%
+  (`SequenceEvidence.__post_init__` CRAP fell from T4's informative 14.08 to 4.05,
+  now exercised). `uv run python tools/perception_quality.py --coverage
+  build/perception-host-coverage.json` (informative, without the native merge):
+  every `candle_sequence.py` function CRAP <= 8 (highest `_confirmation_direction`
+  CRAP 7.0); the sole remaining non-native FAIL is `candle_contract.py:
+  CandleEvidence.__post_init__` CRAP 8.125 (the `confirmation` field's isinstance
+  branch, only exercised once a producer assembles both context and confirmation
+  onto one `CandleEvidence`, which is T6/T7 scope); the two pre-existing
+  `lean_indicator.py` FAILs are native-runtime, out of this lane's scope. Docker
+  lines of `make check-perception` (native LEAN assertions, feature parity,
+  closed-signal parity, mutations): BLOCKED in this lane until the phase-end attempt
+  (recorded there).
+- Adequacy review (file `tests/steps/test_candle_sequence.py`): CND-07 confirmation
+  dated at the confirming bar's close → `assert_confirmation_time` :246
+  (`evidence.confirmation_time == parsed time`), `assert_direction_with_id` :231
+  (direction and the ledger's named rule id both checked); CND-08 non-qualifying
+  expiry → `assert_reason` :264 (`"not_engulfing"`), `assert_states` :208 (EXPIRED in
+  the per-bar sequence); CND-05 causal, prefix-invariant evidence → `assert_
+  suffix_invariance` :294 (`first[:5] == second[:5]`), `assert_suffix_diverge` :303
+  (bar 6 differs by suffix); missing-expected-bar expiry under both the continuous
+  grid and a scheduled closure → the four "Rule: Missing expected bars" scenarios,
+  asserted via `assert_reason`/`assert_states`/`assert_confirmation_time`; inclusive
+  engulfing edges and mandatory colour → the 6-row Scenario Outline via
+  `assert_state_at` :215 and `assert_direction` :240; replacement candidates and
+  no self-confirmation → `assert_candidate_time` :258 over the `F, D, D, B` and
+  `F, D, D(gap), B` scenarios; fail-fast without consuming state →
+  `assert_rejected` :270, `assert_still_candidate` :278, `assert_next_confirms` :285;
+  separately typed evidence → `assert_fields` :316 (`{state, candidate_close_time,
+  confirmed_direction, confirmation_time, reason}` exactly), `assert_no_hits` :329.
+  Check B: every assertion compares state/direction/timestamp/reason values or a
+  rejection-message fragment; none is call-count or no-throw-only. Check C: every
+  scenario maps to a ledger definition (doji, qualifying engulfing, expected next
+  bar, calendar policy) or a tasks.md T5 listed case (both directions, failed
+  confirmation, expiry, replacement candidate, no self-confirmation, missing
+  expected bar, suffix invariance); none removed. Check D: Gherkin-first with
+  `scenarios("../features/candle_sequence.feature")`, one-line docstring on every
+  step.
+- Status: tasks.md T5 boxes ticked; spec.md CND-05 → `Implemented (T3, T4, T5)`,
+  CND-07/08 → `Implemented (T5)`.
+- Commit: `feat(candles): implement next-bar confirmation state machine` (SHA in the next entry).
