@@ -1,5 +1,43 @@
 # Global plan — remaining work to TCC final submission
 
+## New planned research stories — September 28, 2026
+
+[Story 13 — planned candlestick extension](in-progress/13-pattern-volume-experiments/candlestick-extension.md)
+adds Bigalow's *High Profit Candlestick Patterns*, the supplied CMT presentation,
+timestamped webinar notes, and Laya as a proposed learned pattern/context
+complement to TA-Lib. The original pattern/volume experiments already exist;
+the extension is **planned**, not implemented or validated. It requires frozen
+model versions, causal inputs, independent recognition review,
+and controlled comparisons. See the updated
+[progress and handoff](in-progress/13-pattern-volume-experiments/progress.md).
+Its [tlc-spec-driven task plan](../../../.specs/features/candlestick-context/tasks.md)
+splits the extension into 24 pending tasks across rules, integration, optional
+learned context, and evaluation/publication. Planning only; execution is deferred.
+
+[Story 15 — Miner-inspired strategy review and adaptation](planned/15-miner-strategy-adaptation/spec.md)
+reviews Robert C. Miner's supplied book against the existing engine, reuses
+compatible filters, and stages causal multi-timeframe setup/entry implementation
+and controlled evaluation. It is **planned**, not implemented or registered for
+execution. It does not change ongoing simulations or existing strategy defaults.
+See its [progress and handoff](planned/15-miner-strategy-adaptation/progress.md).
+
+[Story 16 — Naked Forex filters and a contest of combinations](planned/16-naked-forex-filter-combinations/spec.md)
+adds a separate review/implementation story for reusable price-action filters
+from Alex Nekritin and Walter Peters. It compares registered combinations with
+existing filters and Story 15 concepts, rather than mandating a standalone book
+strategy. Evaluation includes an explicit paper/live-readiness decision, not
+authorization to trade. Status: **planned**. See its
+[progress and handoff](planned/16-naked-forex-filter-combinations/progress.md).
+
+[Story 17 — F5/F6 risk and money-management review](planned/17-risk-money-management-review/spec.md)
+reviews account risk, sizing and execution protection using *Trade Like a Pro*
+and a verified local shortlist of complementary books. It separates correctness
+repairs from experiments comparing management policies with fixed entry logic.
+Status: **planned, high priority**; core risk review gates promotion of new
+combinations, without changing running simulations or live trading. See its
+[reading list](planned/17-risk-money-management-review/reading-list.md) and
+[progress](planned/17-risk-money-management-review/progress.md).
+
 **Statistical correction completed (2026-09-27):**
 [Story 11](done/11-statistical-inference-corrections/spec.md) implements schema-v2
 DSR probability, strict daily portfolio-return inputs, paired stationary-bootstrap
