@@ -46,6 +46,21 @@ combinations, without changing running simulations or live trading. See its
 [reading list](planned/17-risk-money-management-review/reading-list.md) and
 [progress](planned/17-risk-money-management-review/progress.md).
 
+[Story 18 — exogenous market context family](planned/18-market-context-family/spec.md)
+plans a second exogenous F7 family after the news family: intermarket and commodity
+signals from Laïdi (2008) tiered by data horizon (hourly CFDs as features, daily
+grains/yields/producers as lagged context, monthly fertilizer and food indices as
+context only), the NPK input chain, and a commodity-currency follow-up (USD/CAD,
+AUD/USD). Status: **planned**; nothing downloaded, coded or simulated.
+
+[Story 20 — session 2: clean trading-year re-run, BUY and SELL in one simulation](in-progress/20-session-2-clean-rerun/spec.md)
+(renumbered from 15 to resolve the clash with the Miner story; 19 is the adaptive retraining story) re-ran the reported
+year after the confidentiality rename: twelve retrained models identical outside
+provenance, fifteen cells byte-identical to session 1, the primary test reproduced
+(p = 0.149); every both-sides cell negative; the reversed-sign rule statistically
+equal to its always-short control (p = 0.92). Chapter 4 `subsec:session-2`. Status:
+**in progress** (results merged; TD-71 blocks any sub-hour result).
+
 **Statistical correction completed (2026-09-27):**
 [Story 11](done/11-statistical-inference-corrections/spec.md) implements schema-v2
 DSR probability, strict daily portfolio-return inputs, paired stationary-bootstrap

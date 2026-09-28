@@ -1,6 +1,6 @@
 /** Row shapes of the results database (algo-analyze `results-db build`, schema version 1). */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export interface RunRow {
   run_id: string;
@@ -25,6 +25,25 @@ export interface RunRow {
   equity_png_path: string | null;
   /** Fraction of winning trades from the `trades` table, null when the run has none. */
   win_rate: number | null;
+  /** Statement A/C summary: cash plus closed P/L (null when the statement has no summary). */
+  balance: number | null;
+  /** Statement A/C summary: floating P/L of the positions still open at the end. */
+  floating_pl: number | null;
+  /** Statement A/C summary: balance plus floating P/L. */
+  equity_end: number | null;
+}
+
+/** A position the run left open, as its statement's "Open Trades" table reports it. */
+export interface OpenPosition {
+  ticket: number;
+  open_time: string;
+  direction: string;
+  lots: number | null;
+  open_price: number;
+  stop_loss: number | null;
+  take_profits: number[];
+  mark_price: number | null;
+  floating_pl: number;
 }
 
 export interface EquitySample {
@@ -132,6 +151,12 @@ export interface DecisionSummaryRow {
   count: number;
 }
 
+/** One chain evaluation with its filter rows (an entry, a repeat signal or a vetoed bar). */
+export interface DecisionEvent {
+  decision: DecisionRow;
+  filters: FilterRow[];
+}
+
 /** Everything the trade drawer shows for one trade. */
 export interface TradeDetail {
   run: RunRow;
@@ -139,7 +164,46 @@ export interface TradeDetail {
   plan: TradePlan | null;
   entryDecision: DecisionRow | null;
   filters: FilterRow[];
+  /** Chain evaluations carrying this trade's id after the entry: repeat signals and vetoes while open. */
+  events: DecisionEvent[];
   trailMoves: TrailMove[];
   bars: EntryBar[];
+  parameters: ParameterRow[];
+}
+
+export type DecisionLogMode = "vetoes" | "entries" | "all";
+
+/** Consecutive chain evaluations with the same outcome, vetoing filter and breached parameter, as one row. */
+export interface DecisionLogGroup {
+  /** The first decision of the group (its chain is what the row expands to). */
+  first_id: number;
+  first_time: string;
+  last_time: string;
+  /** How many bars the group spans. */
+  bars: number;
+  final_decision: string;
+  vetoed_by: string | null;
+  trade_id: string | null;
+  /** The breached parameter (`null` when the veto names none or the row is not a veto). */
+  parameter: string | null;
+  /** `parameter: observed vs limit` of the first bar, `null` without a veto. */
+  why: string | null;
+}
+
+export interface DecisionLogPage {
+  mode: DecisionLogMode;
+  page: number;
+  size: number;
+  /** Rows before grouping, in this mode. */
+  total_rows: number;
+  /** Groups in this mode (pages are cut over groups). */
+  total_groups: number;
+  groups: DecisionLogGroup[];
+}
+
+/** One chain evaluation for the decision panel: the row, its filters and the run's parameters. */
+export interface DecisionDetail {
+  decision: DecisionRow;
+  filters: FilterRow[];
   parameters: ParameterRow[];
 }

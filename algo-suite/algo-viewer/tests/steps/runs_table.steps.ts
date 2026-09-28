@@ -13,7 +13,7 @@ function runFromRow(cells: Record<string, string>): RunRow {
     cash: 10000, bar_minutes: Number(cells["bar_minutes"]), model_sha256: null, code_revision: null, success: 1,
     closed_trades: Number(cells["closed_trades"]), total_return: Number(cells["total_return"]), sharpe: null,
     max_drawdown: Number(cells["max_drawdown"]), hit_rate: null, statement_path: null, report_path: null,
-    equity_png_path: null, win_rate: Number(cells["win_rate"]),
+    equity_png_path: null, balance: null, floating_pl: null, equity_end: null, win_rate: Number(cells["win_rate"]),
   };
 }
 

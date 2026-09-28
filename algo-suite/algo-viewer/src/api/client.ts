@@ -1,9 +1,13 @@
 /** The frontend's only data source: the backend's JSON endpoints (server/api.ts). */
 
 import type {
+  DecisionDetail,
+  DecisionLogMode,
+  DecisionLogPage,
   DecisionSummaryRow,
   EquitySample,
   MonthlyReturn,
+  OpenPosition,
   ParameterRow,
   RunRow,
   TradeDetail,
@@ -61,7 +65,14 @@ export class ApiClient {
   monthly(runId: string): Promise<MonthlyReturn[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/monthly`); }
   parameters(runId: string): Promise<ParameterRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/parameters`); }
   trades(runId: string): Promise<TradeRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/trades`); }
+  openPositions(runId: string): Promise<OpenPosition[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/open-positions`); }
   decisionSummary(runId: string): Promise<DecisionSummaryRow[]> { return this.get(`/api/runs/${encodeURIComponent(runId)}/decision-summary`); }
+  decisionLog(runId: string, mode: DecisionLogMode, page = 1, size = 200): Promise<DecisionLogPage> {
+    return this.get(`/api/runs/${encodeURIComponent(runId)}/decisions?mode=${mode}&page=${page}&size=${size}`);
+  }
+  decisionDetail(runId: string, decisionId: number): Promise<DecisionDetail> {
+    return this.get(`/api/runs/${encodeURIComponent(runId)}/decisions/${decisionId}`);
+  }
   patternExamples(name: string, limit = 3): Promise<PatternExample[]> {
     return this.get(`/api/patterns/${encodeURIComponent(name)}/examples?limit=${limit}`);
   }

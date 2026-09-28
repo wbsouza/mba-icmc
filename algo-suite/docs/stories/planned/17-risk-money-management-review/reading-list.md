@@ -20,6 +20,7 @@ Keep all references read-only; store original summaries, not extracted books.
 | Keith Fitschen — *Building Reliable Trading Systems* (2013) | Ch. 5 exits, p. 65; Ch. 6 filters, p. 89; Ch. 7 money-management feedback, p. 107; Ch. 11 onward, p. 175 | Examine interaction among filters, exits and account sizing; assess robustness rather than only fit |
 | Ernest P. Chan — *Algorithmic Trading* (2013) | Ch. 1 backtesting/automated execution; Ch. 8 risk management, p. 169 | Check algorithmic implementation assumptions and risk methodology; review detailed rules before adopting them |
 | David Aronson — *Evidence-Based Technical Analysis* (filename 2007; verify edition) | Ch. 1 objective rules, p. 15; Ch. 5 inference, p. 217; Ch. 6 data-mining bias, p. 255 | Challenge the experiment-selection process and guard against declaring a lucky policy the winner |
+| Gary Antonacci — *Dual Momentum Investing* (2015) | Ch. 7 "Measuring and Managing Risk"; Ch. 2 momentum evidence; Appendix B "Absolute Momentum: A Simple Rule-Based Strategy and Universal Trend-Following Overlay" | Risk as drawdown rather than volatility; absolute momentum (trailing 12-month excess return > 0) as the exposure switch that cut drawdowns in the book's tests; contrast with our F5 post-loss lockouts (daily/weekly limits), which act after the loss, not before it |
 
 The local Tharp filenames claim a second edition from 2006, but the extracted
 front matter does not establish that edition. Both local versions need a
@@ -28,6 +29,8 @@ assumed page numbers from another edition. Duplicate editions/annotations are
 not independent sources.
 
 ## Exact local filenames
+
+- `Dual Momentum Investing - An Innovative Strategy for Higher Returns with Lower Risk 2015.epub` (Antonacci; EPUB, table of contents verified 2026-09-28; page numbers not fixed in this format, cite by chapter).
 
 All paths below are relative to the inventory directory above:
 

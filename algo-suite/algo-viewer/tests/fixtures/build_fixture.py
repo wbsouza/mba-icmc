@@ -95,7 +95,7 @@ def write_run(run_dir: Path, spec: Mapping[str, Any]) -> None:
     for name, document in files.items():
         (run_dir / name).write_text(json.dumps(document))
     (run_dir / "strategy-config.yaml").write_text(yaml.safe_dump(spec["config"]))
-    (run_dir / "statement.md").write_text("# Account Statement\n")
+    (run_dir / "statement.md").write_text("\n".join(["# Account Statement", *spec.get("statement", [])]) + "\n")
     (run_dir / "log.txt").write_text("".join(f"{LOG_PREFIX}{line}\n" for line in spec["log"]))
     _equity(run_dir, spec["equity"])
     write_decisions(_decisions(spec["decisions"]), run_dir / "decisions.parquet")

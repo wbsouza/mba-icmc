@@ -56,11 +56,18 @@ All endpoints are `GET` and answer JSON (`server/api.ts`); unknown runs/trades a
 | `/api/health` | `{schema_version, runs}` |
 | `/api/runs` | every run with `win_rate` (fraction of winning trades) |
 | `/api/runs/:id` | one run |
-| `/api/runs/:id/equity` · `/monthly` · `/parameters` · `/trades` · `/decision-summary` | the run's rows of that table |
-| `/api/runs/:id/trades/:tradeId` | the trade drawer's detail: trade, plan, entry decision with its filter rows, trail moves, entry bars, parameters |
+| `/api/runs/:id/equity` · `/monthly` · `/parameters` · `/trades` · `/decision-summary` · `/open-positions` | the run's rows of that table (`open-positions`: what the statement's "Open Trades" table lists as still open at the end of the run) |
+| `/api/runs/:id/trades/:tradeId` | the trade drawer's detail: trade, plan, entry decision with its filter rows, the events while the trade was open (repeat signals and vetoes carrying its id), trail moves, entry bars, parameters |
+| `/api/runs/:id/decisions?mode=vetoes&page=1&size=200` | the decision log: one row per bar in `mode` (`vetoes`, `entries`, `all`), consecutive bars with the same outcome, vetoing filter and breached parameter collapsed into one group; `why` reads `parameter: observed vs limit` (needs a database built with `--decisions full`) |
+| `/api/runs/:id/decisions/:decisionId` | one bar's chain: the decision, its filter rows and the run's parameters |
 | `/api/patterns/:name/examples?limit=3` | the most recent closed trades whose entry decision carried that candlestick pattern (`run_id, trade_id, entry_time, direction, profit`; limit 1..50) |
 
 ## Views
+
+Two equities are shown and named: **Realized equity** (trades table column and KPI: cash plus the net P/L of the trades closed so far, from the statement's balance) and **Final equity** (KPI, equity curve, month table: mark-to-market, open positions included). Their difference is the **Floating P/L** KPI, and the "Open positions at the end of the run" section lists the positions behind it (ticket, side, lots, open price, stop, targets, mark price, floating P/L). The database is schema version 2 (`algo-analyze results-db build` reads these from `statement.md`).
+
+Vetoes are salmon wherever a chain evaluation is shown: the decision log rows on the run page, the "Events while open" rows in the trade drawer, and the vetoing step inside an expanded chain, each with a why line such as `risk_guard.daily_drawdown_limit: -0.074 < -0.05` (`src/model/veto.ts` maps each filter's recorded reason to the parameter that set the limit; unrecognised reasons are shown verbatim).
+
 
 - **Runs** — every run with job, strategy, bar size, span, trades, return, max drawdown
   and win %; free-text filter (job/strategy/symbol/run id), bar-size filter, click any

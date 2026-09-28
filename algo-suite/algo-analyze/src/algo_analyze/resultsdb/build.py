@@ -37,6 +37,7 @@ from algo_analyze.resultsdb.artifacts import (
 )
 from algo_analyze.resultsdb.bars import BarStore
 from algo_analyze.resultsdb.decisions import DecisionRow, decision_rows, summarize
+from algo_analyze.resultsdb.statement import OpenPosition
 from algo_analyze.resultsdb.trades import (
     PlanRow,
     TradeRow,
@@ -208,6 +209,7 @@ class RunRows:
     decisions: list[DecisionRow]
     summary: list[tuple[str, str, int]]
     trail: list[TrailMove]
+    open_positions: tuple[OpenPosition, ...]
     bar_minutes: int
     symbol: str
     window: tuple[date, date]
@@ -249,13 +251,15 @@ def derive_rows(artifacts: RunArtifacts, job: str) -> RunRows:
         metrics["total_return"], metrics["sharpe"], metrics["max_drawdown"], metrics["hit_rate"],
         _optional_path(run_dir, STATEMENT_FILE), _optional_path(run_dir, REPORT_FILE),
         _optional_path(run_dir, EQUITY_PNG_FILE), datetime.now(UTC).isoformat(),
+        artifacts.statement.balance, artifacts.statement.floating_pl, artifacts.statement.equity,
     )
     return RunRows(
         run_id=run_dir.name, header=header, parameters=parameters(artifacts),
         equity=artifacts.equity,
         monthly=monthly_returns(artifacts.equity, [t.exit_time for t in trades]),
         trades=trades, plans=plans, decisions=decisions, summary=summarize(decisions),
-        trail=trail_moves(artifacts.log, trades), bar_minutes=bar_minutes_of(artifacts.config),
+        trail=trail_moves(artifacts.log, trades), open_positions=artifacts.statement.open_positions,
+        bar_minutes=bar_minutes_of(artifacts.config),
         symbol=symbol, window=_window(run, path),
     )
 
@@ -335,7 +339,7 @@ def write_run(
     """Upsert one run: delete its old rows, insert the new ones, in one transaction."""
     with connection:
         schema.delete_run(connection, rows.run_id)
-        connection.execute("INSERT INTO runs VALUES (" + ",".join("?" * 21) + ")", rows.header)
+        connection.execute("INSERT INTO runs VALUES (" + ",".join("?" * 24) + ")", rows.header)
         connection.executemany(
             "INSERT INTO run_parameters VALUES (?,?,?,?)",
             [(rows.run_id, *row) for row in rows.parameters],
@@ -349,6 +353,14 @@ def write_run(
             [(rows.run_id, *row) for row in rows.monthly],
         )
         _write_trades(connection, rows)
+        connection.executemany(
+            "INSERT INTO open_positions VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [
+                (rows.run_id, p.ticket, _iso(p.open_time), p.direction, p.lots, p.open_price,
+                 p.stop_loss, json.dumps(list(p.take_profits)), p.mark_price, p.floating_pl)
+                for p in rows.open_positions
+            ],
+        )
         _write_decisions(connection, rows, mode)
         if store is not None:
             _write_bars(connection, rows, store)
