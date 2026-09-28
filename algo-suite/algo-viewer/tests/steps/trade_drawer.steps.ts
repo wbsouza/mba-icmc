@@ -120,6 +120,19 @@ Then("the chart caption reads {string} and {string}", function (entry: string, e
   assert.equal(exitText.replace(/\s+/g, " ").trim(), exit);
 });
 
+Then("the entry-bars heading reads {string}", function (text: string) {
+  assert.equal(within(drawer()).getByTestId("bars-heading").textContent, text);
+});
+
+Then("the chart caption says {string}", function (text: string) {
+  const note = within(drawer()).getByTestId("chart-caption").querySelector(".beyond")?.textContent ?? "";
+  assert.equal(note.replace(/\s+/g, " ").trim(), text);
+});
+
+Then("the chart caption does not say the exit is beyond the window", function () {
+  assert.equal(within(drawer()).getByTestId("chart-caption").querySelector(".beyond"), null);
+});
+
 let guideBars: EntryBar[] = [];
 let guideTrade = { exit_time: "" };
 

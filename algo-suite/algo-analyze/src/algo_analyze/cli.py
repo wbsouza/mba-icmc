@@ -252,7 +252,11 @@ def results_db_build(
     out: Path = _RESULTS_OUT_OPTION,
     bars_root: Path | None = _BARS_ROOT_OPTION,
     bars_before: int = typer.Option(30, "--bars-before", help="Bars kept before each entry."),
-    bars_after: int = typer.Option(30, "--bars-after", help="Bars kept after each entry."),
+    bars_after: int = typer.Option(30, "--bars-after", help="Bars kept after each exit."),
+    bars_max_after: int = typer.Option(
+        400, "--bars-max-after",
+        help="Most bars kept after an entry: a longer trade's window stops here (counted).",
+    ),
     decisions: str = typer.Option(
         "full", "--decisions",
         help="full = every chain decision with its filters; entries = only the entry "
@@ -263,13 +267,15 @@ def results_db_build(
 
     A run directory without run.json is still in progress: it is skipped and counted.
     A finished directory with a missing or malformed artifact stops the build naming the
-    file. With --bars-root, the ±N bars around every entry are aggregated from the M1
-    bid/ask mid into the run's bar size (entry_bars table).
+    file. With --bars-root, every trade's bars from --bars-before its entry to --bars-after
+    its exit (at most --bars-max-after past the entry) are aggregated from the M1 bid/ask
+    mid into the run's bar size (entry_bars table).
     """
     try:
         request = BuildRequest(
             roots=[RunsRoot.parse(text) for text in runs_root], out=out, bars_root=bars_root,
-            bars_before=bars_before, bars_after=bars_after, decisions=decisions,
+            bars_before=bars_before, bars_after=bars_after, bars_max_after=bars_max_after,
+            decisions=decisions,
         )
         report = build_database(request)
     except (FileNotFoundError, ValueError) as exc:
@@ -278,6 +284,9 @@ def results_db_build(
     if report.skipped:
         typer.echo(f"results-db: skipped {len(report.skipped)} unfinished run director"
                    f"{'y' if len(report.skipped) == 1 else 'ies'} (no run.json)")
+    if report.capped_windows:
+        typer.echo(f"results-db: {report.capped_windows} trade window(s) stopped at "
+                   f"--bars-max-after {bars_max_after} before reaching the exit")
 
 
 def _configured(logger_name: str) -> AnalyzeConfig:

@@ -180,7 +180,8 @@ There is no default trial count, normal-moment assumption, or DSR plausibility b
 ### 6.2 Results database (`results-db build`)
 
 `results-db build --runs-root [LABEL=]DIR [--runs-root ...] --out results.sqlite
-[--bars-root DATA_ROOT --bars-before 30 --bars-after 30] [--decisions full|entries]`
+[--bars-root DATA_ROOT --bars-before 30 --bars-after 30 --bars-max-after 400]
+[--decisions full|entries]`
 loads every **finished** run directory (`<runs-root>/<strategy>/<stamp>/` holding
 `run.json`, which the engine writes last; a directory without one is still running and
 is skipped and counted) into one SQLite file that `algo-viewer/` opens in the browser.
@@ -207,7 +208,7 @@ Schema (table `schema_version` = 2; every table carries `run_id`):
 | `decision_filters` | filter result | `decision_id, position, filter_name, recommendation, veto, reason, pattern_name` — `pattern_name` extracted from F3's reason (`detected candlestick pattern 'hammer'`, or `pattern=hammer`) |
 | `decision_summary` | (final_decision, vetoed_by) | `count` — the run's funnel, always complete |
 | `trail_moves` | `<TAG>_TRAIL\|` log line | `trade_id (NULL when no closed trade spans it), time, from_stop, to_stop` |
-| `entry_bars` | bar around an entry | `trade_id, offset, time, open, high, low, close` — only with `--bars-root`: the M1 bid/ask **mid** aggregated into the run's bar size with the engine's `ClosedBarClock` rule (UTC day-anchored buckets, complete buckets only); offset 0 is the last bar closed at or before the entry, −N..+N around it; only months inside the run's window are read |
+| `entry_bars` | bar of a trade's chart window | `trade_id, offset, time, open, high, low, close` — only with `--bars-root`: the M1 bid/ask **mid** aggregated into the run's bar size with the engine's `ClosedBarClock` rule (UTC day-anchored buckets, complete buckets only); offset 0 is the last bar closed at or before the entry; the window runs from `--bars-before` ahead of it to `--bars-after` past the bar holding the exit, so the exit is always on the chart, and stops at `--bars-max-after` past the entry (the build reports how many trade windows the cap cut; the viewer says the exit is beyond the window); only months inside the run's window are read |
 
 **Exit kinds** (`trades.exit_kind`), from the LEAN order that produced the final fill
 (the last id of the trade's `orderIds`, looked up in `main.json` `orders`) and the tagged

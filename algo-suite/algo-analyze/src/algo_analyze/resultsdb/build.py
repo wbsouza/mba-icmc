@@ -87,6 +87,7 @@ class BuildRequest:
     bars_root: Path | None = None
     bars_before: int = 30
     bars_after: int = 30
+    bars_max_after: int = 400
     decisions: str = "full"
 
     def __post_init__(self) -> None:
@@ -99,11 +100,13 @@ class BuildRequest:
 
 @dataclass(frozen=True)
 class BuildReport:
-    """What the build did: the ingested run ids and the unfinished directories skipped."""
+    """What the build did: the ingested run ids, the unfinished directories skipped and the
+    trades whose bar window stopped at `--bars-max-after` before reaching their exit."""
 
     ingested: tuple[str, ...]
     skipped: tuple[Path, ...]
     out: Path
+    capped_windows: int = 0
 
 
 def discover(root: RunsRoot) -> tuple[list[Path], list[Path]]:
@@ -319,7 +322,7 @@ def _write_decisions(connection: sqlite3.Connection, rows: RunRows, mode: str) -
 
 
 def _write_bars(connection: sqlite3.Connection, rows: RunRows, store: BarStore) -> None:
-    """Insert the entry-window bars of every trade of one run."""
+    """Insert the chart-window bars (entry − before .. exit + after, capped) of every trade."""
     for trade in rows.trades:
         connection.executemany(
             "INSERT INTO entry_bars VALUES (?,?,?,?,?,?,?,?)",
@@ -327,7 +330,8 @@ def _write_bars(connection: sqlite3.Connection, rows: RunRows, store: BarStore) 
                 (rows.run_id, trade.trade_id, e.offset, _iso(e.bar.time), e.bar.open, e.bar.high,
                  e.bar.low, e.bar.close)
                 for e in store.around(
-                    rows.symbol, rows.bar_minutes, trade.entry_time, *rows.window
+                    rows.symbol, rows.bar_minutes, trade.entry_time, trade.exit_time,
+                    *rows.window,
                 )
             ],
         )
@@ -384,7 +388,9 @@ def build_database(request: BuildRequest) -> BuildReport:
         raise ValueError("at least one --runs-root is required")
     store = None
     if request.bars_root is not None:
-        store = BarStore(request.bars_root, request.bars_before, request.bars_after)
+        store = BarStore(
+            request.bars_root, request.bars_before, request.bars_after, request.bars_max_after
+        )
     skipped: list[Path] = []
     for root in request.roots:
         skipped.extend(discover(root)[1])
@@ -397,4 +403,7 @@ def build_database(request: BuildRequest) -> BuildReport:
             ingested.append(run_dir.name)
     finally:
         connection.close()
-    return BuildReport(ingested=tuple(ingested), skipped=tuple(skipped), out=request.out)
+    return BuildReport(
+        ingested=tuple(ingested), skipped=tuple(skipped), out=request.out,
+        capped_windows=0 if store is None else store.capped_windows,
+    )

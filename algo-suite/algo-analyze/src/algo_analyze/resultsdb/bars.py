@@ -1,11 +1,14 @@
-"""Candlestick bars around each entry, aggregated from the M1 bid/ask Parquet.
+"""Candlestick bars around each trade, aggregated from the M1 bid/ask Parquet.
 
 The M1 partitions (`<bars-root>/parquet/forex/<SYMBOL>/m1/year=YYYY/month=MM/data.parquet`,
 `algo_core.layout.price_path`) hold bid and ask OHLC per minute; the mid of each field
 is aggregated into the run's `bar_minutes` buckets with the same rule as the engine's
 `ClosedBarClock` (UTC day-anchored buckets, only complete buckets emitted). Offset 0 is
 the decision bar — the last bar closed at or before the entry time; negative offsets
-precede it and positive ones follow it.
+precede it and positive ones follow it. The window runs from `before` bars ahead of the
+decision bar to `after` bars past the bar holding the exit, so the exit is always on the
+chart, capped at `max_after` bars past the decision bar so a position held for months
+does not store a whole season (the store counts the trades the cap cut).
 """
 
 from __future__ import annotations
@@ -79,33 +82,50 @@ def aggregate(minutes: np.ndarray, mid: np.ndarray, bar_minutes: int) -> list[Ba
 
 
 def window(
-    bars: Sequence[Bar], entry: datetime, bar_minutes: int, before: int, after: int
-) -> list[EntryBar]:
-    """The bars at offsets -before..after around the decision bar of `entry` (see module doc).
+    bars: Sequence[Bar], entry: datetime, exit: datetime, bar_minutes: int, before: int,
+    after: int, max_after: int,
+) -> tuple[list[EntryBar], bool]:
+    """The bars from `before` ahead of the decision bar to `after` past the exit bar.
+
+    The exit bar is the bar holding `exit` (offset 0 is the decision bar, see module doc);
+    the last offset is `min(exit offset + after, max_after)` and the flag says whether the
+    cap cut the window. Bars the partitions do not hold are simply absent.
 
     Raises:
         ValueError: no bar closed at or before `entry` (the partitions do not cover it).
     """
-    closes = [bar.time.timestamp() + bar_minutes * 60 for bar in bars]
-    index = int(np.searchsorted(np.array(closes), entry.timestamp(), side="right")) - 1
+    closes = np.array([bar.time.timestamp() + bar_minutes * 60 for bar in bars])
+    index = int(np.searchsorted(closes, entry.timestamp(), side="right")) - 1
     if index < 0:
         raise ValueError(
             f"no {bar_minutes}-minute bar closes at or before {entry.isoformat()}; the M1 "
             "partitions under --bars-root do not cover the entry"
         )
-    first, last = max(0, index - before), min(len(bars), index + after + 1)
-    return [EntryBar(offset=i - index, bar=bars[i]) for i in range(first, last)]
+    exit_index = int(np.searchsorted(closes, exit.timestamp(), side="right"))
+    wanted = max(exit_index - index, 0) + after
+    last_offset = min(wanted, max_after)
+    first, last = max(0, index - before), min(len(bars), index + last_offset + 1)
+    return [EntryBar(offset=i - index, bar=bars[i]) for i in range(first, last)], wanted > max_after
+
+
+def _calendar_days(bars: int, bar_minutes: int) -> int:
+    """Calendar days generously covering `bars` bars (weekends widen the span)."""
+    return max(2, bars * bar_minutes // _DAY_MINUTES * 2 + 3)
 
 
 class BarStore:
     """Loads and aggregates M1 partitions once per (symbol, bar size, month) across runs."""
 
-    def __init__(self, data_root: Path, before: int, after: int) -> None:
+    def __init__(self, data_root: Path, before: int, after: int, max_after: int = 400) -> None:
         if before < 0 or after < 0:
             raise ValueError("--bars-before and --bars-after must be >= 0")
+        if max_after < after:
+            raise ValueError("--bars-max-after must be >= --bars-after")
         self._root = data_root
-        self._before, self._after = before, after
+        self._before, self._after, self._max_after = before, after, max_after
         self._cache: dict[tuple[str, int, int, int], list[Bar]] = {}
+        self.capped_windows = 0
+        """Trades whose window stopped at `max_after` bars before reaching exit + after."""
 
     def _month(self, symbol: str, bar_minutes: int, year: int, month: int) -> list[Bar]:
         """The aggregated bars of one month partition (cached; fail fast when absent)."""
@@ -121,19 +141,27 @@ class BarStore:
         return self._cache[key]
 
     def around(
-        self, symbol: str, bar_minutes: int, entry: datetime, run_start: date, run_end: date
+        self, symbol: str, bar_minutes: int, entry: datetime, exit: datetime, run_start: date,
+        run_end: date,
     ) -> list[EntryBar]:
-        """The entry-window bars for one trade.
+        """The chart-window bars for one trade (entry − before .. exit + after, capped).
 
         Only months inside the run's own window are read (the run itself proves they
-        exist), so an entry near the window's edge gets fewer neighbours, never a guess.
+        exist), so a trade near the window's edge gets fewer neighbours, never a guess.
         """
-        span = self._after * bar_minutes + self._before * bar_minutes
-        days = max(2, span // _DAY_MINUTES * 2 + 3)  # weekends widen the calendar span
-        start = max((entry - timedelta(days=days)).date(), run_start)
-        end = min((entry + timedelta(days=days)).date(), run_end)
+        start = max((entry - timedelta(days=_calendar_days(self._before, bar_minutes))).date(),
+                    run_start)
+        end = min(
+            (exit + timedelta(days=_calendar_days(self._after, bar_minutes))).date(),
+            (entry + timedelta(days=_calendar_days(self._max_after, bar_minutes))).date(),
+            run_end,
+        )
         bars: list[Bar] = []
         for year, month in months_between(start, end):
             bars.extend(self._month(symbol, bar_minutes, year, month))
-        return window(bars, entry, bar_minutes, self._before, self._after)
+        rows, capped = window(
+            bars, entry, exit, bar_minutes, self._before, self._after, self._max_after
+        )
+        self.capped_windows += int(capped)
+        return rows
 

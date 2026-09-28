@@ -26,8 +26,10 @@ Feature: Trade drawer
     And the drawer shows the exit kind "Take profit"
     And the drawer shows the plan stop "1.09800 (20.0 pips)"
     And the drawer shows the realized P/L "500.00"
-    And the drawer offers 5 entry bars
+    And the drawer offers 11 entry bars
+    And the entry-bars heading reads "2 bars before the entry, 8 after"
     And the chart caption reads "Entry buy @ 1.10000 on 2016-03-02 10:00" and "Exit Take profit @ 1.10500 on 2016-03-02 15:00"
+    And the chart caption does not say the exit is beyond the window
 
   Scenario: the drawer link encodes the run and the trade so it can be shared
     When I open trade "1" of run "20260928T010000-fixture"
@@ -40,6 +42,13 @@ Feature: Trade drawer
     Then the drawer step "F3 · Candlestick pattern" reads "No candlestick pattern on the decision bar; F3 abstained."
     And the drawer shows the exit kind "Trailing stop"
     And the drawer lists the trail move "2016-03-10 12:00: 1.12800 → 1.12700"
+
+  Scenario: the caption says when the exit is beyond the stored bars instead of dropping the exit guide
+    When I open trade "5" of run "20260928T010000-fixture"
+    Then the drawer offers 6 entry bars
+    And the entry-bars heading reads "2 bars before the entry, 3 after"
+    And the chart caption reads "Entry sell @ 1.12500 on 2016-03-10 08:00" and "Exit Trailing stop @ 1.12700 on 2016-03-10 14:00"
+    And the chart caption says "exit beyond the chart window (held 6 h)"
 
   Scenario Outline: the chart carries a vertical guide at the entry bar and at the exit bar
     Given entry bars every <bar_minutes> minutes from <first> for <count> bars

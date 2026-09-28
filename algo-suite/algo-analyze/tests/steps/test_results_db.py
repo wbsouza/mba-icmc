@@ -412,7 +412,8 @@ def _m1_bars(rctx: dict[str, Any], symbol: str, day: str, first: str, last: str,
 
 
 def _request(
-    rctx: dict[str, Any], before: int | None = None, after: int | None = None
+    rctx: dict[str, Any], before: int | None = None, after: int | None = None,
+    max_after: int = 400,
 ) -> BuildRequest:
     """The build request for the current root (with bars when the scenario asked)."""
     for run in rctx["runs"]:
@@ -421,15 +422,15 @@ def _request(
     return BuildRequest(
         roots=[rctx["root"]], out=rctx["out"],
         bars_root=rctx.get("bars_root", rctx["tmp"] / "bars") if with_bars else None,
-        bars_before=before or 0, bars_after=after or 0,
+        bars_before=before or 0, bars_after=after or 0, bars_max_after=max_after,
     )
 
 
 def _build(rctx: dict[str, Any], expect_failure: bool, before: int | None = None,
-           after: int | None = None, decisions: str = "full") -> None:
+           after: int | None = None, decisions: str = "full", max_after: int = 400) -> None:
     """Run the build, recording the report or the failure message."""
     try:
-        request = _request(rctx, before, after)
+        request = _request(rctx, before, after, max_after)
         rctx["report"] = build_database(
             BuildRequest(**{**request.__dict__, "decisions": decisions})
         )
@@ -461,6 +462,14 @@ def _when_build_failing(rctx: dict[str, Any]) -> None:
 ))
 def _when_build_bars(rctx: dict[str, Any], before: int, after: int) -> None:
     _build(rctx, expect_failure=False, before=before, after=after)
+
+
+@when(parsers.parse(
+    "I build the results database with {before:d} bars before and {after:d} after each entry, "
+    "at most {cap:d} after the entry"
+))
+def _when_build_bars_capped(rctx: dict[str, Any], before: int, after: int, cap: int) -> None:
+    _build(rctx, expect_failure=False, before=before, after=after, max_after=cap)
 
 
 @when(parsers.parse(
@@ -658,6 +667,11 @@ def _cli_reports(rctx: dict[str, Any], line: str) -> None:
 def _job_label(rctx: dict[str, Any], job: str, tail: str) -> None:
     root: RunsRoot = rctx["parsed_root"]
     assert root.job == job and root.path.name == tail, root
+
+
+@then(parsers.re(r"the build reports (?P<count>\d+) capped trade windows?"))
+def _capped_windows(rctx: dict[str, Any], count: str) -> None:
+    assert rctx["report"].capped_windows == int(count), rctx["report"]
 
 
 @then(parsers.parse('the entry bars of trade "{trade_id}" are:'))

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { DecisionEvent } from "../model/types";
 import type { TradeDetail, TrailStep } from "../model/types";
 import { EXIT_KIND_LABELS, lots, minutes, money, price, priceDecimals, when } from "../model/format";
-import { CandleChart } from "../charts/CandleChart";
+import { CandleChart, windowSummary } from "../charts/CandleChart";
 import { ChainSteps } from "./ChainSteps";
 import { vetoLine } from "../model/veto";
 import { routeHash } from "../router";
@@ -81,7 +81,7 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
           )}
         </section>
         <section className="panel" aria-label="Entry bars">
-          <h2>±{Math.max(0, ...bars.map((b) => Math.abs(b.offset)))} bars around the entry</h2>
+          <h2 data-testid="bars-heading">{barsHeading(windowSummary(bars, trade))}</h2>
           <CandleChart bars={bars} trade={trade} plan={plan} trailMoves={trailMoves} dark={dark} />
         </section>
         <div className="two-col">
@@ -133,6 +133,11 @@ function EventRow({ event, parameters, api }: { event: DecisionEvent; parameters
       {open ? <tr className="expanded"><td colSpan={4}><ChainSteps filters={filters} parameters={parameters} api={api} testId="event-chain" /></td></tr> : null}
     </>
   );
+}
+
+/** "2 bars before the entry, 8 after": the stored window's actual reach on each side. */
+export function barsHeading({ before, after }: { before: number; after: number }): string {
+  return `${before} bar${before === 1 ? "" : "s"} before the entry, ${after} after`;
 }
 
 function trailStepLabel(step: TrailStep, decimals: number): string {
