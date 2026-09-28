@@ -6,7 +6,7 @@ Feature: Results database from run directories
   equity.csv, strategy-config.yaml, strategy-provenance.json, main.json's orders,
   decisions.parquet and the tagged engine log); nothing is estimated. Re-running the build
   upserts by run id, a broken artifact stops the build naming the file, and with
-  --bars-root the ±N bars around each entry are aggregated from the M1 bid/ask mid.
+  --bars-root the bars from before each entry to after its exit come from the M1 bid/ask mid.
 
   Background:
     Given a runs root labelled "broad" under a job directory "2026-09-28-broad-window-h4/data/runs"
@@ -298,7 +298,11 @@ Feature: Results database from run directories
         | lab=/x/anything/data/runs                   | lab                        | runs |
         | /x/pilot                                    | pilot                      | pilot |
 
-  Rule: With --bars-root the bars around each entry come from the M1 bid/ask mid
+  Rule: With --bars-root the bars of each trade's chart window come from the M1 bid/ask mid
+
+    The window runs from --bars-before ahead of the decision bar (offset 0, the last bar
+    closed at or before the entry) to --bars-after past the bar holding the exit, so the
+    exit is always on the chart; --bars-max-after caps how far past the entry it may reach.
 
     Scenario: the decision bar is offset 0 and the neighbours are complete buckets of the run's bar size
       Given a finished run "20260928T010000-kkkk" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
@@ -307,7 +311,7 @@ Feature: Results database from run directories
         | price_features.bar_minutes | 60    | hybrid/config.yaml |
       And its closed trades are:
         | order | direction | quantity | entry_time           | entry_price | exit_time            | exit_price | profit | closing_order |
-        | 1     | buy       | 100000   | 2016-03-02T10:00:00Z | 1.10000     | 2016-03-02T15:00:00Z | 1.10500    | 500    | limit         |
+        | 1     | buy       | 100000   | 2016-03-02T10:00:00Z | 1.10000     | 2016-03-02T10:30:00Z | 1.10500    | 500    | limit         |
       And M1 bars for EURUSD on 2016-03-02 from 06:00 to 12:00 with bid 1.10000 rising 0.00010 per minute and a 0.00020 spread
       When I build the results database with 2 bars before and 1 after each entry
       Then the entry bars of trade "1" are:
@@ -316,6 +320,52 @@ Feature: Results database from run directories
         | -1     | 2016-03-02T08:00:00+00:00 | 1.11210 | 1.11800 | 1.11210 | 1.11800 |
         | 0      | 2016-03-02T09:00:00+00:00 | 1.11810 | 1.12400 | 1.11810 | 1.12400 |
         | 1      | 2016-03-02T10:00:00+00:00 | 1.12410 | 1.13000 | 1.12410 | 1.13000 |
+        | 2      | 2016-03-02T11:00:00+00:00 | 1.13010 | 1.13600 | 1.13010 | 1.13600 |
+      And the build reports 0 capped trade windows
+
+    Scenario: a trade held past --bars-after keeps its bars up to --bars-after past the exit bar
+      Given a finished run "20260928T010000-kkkl" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
+      And its config sets:
+        | key                        | value | source             |
+        | price_features.bar_minutes | 60    | hybrid/config.yaml |
+      And its closed trades are:
+        | order | direction | quantity | entry_time           | entry_price | exit_time            | exit_price | profit | closing_order |
+        | 1     | buy       | 100000   | 2016-03-02T10:00:00Z | 1.10000     | 2016-03-02T15:00:00Z | 1.10500    | 500    | limit         |
+      And M1 bars for EURUSD on 2016-03-02 from 06:00 to 18:00 with bid 1.10000 rising 0.00010 per minute and a 0.00020 spread
+      When I build the results database with 2 bars before and 1 after each entry
+      Then the entry bars of trade "1" are:
+        | offset | time                      | open    | high    | low     | close   |
+        | -2     | 2016-03-02T07:00:00+00:00 | 1.10610 | 1.11200 | 1.10610 | 1.11200 |
+        | -1     | 2016-03-02T08:00:00+00:00 | 1.11210 | 1.11800 | 1.11210 | 1.11800 |
+        | 0      | 2016-03-02T09:00:00+00:00 | 1.11810 | 1.12400 | 1.11810 | 1.12400 |
+        | 1      | 2016-03-02T10:00:00+00:00 | 1.12410 | 1.13000 | 1.12410 | 1.13000 |
+        | 2      | 2016-03-02T11:00:00+00:00 | 1.13010 | 1.13600 | 1.13010 | 1.13600 |
+        | 3      | 2016-03-02T12:00:00+00:00 | 1.13610 | 1.14200 | 1.13610 | 1.14200 |
+        | 4      | 2016-03-02T13:00:00+00:00 | 1.14210 | 1.14800 | 1.14210 | 1.14800 |
+        | 5      | 2016-03-02T14:00:00+00:00 | 1.14810 | 1.15400 | 1.14810 | 1.15400 |
+        | 6      | 2016-03-02T15:00:00+00:00 | 1.15410 | 1.16000 | 1.15410 | 1.16000 |
+        | 7      | 2016-03-02T16:00:00+00:00 | 1.16010 | 1.16600 | 1.16010 | 1.16600 |
+      And the build reports 0 capped trade windows
+
+    Scenario: a trade held past --bars-max-after stops at the cap and the build counts it
+      Given a finished run "20260928T010000-kkkm" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000
+      And its config sets:
+        | key                        | value | source             |
+        | price_features.bar_minutes | 60    | hybrid/config.yaml |
+      And its closed trades are:
+        | order | direction | quantity | entry_time           | entry_price | exit_time            | exit_price | profit | closing_order |
+        | 1     | buy       | 100000   | 2016-03-02T10:00:00Z | 1.10000     | 2016-03-02T15:00:00Z | 1.10500    | 500    | limit         |
+      And M1 bars for EURUSD on 2016-03-02 from 06:00 to 18:00 with bid 1.10000 rising 0.00010 per minute and a 0.00020 spread
+      When I build the results database with 2 bars before and 1 after each entry, at most 3 after the entry
+      Then the entry bars of trade "1" are:
+        | offset | time                      | open    | high    | low     | close   |
+        | -2     | 2016-03-02T07:00:00+00:00 | 1.10610 | 1.11200 | 1.10610 | 1.11200 |
+        | -1     | 2016-03-02T08:00:00+00:00 | 1.11210 | 1.11800 | 1.11210 | 1.11800 |
+        | 0      | 2016-03-02T09:00:00+00:00 | 1.11810 | 1.12400 | 1.11810 | 1.12400 |
+        | 1      | 2016-03-02T10:00:00+00:00 | 1.12410 | 1.13000 | 1.12410 | 1.13000 |
+        | 2      | 2016-03-02T11:00:00+00:00 | 1.13010 | 1.13600 | 1.13010 | 1.13600 |
+        | 3      | 2016-03-02T12:00:00+00:00 | 1.13610 | 1.14200 | 1.13610 | 1.14200 |
+      And the build reports 1 capped trade window
 
     Scenario: an entry outside the M1 partitions stops the build naming the partition
       Given a finished run "20260928T010000-llll" of strategy "hybrid" on EURUSD from 2016-03-01 to 2016-03-31 with cash 10000

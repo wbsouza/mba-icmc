@@ -120,6 +120,19 @@ Then("the chart caption reads {string} and {string}", function (entry: string, e
   assert.equal(exitText.replace(/\s+/g, " ").trim(), exit);
 });
 
+Then("the entry-bars heading reads {string}", function (text: string) {
+  assert.equal(within(drawer()).getByTestId("bars-heading").textContent, text);
+});
+
+Then("the chart caption says {string}", function (text: string) {
+  const note = within(drawer()).getByTestId("chart-caption").querySelector(".beyond")?.textContent ?? "";
+  assert.equal(note.replace(/\s+/g, " ").trim(), text);
+});
+
+Then("the chart caption does not say the exit is beyond the window", function () {
+  assert.equal(within(drawer()).getByTestId("chart-caption").querySelector(".beyond"), null);
+});
+
 let guideBars: EntryBar[] = [];
 let guideTrade = { exit_time: "" };
 
@@ -138,40 +151,4 @@ Given("a trade entered at {word} and exited at {word}", function (_entry: string
 Then("the vertical guides are {}", function (expected: string) {
   const actual = verticalGuides(guideBars, guideTrade).map((g) => `${g.kind}@${g.time}`);
   assert.deepEqual(actual, expected.split(",").map((s) => s.trim()));
-});
-
-Then("no step of the entry chain is vetoed", function () {
-  const items = [...within(drawer()).getByTestId("chain").querySelectorAll("li")];
-  assert.ok(items.length > 0);
-  assert.ok(items.every((li) => li.getAttribute("data-vetoed") === "no" && !li.classList.contains("vetoed")));
-});
-
-function eventRows(): Element[] {
-  return [...within(drawer()).getByTestId("trade-events").querySelectorAll("tbody tr[data-decision-id]")];
-}
-
-Then("the drawer lists the events while open:", function (expected: DataTable) {
-  const rows = eventRows().map((tr) => {
-    const [when, decision, vetoedBy, why] = [...tr.querySelectorAll("td")].map((td) => td.textContent?.replace(/\s+/g, " ").trim() ?? "");
-    return { when: when ?? "", decision: decision ?? "", vetoed_by: vetoedBy ?? "", why: why ?? "", vetoed: tr.getAttribute("data-vetoed") ?? "" };
-  });
-  assert.deepEqual(rows, expected.hashes());
-});
-
-When("I click the event at {string}", function (when: string) {
-  const row = eventRows().find((tr) => tr.querySelector("td")?.textContent?.trim() === when);
-  assert.ok(row, `no event at ${when}`);
-  fireEvent.click(row);
-});
-
-Then("the event chain step {string} is vetoed with why {string}", async function (filter: string, why: string) {
-  const chain = await waitFor(() => within(drawer()).getByTestId("event-chain"));
-  const step = chain.querySelector(`li[data-filter="${filter}"]`);
-  assert.ok(step, `no step for ${filter}`);
-  assert.equal(step.getAttribute("data-vetoed"), "yes");
-  assert.equal(step.querySelector(".why")?.textContent, why);
-});
-
-Then("the drawer says {string}", function (text: string) {
-  assert.ok(within(drawer()).getByText(text));
 });

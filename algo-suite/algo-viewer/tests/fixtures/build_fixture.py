@@ -3,8 +3,10 @@
 Run from `algo-suite/`: `uv run python algo-viewer/tests/fixtures/build_fixture.py`. The
 run's content lives in `fixture-run.json` next to this script; it is written with the
 artifact shapes `algo-backtest` leaves on disk (see
-algo-analyze/tests/features/results_db.feature) and ingested with entry bars ±2, so the
-viewer's scenarios exercise the same database a real build produces.
+algo-analyze/tests/features/results_db.feature) and ingested with 2 bars before each entry
+and 2 after each exit, so the viewer's scenarios exercise the same database a real build
+produces. The first M1 window reaches past trade 1's exit; the second stops short of trade
+5's, so the drawer's "exit beyond the chart window" caption has a case.
 """
 
 from __future__ import annotations
@@ -102,7 +104,7 @@ def write_run(run_dir: Path, spec: Mapping[str, Any]) -> None:
 
 
 def main() -> None:
-    """Write the run, ingest it with ±2 entry bars, leave results.sqlite next to this file."""
+    """Write the run, ingest it with 2 bars before/after, leave results.sqlite next to this file."""
     spec = json.loads((HERE / "fixture-run.json").read_text())
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp) / "fixture-job" / "data" / "runs"

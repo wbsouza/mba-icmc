@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import type { DecisionEvent } from "../model/types";
 import type { TradeDetail, TrailStep } from "../model/types";
 import { EXIT_KIND_LABELS, lots, minutes, money, price, priceDecimals, when } from "../model/format";
-import { CandleChart } from "../charts/CandleChart";
+import { CandleChart, windowSummary } from "../charts/CandleChart";
 import { ChainSteps } from "./ChainSteps";
-import { vetoLine } from "../model/veto";
 import { routeHash } from "../router";
 import type { ApiClient } from "../api/client";
 
@@ -33,7 +31,7 @@ async function copyText(text: string): Promise<boolean> {
 
 /** Why the chain entered, the plan, the exit and the realized P/L of one trade. */
 export function TradeDrawer({ detail, dark, onClose, api }: Props) {
-  const { trade, plan, filters, events, trailMoves, bars, parameters, run } = detail;
+  const { trade, plan, filters, trailMoves, bars, parameters, run } = detail;
   const decimals = priceDecimals(trade.entry_price);
   const [copied, setCopied] = useState<"idle" | "copied" | "failed">("idle");
   const link = tradeLink(run.run_id, trade.trade_id);
@@ -69,19 +67,8 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
             <ChainSteps filters={filters} parameters={parameters} api={api} />
           )}
         </section>
-        <section className="panel" aria-label="Events while open">
-          <h2>Events while open <span className="muted">— every chain evaluation that carried this trade's id after the entry</span></h2>
-          {events.length === 0 ? (
-            <p className="muted">No repeat signal or veto was recorded while this trade was open.</p>
-          ) : (
-            <table className="grid" data-testid="trade-events">
-              <thead><tr><th>When</th><th>Decision</th><th>Vetoed by</th><th>Why</th></tr></thead>
-              <tbody>{events.map((e) => <EventRow key={e.decision.id} event={e} parameters={parameters} api={api} />)}</tbody>
-            </table>
-          )}
-        </section>
         <section className="panel" aria-label="Entry bars">
-          <h2>±{Math.max(0, ...bars.map((b) => Math.abs(b.offset)))} bars around the entry</h2>
+          <h2 data-testid="bars-heading">{barsHeading(windowSummary(bars, trade))}</h2>
           <CandleChart bars={bars} trade={trade} plan={plan} trailMoves={trailMoves} dark={dark} />
         </section>
         <div className="two-col">
@@ -117,22 +104,9 @@ export function TradeDrawer({ detail, dark, onClose, api }: Props) {
   );
 }
 
-function EventRow({ event, parameters, api }: { event: DecisionEvent; parameters: readonly import("../model/types").ParameterRow[]; api?: ApiClient | undefined }) {
-  const [open, setOpen] = useState(false);
-  const { decision, filters } = event;
-  const vetoing = filters.find((f) => f.veto !== 0) ?? null;
-  const vetoed = decision.vetoed_by !== null;
-  return (
-    <>
-      <tr className={`clickable ${vetoed ? "vetoed" : ""}`} data-decision-id={decision.id} data-vetoed={vetoed ? "yes" : "no"} onClick={() => setOpen(!open)}>
-        <td>{when(decision.timestamp)}</td>
-        <td><span className={`badge ${decision.final_decision === "BUY" ? "buy" : decision.final_decision === "SELL" ? "sell" : ""}`}>{decision.final_decision}</span></td>
-        <td className="mono">{decision.vetoed_by ?? ""}</td>
-        <td className="mono why">{vetoLine(vetoing, parameters) ?? ""}</td>
-      </tr>
-      {open ? <tr className="expanded"><td colSpan={4}><ChainSteps filters={filters} parameters={parameters} api={api} testId="event-chain" /></td></tr> : null}
-    </>
-  );
+/** "2 bars before the entry, 8 after": the stored window's actual reach on each side. */
+export function barsHeading({ before, after }: { before: number; after: number }): string {
+  return `${before} bar${before === 1 ? "" : "s"} before the entry, ${after} after`;
 }
 
 function trailStepLabel(step: TrailStep, decimals: number): string {

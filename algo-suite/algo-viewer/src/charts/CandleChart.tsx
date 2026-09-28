@@ -38,6 +38,31 @@ export function verticalGuides(bars: EntryBar[], trade: Pick<TradeRow, "exit_tim
   return guides;
 }
 
+export interface WindowSummary {
+  /** Bars stored before the decision bar. */
+  before: number;
+  /** Bars stored after the decision bar. */
+  after: number;
+  /** Whether a stored bar holds the exit time (false when the window stops short of it). */
+  exitInside: boolean;
+}
+
+/** How far the stored window reaches on each side of the entry, and whether the exit is on it. */
+export function windowSummary(bars: EntryBar[], trade: Pick<TradeRow, "exit_time">): WindowSummary {
+  const offsets = bars.map((b) => b.offset);
+  return {
+    before: offsets.length === 0 ? 0 : Math.max(0, -Math.min(...offsets)),
+    after: offsets.length === 0 ? 0 : Math.max(0, ...offsets),
+    exitInside: barAt(bars, trade.exit_time, barMinutesOf(bars)) !== null,
+  };
+}
+
+/** "6 h" under two days, else "3 d": how long a trade was held, for the beyond-window note. */
+export function held(holdingMinutes: number): string {
+  const hours = holdingMinutes / 60;
+  return hours < 48 ? `${Math.round(hours)} h` : `${Math.round(hours / 24)} d`;
+}
+
 /** Bar containing `iso`: the last bar whose start is at or before it (null when outside). */
 export function barAt(bars: EntryBar[], iso: string, barMinutes: number): EntryBar | null {
   const t = new Date(iso).getTime();
@@ -53,9 +78,13 @@ export function barAt(bars: EntryBar[], iso: string, barMinutes: number): EntryB
 const ENTRY_COLOR = "#0b4fbf";
 const EXIT_COLOR = "#6a1b9a";
 
-/** Bold plain-HTML entry/exit caption under the chart (readable whatever the canvas does). */
-function ChartCaption({ trade }: { trade: TradeRow }) {
+/**
+ * Bold plain-HTML entry/exit caption under the chart (readable whatever the canvas does).
+ * When no stored bar holds the exit, it says so instead of silently omitting the exit guide.
+ */
+function ChartCaption({ trade, bars }: { trade: TradeRow; bars: EntryBar[] }) {
   const decimals = priceDecimals(trade.entry_price);
+  const { exitInside } = windowSummary(bars, trade);
   return (
     <p className="chart-caption" data-testid="chart-caption">
       <span className="entry" style={{ color: ENTRY_COLOR }}>
@@ -64,12 +93,15 @@ function ChartCaption({ trade }: { trade: TradeRow }) {
       <span className="exit" style={{ color: EXIT_COLOR }}>
         <b>Exit</b> {EXIT_KIND_LABELS[trade.exit_kind] ?? trade.exit_kind} @ {fmtPrice(trade.exit_price, decimals)} on {when(trade.exit_time)}
       </span>
+      {exitInside ? null : (
+        <span className="beyond muted" data-testid="exit-beyond">exit beyond the chart window (held {held(trade.holding_minutes)})</span>
+      )}
       <span className={trade.profit >= 0 ? "up" : "down"}><b>P/L</b> {money(trade.profit)}</span>
     </p>
   );
 }
 
-/** The ±N bars around the entry with the entry, stop, targets, trail moves and exit marked. */
+/** The stored bars around the trade with the entry, stop, targets, trail moves and exit marked. */
 export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const guidesHost = useRef<HTMLDivElement>(null);
@@ -164,7 +196,7 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
     return (
       <>
         <div className="chart-fallback" data-testid="chart-fallback">Candlestick chart unavailable in this host ({bars.length} bars).</div>
-        <ChartCaption trade={trade} />
+        <ChartCaption trade={trade} bars={bars} />
       </>
     );
   }
@@ -174,7 +206,7 @@ export function CandleChart({ bars, trade, plan, trailMoves, dark }: Props) {
         <div ref={host} className="chart tall" />
         <div ref={guidesHost} className="guides" aria-hidden="true" />
       </div>
-      <ChartCaption trade={trade} />
+      <ChartCaption trade={trade} bars={bars} />
     </>
   );
 }

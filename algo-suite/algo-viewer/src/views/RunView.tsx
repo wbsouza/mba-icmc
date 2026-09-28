@@ -118,33 +118,6 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
           </dl>
         </section>
       </div>
-      <section className="panel" aria-label="Open positions">
-        <h2>Open positions at the end of the run <span className="muted">(still open on {run.end}; their floating P/L is in the equity curve, not in the trades table)</span></h2>
-        {open.length === 0 ? (
-          <p className="muted" data-testid="open-positions-empty">No position was open at the end of the run: realized and final equity agree.</p>
-        ) : (
-          <table className="grid" data-testid="open-positions">
-            <thead>
-              <tr><th>Ticket</th><th>Side</th><th className="num">Lots</th><th>Opened</th><th className="num">Open price</th><th className="num">Stop</th><th>Targets</th><th className="num">Mark price</th><th className="num">Floating P/L</th></tr>
-            </thead>
-            <tbody>
-              {open.map((o) => (
-                <tr key={o.ticket} data-ticket={o.ticket}>
-                  <td className="mono">{o.ticket}</td>
-                  <td><span className={`badge ${o.direction}`}>{o.direction}</span></td>
-                  <td className="num">{lots(o.lots)}</td>
-                  <td>{when(o.open_time)}</td>
-                  <td className="num">{price(o.open_price, decimals)}</td>
-                  <td className="num">{price(o.stop_loss, decimals)}</td>
-                  <td>{o.take_profits.length === 0 ? "none" : o.take_profits.map((t, i) => `T${i + 1} ${price(t, decimals)}`).join(" · ")}</td>
-                  <td className="num">{price(o.mark_price, decimals)}</td>
-                  <td className={`num ${o.floating_pl >= 0 ? "up" : "down"}`}>{money(o.floating_pl)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
       <section className="panel" aria-label="Decision log">
         <h2>Decision log <span className="muted">(one row per bar; consecutive identical vetoes collapsed; click a row for that bar's chain)</span></h2>
         <DecisionLog api={api} runId={run.run_id} parameters={state.data.params} />
@@ -172,7 +145,7 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
         <h2>Trades <span className="muted">(click one to see why the chain entered it; Realized equity = cash plus the net P/L of the trades closed so far)</span></h2>
         <table className="grid" data-testid="trades-table">
           <thead>
-            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num" title="cash plus the net P/L of the trades closed so far, in closing order; positions still open at the end are not included (see Open positions)">Realized equity</th></tr>
+            <tr><th>#</th><th>Side</th><th className="num">Lots</th><th>Entry</th><th className="num">Price</th><th>Exit</th><th className="num">Price</th><th>Exit kind</th><th className="num">Held</th><th className="num">P/L</th><th className="num" title="cash plus the net P/L of the trades closed so far, in closing order; positions still open at the end are not included (see Open trades at the end of the run, below)">Realized equity</th></tr>
           </thead>
           <tbody>
             {tradeRows.map((t: TradeRow) => (
@@ -190,6 +163,33 @@ export function RunView({ api, run, dark, onSelectTrade }: Props) {
             ))}
           </tbody>
         </table>
+      </section>
+      <section className="panel" aria-label="Open trades">
+        <h2>Open trades at the end of the run <span className="muted">(still open on {run.end}; their floating P/L is in the equity curve, not in the trades table above)</span></h2>
+        {open.length === 0 ? (
+          <p className="muted" data-testid="open-positions-empty">No position was open at the end of the run: realized and final equity agree.</p>
+        ) : (
+          <table className="grid" data-testid="open-positions">
+            <thead>
+              <tr><th>Ticket</th><th>Side</th><th className="num">Lots</th><th>Opened</th><th className="num">Open price</th><th className="num">Stop</th><th>Targets</th><th className="num">Mark price</th><th className="num">Floating P/L</th></tr>
+            </thead>
+            <tbody>
+              {open.map((o) => (
+                <tr key={o.ticket} data-ticket={o.ticket}>
+                  <td className="mono">{o.ticket}</td>
+                  <td><span className={`badge ${o.direction}`}>{o.direction}</span></td>
+                  <td className="num">{lots(o.lots)}</td>
+                  <td>{when(o.open_time)}</td>
+                  <td className="num">{price(o.open_price, decimals)}</td>
+                  <td className="num">{price(o.stop_loss, decimals)}</td>
+                  <td>{o.take_profits.length === 0 ? "none" : o.take_profits.map((t, i) => `T${i + 1} ${price(t, decimals)}`).join(" · ")}</td>
+                  <td className="num">{price(o.mark_price, decimals)}</td>
+                  <td className={`num ${o.floating_pl >= 0 ? "up" : "down"}`}>{money(o.floating_pl)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </>
   );
