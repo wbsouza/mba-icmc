@@ -1,6 +1,6 @@
 # Story 21 — confluence chain: filter sequence, thresholds by rule, exits matched to the signal horizon (planned)
 
-Status: planned, 2026-09-28. Owner: unassigned. No code or run yet. Baseline: `main` after PRs
+Status: in progress since 2026-09-28 (moved from planned by the user). Owner: unassigned. No code or run yet. Baseline: `main` after PRs
 #74–#81 (session-2 evidence, story 20; decision log in the viewer, PR #75/#80).
 
 ## Question
