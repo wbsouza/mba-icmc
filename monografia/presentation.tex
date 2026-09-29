@@ -1,0 +1,119 @@
+\documentclass[aspectratio=169,17pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+
+\definecolor{uspblue}{RGB}{0,63,122}
+\definecolor{usplight}{RGB}{232,241,250}
+\setbeamercolor{structure}{fg=uspblue}
+\setbeamercolor{title}{fg=white,bg=uspblue}
+\setbeamercolor{frametitle}{fg=white,bg=uspblue}
+\setbeamercolor{block title}{fg=white,bg=uspblue}
+\setbeamercolor{block body}{bg=usplight}
+\setbeamercolor{alerted text}{fg=uspblue}
+
+\title[Can AI Sentiment Improve Forex Trading?]{Can AI-Driven Sentiment Improve Forex Trading?}
+\author[Wellington Souza]{Wellington Souza}
+\institute[ICMC/USP]{MBA in Artificial Intelligence and Big Data \\ ICMC, University of S\~ao Paulo}
+\date{S\~ao Carlos, 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  \vspace{-0.6cm}
+  \begin{center}
+    \small Advisor: Prof.\ Dr.\ Carolina Toledo Ferraz
+  \end{center}
+\end{frame}
+
+\begin{frame}{Motivation \& question}
+  \begin{itemize}
+    \item Forex can react to news and geopolitical shocks in seconds; price-only strategies ignore that when it happens.
+    \item \textbf{Question}: does sentiment + events beat a price-only baseline? Tested, not assumed.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Architecture}
+  \centering
+  \resizebox{0.8\textwidth}{!}{\input{img/fig-pipeline-tikz}}
+  \begin{itemize}
+    \item Deterministic execution, filter-by-filter audit trail on every trade.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Execution chain}
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
+  \footnotesize Every trade logs a filter-by-filter audit trail (\texttt{decisions.parquet}).
+\end{frame}
+
+\begin{frame}{Evaluation protocol}
+  \begin{itemize}
+    \item Walk-forward + purged $k$-fold with embargo (L\'opez de Prado).
+    \item One pre-registered, untouched test window per claim.
+    \item vs.\ closest prior art (Zhang 2025): different validation protocol, not directly comparable.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Headline result: one trading year, reproduced}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}\\
+    \tiny March 2016 -- Feb 2017, EUR/USD, every arm, same untouched year.
+    \column{0.5\textwidth}
+    \begin{itemize}
+      \item \alert{No arm beats the baseline} ($p=0.149$).
+      \item Reproduced, byte-identical.
+      \item ``Positive'' cell = its control ($p=0.92$) -- drift, not an edge.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Why -- three audited causes}
+  \begin{itemize}
+    \item Thresholds calibrated on one month didn't survive a level shift.
+    \item The meta-learner carried no information all year.
+    \item The news signal exists, but on a 4h horizon; the strategy holds for days.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Two follow-ups run this year}
+  \begin{itemize}
+    \item \textbf{Adaptive retraining}: frozen model, full year -- $-97.8\%$, 26\% win rate. 4/5 policies still outstanding.
+    \item \textbf{Candlestick catalog} (22 patterns): one positive alone, indistinguishable from chance (permutation test, 98.7\%). Whole catalog: $-99.5\%$ / $-32.8\%$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Does adding GDELT news help the one positive pattern?}
+  \centering
+  \includegraphics[width=0.62\textwidth]{img/candlestick-news-combination.png}
+  \footnotesize News layered on informationally: byte-identical trades -- it never vetoed. Required to agree: zero trades -- the two signals never coincided all year.
+\end{frame}
+
+\begin{frame}{Conclusion \& future work}
+  \begin{itemize}
+    \item Pipeline and execution layer work end to end, proven not assumed.
+    \item No configuration tested this year beat the price-only baseline.
+    \item Registered, not yet run: confluence chain, intermarket features, price-action/Ichimoku contest, 4 retraining policies.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \centering
+  {\Large Thank you. Questions?}
+\end{frame}
+
+\end{document}

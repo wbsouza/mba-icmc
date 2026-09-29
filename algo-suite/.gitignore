@@ -4,6 +4,7 @@
 .coverage
 build/
 *.log
+tmp/
 
 .venv/
 __pycache__/

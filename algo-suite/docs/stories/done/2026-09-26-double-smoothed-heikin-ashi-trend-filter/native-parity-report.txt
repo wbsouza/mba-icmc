@@ -1,0 +1,11 @@
+uv run pytest algo-backtest/tests/steps/test_feature_parity.py -m integration
+============================= test session starts ==============================
+platform linux -- Python 3.11.16, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/wellington/workspace/mba-agents/mba-main/algo-suite
+configfile: pyproject.toml
+plugins: anyio-4.14.2, cov-7.1.0, bdd-8.1.0, allure-pytest-bdd-2.16.0, respx-0.23.1
+collected 8 items
+
+algo-backtest/tests/steps/test_feature_parity.py ........                [100%]
+
+======================== 8 passed in 103.37s (0:01:43) =========================

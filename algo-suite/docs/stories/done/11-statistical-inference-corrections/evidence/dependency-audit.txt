@@ -1,0 +1,16 @@
+uv run --with pip-audit pip-audit --skip-editable
+   Building algo-backtest @ file:///home/wellington/workspace/mba-agents/mba-main/algo-suite/algo-backtest
+   Building algo-analyze @ file:///home/wellington/workspace/mba-agents/mba-main/algo-suite/algo-analyze
+      Built algo-backtest @ file:///home/wellington/workspace/mba-agents/mba-main/algo-suite/algo-backtest
+      Built algo-analyze @ file:///home/wellington/workspace/mba-agents/mba-main/algo-suite/algo-analyze
+Uninstalled 2 packages in 0.77ms
+Installed 2 packages in 1ms
+No known vulnerabilities found
+Name           Skip Reason
+-------------- -------------------------------
+algo-analyze   distribution marked as editable
+algo-backtest  distribution marked as editable
+algo-core      distribution marked as editable
+algo-download  distribution marked as editable
+algo-score     distribution marked as editable
+algo-transform distribution marked as editable

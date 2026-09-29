@@ -1,0 +1,1220 @@
+{
+  "baseline": [
+    0,
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n142 passed, 2 warnings in 2.37s"
+  ],
+  "negative_control": [
+    1,
+    "FAILED ../../home/wellington/workspace/mba-agents/mba-main/algo-suite/steps/test_cli.py::test_recorded_equity_and_selection_history_yield_a_versioned_probability\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!\n1 failed, 6 passed, 2 warnings in 0.60s"
+  ],
+  "source_sha256": {
+    "deflated.py": "74b29a262c0e0f49d6718315a97691b20660133c61003fac32321bfed2ec9a37",
+    "significance.py": "b7c544bdc527de89c225a2825841ff5224cda54a7c7f0f1e611a5b81cbab5f99",
+    "portfolio.py": "0a166ef5a2ca79c62aa1fa74d6ff7a0f467a03923f788e6c28cd2fa4c586a461",
+    "reports.py": "350859a433786d59f9805d74cee210c96856207ea92eedac1165d597f814acb3"
+  },
+  "operators": "all repository mutation_harness generated simple comparisons (< <= > >= == !=), bool and/or, not removal, arithmetic + - * /; no cap",
+  "mutants": [
+    {
+      "file": "deflated.py",
+      "index": 0,
+      "line": 16,
+      "description": "compare@L16: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 1,
+      "line": 35,
+      "description": "compare@L35: Eq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 2,
+      "line": 43,
+      "description": "compare@L43: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 3,
+      "line": 46,
+      "description": "compare@L46: Eq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 4,
+      "line": 67,
+      "description": "compare@L67: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 5,
+      "line": 85,
+      "description": "compare@L85: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 6,
+      "line": 89,
+      "description": "compare@L89: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 7,
+      "line": 103,
+      "description": "compare@L103: LtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 8,
+      "line": 16,
+      "description": "boolop@L16: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 9,
+      "line": 43,
+      "description": "boolop@L43: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 10,
+      "line": 63,
+      "description": "boolop@L63: And flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 11,
+      "line": 64,
+      "description": "boolop@L64: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 12,
+      "line": 85,
+      "description": "boolop@L85: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 13,
+      "line": 103,
+      "description": "boolop@L103: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 14,
+      "line": 16,
+      "description": "not@L16: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 15,
+      "line": 33,
+      "description": "not@L33: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 16,
+      "line": 56,
+      "description": "not@L56: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 17,
+      "line": 65,
+      "description": "not@L65: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 18,
+      "line": 66,
+      "description": "not@L66: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 19,
+      "line": 83,
+      "description": "not@L83: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 20,
+      "line": 87,
+      "description": "not@L87: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 21,
+      "line": 103,
+      "description": "not@L103: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 22,
+      "line": 20,
+      "description": "arith@L20: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 23,
+      "line": 20,
+      "description": "arith@L20: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 24,
+      "line": 24,
+      "description": "arith@L24: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 25,
+      "line": 25,
+      "description": "arith@L25: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 26,
+      "line": 32,
+      "description": "arith@L32: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 27,
+      "line": 37,
+      "description": "arith@L37: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 28,
+      "line": 37,
+      "description": "arith@L37: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 29,
+      "line": 52,
+      "description": "arith@L52: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 30,
+      "line": 53,
+      "description": "arith@L53: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 31,
+      "line": 53,
+      "description": "arith@L53: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 32,
+      "line": 53,
+      "description": "arith@L53: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 33,
+      "line": 53,
+      "description": "arith@L53: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 34,
+      "line": 53,
+      "description": "arith@L53: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 35,
+      "line": 54,
+      "description": "arith@L54: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 36,
+      "line": 54,
+      "description": "arith@L54: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 37,
+      "line": 54,
+      "description": "arith@L54: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 38,
+      "line": 54,
+      "description": "arith@L54: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 39,
+      "line": 89,
+      "description": "arith@L89: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 40,
+      "line": 89,
+      "description": "arith@L89: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 41,
+      "line": 89,
+      "description": "arith@L89: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 42,
+      "line": 93,
+      "description": "arith@L93: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 43,
+      "line": 93,
+      "description": "arith@L93: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 44,
+      "line": 93,
+      "description": "arith@L93: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 45,
+      "line": 93,
+      "description": "arith@L93: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 46,
+      "line": 100,
+      "description": "arith@L100: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 47,
+      "line": 100,
+      "description": "arith@L100: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 48,
+      "line": 100,
+      "description": "arith@L100: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 49,
+      "line": 100,
+      "description": "arith@L100: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 50,
+      "line": 100,
+      "description": "arith@L100: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "deflated.py",
+      "index": 51,
+      "line": 100,
+      "description": "arith@L100: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 0,
+      "line": 44,
+      "description": "compare@L44: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 1,
+      "line": 61,
+      "description": "compare@L61: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 2,
+      "line": 84,
+      "description": "compare@L84: GtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 3,
+      "line": 88,
+      "description": "compare@L88: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 4,
+      "line": 96,
+      "description": "compare@L96: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 5,
+      "line": 115,
+      "description": "compare@L115: LtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 6,
+      "line": 124,
+      "description": "compare@L124: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 7,
+      "line": 124,
+      "description": "compare@L124: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 8,
+      "line": 127,
+      "description": "compare@L127: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 9,
+      "line": 127,
+      "description": "compare@L127: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 10,
+      "line": 143,
+      "description": "compare@L143: LtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 11,
+      "line": 44,
+      "description": "boolop@L44: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 12,
+      "line": 113,
+      "description": "boolop@L113: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 13,
+      "line": 124,
+      "description": "boolop@L124: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 14,
+      "line": 127,
+      "description": "boolop@L127: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 15,
+      "line": 139,
+      "description": "boolop@L139: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 16,
+      "line": 44,
+      "description": "not@L44: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 17,
+      "line": 90,
+      "description": "not@L90: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 18,
+      "line": 113,
+      "description": "not@L113: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 19,
+      "line": 113,
+      "description": "not@L113: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 20,
+      "line": 124,
+      "description": "not@L124: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 21,
+      "line": 139,
+      "description": "not@L139: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 22,
+      "line": 139,
+      "description": "not@L139: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 23,
+      "line": 61,
+      "description": "arith@L61: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 24,
+      "line": 65,
+      "description": "arith@L65: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 25,
+      "line": 65,
+      "description": "arith@L65: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 26,
+      "line": 83,
+      "description": "arith@L83: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 27,
+      "line": 83,
+      "description": "arith@L83: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 28,
+      "line": 83,
+      "description": "arith@L83: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 29,
+      "line": 83,
+      "description": "arith@L83: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 30,
+      "line": 84,
+      "description": "arith@L84: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 31,
+      "line": 84,
+      "description": "arith@L84: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 32,
+      "line": 84,
+      "description": "arith@L84: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 33,
+      "line": 87,
+      "description": "arith@L87: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 34,
+      "line": 87,
+      "description": "arith@L87: Add flip",
+      "verdict": "survived",
+      "returncode": 0,
+      "evidence": "142 passed, 2 warnings in 2.21s"
+    },
+    {
+      "file": "significance.py",
+      "index": 35,
+      "line": 87,
+      "description": "arith@L87: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 36,
+      "line": 88,
+      "description": "arith@L88: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 37,
+      "line": 90,
+      "description": "arith@L90: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 38,
+      "line": 94,
+      "description": "arith@L94: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 39,
+      "line": 94,
+      "description": "arith@L94: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 40,
+      "line": 101,
+      "description": "arith@L101: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 41,
+      "line": 115,
+      "description": "arith@L115: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 42,
+      "line": 115,
+      "description": "arith@L115: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 43,
+      "line": 127,
+      "description": "arith@L127: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 44,
+      "line": 137,
+      "description": "arith@L137: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 45,
+      "line": 142,
+      "description": "arith@L142: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "significance.py",
+      "index": 46,
+      "line": 143,
+      "description": "arith@L143: Mult flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 0,
+      "line": 54,
+      "description": "compare@L54: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 1,
+      "line": 71,
+      "description": "compare@L71: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 2,
+      "line": 88,
+      "description": "compare@L88: LtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 3,
+      "line": 106,
+      "description": "compare@L106: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 4,
+      "line": 130,
+      "description": "compare@L130: LtE flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 5,
+      "line": 158,
+      "description": "compare@L158: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 6,
+      "line": 158,
+      "description": "compare@L158: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 7,
+      "line": 57,
+      "description": "boolop@L57: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 8,
+      "line": 81,
+      "description": "boolop@L81: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 9,
+      "line": 88,
+      "description": "boolop@L88: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 10,
+      "line": 158,
+      "description": "boolop@L158: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 11,
+      "line": 31,
+      "description": "not@L31: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 12,
+      "line": 44,
+      "description": "not@L44: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 13,
+      "line": 57,
+      "description": "not@L57: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 14,
+      "line": 57,
+      "description": "not@L57: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 15,
+      "line": 68,
+      "description": "not@L68: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 16,
+      "line": 81,
+      "description": "not@L81: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 17,
+      "line": 88,
+      "description": "not@L88: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 18,
+      "line": 95,
+      "description": "not@L95: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 19,
+      "line": 102,
+      "description": "not@L102: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 20,
+      "line": 150,
+      "description": "not@L150: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 21,
+      "line": 43,
+      "description": "arith@L43: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 22,
+      "line": 65,
+      "description": "arith@L65: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 23,
+      "line": 70,
+      "description": "arith@L70: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 24,
+      "line": 115,
+      "description": "arith@L115: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 25,
+      "line": 118,
+      "description": "arith@L118: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 26,
+      "line": 119,
+      "description": "arith@L119: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 27,
+      "line": 120,
+      "description": "arith@L120: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 28,
+      "line": 133,
+      "description": "arith@L133: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 29,
+      "line": 134,
+      "description": "arith@L134: Add flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 30,
+      "line": 134,
+      "description": "arith@L134: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 31,
+      "line": 148,
+      "description": "arith@L148: Sub flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "portfolio.py",
+      "index": 32,
+      "line": 148,
+      "description": "arith@L148: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 0,
+      "line": 43,
+      "description": "compare@L43: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 1,
+      "line": 53,
+      "description": "compare@L53: Lt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 2,
+      "line": 55,
+      "description": "compare@L55: Gt flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 3,
+      "line": 113,
+      "description": "compare@L113: NotEq flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 4,
+      "line": 30,
+      "description": "boolop@L30: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 5,
+      "line": 53,
+      "description": "boolop@L53: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 6,
+      "line": 57,
+      "description": "boolop@L57: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 7,
+      "line": 113,
+      "description": "boolop@L113: Or flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 8,
+      "line": 30,
+      "description": "not@L30: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 9,
+      "line": 41,
+      "description": "not@L41: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 10,
+      "line": 57,
+      "description": "not@L57: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 11,
+      "line": 57,
+      "description": "not@L57: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 12,
+      "line": 113,
+      "description": "not@L113: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 13,
+      "line": 113,
+      "description": "not@L113: remove not",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 14,
+      "line": 63,
+      "description": "arith@L63: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 15,
+      "line": 67,
+      "description": "arith@L67: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    },
+    {
+      "file": "reports.py",
+      "index": 16,
+      "line": 151,
+      "description": "arith@L151: Div flip",
+      "verdict": "killed",
+      "returncode": 1
+    }
+  ],
+  "summary": {
+    "killed": 148,
+    "survived": 1,
+    "error": 0
+  },
+  "executed_in_this_run": 49,
+  "reused_kills": 100,
+  "reused_from": "gauntlet-mutations-pass2.json"
+}

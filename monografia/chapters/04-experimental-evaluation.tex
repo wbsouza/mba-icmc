@@ -1,0 +1,778 @@
+\chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
+\providecommand{\pending}{\textit{pending}}
+
+This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 28, 2026 (September 27 in the operator's Pacific timezone); Section~\ref{subsec:intermediate-provenance} records the frozen 00:36 UTC predecessor archive, Section~\ref{subsec:h4-snapshot} the completed H4 matrix at 01:11 UTC, and Section~\ref{sec:confirmation-results} the final outcomes of the predecessor jobs that were still running at those snapshots, without replacing either historical record. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison. Two rounds of September-2015 replays under the pilot execution contract have run: the first, executed on September 26, closed no trades and is diagnosed in Section~\ref{subsec:zero-trade}; the second, executed on September 27 after the amendment of Section~\ref{subsec:strategy-config}, closed about one thousand trades per strategy and is reported in Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results}. The execution-model reruns and the one-year protocol that followed are reported in Section~\ref{sec:confirmation-results}; both lose most of the account. The chapter remains an implementation and execution report; it does not establish H1.
+
+\section{Experimental Setup} \label{sec:experimental-setup}
+
+The price-download and transformation path, event-feature construction, offline F7 trainers, baseline and hybrid LEAN strategies, decision audit, and analysis commands are implemented. Their existence does not imply that every proposed source or experiment has run. The present pilot uses EUR/USD minute prices and GDELT event intensity. Text sentiment, a real F3 pattern detector, and the proposed broader feature set are absent from this pilot. It must therefore be described as an event-augmented comparison, not as a completed NLP-sentiment study.
+
+The first six available months are allocated to fitting and calibration as shown in Table~\ref{tab:pilot-splits}. The family models use February--June, and logistic stacking uses July. July is not a held-out test for the combined model. The existing trainer also constructs an August test partition, which is excluded from fitting. The initial requested simulation window is September. The start date of February 2 follows from the event feature's one-day publication lag.
+
+\begin{table}[htbp]
+\centering
+\caption{Chronological allocation for the fixed-model EUR/USD pilot.}
+\label{tab:pilot-splits}
+\small
+\begin{tabular}{p{4.0cm}p{4.0cm}p{5.0cm}}
+\toprule
+\textbf{Stage} & \textbf{Inclusive dates} & \textbf{Role} \\
+\midrule
+Family fitting & February 2--June 30, 2015 & LightGBM parameters \\
+Combiner calibration & July 1--31, 2015 & Logistic stacking parameters \\
+Trainer held-out partition & August 1--31, 2015 & No fitting; not a replay result \\
+Initial simulation & September 1--30, 2015 & Frozen-model engine replay \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Both offline training jobs completed on September 26 and saved separate portable model artifacts, \path{baseline-f7.json} and \path{hybrid-f7.json}. Each log records 153,531 fitting rows, 32,813 calibration rows, and 30,297 held-out rows, for 216,671 rows in total. These are observation counts, not independent replications. Labels use a fifteen-minute midpoint direction and are purged at split boundaries. The current setup is a single chronological fit, not rolling retraining or CPCV. The same two frozen artifacts, identified by their SHA-256 hashes, were loaded by every replay reported in this chapter; no model was refit after the first replay round. Additional held-out months can reuse these frozen models; a refit must be registered separately.
+
+\subsection{Strategy configuration as a controlled variable} \label{subsec:strategy-config}
+
+Section~\ref{subsec:deterministic-execution} commits every parameter of every filter to the strategy's configuration file rather than to code. The implementation realizes this as one YAML descriptor per strategy, \path{strategies/<name>/config.yaml}, with one section per configurable filter: \path{price_features} (the EMA, RSI and MACD periods shared by training and serving), \path{indicator} (F2), \path{pattern} (F3), \path{news_context} (F4), \path{risk_guard} (F5), \path{capital_mgmt} (F6) and \path{meta_learner} (F7, holding $\theta_{\text{high}}$, $\theta_{\text{low}}$, the regime-gate switch $g$ and the label horizon). Each filter parses and validates its own section; a filter listed without its section, a section without its filter, a missing key or an out-of-range value stops the run before the first bar. Variants are expressed through \path{extends:} chains of any depth, which compose like override files: the hybrid descriptor inherits the F5, F6 and F7 sections from the baseline and adds only \path{news_context}, so both variants face identical execution assumptions by construction. Sections with defaults may be omitted, and the loader writes the effective values back so that the \path{strategy-config.json} saved with every run shows exactly what was used. The command \path{algo-backtest explain-strategy} prints the resolved configuration together with the origin of every value (the descriptor that set it, or the default), and the same provenance is written per run as \path{strategy-provenance.json}. The provenance file was added after the September replays reported below; those runs carry the resolved \path{strategy-config.json} only.
+
+This mechanism is what makes a configuration diff the unit of experimental manipulation. The ablations of Section~\ref{subsec:strategy-variants} will vary one parameter, or one filter, per variant descriptor while everything else is inherited unchanged, and the saved provenance makes the manipulated value auditable from the run directory. Table~\ref{tab:pilot-parameters} lists the values resolved for the September replays. The two run parameters, \path{size} and \path{cash}, are the only values passed on the command line. The F6 section computes a risk-based lot from \path{risk_per_trade} and the fixed stop distance, but the chain strategies size their orders from the \path{size} parameter as a fraction of equity held as notional; the risk-based lot is computed, not applied. The consequences are discussed with the results.
+
+\begin{table}[htbp]
+\centering
+\caption{Parameters resolved for the September-2015 replays, from the runs' \texttt{strategy-config.json} and \texttt{run.json}. The hybrid adds an F4 \texttt{news\_context} section and inherits everything else.}
+\label{tab:pilot-parameters}
+\small
+\begin{tabular}{p{2.6cm}p{5.2cm}p{5.0cm}}
+\toprule
+\textbf{Filter} & \textbf{Parameter} & \textbf{Value} \\
+\midrule
+F7 terminal rule & $\theta_{\text{high}}$ / $\theta_{\text{low}}$ & 0.55 / 0.45 \\
+F7 terminal rule & regime gate $g$ & off \\
+F7 terminal rule & families (baseline) & trend, indicator, pattern \\
+F6 capital management & \path{risk_per_trade} & 0.03 (computed, not applied to sizing) \\
+F6 capital management & \path{stop_loss_pips} & 20 (recorded, no protective order) \\
+F6 capital management & \path{pip_value_per_lot}, \path{lot_notional_units} & \$10, 100,000 units \\
+F6 capital management & \path{assumed_leverage} & 30 \\
+F5 risk guard & portfolio-at-risk cap & 0.10 \\
+F5 risk guard & daily / weekly drawdown limit & $-0.05$ / $-0.15$ \\
+F5 risk guard & concurrent trades, leverage & 5, 30 \\
+Run parameter & \path{size} (fraction of equity as notional) & 0.5 \\
+Run parameter & \path{cash} (starting deposit) & \$10,000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Snapshot provenance and effective parameters} \label{subsec:intermediate-provenance}
+
+The evidence archive is located beneath the repository root at:
+\begin{quote}
+\small\ttfamily
+algo-suite/docs/stories/in-progress/\\
+13-pattern-volume-experiments/evidence/
+\end{quote}
+The file \path{snapshot-20260928T003601Z.json} records source paths, SHA-256 hashes, code and model identities, job scripts, log excerpts, manifests, and configuration artifacts. The companion \path{per-run-parameters-20260928T003601Z.md} joins each reference R01--R20 to its full run identifier, result, F1--F7 parameter matrix, and per-field provenance. References in the tables and figure legends use these same keys. The clock was confirmed at 00:36:01 UTC; the read-only collection ended at 00:36:02 UTC. It is a bounded snapshot of active jobs, not a claim about their eventual outcomes.
+
+Sixteen run manifests record \path{success=true}; four further runs have live processes but no final manifest. No inspected final manifest records failure. A separate historical failed launch reports a missing \path{broker.adapter}; its result and effective parameters are unavailable. The execution-realism job has completed September and October for both strategies, is running the November baseline, and has not yet started the November hybrid. The reference-plan sweep has four completed variants and one running variant; the four template-derived variants have completed. Both annual-protocol simulations are still running. The parallel scripts use bare \path{wait}, so a parent exit code of zero does not establish success of every child; completion here requires each run's own manifest.
+
+The execution-realism and sweep jobs record revision \path{7165308778fd}. Their frozen pilot model hashes begin \path{1a6fd37e96de} (baseline) and \path{a6dda4c2effc} (hybrid). Full revision identifiers, hashes, and training provenance are in the archive. The earlier ungated job records revision \path{709b9bd4bdcf} with uncommitted changes; the pilot hybrid training provenance also carries a dirty revision. Those commit identifiers alone cannot reconstruct the missing patches.
+
+\begin{table}[htbp]
+\centering
+\caption{Compact parameter reading for execution-model runs R08/R09 (baseline) and R13/R14 (hybrid). The full per-run matrix, including missing historical fields, is in the evidence appendix.}
+\label{tab:intermediate-filter-parameters}
+\small
+\begin{tabular}{p{1.1cm}p{12.2cm}}
+\toprule
+\textbf{Filter} & \textbf{Archived settings and evidence limits} \\
+\midrule
+F1 & EMA perception recorded in runtime logs; upstream EMA periods 3/8/60 on minute bars. The 60-period EMA is not an H1/H4 bar series. \\
+F2 & RSI period 14, midline 50; MACD 12/26/9, histogram threshold 0. \\
+F3 & Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. These configured names do not imply a detector: the predecessor runtime supplies no candle pattern. \\
+F4 & Absent from baseline; hybrid event-intensity veto threshold $-0.5$ and sentiment-direction threshold 0.15. Text sentiment is absent in these runs. \\
+F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.10. Configured limits are not independently verified enforcement. \\
+F6 & Risk fraction 0.03; swing lookback 60 bars; stop shrink 0.20; minimum 5 pips; minimum reward/risk 2. Target: 2R closes 0.5; trailing step: at 0.5R, stop to $-0.66$R. \\
+F7 & Thresholds 0.55/0.45; regime gate off; label horizon 15 minutes. Families: trend, indicator, pattern; hybrid additionally includes news. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The same four runs record starting cash 10,000 and shared execution settings: spread 1 pip, commission per lot 0, broker stop level 0, minimum holding bars 0, and \path{close_on_veto=false}. These are archived assumptions, not an economic validation. All fourteen available JSON/YAML configuration pairs agree. The initial and ungated runs R06/R07/R11/R12 lack archived YAML and parameter provenance, and their JSON omits several filter settings; those values remain \textit{missing}, without substitution from current defaults. Running R10 and R19 also lack their own configuration JSON/YAML at this snapshot. A provenance file naming a source is not a substitute for its missing effective values.
+
+\subsection{Annual protocol: training diagnostics} \label{subsec:intermediate-annual}
+
+The annual job fits family models on March 2--December 31, 2015, calibrates the combiner on January 2016, and constructs a February 2016 held-out partition. Both saved models record 312,878 fitting, 28,802 calibration, and 30,120 held-out rows. Their SHA-256 prefixes are \path{0b41fd39ebf3} and \path{b67ac32e1fc5}; their recorded training revision is the Story 12 revision above. The continuous replay spans March 1--October 31, 2016. At the 00:36 UTC snapshot baseline R19 and hybrid R20 had no final \path{run.json}; both have since completed and are reported, with their run identifiers, in Table~\ref{tab:one-year-results}.
+
+The saved threshold grid shows descriptive anti-alignment between F7's upward-direction probability and the trend regime. In January, baseline mean probabilities are 0.4791 in bull regimes and 0.5149 in bear regimes; hybrid values are 0.4794 and 0.5148. At thresholds 0.55/0.45, enabling the regime gate leaves only two sell signals for either model, whereas disabling it yields 1,242 baseline and 1,125 hybrid signals. The corresponding ungated label hit rates are 0.569 and 0.564. These are calibration diagnostics over overlapping fifteen-minute labels, not realized trade win rates, independent trials, or proof of profitable anti-trend trading. They do not identify the cause of the replay losses.
+
+The calibration script actually inspects both January and February, including the nominal held-out partition, across eight threshold pairs and both gate settings for each model (64 recorded combinations across the two spans). Thus February is held out from fitting but has already been inspected diagnostically. An untouched-2016-data claim would be false. Any later choice informed by these grids or the ongoing replay must enter the selection history; this snapshot establishes no confirmatory result.
+
+\subsection{First replay round and zero-trade diagnosis} \label{subsec:zero-trade}
+
+The first September replays ran with the gate $g$ on, the form of the terminal rule that requires the trend regime to agree with the direction the probability points to. Both completed successfully and closed zero trades. The baseline run is \path{baseline/20260927T044836-4cd12c922200}, and the hybrid run is \path{hybrid/20260927T053156-4f2ebf081eaf}. The UTC identifiers fall on September 27 although execution occurred on September 26 in the operator's Pacific timezone. They remain on disk as the audit trail of this round. A zero-trade replay requires investigation of coverage, model outputs, and filter vetoes before interpretation, and its zero-valued summary statistics are neither evidence of efficacy nor a validated null result.
+
+Data was not the cause. At training time the canonical GDELT months from February through August 2015 were complete, with their completion markers written and every calendar day present, and both model artifacts hash all seven months. The September replay evaluated 31,512 minute bars, every filter ran, and the decision table records a combiner probability $\hat{p}_t$ for 23,367 bars. The remaining 8,145 bars never reached F7: they were vetoed by F1 on a conflict between the primary and the higher-timeframe trend direction.
+
+The cause is a sign disagreement between the fitted combiner and the gated rule. With $g$ on, BUY requires $\hat{p}_t > 0.55$ together with a bull regime, and SELL requires $\hat{p}_t < 0.45$ together with a bear regime. In September the combiner produced $\hat{p}_t < 0.50$ on every one of the 11,540 bull bars (99th percentile 0.493) and $\hat{p}_t > 0.49$ on every one of the 11,827 bear bars (1st percentile 0.491). Neither conjunction can hold, so all 23,367 bars resolved to HOLD. The bars that would have fired without the gate were 3,222 bull bars with $\hat{p}_t < 0.45$ and 1,976 bear bars with $\hat{p}_t > 0.55$ for the baseline, and 3,671 and 1,780 for the hybrid. The label is the fifteen-minute forward up-move of Section~\ref{subsec:late-fusion}; at that horizon the model has learned mean reversion relative to the EMA trend regime, which the trend-following form of the rule forbids. Retraining on the same six months reproduces the pattern, so the block is the rule-model interaction, not the data. The calibration data of Section~\ref{subsec:threshold-calibration} show the same anti-alignment on the July validation span (mean $\hat{p}_t$ of 0.475 on bull bars and 0.525 on bear bars), so the conflict was detectable before September was inspected; it was, however, detected after.
+
+The decision to switch the gate off was taken after inspecting these September outcomes. By the rule stated in Section~\ref{subsec:workflow-stages}, a pilot outcome that guides subsequent model or rule selection turns that window into development data. September 2015 is therefore development data for the gate decision and cannot later be presented as an untouched test set for it. The gate remains available as a switch; a later untouched window is required before any statement about the ungated rule counts as confirmation.
+
+\subsection{Threshold calibration on the validation span} \label{subsec:threshold-calibration}
+
+Section~\ref{subsec:deterministic-execution} requires $\theta_{\text{high}}$ and $\theta_{\text{low}}$ to be calibrated on the validation span and held fixed. The calibration rebuilt the pilot's training rows over February 2 to August 31, 2015, applied the same split dates as the trainer, predicted $\hat{p}_t$ on the July validation rows and the August held-out rows with the frozen artifacts, and counted signals and fifteen-minute directional hits for a grid of symmetric thresholds with the gate on and off. September was not read. The full grid is stored as \path{evidence/threshold-calibration.json} in the story record; Table~\ref{tab:threshold-calibration} extracts the rows that informed the choice. The share of bars is the number of signals divided by the 32,813 validation rows or the 30,297 held-out rows. A directional hit is a fifteen-minute move in the signalled direction; it is not profitability, because spread, stop and sizing decide that in the simulation.
+
+\begin{table}[htbp]
+\centering
+\caption{Signal count, share of bars and fifteen-minute directional hit rate for candidate thresholds, from \texttt{threshold-calibration.json}. July is the combiner's own calibration span; August is the trainer's held-out partition.}
+\label{tab:threshold-calibration}
+\small
+\begin{tabular}{llllrrr}
+\toprule
+\textbf{Model} & \textbf{Span} & $\theta_{\text{high}}$ / $\theta_{\text{low}}$ & \textbf{Gate} & \textbf{Signals} & \textbf{Share} & \textbf{Hit} \\
+\midrule
+baseline & July (validation) & 0.55 / 0.45 & on  & 48     & 0.15\%  & 0.542 \\
+baseline & July (validation) & 0.55 / 0.45 & off & 5,140  & 15.66\% & 0.568 \\
+baseline & July (validation) & 0.56 / 0.44 & off & 2,352  & 7.17\%  & 0.570 \\
+baseline & July (validation) & 0.53 / 0.47 & off & 17,662 & 53.83\% & 0.547 \\
+baseline & August (held-out) & 0.55 / 0.45 & on  & 19     & 0.06\%  & 0.632 \\
+baseline & August (held-out) & 0.55 / 0.45 & off & 5,113  & 16.88\% & 0.529 \\
+baseline & August (held-out) & 0.56 / 0.44 & off & 2,383  & 7.87\%  & 0.513 \\
+baseline & August (held-out) & 0.53 / 0.47 & off & 16,590 & 54.76\% & 0.524 \\
+\midrule
+hybrid   & July (validation) & 0.55 / 0.45 & on  & 52     & 0.16\%  & 0.538 \\
+hybrid   & July (validation) & 0.55 / 0.45 & off & 5,223  & 15.92\% & 0.569 \\
+hybrid   & July (validation) & 0.56 / 0.44 & off & 2,440  & 7.44\%  & 0.569 \\
+hybrid   & July (validation) & 0.53 / 0.47 & off & 17,484 & 53.28\% & 0.547 \\
+hybrid   & August (held-out) & 0.55 / 0.45 & on  & 24     & 0.08\%  & 0.583 \\
+hybrid   & August (held-out) & 0.55 / 0.45 & off & 5,274  & 17.41\% & 0.524 \\
+hybrid   & August (held-out) & 0.56 / 0.44 & off & 2,390  & 7.89\%  & 0.510 \\
+hybrid   & August (held-out) & 0.53 / 0.47 & off & 16,439 & 54.26\% & 0.526 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pair 0.55 / 0.45 with the gate off was kept. With the gate on, fewer than one bar in six hundred produces a signal on either span, and the corresponding hit rates rest on a few dozen events. With the gate off, 0.55 / 0.45 is the widest band that still confines signals to roughly one bar in six; the tighter 0.56 / 0.44 band halves the signal count for no gain in validation hit rate, and the looser 0.53 / 0.47 band fires on more than half of all bars while lowering it. Two readings of these figures are required. First, the July hit rates are in-sample for the combiner, because July fitted the logistic stacking; they overstate what the combined system will do elsewhere. Second, August is the first out-of-sample reading of the ungated rule and lies only marginally above one half, at 0.529 for the baseline and 0.524 for the hybrid. The threshold choice inspected July and August only; the gate decision, as stated above, did not.
+
+\subsection{Machinery verification} \label{subsec:machinery-verification}
+
+Before the second replay round was interpreted, a written QA procedure (\path{evidence/qa-procedure.md} in the story record) was executed by hand and then by a deterministic check script over both run folders. The procedure verifies that the amended chain produces BUY and SELL decisions that become LEAN trades, that the account starts from the requested deposit, and that every parameter the run used is auditable from its artifacts: the resolved \path{strategy-config.json} must show the gate off and the thresholds of Table~\ref{tab:pilot-parameters}, the log must record the starting cash and both decision types, \path{trades.json} must be non-empty, the engine's equity series must not be flat, and the decision table must contain BUY and SELL rows joined to a trade identifier. The check script passed on both September runs. It also found one defect: the resolved configuration file, written inside the LEAN container by the atomic-write helper, came out owned by root with mode 0600 and was unreadable on the host, so the run's parameters could not be audited from outside the container. The helper in \path{algo_core.atomicio} was corrected so that the published file receives the ordinary umask mode, with a BDD scenario covering the case, and the two affected run folders were made readable with an unprivileged container. The procedure judges the machinery only; it does not read the numbers as a strategy result.
+
+Artifacts of the first round are kept in the directory \path{2026-09-26-six-month-pilot/} beneath the local \path{algo-suite/data/training/} root, and those of the second round in \path{2026-09-27-f7-ungated-september/}, which links the same data root and the same frozen models and records the model hashes and the code revision at launch. Model JSON files contain split metadata, input hashes, configuration, code revision, and package versions. Each job records stage logs and exit status; run directories contain \path{run.json}, \path{trades.json}, \path{metrics.json}, \path{strategy-config.json}, LEAN outputs, and the chain's \path{decisions.parquet}. The repository progress record tracks the initial missing-broker-configuration failure, the resumed OANDA-adapter run, the zero-trade diagnosis, the amendment and the second round. These local artifacts must be archived with the final report; a documentation snapshot is not a substitute for them.
+
+The remaining gates are coverage reconciliation for the BigQuery materialization path, point-in-time event availability, execution-cost and risk-economics review, known-answer engine controls, and paired analysis of decision and trade evidence. Story 11 delivered the corrected inference software of Section~\ref{subsec:rule-significance}; each empirical use of it still requires audited daily equity, cost metadata, actual selection history and block settings registered before evaluation. The wider validation study, additional pairs, and feature ablations remain separate work. The sections below report what the second round produced and stay incomplete where their required evidence does not yet exist.
+
+\subsection{Execution model for the confirmation reruns} \label{subsec:execution-model}
+
+The execution caveats of Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results} are removed by the execution-realism story, which turns the F6 section of the strategy descriptor into an actual trade plan and adds a top-level \path{execution} section for fill costs. Every value below is a YAML key with recorded provenance; none is a code constant. The plan follows the reference strategy of the reference FX manager described in Section~\ref{sec:execution-engine}. Relative to the pilot of Table~\ref{tab:pilot-parameters}, the reruns change the following, and only the following.
+
+\begin{itemize}
+    \item \textbf{Account.} The starting deposit stays at \$10,000 through the \path{cash} run parameter. The \path{size} parameter no longer exists for the chain strategies; every order is sized from the F6 plan.
+    \item \textbf{Stop first.} The base stop distance comes from \path{stop_distance_source}, which may be \path{fixed} (\path{stop_loss_pips}), \path{atr} (\path{atr_multiplier} times the bar's ATR over \path{price_features.atr_period}) or \path{swing} (the distance to the rolling swing low or high over \path{price_features.swing_lookback_bars}); the bundled descriptors select \path{swing}. The base distance is shrunk toward entry by \path{stop_loss_shrink} of 0.20 and floored at the larger of \path{min_stop_pips} (5) and \path{min_stop_factor} of 1.2 times the declared \path{broker_stop_level_pips}.
+    \item \textbf{Lot from risk.} The lot follows from \path{risk_per_trade} of 0.03 and the stop distance, through \path{pip_value_per_lot} (\$10) and \path{lot_notional_units} (100,000). The lot that the pilot computed and ignored is now the quantity actually ordered.
+    \item \textbf{Targets and trailing stop.} \path{targets} holds one level at 2.0 times the stop distance closing 0.5 of the position; the remainder rides the trailing stop. \path{trail_stops} holds one step: once price has moved 0.5 of the stop distance in the trade's favor, the stop moves to $-0.66$ times the stop distance from entry. A signal whose first-target reward-to-risk ratio falls below \path{min_reward_risk} of 2.0 is vetoed by F6 before entry.
+    \item \textbf{Concurrency.} \path{max_concurrent_trades_per_account} in the F5 section is lowered from 5 to 2, the reference plan's limit.
+    \item \textbf{Fill costs.} \path{spread_pips} of 1.0 is charged as half-spread slippage on every fill, on top of the quote bars; \path{commission_per_lot} is 0.0 for the reference broker and stays a declared parameter. The pilot's effective cost was the 0.3-pip median spread of the quote bars alone.
+    \item \textbf{Exits.} Entries are market orders; the stop is a stop-market order and each target a limit order, placed together with the entry and paired so that the fill of one cancels the other. \path{close_on_veto} is false: a later filter veto leaves an open position to its stop, targets, trailing stop and \path{min_hold_bars} (0), so the planned exits govern the trade. In the pilot, by contrast, positions were opened and closed solely by per-bar chain decisions.
+\end{itemize}
+
+The hybrid descriptor inherits the whole F5, F6 and \path{execution} sections from the baseline and adds only its F4 section, so both variants face identical execution assumptions by construction. The resolved values are written to every run's \path{strategy-config.json} and the plan of each entry to \path{trade-plans.json}. The September--November 2015 reruns under this model use the frozen September-26 six-month models and are the pilot check of the execution machinery, not the experiment; they are reported in Section~\ref{sec:confirmation-results}.
+
+\subsection{One-year protocol} \label{subsec:one-year-protocol}
+
+The main experiment was registered on September 27, 2026, before any 2016 bar was simulated, and uses one complete collected year. GDELT 2.0 collection starts on February 18, 2015, so February 2015 is thin and March 2015 is the first fully collected month. Table~\ref{tab:one-year-splits} gives the allocation. Family models are fitted on March 2 to December 31, 2015; the logistic combiner is calibrated on January 2016; February 2016 is the trainer's held-out partition and is not replayed; the simulation runs from March 1 to October 31, 2016 as one continuous run per strategy from \$10,000 under the execution model of Section~\ref{subsec:execution-model}, with the baseline and the hybrid run in parallel over the same bars. The simulation ends with October 2016 because a month enters the protocol only once its GDELT completion marker exists, and November 2016 was still being ingested when the protocol was registered.
+
+\begin{table}[htbp]
+\centering
+\caption{Chronological allocation for the one-year protocol, registered before simulation.}
+\label{tab:one-year-splits}
+\small
+\begin{tabular}{p{4.0cm}p{4.6cm}p{4.4cm}}
+\toprule
+\textbf{Stage} & \textbf{Inclusive dates} & \textbf{Role} \\
+\midrule
+Family fitting & March 2--December 31, 2015 & LightGBM parameters \\
+Combiner calibration & January 1--31, 2016 & Logistic stacking; threshold grid recorded \\
+Trainer held-out partition & February 1--29, 2016 & No fitting; not a replay result \\
+Simulation & March 1--October 31, 2016 & One continuous run per strategy, \$10,000, reference plan \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The threshold rule is pre-registered so that the January reading cannot be used to search: $\theta_{\text{high}}/\theta_{\text{low}}$ stay at 0.55/0.45 with the gate off unless the January-2016 validation hit rate at those thresholds falls below 0.5, in which case the deviation and its cause are reported; the full grid is recorded either way as \path{threshold-calibration.json}, as for the pilot. No decision in this chapter has read a 2016 bar, so the simulation span is an untouched window for the frozen one-year models, for the thresholds and for the gate setting, subject to the disclosure that the gate setting itself originated in the September-2015 inspection of Section~\ref{subsec:zero-trade}.
+
+\section{Data Coverage} \label{sec:coverage-results}
+
+The PRD's design target is a ten-year, two-pair window (EUR/USD and USD/JPY, February 2015 through December 2024). Every experiment actually reported in this chapter is narrower than that target on both axes: a single pair, and roughly two years of the window. Table~\ref{tab:data-coverage} consolidates, from the splits and registrations already given in Sections~\ref{sec:experimental-setup}, \ref{subsec:one-year-protocol}, \ref{subsec:registered-followups} and \ref{subsec:news-only}, exactly what was ingested and simulated, rather than restating the design target as if it had been executed.
+
+\begin{table}[htbp]
+\centering
+\caption{Data actually used across the experiments of this chapter, consolidated from the splits and registrations of the sections cited in the right column. This is not the PRD's ten-year, two-pair design target.}
+\label{tab:data-coverage}
+\small
+\begin{tabular}{p{3.1cm}p{7.3cm}p{2.4cm}}
+\toprule
+\textbf{Aspect} & \textbf{What was used} & \textbf{Source} \\
+\midrule
+Instrument & EUR/USD only. USD/JPY is named in the PRD's currency-pair target but no USD/JPY run appears in this chapter. & PRD \S3 \\
+Price source \& resolution & Dukascopy quote bars at one-minute resolution, materialized into the LEAN data store; H4, M30, M15 and M5 bars used in later sections are constructed by resampling the same minute source, not a separate ingestion. & \S\ref{sec:experimental-setup}, \S\ref{subsec:execution-model} \\
+Price date range used & February 2, 2015 (six-month pilot fitting start) through February 28, 2017 (close of the one trading year of Section~\ref{subsec:trading-year} and its Session-2 reproduction). & Tables~\ref{tab:pilot-splits}, \ref{tab:one-year-splits}, \ref{tab:trading-year} \\
+News/event source & GDELT 2.0 event records only (event counts, Goldstein scale, average tone). No article text and no FinBERT or Loughran--McDonald sentiment score is computed anywhere in this chapter. & \S\ref{sec:experimental-setup} \\
+Event feature construction & Daily aggregation with a one-day publication lag, forward-filled onto the price grid at whichever clock (minute, H1, H4) the run uses. & \S\ref{sec:experimental-setup}, Ch.~3 \\
+Event date range used & GDELT 2.0 coverage begins February 18--19, 2015, so the first fully collected calendar month is March 2015 (Section~\ref{subsec:one-year-protocol}); completion markers reached December 2016 on September 28, 2026 (Section~\ref{subsec:registered-followups}) and February 2017 before the one-trading-year registration (Section~\ref{subsec:news-only}), which is the latest month read by any run in this chapter. & \S\ref{subsec:one-year-protocol}, \S\ref{subsec:registered-followups}, \S\ref{subsec:news-only} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three gaps are known and unresolved rather than reconciled. First, no consolidated coverage-matrix figure --- the per-month missing-day and quarantined-row reconciliation that the PRD's coverage rule calls for across the full window --- has been produced; the completeness claims above rest on the per-run completion markers and job manifests cited throughout this chapter, not on a single reconciled artifact, and no such figure is included here. Second, text sentiment is absent for a coverage reason and not only a resourcing one: the GDELT Web News NGrams 3.0 raw feed that a Loughran--McDonald or FinBERT scorer would consume only begins in 2020 (\path{algo-suite/docs/technical-debt.md}, TD-48), so it cannot cover the 2015--2017 window used here at all, independently of the roughly 500\,GB, 90-hour single-month backfill cost that TD-48 also records; the GDELT event$\bowtie$GKG join that could have added a second event-derived signal is on hold for the same reason (TD-53). Third, the one-day publication lag applied to event features is keyed to the event date rather than to GDELT's own publication timestamp, so a small residual look-ahead leak remains for late-reported events (TD-59), as already disclosed in Section~\ref{sec:experimental-threats}.
+
+\section{Baseline Strategy} \label{sec:baseline-results}
+
+The second replay round loaded the frozen September-26 models into the amended chain of Section~\ref{subsec:strategy-config}, with the gate off, the thresholds of Section~\ref{subsec:threshold-calibration} and a \$10,000 starting deposit, over September 1--30, 2015. The job exited with status zero on September 27, 2026. Table~\ref{tab:september-replay} reports both runs from their \path{run.json}, \path{metrics.json} and decision tables; the two runs are read together because the hybrid is defined only by contrast with the baseline. Every BUY or SELL decision joined a LEAN trade (11,429 baseline and 11,708 hybrid decision rows carry a trade identifier), and the counts of BUY and SELL decisions equal the counts of unblocked bars found in the diagnosis of Section~\ref{subsec:zero-trade}, as the ungated rule predicts.
+
+\begin{table}[htbp]
+\centering
+\caption{September-2015 replays with the gate off. Run identifiers \texttt{baseline/20260927T094856-5d34ecde9301} and \texttt{hybrid/20260927T100447-5e124bec56dc}. Decision counts are bar-level rows of \texttt{decisions.parquet}; F1-vetoed bars never reached F7.}
+\label{tab:september-replay}
+\small
+\begin{tabular}{p{5.2cm}rr}
+\toprule
+\textbf{Quantity} & \textbf{Baseline} & \textbf{Hybrid} \\
+\midrule
+Minute bars evaluated & 31,512 & 31,512 \\
+Decisions: BUY & 1,976 & 1,780 \\
+Decisions: SELL & 3,222 & 3,671 \\
+Decisions: HOLD & 18,169 & 17,916 \\
+Bars vetoed by F1 & 8,145 & 8,145 \\
+Closed trades & 1,032 & 1,069 \\
+Starting equity & \$10,000.00 & \$10,000.00 \\
+Ending equity & \$9,995.38 & \$10,051.41 \\
+Net return & $-0.05\%$ & $+0.51\%$ \\
+Maximum drawdown & 1.5\% & 1.5\% \\
+Win rate & 60\% & 62\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The baseline closed 1,032 trades and ended the month essentially flat, at $-0.05\%$ with a maximum drawdown of 1.5\% and a win rate of 60\%. A flat or negative result for an unleveraged single-pair price-only strategy is the expected level rather than a failure; the quantity that bears on H1 is the paired difference against the hybrid, not this absolute level. The result is nevertheless not an economic one, for reasons visible in the trade ledger rather than in the summary statistics.
+
+\begin{itemize}
+    \item \textbf{Transaction costs are nearly absent.} The only cost is the bid-ask spread embedded in the Dukascopy quote bars materialized for LEAN, whose median over the September minute bars is 0.3 pip. Every trade in \path{trades.json} carries zero fees; no commission, slippage or financing cost is modeled.
+    \item \textbf{No protective orders were placed.} The fixed 20-pip stop of Table~\ref{tab:pilot-parameters} is recorded in the sizing context but no stop-loss or take-profit order is submitted to the engine (technical-debt item TD-46). Positions are entered and exited only by the chain's per-bar decisions.
+    \item \textbf{Position size is a fixed fraction of equity, not the risk-based lot.} Each trade holds half the account equity as notional, about 4,440 units of EUR/USD, because the \path{size} run parameter governs sizing; the 3\% risk-per-trade lot that F6 computes from the fixed stop is not applied.
+    \item \textbf{The strategy flips at minute scale.} The median holding time is nine minutes, and the month contains about one thousand round trips per strategy. From the ledger, the average winning trade returns about 0.015\% of the starting deposit and the average losing trade about 0.023\%, which the progress record rounds to roughly 0.01\% and 0.02\%. A win rate near 60\% with that payoff ratio nets to approximately zero, and any realistic commission or slippage would dominate the outcome.
+\end{itemize}
+
+The machinery is proven: decisions become trades, the deposit is honored, and every parameter is auditable. The economics are not: the execution assumptions above make the equity path uninformative about what the same decisions would have earned under realistic costs and sizing. The zero-trade identifiers of the first round remain the historical record of this strategy's initial replay; the remark in the earlier snapshot that flat equity made variance and paired uncertainty unavailable is superseded, since both runs now carry a non-flat daily equity series, but no inference has been computed from it.
+
+Under the execution model of Section~\ref{subsec:execution-model}, the same frozen models lose more than half of the deposit in every month replayed (Table~\ref{tab:confirmation-2015}). The two contracts are separate experiments on reused historical data; their difference cannot isolate a single execution parameter's effect, and the sweeps of Section~\ref{sec:ablations} were run to separate them.
+
+\section{Hybrid Strategy} \label{sec:hybrid-results}
+
+The hybrid closed 1,069 trades and ended at $+0.51\%$, with the same 1.5\% maximum drawdown and a 62\% win rate (Table~\ref{tab:september-replay}). Its decision profile differs from the baseline in 196 fewer BUY and 449 more SELL decisions over the same 23,367 bars that reached F7, with an identical F1 veto count because F1 is upstream of any news input. The news-context filter F4 abstained on all 23,367 hybrid bars: there is no sentiment source in this pilot, and no GDELT event-intensity veto fired in September. The hybrid's difference from the baseline therefore comes only from the news family's input to the combiner, not from the event gate. This is a narrower construct than the joint effect described in Section~\ref{subsec:workflow-stages}, and it is narrower still than the sentiment-augmented hybrid the research design proposes.
+
+The execution caveats listed for the baseline apply unchanged to the hybrid, which inherits the F5, F6 and F7 sections and the two run parameters. The observed difference of about \$56 on a \$10,000 account over roughly one thousand near-zero-cost minute-scale trades is not interpreted here. No paired inference has been run: the stationary-bootstrap and deflated-Sharpe procedures of Section~\ref{subsec:rule-significance} require the daily equity series, documented cost treatment, the actual selection history (which now includes the gate decision and the threshold grid of Table~\ref{tab:threshold-calibration}) and pre-registered block settings, none of which has been assembled for these runs. A difference in a development window, under unrealistic execution, is not evidence for or against H1.
+
+Under the execution model, both hybrid replays of each month lose more than half the starting account value, as Table~\ref{tab:confirmation-2015} shows. The baseline--hybrid ordering changes between September, October and November. Neither ordering supports a news-effect claim without paired inference, audited costs, and the full exploratory selection history.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../algo-suite/docs/stories/done/13-pattern-volume-experiments/evidence/figures/execution-september-print.pdf}
+\caption{Observed September equity and drawdown for completed runs R08 and R13, in 2:1 panels. Legends join the parameter appendix; curves use the original \texttt{equity.csv} samples. Drawdown is relative to each sampled running peak and need not equal the engine's rounded maximum-drawdown statistic.}
+\label{fig:intermediate-equity}
+\end{figure}
+
+Figure~\ref{fig:intermediate-equity} and the October and sweep figures in the evidence archive reuse the repository's equity reader and drawdown calculation. Their presentation adapts the \textit{trading-visualization} skill's Matplotlib layout and styling guidance\footnote{\url{https://github.com/agiprolabs/claude-trading-skills/tree/main/skills/trading-visualization}}; that software guidance supplies no empirical performance evidence. Dark PNG and print PDF variants are provided. No synthetic curve, monthly rebasing, or unfinished annual result is plotted.
+
+\section{Confirmation Reruns Under the Execution Model} \label{sec:confirmation-results}
+
+Two sets of runs are reported. The first replays September, October and November 2015 with the frozen September-26 six-month models under the execution model of Section~\ref{subsec:execution-model}; it checks that stops, partial closes, trailing steps and fill costs behave as configured and gives the first cost-bearing reading of the pilot models, but September remains development data and the three months are a machinery check, not the experiment. The second is the one-year protocol of Section~\ref{subsec:one-year-protocol}. Every value is read from the run directory named in the caption: trade counts and profit or loss from \path{trades.json}, the maximum drawdown from \path{metrics.json}, and monthly returns from \path{equity.csv}. Win rate is the share of closed trades with a positive profit; LEAN's own \path{hit_rate} statistic, which also counts partially closed positions, is a few points higher (0.30 for the September baseline, 0.28 for the one-year runs). Profit factor is gross profit divided by gross loss over closed trades. Each monthly run starts from a fresh \$10,000; the one-year runs are single continuously funded accounts.
+
+\begin{table}[htbp]
+\centering
+\caption{September--November 2015 reruns under the execution model, frozen six-month models, \$10,000 per run. Run identifiers, under \texttt{2026-09-26-six-month-pilot/data/runs/}: baseline \texttt{20260927T234946-8b17461d5460}, \texttt{20260928T000257-8bcf7832dc99}, \texttt{20260928T001557-8c84def875ee}; hybrid \texttt{20260927T235410-8b548f4bfa30}, \texttt{20260928T001007-8c33716e9a9f}, \texttt{20260928T004327-8e053507dfb3}. R08/R09/R10 and R13/R14/P01 in the evidence appendix.}
+\label{tab:confirmation-2015}
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+\textbf{Month} & \textbf{Strategy} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} & \textbf{Max DD} & \textbf{Profit factor} \\
+\midrule
+Sept.\ 2015 & baseline & 320 & 22.2\% & $-\$5{,}256.84$ & 53.8\% & 0.70 \\
+Sept.\ 2015 & hybrid   & 322 & 22.0\% & $-\$5{,}275.22$ & 54.0\% & 0.70 \\
+Oct.\ 2015  & baseline & 319 & 24.1\% & $-\$5{,}334.65$ & 55.2\% & 0.69 \\
+Oct.\ 2015  & hybrid   & 349 & 24.6\% & $-\$5{,}137.39$ & 53.3\% & 0.72 \\
+Nov.\ 2015  & baseline & 107 & 15.0\% & $-\$5{,}047.12$ & 51.6\% & 0.29 \\
+Nov.\ 2015  & hybrid   & 132 & 16.7\% & $-\$5{,}281.94$ & 53.3\% & 0.41 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The September baseline ledger explains the loss. Of its 320 closed trades, 249 ended at the stop-market order for a gross loss of \$17,327, 65 reached the 2R target for a gross profit of \$11,179, and six were liquidated at the end of the window. The swing stops resolved to 5--7 pips, so the 1-pip spread charged on entry and exit was a fifth of the risked distance, and the fifteen-minute label of the frozen model does not carry a 2R structural target. The lot was margin-capped near 1.66 lots, so the realized risk per trade was about 0.8\% of the deposit rather than the configured 3\%; the hit rate, not the sizing, produced the loss. November closes fewer trades for the same loss because the account had already shrunk when the stops were hit. These readings motivate the sweeps of Section~\ref{sec:ablations}; they are not a parameter selection.
+
+\begin{table}[htbp]
+\centering
+\caption{One-year protocol: continuous simulation March 1--October 31, 2016, one-year models, \$10,000 per strategy. Run identifiers, under \texttt{2026-09-28-one-year-protocol/data/runs/}: baseline \texttt{20260928T000117-8bb8148c2302} (R19), hybrid \texttt{20260928T000142-8bbdd0d8fd2c} (R20). Models \texttt{0b41fd39ebf3} and \texttt{b67ac32e1fc5}.}
+\label{tab:one-year-results}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Strategy} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} & \textbf{Max DD} & \textbf{Profit factor} \\
+\midrule
+baseline & 1,029 & 25.0\% & $-\$8{,}840.72$ & 88.8\% & 0.64 \\
+hybrid   & 1,029 & 24.8\% & $-\$8{,}775.76$ & 88.2\% & 0.63 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Monthly returns of the one-year simulation, as a percentage of the equity at the start of each month. Source: each run's \texttt{equity.csv}.}
+\label{tab:one-year-monthly}
+\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+\textbf{Strategy} & \textbf{Mar} & \textbf{Apr} & \textbf{May} & \textbf{Jun} & \textbf{Jul} & \textbf{Aug} & \textbf{Sep} & \textbf{Oct} \\
+\midrule
+baseline & $-37.9$ & $-34.5$ & $-14.1$ & $-16.4$ & $-36.3$ & $-20.2$ & $-16.1$ & $-6.8$ \\
+hybrid   & $-40.8$ & $-41.5$ & $-7.7$ & $-13.6$ & $-25.0$ & $-19.7$ & $-15.0$ & $-11.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-consolidated.png}{\includegraphics[width=\textwidth]{img/equity-consolidated.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Consolidated equity chart missing: \path{equity-consolidated.png} produced by the equity-curve consolidation command over the one-year runs.}\vspace{2em}}}}
+\caption{Consolidated equity curves of the baseline and hybrid over the one-year simulation, from \$10,000, under the execution model of Section~\ref{subsec:execution-model}. Source: \texttt{algo-analyze equity-curves} over the two runs' \texttt{equity.csv} files (run identifiers as in Table~\ref{tab:one-year-results}).}
+\label{fig:equity-consolidated}
+\end{figure}
+
+Both one-year runs lose about 88\% of the deposit, every month is negative for both strategies, and the two curves are nearly indistinguishable; the news family changes about \$65 of the outcome over 1,029 trades. The simulation span was untouched by any decision when the protocol was registered, so the loss is an honest out-of-sample reading of the frozen one-year models under the registered execution model: the fifteen-minute direction call combined with a structural stop and a 2R target loses steadily at a 25\% win rate. The January-2016 calibration diagnostics of Section~\ref{subsec:intermediate-annual} reproduce the regime anti-alignment of the pilot, so the gate would have fired on almost nothing. No paired inference is computed on these runs: the stationary-bootstrap and deflated-Sharpe procedures of Section~\ref{subsec:rule-significance} require the block length and the trial count to be registered before evaluation, and the selection history (gate decision, pilot threshold grid, January-2016 threshold grid, the sweeps below) has grown after registration; a paired statistic on a difference this small against a common loss this large would in any case not bear on H1. The result closes the question of whether the pilot models can trade the execution model profitably; they cannot, on this data, at these settings.
+
+\section{Ablations} \label{sec:ablations}
+
+The September sweeps are exploratory parameter comparisons using the frozen pilot baseline model. Table~\ref{tab:intermediate-sweeps} retains losing and zero-trade variants; R02 (reference-gated) has since completed with zero closed trades. The full F1--F7 configuration of every listed run, including parameters not varied, is joined to its R reference in the appendix.
+
+\begin{table}[htbp]
+\centering
+\caption{Completed September-2015 exploratory variants (frozen pilot baseline model, \$10,000 each). Every row links its result to its own archived filter matrix by R reference; zero trades do not establish robustness.}
+\label{tab:intermediate-sweeps}
+\small
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Ref.} & \textbf{Variant} & \textbf{Closed trades} & \textbf{Return (\%)} & \textbf{Max DD (\%)} \\
+\midrule
+R01 & reference-conservative & 3 & $-0.81$ & 10.8 \\
+R02 & reference-gated & 0 & 0.00 & 0.0 \\
+R03 & reference-risk1 & 552 & $-55.28$ & 55.4 \\
+R04 & reference-selective & 6 & $-3.76$ & 5.6 \\
+R05 & reference-wide-stop & 14 & $-17.65$ & 21.5 \\
+R15 & ha-h1-template & 144 & $-53.47$ & 55.8 \\
+R16 & ha-h1-template-atr & 437 & $-42.16$ & 50.1 \\
+R17 & ha-1r2r-template & 0 & 0.00 & 0.0 \\
+R18 & ha-setup-template & 0 & 0.00 & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The template labels describe selected plan adaptations, not faithful replications of the reference strategies. The author's Spring version (unpublished) declares a 60-minute selector with a 20\% stop cut and 240-minute deployment templates with a 50\% cut. These H1/H4 settings, indicator-based entry/stop buffers, and strategy rules are not equivalent to the M1 EMA chain and frozen model used in these sweeps. For example, R16 actually archives ATR multiplier 4, stop shrink 0.5, minimum stop 10 pips, and risk fraction 0.01; the YAML comment's ``2 x ATR14'' is not the configured pre-shrink multiplier. Increasing an M1 ATR multiplier does not create H4 candles. Results therefore cannot establish the performance of that Spring version or of the new Story 13 candle/quote-activity implementation.
+
+The nine variants read together: every setting that trades often (risk1, ha-h1-template, ha-h1-template-atr) loses about half the account, and every setting that trades rarely (conservative, selective, gated, ha-1r2r-template, ha-setup-template) loses little or nothing because it hardly trades. No variant is profitable. The variation isolates where the loss comes from: the threshold and gate settings control how often the chain trades, the stop width and plan control how much each trade loses, and none of the plans turns the fifteen-minute signal into a positive expectancy. Selecting the least negative variant here would be a post-hoc choice on development data and is not made.
+
+\subsection{Completed H4 candle and quote-activity matrix} \label{subsec:h4-snapshot}
+
+The second snapshot, clock-confirmed at September 28, 2026, 01:11:14 UTC, contains all four baseline-v1 and four hybrid-v2 Heikin-Ashi H4 template cells. Both parent processes record exit 0, both final input checks pass with no errors or mismatches, and all eight individual manifests record success. The interrupted hybrid-v1 root is retained separately: its first two cells succeeded, but its last two logs report ENOSPC before creating their result directories. Its controller-observed parent exit was 1 and its final integrity report is missing. It is not a completed matrix or an additional replication.
+
+The H4 archive joins H01--H08 to each cell's full configuration JSON/YAML, field provenance, model SHA-256, training revision, result manifest, trades, equity, and source fingerprints. Its files, beneath the evidence directory given above, are:
+\begin{quote}
+\small\ttfamily
+h4-snapshot-20260928T011114Z.json\\
+h4-parameters-20260928T011114Z.md
+\end{quote}
+All eight runtime configurations match their prepared JSON, YAML, and model training configuration. The two matrix manifests have identical maps of 249 code-file hashes, despite different recorded Git revisions during concurrent documentation commits. These source fingerprints, not a commit identifier alone, establish the recorded implementation identity.
+
+\begin{table}[htbp]
+\centering
+\caption{All completed exploratory September-2015 H4 cells. H references join the full per-cell parameter/model appendix; no cell is omitted. Maximum drawdown is the engine-reported statistic.}
+\label{tab:h4-results}
+\small
+\begin{tabular}{lllcrrr}
+\toprule
+\textbf{Ref.} & \textbf{Family} & \textbf{F3} & \textbf{Volume} & \textbf{Trades} & \textbf{Return (\%)} & \textbf{DD (\%)} \\
+\midrule
+H01 & Baseline & Disabled & Off & 6 & 1.36 & 5.1 \\
+H02 & Baseline & Disabled & On & 3 & 2.87 & 5.1 \\
+H03 & Baseline & TA-Lib & Off & 6 & 1.36 & 5.1 \\
+H04 & Baseline & TA-Lib & On & 3 & 2.87 & 5.1 \\
+H05 & Hybrid & Disabled & Off & 6 & 1.36 & 5.1 \\
+H06 & Hybrid & Disabled & On & 3 & 2.87 & 5.1 \\
+H07 & Hybrid & TA-Lib & Off & 6 & 1.36 & 5.1 \\
+H08 & Hybrid & TA-Lib & On & 3 & 2.87 & 5.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Closed-trade counts come from both the manifest and the actual trade ledger, not from the reciprocal of a rounded win rate. No new cell has zero closed trades; earlier zero-trade and losing runs remain in the predecessor tables. Equity returns include open-position valuation at the endpoint and are not equivalent to realized closed-trade profit. Identical return rows are not independent replications. Within each volume setting, all four equity CSVs are byte-identical.
+
+\begin{table}[htbp]
+\centering
+\caption{Effective H4 settings for H01--H08. Every filter is included; the H-keyed appendix repeats the complete resolved matrix and model identity alongside each result.}
+\label{tab:h4-parameters}
+\small
+\begin{tabular}{p{1.2cm}p{12.1cm}}
+\toprule
+\textbf{Filter} & \textbf{Recorded settings} \\
+\midrule
+F1 & EMA perception; complete 240-minute bars; EMA 3/8/60. The 60-period series is an H4 EMA, not the reference H1 selector. \\
+F2 & RSI 14 with midline 50; MACD 12/26/9 with histogram threshold 0; ATR period 14. \\
+F3 & Disabled or TA-Lib per row. Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. \\
+F4 & Absent in H01--H04; H05--H08: event veto threshold $-0.5$, sentiment-direction threshold 0.15. Text sentiment is missing. \\
+Volume & Absent in odd-numbered H rows; even rows use quote-tick activity, lookback 20 prior closed bars, minimum relative activity 1.0. Not exchange-traded volume. \\
+F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.18. \\
+F6 & Risk fraction 0.03; swing lookback 60; stop shrink 0.5; minimum 5 pips; minimum reward/risk 2. Targets 4R/6R, each closes 0.5; trail at 2R to $+0.1$R. \\
+F7 & Separate model per cell; horizon 240 minutes; thresholds 0.55/0.45; regime gate off. Trend, indicator, pattern families; hybrid adds news. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All cells start with cash 10,000 and record spread 1 pip, commission per lot 0, broker stop level 0, minimum holding bars 0, and \path{close_on_veto=false}. The H4 bar construction and the Heikin-Ashi H4 template's exit settings distinguish these cells from the earlier M1 sweeps, but the reference template's entry, stop, trend-buffer, and exit semantics remain replaced by research proxies. Neither faithful replication nor economic validity follows from these settings.
+
+The effective sample is especially small: the controller's completed-bar audit counts 110 September H4 bars, of which the first 59 are consumed by warm-up. Independently inspected decision artifacts contain only 51 decisions per cell, from September 16 at 20:00 UTC through September 30 at 20:00 UTC. Model provenance records 475 fitting, 114 calibration, and 214 test rows; the last count covers August--September and must not be presented as 214 September trading decisions.
+
+\begin{table}[htbp]
+\centering
+\caption{Decision-level diagnostics, identical across the two families for the counts shown. F4 applies only to hybrid cells.}
+\label{tab:h4-diagnostics}
+\small
+\begin{tabular}{p{8.4cm}rr}
+\toprule
+\textbf{Observation per cell} & \textbf{Volume off} & \textbf{Volume on} \\
+\midrule
+Audited decisions / F1 vetoes & 51 / 11 & 51 / 11 \\
+Decisions reaching F3 & 40 & 40 \\
+Disabled F3: abstentions & 40 & 40 \\
+TA-Lib F3: abstentions / buys / sells & 32 / 4 / 4 & 32 / 4 / 4 \\
+Hybrid F4: reached / vetoes & 40 / 0 & 40 / 0 \\
+Quote-activity vetoes & 0 & 17 \\
+Final SELL decisions / closed trades & 40 / 6 & 23 / 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+TA-Lib is not disconnected: F3 records four bearish engulfings, three bullish engulfings, and one hammer among the 40 reached decisions. Baseline F7 probabilities range from 0.408089--0.428667 with detection disabled and 0.408195--0.428762 with TA-Lib. Hybrid ranges are 0.389898--0.436169 and 0.389917--0.436204, respectively. All remain below the fixed SELL threshold 0.45. Pattern and event features change model probabilities without crossing a decision boundary in this sample; identical outcomes therefore do not demonstrate that patterns or news are generally useless. Hybrid F4 records 40 abstentions and no vetoes per cell. The controller's canonical-input audit reports event intensity 0.643298--0.903367, above the $-0.5$ veto threshold, and missing sentiment on all 40 reached decisions; its detailed diagnostic attribution is retained in the evidence synopsis.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{../algo-suite/docs/stories/done/13-pattern-volume-experiments/evidence/figures/h4-baseline-v1-20260928T011114Z-print.pdf}
+\caption{All four baseline H4 cells, including coincident curves. The archive also contains the four hybrid cells and dark-screen variants. Panels use actual equity samples and their drawdown in a 2:1 layout; sampled drawdown need not equal the engine's intraday maximum. Labels join the full parameter appendix.}
+\label{fig:h4-equity}
+\end{figure}
+
+These favorable H4 observations do not supersede the predecessor losses or calibration anti-alignment. The reused September window, eight separate fitted models, multiple earlier exploratory selections, warm-up truncation, and only three or six closed trades prevent a confirmatory out-of-sample claim. No corrected significance, generalization, causal feature benefit, or economically validated strategy is established.
+
+\subsection{Tuning sweeps: candlesticks, quote activity, thresholds, plans and timeframes} \label{subsec:tuning-sweeps}
+
+After the eight-cell matrix, fifty-one further exploratory variants were run on the one-year splits (family fitting March 2--December 31, 2015; combiner calibrated on January 2016; February 2016 held out), each as one continuous \$10,000 account from March 1 to November 30, 2016. The selection rule was declared before any outcome was viewed: rank on March--October, which the M1 one-year replay had already consumed as development data, and read November, the only month no earlier decision had touched, last. Every variant's resolved configuration with per-key provenance is archived beside the results (\path{evidence/tuning-sweeps-20260928T0240Z.md} and its parameter appendix). Two facts shaped the sweeps. First, the H4 models' combiner probability spans only 0.517--0.539 on the January validation bars, so the registered thresholds 0.55/0.45 cannot fire: the registered broad-window matrix executed through the immutable runner closed zero or one trade in each of its eight cells, and the first fourteen H4 variants did the same. Thresholds were therefore re-registered as symmetric quantiles of each model's own validation distribution (5, 10 and 15\,\% per side). Second, on the H1 models 0.55 is the 98th percentile of the probability and 0.45 lies below its minimum, so the fixed-threshold H1 runs were long-only on about 2\,\% of bars.
+
+\begin{table}[htbp]
+\centering
+\caption{Tuning sweeps, March--November 2016, one account per variant from \$10,000. Best and worst March--October return per sweep, with the November reading of the same variant. Full tables with every month in the evidence file.}
+\label{tab:tuning-sweeps}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{p{4.6cm}p{3.4cm}rrrr}
+\toprule
+\textbf{Sweep} & \textbf{Variant} & \textbf{Trades} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Max DD} \\
+\midrule
+H4, calibrated 10\,\% & ATR stop, floor 10 pips & 65 & $+9.0\%$ & $-6.0\%$ & 25.0\% \\
+H4, calibrated 10\,\% & regime gate on & 16 & $-20.2\%$ & $-4.8\%$ & 26.1\% \\
+H4, calibrated 10\,\% & candles on vs.\ off & 100 / 104 & $-12.1\%$ / $-12.3\%$ & $-1.3\%$ / $-1.1\%$ & 21--23\% \\
+Timeframes, fixed 0.55/0.45 & H1 hybrid, activity on & 17 & $+13.6\%$ & $-2.5\%$ & 7.4\% \\
+Timeframes, fixed 0.55/0.45 & M15 candles, activity on & 58 & $-14.0\%$ & $-1.2\%$ & 18.0\% \\
+H1 variants, fixed & hybrid, activity off & 31 & $+15.0\%$ & $-2.6\%$ & 10.7\% \\
+H1 variants, fixed & thresholds 0.53/0.47 & 209 & $-23.3\%$ & $-3.5\%$ & 48.7\% \\
+H1, calibrated 5 / 10 / 15\,\% & baseline & 114 / 196 / 316 & $+3.1\%$ / $-26.6\%$ / $-51.1\%$ & $-8.0\%$ / $-4.6\%$ / $-8.8\%$ & 21 / 41 / 59\% \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-tuning-h4q.png}{\includegraphics[width=\textwidth]{img/equity-tuning-h4q.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-tuning-h4q.png}.}\vspace{2em}}}}
+\caption{Equity of four calibrated H4 variants (ATR stop, base, hybrid, activity off), March--November 2016, from \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-tuning-h4q}
+\end{figure}
+
+The sweeps answer the tuning question negatively. No variant is profitable in November: every variant that traded in that month lost between 0.1 and 8.8\,\%. The only positive March--October returns come from low-frequency settings with 17 to 65 trades, and each of them lost in November; making the same H1 models trade more through symmetric calibrated thresholds reverses the sign monotonically (114 trades $+3\,\%$, 196 trades $-27\,\%$, 316 trades $-51\,\%$). The TA-Lib detector does not move the outcome at any timeframe: candle-on and candle-off pairs differ by less than 0.1\,\% because the pattern family shifts the combiner probability without crossing a threshold. The quote-activity gate reduces trade counts; at H4 it worsens every pair. The regime gate is the emptiest or worst setting at every timeframe, filter order changes nothing because vetoes compose, and the 1R/2R template plan is viable only with a minimum reward-to-risk of 1. Applying the pre-declared rule, the best March--October variant of each family (H4 ATR stop, H1 hybrid without the activity gate) fails its November reading. With fifty-one trials, one or two positive development-window results are expected under the null; none survives the untouched month.
+
+\subsection{December extension of the tuning sweeps} \label{subsec:registered-followups}
+
+GDELT collection for December 2016 completed on September 28, 2026, and the extension was registered before any December bar was read: every one of the fifty-one tuning variants was rerun as one continuous account from March 1 to December 31, 2016 with its original model and configuration, so that November stays the first untouched month and December becomes a second one, read after it (evidence \path{december-extension-20260928T0445Z.md}). Over the full span nine of the fifty-one variants end above the deposit, the best at $+9.1\,\%$ on 37 trades after a peak near $+17\,\%$ in August. In the untouched months no variant is positive in November, ten are positive in December, and none is positive in both; the December gainers are calibrated variants that had lost through November, while the H1 fixed-threshold runs that led on March--October lost again in December ($-2.6$ to $-5.8\,\%$). Sign changes of this size on 20 to 200 trades from one month to the next are consistent with no edge. Further exploratory runs made after this point at the author's request (a more permissive H1 chain and a combinatorial grid) were treated as curiosity checks and are recorded only in the story evidence; they did not change the reading above, and the trial count reported in Section~\ref{sec:experimental-threats} counts them.
+
+\subsection{News-only strategy (registered before its outcome)} \label{subsec:news-only}
+
+A third experiment was registered on September 28, 2026, before any of its cells was run: a chain in which the news signal alone decides direction and the risk guard and money management govern the trade, with no price filter in the loop (\path{f4\_news\_context}, \path{f5\_risk\_guard}, \path{f6\_capital\_mgmt}, \path{f7\_meta\_learner}; F7 fitted on the news family only, that is on the GDELT event-intensity feature, the lexicon sentiment half remaining empty). It uses the Heikin-Ashi H4 money-management template, the one-year splits (fit March 2--December 31, 2015; combiner calibrated on January 2016; February 2016 held out), the H1 and H4 clocks, and thresholds 0.55/0.45 or, if the January validation band cannot reach them, symmetric 5\,\% and 10\,\% quantiles of that band, decided from the calibration file alone. A rule-only arm was added to the registration before any cell ran: F4 alone decides direction from the event-intensity reading (buy at or above the January-2016 90\,\% quantile, sell at or below the 10\,\% quantile, veto at $-0.5$), with no meta-learner and the chain terminating on F4; both sign conventions are registered as cells, since the mapping from cooperation and conflict to the EUR/USD direction is not known a priori. Each cell is one \$10,000 account from March 1 to December 31, 2016; March--October is ranked first and November and December are read last. The pre-declared primary comparison is news-only against the price-only baseline at H1 on the two untouched months, with the hybrid as the third arm; ten cells in all. The story record (\path{docs/stories/done/14-news-only-strategy/spec.md}) holds the registration.
+
+The six news-only cells have run (evidence \path{news-only-cells-20260928T0545Z.md}). The news-family models are almost constant: their combiner probability spans 0.5253--0.5288 on the January validation bars at H1 and 0.5245--0.5265 at H4, so the registered thresholds fire on nothing (two cells with zero trades) and the quantile cells trade on noise: at H1, 209 and 230 trades with win rates of 28 and 27\,\% lose 42.6 and 38.5\,\% by December (maximum drawdown 51 and 47\,\%); at H4, 74 and 75 trades lose 22.1 and 14.4\,\%. In the untouched months the H1 cells lose 10 to 12\,\% in November and gain 7.6\,\% in December, the H4 cells gain 4.6 and 12.2\,\% in November and lose 2\,\% in December; no cell is positive in both. Against the comparators on the same clock and splits (price-only H1 $+2.5\,\%$ on 39 trades, hybrid H1 $+9.1\,\%$ on 37 trades over the same ten months), the news signal alone carries no directional information that the money-management template can monetize: one daily event-intensity scalar, repeated across the day's bars, cannot separate up from down at an hourly horizon. This is the direct answer to the thesis question in its strongest form for the data at hand, and it is negative. The rule-only arm has also run (evidence \path{news-cells-20260928T0600Z.md}). With the registered sign, higher cooperation intensity buying the euro, the rule loses at both clocks ($-47.0\,\%$ on 178 trades at H1, $-19.8\,\%$ on 48 trades at H4) and in both untouched months. With the opposite sign it is, in practice, a short-only rule, because the January 10\,\% quantile of intensity ($-0.0046$) was never reached in 2016 and no buy fired: at H1 it closes 39 trades, all short, for $+12.9\,\%$ over the ten months with a 15\,\% maximum drawdown, and it is positive in both untouched months ($+5.2\,\%$ in November, $+1.0\,\%$ in December); at H4, ten trades, $+3.1\,\%$, likewise positive in both. This is the first configuration in the study to pass the untouched-month check, and it must be read against the pair: EUR/USD fell 3.4\,\% from March to December 2016 and 3.5\,\% in November alone, so a short-only rule with a wide-target plan captured drift that a short-and-hold position would have captured too ($+3.5\,\%$ over the span). Whether the rule adds anything beyond direction-of-drift requires a matched short-only control (random short entries with the same plan and frequency) and a window in which the euro rises; neither was registered here, and the two sign cells were declared precisely because the sign was not known in advance. The result is therefore reported as a positive exploratory reading with a known confound, not as evidence for the news signal. The registered paired inference of Section~\ref{subsec:rule-significance} was then computed with block lengths declared before viewing (primary 4 and sensitivity 2 on the untouched months, 5 and 3 on the full span; 999 null-centred stationary-bootstrap resamples, seed 42; evidence \path{paired-inference-20260928T0615Z.md}). For the pre-declared primary comparison, news-only against the price-only baseline at H1, the mean daily difference on November--December is $+0.001\,\%$ with a 95\,\% interval of $[-0.34, +0.34]$ percentage points ($p = 0.996$), and $-0.16\,\%$ per day on the full span ($p = 0.18$); the null is not rejected. For the short-only rule against the same baseline the untouched-month difference is $+0.18\,\%$ per day with an interval of $[-0.13, +0.50]$ ($p = 0.24$), and $+0.03\,\%$ per day on the full span ($p = 0.73$); against the hybrid, $p = 0.24$ and $0.91$. No comparison rejects the null at the 5\,\% level, which is the expected outcome for 39 trades across two months; the equity series carry flat weekend samples, so the sixty daily observations overstate the effective count. The reading of Chapter~\ref{cap:conclusion} therefore stands. With February 2017 collected, a full trading year was registered on September 28, 2026, before any of its cells ran: the same one-year models unchanged, one \$10,000 account per cell from March 1, 2016 to February 28, 2017, ten cells (price-only, hybrid, news-only and both rule signs, at H1 and H4), March--October 2016 as development data and November 2016 to February 2017 as the untouched months, with hybrid against price-only at H1 as the primary paired comparison (block length 4, sensitivity 2) and the news arms secondary. Its outcome is reported in Section~\ref{subsec:trading-year}.
+
+\subsection{One trading year, all arms} \label{subsec:trading-year}
+
+All ten cells completed (evidence \path{trading-year-cells-20260928T0640Z.md}, \path{trading-year-inference-20260928T0640Z.md}; registration in \path{trading-year-registration.md}). A timestamp audit of that job (appended to \path{trading-year-registration.md}) shows that each stage's cells were fixed in the plan file and strategy configurations seconds before its launch, but that the paragraphs narrating the registration of the first four stages were written after those stages had finished; the pre-specification of the primary comparison therefore rests on the one-year protocol of Section~\ref{subsec:one-year-protocol} and on the plan files, not on the times stated in that README. Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
+
+\begin{table}[htbp]
+\centering
+\caption{One trading year, March 1, 2016 to February 28, 2017, \$10,000 per cell, one-year models unchanged. Untouched months November 2016--February 2017; win rate is the share of closed trades with positive profit.}
+\label{tab:trading-year}
+\small
+\begin{tabular}{llrrrrrrrr}
+\toprule
+\textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
+\midrule
+H1 & price-only & 44 & 36\% & $+8.1$ & $-2.6$ & $-2.6$ & $+0.1$ & $-3.7$ & $-1.2$ \\
+H1 & hybrid & 43 & 37\% & $+15.0$ & $-2.6$ & $-2.6$ & $-2.5$ & $-6.7$ & $-0.8$ \\
+H1 & news-only & 252 & 27\% & $-35.1$ & $-11.9$ & $+7.7$ & $-2.3$ & $+2.4$ & $-38.4$ \\
+H1 & rule, registered sign & 180 & 18\% & $-31.8$ & $-10.6$ & $-13.1$ & $+8.6$ & $-10.4$ & $-48.5$ \\
+H1 & rule, reversed sign (short-only) & 39 & 28\% & $+6.3$ & $+5.1$ & $+1.0$ & $-4.0$ & $+3.4$ & $+12.2$ \\
+H4 & price-only & 223 & 36\% & $-8.5$ & $-0.8$ & $+11.7$ & $-1.5$ & $-4.2$ & $-4.5$ \\
+H4 & hybrid & 239 & 38\% & $-8.3$ & $-0.6$ & $+7.3$ & $-1.2$ & $-2.0$ & $-5.5$ \\
+H4 & news-only & 91 & 27\% & $-22.2$ & $+12.2$ & $-1.9$ & $-9.1$ & $+1.7$ & $-21.1$ \\
+H4 & rule, registered sign & 48 & 21\% & $-9.0$ & $-5.3$ & $-6.9$ & $+4.1$ & $-4.7$ & $-20.6$ \\
+H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6$ & $+2.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-trading-year-h1.png}{\includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-trading-year-h1.png}.}\vspace{2em}}}}
+\caption{Equity of the four H1 arms over the trading year, from \$10,000: price-only, hybrid, news-only and the reversed-sign rule. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-trading-year}
+\end{figure}
+
+The four extra months settle what ten could not. The two H1 chains that led through October, price-only and hybrid, gave the whole gain back between November and February and end the year at $-1.2$ and $-0.8\,\%$; the pre-declared primary comparison, hybrid against price-only at H1 on the untouched months, has a mean daily difference of $-0.048\,\%$ with a 95\,\% interval of $[-0.115, +0.019]$ percentage points ($p = 0.15$; block length 4, 999 null-centred stationary-bootstrap resamples, seed 42) and $+0.001\,\%$ per day over the full year ($p = 0.94$). The news family therefore adds nothing measurable to the price chain at either horizon, at H4 likewise ($p = 0.77$ on the untouched months). The learned news-only arm loses 38 and 21\,\% at H1 and H4. The one cell above the deposit is the reversed-sign rule at H1, $+12.2\,\%$ on 39 short trades, positive in three of the four untouched months; its paired difference against price-only is $+0.116\,\%$ per day on those months ($[-0.072, +0.304]$, $p = 0.22$) and $+0.036\,\%$ over the year ($p = 0.67$), and against the hybrid $p = 0.085$ on the untouched months. The two supplementary cells registered with the year, the H4 ATR-stop variant and H1 with the activity gate at 0.8 (the best cells of the earlier sweeps on their development window), end the year at $-0.6$ and $+1.7\,\%$ after $+9.0$ and $+14.8\,\%$ through October. With twelve registered cells and the sign chosen as one of two arms, a single positive cell at these $p$-values is what the null predicts, and the euro's 5\,\% decline over the year remains the simplest explanation of a short-only rule's profit. The control that the reversed-sign rule called for was then registered and run on the same year: a chain identical to the rule except that F4 recommends the short side on every bar, so the account is short whenever it is flat, with the same plan, risk guard and clocks (a first attempt mis-specified the sign and ran long-whenever-flat instead; it is kept as the mirror control, $-29.0\,\%$ at H1 and $-14.5\,\%$ at H4, and it exposed a same-bar stop-and-target double fill recorded in the debt ledger). The always-short control closes 298 trades at H1 and ends the year at $-7.8\,\%$, against the rule's $+12.2\,\%$ on 39; but on the four untouched months the two are the same account: November $+5.7$ against $+5.1\,\%$, and December, January and February identical to the second decimal ($+1.04$, $-3.98$, $+3.44\,\%$). Whenever the rule was flat in those months the next high-intensity bar came within hours, so it was short almost continuously, exactly as the control. The rule's whole advantage over the control therefore lies in March--October, the development window on which its thresholds were calibrated ($+6.3$ against $-13.1\,\%$), where it sat out the months in which the euro rose. On the only months that count, the news timing added nothing to being short; the profit is the euro's decline, and the rule's year is the control's year plus a development-window artefact. The conclusion of Chapter~\ref{cap:conclusion} is unchanged by the full year: no arm demonstrates an edge, and the news signal in the form available here does not improve the price chain.
+
+\subsection{Reproduction of the year and the both-sides cells (session 2)} \label{subsec:session-2}
+
+After the experiment identifiers were renamed, every artefact of the year above was moved aside and the year was run again from scratch, registered before any cell ran (evidence under \path{20-session-2-clean-rerun/}: \path{registration.md}, \path{results.md}, \path{reproduction.md}, \path{paired-inference.md}). The twelve models were retrained from the same splits under new names; the January-2016 calibration was recomputed; twenty-six cells were simulated over the same trading year with the same code apart from comment and documentation changes. Every retrained model is identical to its predecessor outside the provenance block (revision and strategy name), every calibrated threshold agrees to the fourth decimal, and the fifteen cells that have a predecessor reproduce it exactly: same trades, same per-trade profit and loss, byte-identical equity curves, and the primary test of Section~\ref{subsec:trading-year} returns the same $-0.048\,\%$ per day and $p = 0.149$. The execution is therefore deterministic end to end, from training through LEAN to the paired bootstrap.
+
+The second purpose of the session was to report each learned strategy as one simulation that trades both sides. The fixed $0.55/0.45$ thresholds of Table~\ref{tab:trading-year} sit outside the models' probability band, so those cells were in effect long-only; the session-2 cells replace them with symmetric January-2016 quantile thresholds (5 or 10\,\% per side), so BUY and SELL both fire in the same account. Table~\ref{tab:session-2} gives the year and Figure~\ref{fig:equity-session-2} the H1 paths.
+
+\begin{table}[htbp]
+\centering
+\caption{Session 2, both sides in one run: March 1, 2016 to February 28, 2017, \$10,000 per cell, retrained one-year models, symmetric January-2016 quantile thresholds. Untouched months November 2016--February 2017. The H4 cells and the rule cells are the same accounts as in Table~\ref{tab:trading-year} and reproduce it exactly.}
+\label{tab:session-2}
+\small
+\begin{tabular}{llrrrrrrrr}
+\toprule
+\textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
+\midrule
+H1 & price-only, 5\,\% per side & 148 & 36\% & $+3.1$ & $-8.0$ & $-0.3$ & $-11.7$ & $+1.4$ & $-15.3$ \\
+H1 & hybrid, 5\,\% per side & 145 & 34\% & $-1.9$ & $-8.3$ & $-0.3$ & $-8.4$ & $-8.8$ & $-25.1$ \\
+H1 & price-only, 10\,\% per side & 516 & 38\% & $-47.4$ & $-2.6$ & $-2.5$ & $+15.5$ & $-2.5$ & $-43.7$ \\
+H1 & hybrid, 10\,\% per side & 514 & 39\% & $-35.7$ & $-8.0$ & $+1.9$ & $+10.5$ & $+0.7$ & $-32.9$ \\
+H1 & price-only, 10\,\%, regime gate & 106 & 29\% & $-43.3$ & $+5.8$ & $-8.3$ & $-21.7$ & $-0.2$ & $-57.1$ \\
+H1 & hybrid, 10\,\%, regime gate & 94 & 29\% & $-29.1$ & $+5.8$ & $-5.2$ & $-19.2$ & $+0.4$ & $-42.5$ \\
+H4 & price-only, 10\,\% per side & 223 & 36\% & $-8.5$ & $-0.8$ & $+11.7$ & $-1.5$ & $-4.2$ & $-4.5$ \\
+H4 & hybrid, 10\,\% per side & 239 & 38\% & $-8.3$ & $-0.6$ & $+7.3$ & $-1.2$ & $-2.0$ & $-5.5$ \\
+H4 & price-only, 10\,\%, ATR stop & 80 & 45\% & $+9.0$ & $-6.0$ & $+2.3$ & $-6.3$ & $+1.5$ & $-0.6$ \\
+M15 & hybrid, 10\,\% per side & 1804 & 22\% & $-90.3$ & $-32.4$ & $-35.5$ & $-49.4$ & $-22.9$ & $-98.3$ \\
+H1 & news-only, 10\,\% per side & 252 & 27\% & $-35.1$ & $-11.9$ & $+7.7$ & $-2.3$ & $+2.4$ & $-38.4$ \\
+H4 & news-only, 10\,\% per side & 91 & 27\% & $-22.2$ & $+12.2$ & $-1.9$ & $-9.1$ & $+1.7$ & $-21.1$ \\
+H1 & rule, reversed sign & 39 & 28\% & $+6.3$ & $+5.1$ & $+1.0$ & $-4.0$ & $+3.4$ & $+12.2$ \\
+H1 & always-short control & 298 & 23\% & $-13.1$ & $+5.7$ & $+1.0$ & $-4.0$ & $+3.4$ & $-7.8$ \\
+H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6$ & $+2.4$ \\
+H4 & always-short control & 91 & 31\% & $-5.1$ & $+6.6$ & $+0.5$ & $-2.1$ & $+1.8$ & $+1.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{img/equity-session2-h1.png}{\includegraphics[width=\textwidth]{img/equity-session2-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-session2-h1.png}.}\vspace{2em}}}}
+\caption{Equity of the H1 both-sides cells over the trading year, from \$10,000: price-only and hybrid at 10\,\% per side, the same pair with the regime gate, the reversed-sign rule and its always-short control. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\label{fig:equity-session-2}
+\end{figure}
+
+Letting the short side fire does not help the learned chains; it multiplies their trades and their losses. At H1 the 10\,\%-per-side pair closes about 515 trades each and ends the year at $-43.7$ and $-32.9\,\%$; the 5\,\% pair at $-15.3$ and $-25.1\,\%$; the regime gate, which halves the trades, leaves $-57.1$ and $-42.5\,\%$. The pre-registered primary comparison of the session, hybrid against price-only at H1 with 10\,\% per side, is $-0.016\,\%$ per day on the untouched months ($[-0.145, +0.113]$, $p = 0.81$) and $+0.050\,\%$ over the year ($p = 0.31$); the 5\,\% pair gives $p = 0.29$ and $0.43$. The gated pair is the only comparison that approaches significance, $+0.057\,\%$ per day on the untouched months ($[-0.004, +0.118]$, $p = 0.071$) and $+0.078\,\%$ over the year ($p = 0.099$), but it ranks a $-42\,\%$ account above a $-57\,\%$ one: the news family loses less, it does not earn. At H4, where the 10\,\% thresholds were already the reported cells, nothing changes ($p = 0.77$ and $0.90$). The rule cells now have the paired test their control called for: the reversed-sign rule against the always-short account is $-0.010\,\%$ per day on the untouched months at H1 ($p = 0.92$) and $-0.005\,\%$ at H4 ($p = 0.92$), $+0.040$ and $+0.001\,\%$ over the year ($p = 0.65$ and $0.98$); the two accounts are statistically the same account, which settles the drift reading of Section~\ref{subsec:trading-year}. The sub-hour clocks add an engineering result rather than a trading one: five of the six M5, M15 and M30 cells completed their simulation but stopped at the statement step, because a strategy that re-enters within minutes of every exit trips the same-bar stop-and-target double fill recorded in the debt ledger (a closed trade without a plan), and the one M15 cell that completed lost $98\,\%$ on 1,804 trades. These cells are reported as failed and left unpatched, as the registration required; the engine limitation is now the blocker for any sub-hour result. The conclusion of Chapter~\ref{cap:conclusion} stands, now on a reproduced year: no arm has an edge on either side of the market, and the news signal in the form available here does not improve the price chain.
+
+\section{Adaptive Retraining: The Frozen Policy Over the Registered Year} \label{sec:adaptive-retraining-results}
+
+Section~\ref{sec:candlestick-screening} reports its results at the H1 (sixty-minute) decision cadence rather than the M1 cadence used throughout Sections~\ref{sec:baseline-results}--\ref{subsec:session-2}. The departure is deliberate and disclosed, not a silent substitution: technical-debt item TD-71 (\path{algo-suite/docs/technical-debt.md}) records that LEAN's same-bar stop/target double-fill defect, already responsible for the sub-hour failures of Section~\ref{subsec:session-2}, corrupts M1-cadence runs specifically over this exact registered window (March 1, 2016 to February 28, 2017), so H1 sidesteps a known executor limitation there.
+
+The Policy F run reported in this section, by contrast, was run at M1. An earlier draft of this section incorrectly labeled Table~\ref{tab:policy-f-year} as H1: the run's own \path{strategy.yaml} (\path{price_features.bar_minutes: 1}, sha256 archived in \path{evidence/policy-f-registered-year-run.md}) shows it was M1, over the identical window TD-71 flags. The run exited cleanly (exit code 0) with no \path{trade-plans.json} inconsistency raised by algo-backtest's statement builder -- but that check is what catches TD-71's failure mode, and this run's numbers were read directly from LEAN's own \texttt{STATISTICS::} block rather than through it, so a clean exit rules out only that specific check, not a same-bar double fill at the order-event level. Executor integrity for this run is therefore \textbf{unverified}: not proven defective, and not proven clean. The $-97.782\%$ result below is reported as observed, with this caveat attached, rather than re-run or discarded under the submission deadline.
+
+The first of the four December-extension follow-ups (Section~\ref{subsec:future-registered} of Chapter~\ref{cap:conclusion}) registered five retraining policies -- frozen (F), thresholds refreshed (Q), rolling (R), expanding (U) and exponentially weighted (E) -- on one continuous account, with prediction quality per epoch as an endpoint next to the paired daily-equity test. Of the five, only Policy F has since completed a run over the full registered year; refreshed-threshold, rolling, expanding and exponentially weighted comparisons remain outstanding, and no ranking across the five policies is reported here.
+
+A narrower, earlier check bears on why the frozen policy was the one completed first. Distinct from the three-month offline refit already noted in Chapter~\ref{cap:conclusion}, a second offline trial (evidence \path{algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/evidence/d60-trial-results.md}) refit the H1 and H4 price-only family models monthly on a trailing 60-day window and chained the resulting months across the same one-year span: the 60-day policy did not beat a frozen comparator at either clock ($-45.4\,\%$ against $-51.3\,\%$ at H1, $-12.3\,\%$ against $-4.3\,\%$ at H4, over the same span), and the paired daily-return difference on the untouched months does not reject the null at either clock ($p=0.725$ at H1, $p=0.327$ at H4). This 60-day arm is kept in the study as the short-window control rather than as a candidate; it establishes only that the shortest of the five registered windows does not beat the frozen model, not that no adaptive policy can.
+
+Table~\ref{tab:policy-f-year} reports Policy F's own registered-year backtest: the family and combiner models fitted once at $D_0=$ March 1, 2016 (spans of 311,737 fitting rows, 29,825 combiner-calibration rows and 28,801 threshold rows, all well above the registered minima) and never refit, run as the baseline chain from a single \$10,000 account over the full March 1, 2016--February 28, 2017 window. This exercises the frozen half of the adaptive-retraining harness -- the phase-3 minimum-viable single-pinned-bundle wiring, with no mid-replay refit and no bundle-sourced threshold override -- and is disclosed as such: it is not yet the full five-policy harness, only the case where fit-once and never-refit coincide.
+
+\begin{table}[htbp]
+\centering
+\caption{Policy F (frozen bundle, fit once at $D_0=$ March 1, 2016, never refit), baseline chain, EUR/USD, full registered year March 1, 2016--February 28, 2017, \$10,000 starting cash, M1 cadence (see caveat above: executor integrity at this cadence over this window is unverified).}
+\label{tab:policy-f-year}
+\small
+\begin{tabular}{lr}
+\toprule
+\textbf{Quantity} & \textbf{Value} \\
+\midrule
+Total orders & 4,964 \\
+Closed trades & 1,603 \\
+Win rate / loss rate & 26\% / 74\% \\
+Profit/loss ratio & 1.97 \\
+Net profit & $-97.782\%$ \\
+Ending equity (from \$10,000) & \$221.82 \\
+Sharpe ratio & $-1.499$ \\
+Sortino ratio & $-2.541$ \\
+Maximum drawdown & 97.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The payoff ratio is not the weak point of this result. At 1.97, the average winning trade is nearly twice the average losing trade -- the same qualitative shape as the near-even payoff already read from the September pilot's ledger (Section~\ref{sec:baseline-results}). What fails is the entry signal's precision: in units of the average loss, the per-trade expectancy is $0.26 \times 1.97 - 0.74 \times 1 \approx -0.23$, so a 26\% win rate cannot be carried by a sub-2 payoff ratio. Fixed-fractional position sizing at 3\% risk per trade then compounds this negative expectancy through the losing streaks a 26\% win rate produces, which is what turns a per-trade expectancy of about $-0.23$ times the average loss into a 97.9\% account drawdown rather than a bounded one. This points at the meta-learner's feature quality and calibration -- the same F7 combiner whose regime anti-alignment is audited in Section~\ref{subsec:intermediate-annual} -- as the locus of the problem, not at the risk-to-reward ratio configured per trade.
+
+\section{Candlestick Catalog Screening} \label{sec:candlestick-screening}
+
+The fourth of the four December-extension follow-ups (Section~\ref{subsec:future-registered} of Chapter~\ref{cap:conclusion}) combined two distinct extensions under one heading: a contest of price-action, momentum and Ichimoku filters, and the fuller candlestick catalogue with its context rules rather than the six TA-Lib patterns used through Section~\ref{subsec:session-2}. Of these, only the candlestick-catalogue extension (Story 22) has run; the momentum/Ichimoku contest and the support-and-resistance location-and-target extension remain future work. Story 22, later extended by Story 23 with the Counterattack Line pair and Rising Three Methods, expands F3's catalog from the six patterns of Table~\ref{tab:intermediate-filter-parameters} (bullish and bearish engulfing, hammer, morning star, evening star, shooting star) to 22 admitted patterns, still built on the Nison/TA-Lib and Bulkowski catalogs of Section~\ref{subsec:pattern-features}, and adds a \path{pattern.enabled_rules} configuration key that restricts the catalog to a named subset for controlled experiments. Every result below uses the H1 cadence and TD-71 rationale of Section~\ref{sec:adaptive-retraining-results}, over the same registered window, EUR/USD, \$10,000 starting cash.
+
+\subsection{Whole-catalog backtest} \label{subsec:candles-whole-catalog}
+
+With all 22 admitted patterns active together (strategy \path{candles-expanded-h1}, F3 in \path{required_entry} mode as the terminal filter, no F7 meta-learner), the catalog closed 285 trades over the registered year for a total return of $-32.79\%$, a Sharpe ratio of $-0.7851$, a maximum drawdown of 42.6\%, and equity of \$6,719.60 from a \$10,000 start. The reported hit rate of 33.12\% is LEAN's own per-fill statistic, which the per-pattern sweep below shows to be inflated relative to a round-trip trade-level win rate; no round-trip figure was separately computed for the whole-catalog run, so it is reported here as given, with that caveat attached rather than silently treated as a win rate. The identical configuration at \path{candles-expanded}'s own M1 default was also attempted over this window and refused at the statement step on TD-71 (a same-bar stop/target double fill); the same M1 configuration completed cleanly over full-year 2015, a window TD-71 does not affect, closing 1,810 trades for a $-99.54\%$ return -- consistent with, and no better than, the H1 result reported here.
+
+\subsection{Per-pattern isolation sweep} \label{subsec:candles-per-pattern}
+
+Each of the 22 admitted patterns was isolated in its own backtest via \path{pattern.enabled_rules}, so that the trades reported for a pattern are attributable to that pattern alone, subject to the neutral-polarity caveat below. Table~\ref{tab:candles-per-pattern} reports round-trip trade-level accounting: a trade counts as a win if its total profit or loss, summed across every fill that closed it, is positive. This differs from each run's own \path{metrics.json} \path{hit_rate} statistic, which counts per closing fill rather than per round-trip position; because the catalog inherits the baseline's partial-target plan (a first target closing half the position, the remainder on a trailing stop), a position that nets an overall loss can still contribute a guaranteed win to \path{hit_rate} whenever it reached its partial target before its final exit. The two statistics were reconciled exactly for all 22 runs (for example, \path{hanging_man} closes 47 exit legs at \path{hit_rate}$=0.4894$, i.e.\ $23/47$, against the round-trip $15/38=39.5\%$ reported below); the round-trip figure, not \path{hit_rate}, is the one used for pattern selection throughout this section.
+
+\begin{table}[htbp]
+\centering
+\caption{Per-pattern isolation sweep, 22 admitted candlestick patterns, EUR/USD, March 1, 2016--February 28, 2017, \$10,000, H1, sorted by net profit or loss (round-trip trade-level accounting). Pattern names are given in natural form; each corresponds to the strategy's own \texttt{pattern.enabled\_rules} identifier (lower-case, underscore-separated) used throughout the surrounding text.}
+\label{tab:candles-per-pattern}
+\small
+\begin{tabular}{p{4.6cm}rrr}
+\toprule
+\textbf{Pattern} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} \\
+\midrule
+Hanging Man & 38 & 39.5\% & $+\$478.43$ \\
+Dark Cloud Cover & 45 & 35.6\% & $-\$665.97$ \\
+Bearish Engulfing & 76 & 31.6\% & $-\$787.74$ \\
+Evening Star & 44 & 34.1\% & $-\$858.20$ \\
+Bearish Counterattack Line & 39 & 25.6\% & $-\$934.10$ \\
+Morning Star & 46 & 30.4\% & $-\$1{,}097.20$ \\
+Doji, Dragonfly Doji, Gravestone Doji, Long-Legged Doji, Spinning Top (each)$^\dagger$ & 37 each & 27.0\% each & $-\$1{,}120.08$ each \\
+Bullish Kicker & 41 & 24.4\% & $-\$1{,}422.46$ \\
+Shooting Star & 39 & 25.6\% & $-\$1{,}438.84$ \\
+Bullish Counterattack Line & 41 & 26.8\% & $-\$1{,}457.68$ \\
+Bullish Harami & 54 & 25.9\% & $-\$1{,}575.13$ \\
+Piercing Line & 45 & 24.4\% & $-\$1{,}778.90$ \\
+Bearish Kicker & 44 & 25.0\% & $-\$1{,}802.33$ \\
+Hammer & 44 & 22.7\% & $-\$1{,}954.83$ \\
+Bearish Harami & 57 & 26.3\% & $-\$2{,}648.48$ \\
+Inverted Hammer & 42 & 23.8\% & $-\$2{,}750.03$ \\
+Bullish Engulfing & 74 & 24.3\% & $-\$2{,}992.04$ \\
+Rising Three Methods & 72 & 23.6\% & $-\$3{,}327.39$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$^\dagger$These five (\path{doji}, \path{doji_dragonfly}, \path{doji_gravestone}, \path{doji_long_legged} and \path{spinning_top}) carry polarity 0 in the catalog (neither bullish nor bearish), so isolating any one alone gives F3's eligibility rule zero directional candidates from the geometry hit itself; every trade in all five runs is instead driven by a separate, always-on doji-engulfing confirmation signal that is not gated by \path{pattern.enabled_rules} at all. This was verified as a genuine mechanism rather than a script artifact: five independent runs, five distinct configuration files, five distinct output directories and distinct per-trade identifiers, with every other trade field (entry and exit time, direction, entry and exit price, profit or loss) identical across all five for all 37 trades. These five rows therefore do not test anything pattern-specific.
+
+\subsection{Combined-winners test} \label{subsec:candles-combined-winners}
+
+The top five patterns by net profit or loss, with the five identical-signal ids of Table~\ref{tab:candles-per-pattern} collapsed to a single slot first since they are one shared signal rather than five independent ones, are \path{hanging_man}, \path{dark_cloud_cover}, \path{bearish_engulfing}, \path{evening_star} and \path{bearish_counterattack_line} -- all five bearish-polarity, an observation rather than a design choice. Enabling all five together, requiring exactly one eligible direction, closes 80 trades at a 31.3\% win rate for a net profit or loss of $-\$429.99$. This does not beat \path{hanging_man} alone ($+\$478.43$ on 38 trades): combining the individually least-bad patterns produced a worse result than the single best one. It does, however, beat the naive sum of the five patterns' solo results ($-\$2{,}767.58$), because the combined chain's shared eligibility requirement collapses bars where more than one of the five would have fired into a single trade rather than five separate ones (80 realized trades against 242 in the naive sum), not because the combination compounds each pattern's edge.
+
+\subsection{Market-context diagnostics across the pooled sweep} \label{subsec:candles-context-diagnostics}
+
+Pooling all 1,026 closed trades from the 22 individual pattern runs (the combined-winners run is excluded, since this diagnostic concerns the market context at entry, independent of any specific combination; F5 risk-guard and F6 capital-management fields are excluded throughout as position-sizing mechanics rather than market signal), four readings of F1's trend context at the entry bar were checked against trade outcome.
+
+First, with-trend against against-trend: trades whose direction matched F1's plain EMA-based \path{trend_direction} at entry won less often (843 trades, 25.9\%) than trades against it (183 trades, 34.4\%). This is the opposite of the standard trade-with-the-trend heuristic, and it holds at the full pooled scale rather than only within individual patterns' much smaller subsets, so it is reported as a real, counter-intuitive finding rather than dismissed as a small-sample artifact.
+
+Second, the higher-timeframe trend direction is structurally non-discriminating: it agrees with the base \path{trend_direction} in every one of the 1,026 completed trades, because F1 vetoes any bar where the two disagree before a trade can be opened, so no completed trade can ever carry a disagreement. This is reported as not measurable, rather than as no effect, since the null is architectural rather than empirical.
+
+Third, trend strength in terciles shows no real separation: 22.2\%, 34.2\% and 25.8\% win rate low to high, non-monotonic.
+
+Fourth, a composite trend score (signed \path{trend_direction} times \path{trend_strength}) shows a real, modest, monotonic effect across terciles: 24.8\%, 27.2\% and 30.4\%. Its sign already partly encodes trade direction, so this may reflect a directional bias specific to this one-year EUR/USD window rather than a universal trend-alignment effect, and it is reported with that caveat.
+
+\subsection{Gated combinations on the single positive pattern} \label{subsec:candles-gated-hanging-man}
+
+\path{hanging_man}, the sweep's only net-positive pattern, was tested under four real gated combinations, each an actual backtest rather than an inference from the trade log. Table~\ref{tab:candles-gated-hanging-man} reports all four against the ungated base.
+
+\begin{table}[htbp]
+\centering
+\caption{Gated variants of \texttt{hanging\_man}, the ungated base and four real gates, EUR/USD, March 1, 2016--February 28, 2017, \$10,000 starting cash.}
+\label{tab:candles-gated-hanging-man}
+\small
+\begin{tabular}{p{6.4cm}rrr}
+\toprule
+\textbf{Variant} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} \\
+\midrule
+Ungated base & 38 & 39.5\% & $+\$478.43$ \\
+Momentum-context, ungated (veto removed, not a gate) & 66 & 43.9\% & $+\$2{,}770.33$ \\
+1: Momentum-context agreement gate & 19 & 36.8\% & $-\$739.10$ \\
+2: Strict with-trend agreement (plain EMA) & 35 & 25.7\% & $-\$1{,}514.02$ \\
+3a: Trend-score gate, mid/high tercile boundary & 12 & 25.0\% & $-\$1{,}357.83$ \\
+3b: Trend-score gate, low/mid tercile boundary & 28 & 39.3\% & $-\$387.09$ \\
+4: Double-smoothed Heikin-Ashi with-trend gate (M1) & 145 & 24.1\% & $-\$4{,}389.75$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+An ungated variant that merely swaps F1's classic trend filter for the momentum-context filter, which structurally never vetoes, produces a much larger apparent number ($+\$2{,}770.33$ on 66 trades) than the ungated base. This is explicitly not a real gate result: removing F1's veto lets more of F3's own eligible bars through unconstrained, so the improvement reflects fewer of F3's bars being blocked, not momentum agreement predicting good trades, and it must not be read as the same experiment as gate~1 below.
+
+(1) Requiring the momentum-context filter to actually agree with the pattern (a real agreement terminal rule over both filters) collapses the trade count to 19 and turns the result negative, $-\$739.10$.
+
+(2) Requiring strict agreement with the plain EMA-based trend direction, which removes every against-trend trade, gives 35 trades at $-\$1{,}514.02$ -- consistent with the pooled diagnostic of Section~\ref{subsec:candles-context-diagnostics}, since against-trend trades were the better-performing subset for this pattern specifically (60.0\% against 36.4\% win rate).
+
+(3) A trend-score threshold gate at the tercile boundary separating the best-performing tercile gives 12 trades at $-\$1{,}357.83$; a directional-mismatch caveat applies, since \path{hanging_man} is bearish/SELL-only and this threshold was derived from the pooled, direction-mixed sample. A second, lower threshold, separating the bottom tercile from the middle, gives 28 trades at a win rate of 39.3\% -- essentially unchanged from the ungated baseline's 39.5\% -- but a net profit or loss of $-\$387.09$, the closest of any gate to the ungated baseline; the excluded trades were disproportionately large winners rather than worse trades, so this reflects incidental exclusion rather than a smarter filter.
+
+(4) A double-smoothed Heikin-Ashi trend-alignment gate (Section~\ref{subsec:ta-structural-features} of Chapter~\ref{cap:methodology}), necessarily run at M1 cadence because the double-smoothed Heikin-Ashi perception source is architecturally minute-only, was checked and confirmed clear of the TD-71 defect before being trusted: no same-bar exit-fill collision appears across its multi-leg trades. It gives 145 trades at $-\$4{,}389.75$ -- still negative, and confounded by the cadence change itself (roughly 3.8 times more trades than the H1 baseline at the same fixed position sizing) -- but measurably less bad than the same Heikin-Ashi basis tested ungated at the same M1 cadence ($-\$8{,}736.27$ on 328 trades). This is the opposite of the plain-EMA gate above, which made the H1 baseline worse; it is reported as a real, if confounded, difference between the two trend bases' behavior for this pattern, not as evidence that Heikin-Ashi works.
+
+Every real gate underperforms the simple ungated baseline; several make it substantially worse. No combination of trend, momentum or Heikin-Ashi conditions tested here improves on the single best screened pattern.
+
+\subsection{A multiple-comparisons check on the screen} \label{subsec:candles-multiple-comparisons}
+
+Twenty-two independent patterns were screened in Section~\ref{subsec:candles-per-pattern} and exactly one, \path{hanging_man}, showed a net-positive result. A permutation test (evidence and script \path{algo-suite/docs/stories/in-progress/22-candlestick-context-extension/evidence/multiple-comparisons-permutation-test.md}, seed 20260928) addresses whether this is more than the number expected by chance: the 1,026 pooled trades of Section~\ref{subsec:candles-context-diagnostics} were repeatedly reshuffled and re-partitioned, 20,000 times, into 22 groups of the same sizes as the real patterns, and the best (maximum) group total in each reshuffled trial was compared against the observed best, \path{hanging_man}'s $+\$478.43$. In 98.7\% of the 20,000 reshuffles (19,741 of 20,000), the best-of-22 result was at least as good as the one actually observed. \path{hanging_man}'s apparent edge is therefore not distinguishable from chance: finding one positive result out of 22 independent screens is, given this trade population's characteristics (a pooled mean of $-\$31.79$ per trade across all 1,026 trades), an unremarkable outcome rather than a surprising one. The screening process identified no pattern whose performance is statistically distinguishable from noise; \path{hanging_man}'s result is reported as a screening artifact consistent with the multiple-comparisons null, not as a discovered trading edge.
+
+\subsection{Solo filter-family screening} \label{subsec:solo-filter-sweep}
+
+For context against the candlestick (F3) screen above, F1, F2 and F4 were each run alone as the sole terminal filter, with only the F5/F6 execution-viability filters alongside, over the same window, symbol and starting cash. Table~\ref{tab:solo-filter-sweep} reports round-trip trade-level accounting as in Table~\ref{tab:candles-per-pattern}.
+
+\begin{table}[htbp]
+\centering
+\caption{Solo filter-family screening, EUR/USD, March 1, 2016--February 28, 2017, \$10,000, H1.}
+\label{tab:solo-filter-sweep}
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Filter} & \textbf{Trades} & \textbf{Win rate} & \textbf{Net P/L} \\
+\midrule
+F1 trend (plain EMA-based) alone & 298 & 24.2\% & $-\$3{,}584.90$ \\
+F2 indicator (RSI/MACD) alone & 333 & 31.2\% & $-\$2{,}028.78$ \\
+F4 news context (GDELT-derived) alone & 62 & 19.4\% & $-\$1{,}996.46$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+F4's feature data required building a derived per-bar feature layer for this window that had never before been computed: the raw GDELT event records existed, but the derived feature parquet existed only for February 2015. The layer was built fresh for this run, 527,040 rows across thirteen monthly partitions, and every partition's row count was sanity-checked against its days-in-month times 1,440 minutes, matching exactly. F4's own intensity thresholds (0.9 buy, 0.3 sell) are the strategy's shipped placeholder defaults, never calibrated for this specific window; this is a real limitation on how much weight this specific number should carry, not a property of the news channel established here.
+
+\subsection{News and candlestick combination} \label{subsec:news-candlestick-combination}
+
+The combination of price-action patterns with news context tests this thesis's original central hypothesis directly. Two variants were run with \path{hanging_man} as the base pattern and F4 added to the chain.
+
+First, with F4 present informationally only, never vetoing: 38 trades at $+\$478.43$, byte-for-byte identical to the pattern alone, trade for trade. F4 never once vetoed on any of \path{hanging_man}'s 38 eligible bars this year, so this is a genuine no-op, not a subtle null result.
+
+Second, with F4 required to agree with the pattern (a real agreement gate): zero trades. This was investigated rather than only reported: on every one of the 35 bars where \path{hanging_man} was individually eligible, F4's own recommendation was ABSTAIN, because GDELT-derived sentiment for EUR/USD never once cleared its 0.15 threshold at the same time \path{hanging_man}'s own conditions were met. The two signals did not conflict; they simply never coincided over this entire year, so the null result here concerns the temporal non-coincidence of the two signal sources in this specific dataset, not an active disagreement between them.
+
+In Wellington's own words, ``in the end, the news did not have a strong influence on the trades directly'' -- under this specific implementation and these specific, uncalibrated placeholder thresholds. This is a scoped finding about this GDELT feature build, this window and these thresholds, not a general claim that news-based features have no value in principle: the thresholds were never calibrated for this window, and a properly calibrated or differently-thresholded news signal might behave differently.
+
+\section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
+
+Section~\ref{sec:positioning} of Chapter~\ref{cap:methodology} named \citeonline{zhang2025macroalpha} as the closest published benchmark and reported its cost-adjusted Sharpe ratios of 5.87 on EUR/USD and 4.65 on USD/JPY under five-fold expanding-window cross-validation on daily features. A deflated Sharpe ratio for the present hybrid, computed with the schema-v2 procedure of Section~\ref{subsec:rule-significance} against the plausibility band that figure implies, is not reported here: no run in this chapter has a Sharpe ratio, plain or deflated, computed on its daily equity series, and assembling one honestly would require registering the block length and trial count over the full exploratory history built up across Sections~\ref{sec:ablations}--\ref{subsec:session-2} (the gate decision, both threshold grids, nine M1 sweep variants, fifty-one H4/H1/M15 tuning variants, the December extension, the news-only and rule cells, and the session-2 reproduction), which has not been done. This is a disclosed limitation, not an oversight: a single Sharpe-ratio confrontation against \citeonline{zhang2025macroalpha}'s figure would in any case compare a five-fold expanding-window daily-feature validation against this chapter's single pre-registered chronological split, so the two protocols are not read on the same axis even where both quantities exist.
+
+What this chapter does supply, on the metrics it actually reports (win rate, maximum drawdown, net profit or loss, and paired stationary-bootstrap $p$-values on daily return differences), is a considerably more conservative reading than \citeonline{zhang2025macroalpha}'s headline figures. Every pre-registered comparison between the hybrid and the price-only baseline on an untouched window fails to reject the null: $p=0.15$ for the one-year protocol at H1 (Section~\ref{subsec:trading-year}), $p=0.77$ at H4, and $p=0.81$ and $p=0.29$ for the session-2 both-sides reproduction at 10\,\% and 5\,\% thresholds (Section~\ref{subsec:session-2}). The one configuration that clears the deposit over the full trading year, the reversed-sign news-only rule, was subsequently shown against its own always-short control to be statistically indistinguishable from the euro's realized drift over the window ($p=0.92$ at H1, $p=0.92$ at H4), not a demonstrated edge. None of this is comparable in magnitude to a Sharpe ratio above four; it is also a different question, since \citeonline{zhang2025macroalpha} reports an in-protocol cross-validation figure rather than a disclosed post-registration test against a drift control.
+
+The two local points of prior art already cited in Chapter~\ref{cap:methodology} and Chapter~\ref{cap:introduction} bear more directly on this specific finding than \citeonline{zhang2025macroalpha} does, because both were produced in the same MBA programme on adjacent questions. \citeonline{vanhelden2021fx} reports that a macro-fundamental-plus-technical hybrid, built on the same combination logic across twelve pairs, earns a Sharpe ratio of 1.09 to 2.90 on six emerging Latin-American pairs but only 0.24 on EUR/USD and $-1.08$ on USD/JPY against the six developed-market pairs in that sample (Table~6, p.~35) --- precisely the two pairs the present work targets. The present chapter's null result for a differently sourced auxiliary channel (discrete GDELT event records rather than macro-fundamental indicators) on the same developed pair is consistent with that earlier finding rather than contradicting it: both pieces of local evidence point toward developed-market EUR/USD being harder for an auxiliary signal to improve than the emerging-market pairs where such gains have been documented. \citeonline{felix2024swing} identified, in the same programme, that textual information from news articles and analyst reports is acknowledged as a relevant qualitative input but was left unimplemented in that swing-trading study; the present work implements an event-derived (not full-text) auxiliary channel for a different asset class and a different clock, and the answer this chapter gives to the kind of gap Felix flagged is empirically negative within the window and instrument tested here, for the reasons disclosed in Section~\ref{sec:coverage-results} and Section~\ref{sec:experimental-threats}.
+
+\section{Threats to Validity Specific to the Observed Results} \label{sec:experimental-threats}
+
+The present evidence supports an implementation and execution report. It does not establish H1. A short single-pair window, overlapping labels, and daily event values repeated across minute rows limit generalization and invalidate treating row count as an independent sample size. Text sentiment is missing throughout; pattern detection is absent from the predecessor pilot but is observed in the new TA-Lib H4 cells.
+
+Repeated inspection of September, gate changes, threshold grids, execution changes, nine named M1 sweep variants, fifty-one later H4/H1/M15 tuning variants and about thirty further exploratory cells create multiple exploratory selection opportunities. Selecting the least negative or zero-trade run would not turn this development window into an out-of-sample confirmatory test. The observed losses and F7/regime anti-alignment must be retained alongside favorable historical numbers. The full search history, rather than only the two finally reported strategies, is required for any selection adjustment; the 64 grid entries alone are not an established effective trial count for DSR. Recorded configuration values do not prove effective enforcement, and a successful manifest does not close this economic-validation gap. The candlestick screen of Section~\ref{sec:candlestick-screening} corrects for its own primary selection (22 independently tested patterns) with the permutation test of Section~\ref{subsec:candles-multiple-comparisons}, but the four gates and the ungated-momentum variant subsequently tested only on that screen's single positive pattern (Section~\ref{subsec:candles-gated-hanging-man}) are a further, uncorrected selection step layered on top of that correction; every gate result was negative, so this second step did not manufacture an apparent edge here, but it is the same kind of exploratory-selection opportunity flagged above and is not covered by the permutation test's accounting.
+
+Four threats arise from what was observed. First, the gate decision was taken after inspecting September's zero-trade outcome, so September 2015 is development data for the ungated rule and cannot serve as its confirmation window; the threshold choice, by contrast, read only July and August. Second, the execution assumptions are unrealistic in a direction that flatters minute-scale flipping: a median spread of 0.3 pip as the only cost, zero fees, no enforced stop or take-profit, and a fixed half-of-equity notional in place of the F6 risk-based lot. Roughly one thousand trades per month with average wins and losses of a few hundredths of a percent would be dominated by any commission or slippage, so the signs of the September returns carry no economic information. Third, the F6 sizing was computed but not applied, so the capital-management layer described in Section~\ref{sec:execution-engine} has not been exercised, and the risk figures in Table~\ref{tab:pilot-parameters} describe configuration, not behavior. Fourth, F4 abstained on every bar, so the hybrid-minus-baseline difference measures only the news family's input to the combiner; it says nothing about the event gate, and a paired difference in a later window would still represent the joint effect of both unless the ablations of Section~\ref{sec:ablations} separate them.
+
+The next-day event lag does not remove the documented late-reporting leakage from aggregation by event date. Fixed stop, pip-value, margin, and risk proxies require economic validation. Finally, schema-v2 inference in Section~\ref{subsec:rule-significance} requires complete daily equity, documented cost treatment and actual selection history, and that history must now record the gate decision and the sixteen-cell threshold grid per model. Legacy DSR adjustments and pooled-trade permutation outputs remain exploratory. An unavailable corrected statistic cannot be replaced with a legacy value. Subsequent runs must update this assessment with reconciled coverage, realistic execution costs, applied risk sizing, and paired uncertainty computed on a window that no decision in this chapter has touched.
