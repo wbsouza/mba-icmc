@@ -1,1 +1,0 @@
-../../../../../algo-analyze/tests/qa/spec-algo-analyze-deflated-sharpe.qa.md
