@@ -592,7 +592,9 @@ Letting the short side fire does not help the learned chains; it multiplies thei
 
 \section{Adaptive Retraining: The Frozen Policy Over the Registered Year} \label{sec:adaptive-retraining-results}
 
-Both this section and Section~\ref{sec:candlestick-screening} report results at the H1 (sixty-minute) decision cadence rather than the M1 cadence used throughout Sections~\ref{sec:baseline-results}--\ref{subsec:session-2}. The departure is deliberate and disclosed, not a silent substitution: technical-debt item TD-71 (\path{algo-suite/docs/technical-debt.md}) records that LEAN's same-bar stop/target double-fill defect, already responsible for the sub-hour failures of Section~\ref{subsec:session-2}, corrupts M1-cadence runs specifically over this exact registered window (March 1, 2016 to February 28, 2017), so H1 sidesteps a known executor limitation rather than changing the experiment's clock for its own sake.
+Section~\ref{sec:candlestick-screening} reports its results at the H1 (sixty-minute) decision cadence rather than the M1 cadence used throughout Sections~\ref{sec:baseline-results}--\ref{subsec:session-2}. The departure is deliberate and disclosed, not a silent substitution: technical-debt item TD-71 (\path{algo-suite/docs/technical-debt.md}) records that LEAN's same-bar stop/target double-fill defect, already responsible for the sub-hour failures of Section~\ref{subsec:session-2}, corrupts M1-cadence runs specifically over this exact registered window (March 1, 2016 to February 28, 2017), so H1 sidesteps a known executor limitation there.
+
+The Policy F run reported in this section, by contrast, was run at M1. An earlier draft of this section incorrectly labeled Table~\ref{tab:policy-f-year} as H1: the run's own \path{strategy.yaml} (\path{price_features.bar_minutes: 1}, sha256 archived in \path{evidence/policy-f-registered-year-run.md}) shows it was M1, over the identical window TD-71 flags. The run exited cleanly (exit code 0) with no \path{trade-plans.json} inconsistency raised by algo-backtest's statement builder -- but that check is what catches TD-71's failure mode, and this run's numbers were read directly from LEAN's own \texttt{STATISTICS::} block rather than through it, so a clean exit rules out only that specific check, not a same-bar double fill at the order-event level. Executor integrity for this run is therefore \textbf{unverified}: not proven defective, and not proven clean. The $-97.782\%$ result below is reported as observed, with this caveat attached, rather than re-run or discarded under the submission deadline.
 
 The first of the four December-extension follow-ups (Section~\ref{subsec:future-registered} of Chapter~\ref{cap:conclusion}) registered five retraining policies -- frozen (F), thresholds refreshed (Q), rolling (R), expanding (U) and exponentially weighted (E) -- on one continuous account, with prediction quality per epoch as an endpoint next to the paired daily-equity test. Of the five, only Policy F has since completed a run over the full registered year; refreshed-threshold, rolling, expanding and exponentially weighted comparisons remain outstanding, and no ranking across the five policies is reported here.
 
@@ -602,7 +604,7 @@ Table~\ref{tab:policy-f-year} reports Policy F's own registered-year backtest: t
 
 \begin{table}[htbp]
 \centering
-\caption{Policy F (frozen bundle, fit once at $D_0=$ March 1, 2016, never refit), baseline chain, EUR/USD, full registered year March 1, 2016--February 28, 2017, \$10,000 starting cash, H1 cadence.}
+\caption{Policy F (frozen bundle, fit once at $D_0=$ March 1, 2016, never refit), baseline chain, EUR/USD, full registered year March 1, 2016--February 28, 2017, \$10,000 starting cash, M1 cadence (see caveat above: executor integrity at this cadence over this window is unverified).}
 \label{tab:policy-f-year}
 \small
 \begin{tabular}{lr}
