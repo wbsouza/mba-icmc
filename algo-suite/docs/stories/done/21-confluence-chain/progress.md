@@ -964,3 +964,16 @@ onto this branch (`e56c255`): `population_gate()` now calls `lean_data_covers()`
 test fixtures now create real day-zips via `lean_data_dir_for()` instead of parquet stubs; the
 layout cross-check now compares against the real lean-data glob, so it can actually catch this
 class of bug. Full suite 2015 passed / 53 deselected (unchanged), ruff and mypy --strict clean.
+
+## Closed, 2026-09-28
+
+Moved to `done/` for what actually shipped: the full confluence-chain
+engine (agreement terminal, momentum context, relative-intensity trigger,
+bar-count exit, drift controls, the fourteen-cell manifest generator),
+hardened across three mutation-testing passes with a real, traced
+production bug found and fixed in the preflight gate's data-layout check.
+
+The registered fourteen-cell study itself (T18/T19 — actually launching the
+cells, the comparison report, Chapter 4/5) is real, wanted, planned work —
+not abandoned. It continues as
+`../../planned/26-confluence-chain-registered-study/spec.md`.

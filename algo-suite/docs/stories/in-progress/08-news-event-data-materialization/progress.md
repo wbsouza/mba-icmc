@@ -118,3 +118,17 @@ backfill continues in background. See `docs/technical-debt.md` TD-56.
   discussed as a follow-on, not started.
 - `.worktrees/*` duplicate-repo cleanup — flagged earlier this session,
   explicitly deferred, not touched.
+
+## Closed, 2026-09-28
+
+Moved to `done/` on the strength of what actually shipped: the GDELT Events
+pipeline (BigQuery CTAS materialization) proven end to end, and its
+`available_at` provenance gap found and fixed for real (PR #95, merged) —
+not a paper claim, but confirmed via real backtests over the registered
+study window (2016-03-01 to 2017-02-28) that actually consumed this data.
+
+Everything still open above (GPR's canonical/feature layer, the full
+10-year backfill beyond the registered window, GKG/join, the coverage-rule
+threshold's empirical justification, `VERIFY_ONLY`) is real, wanted, planned
+work — not abandoned. It continues as
+`../../planned/24-gdelt-gpr-full-materialization/spec.md`.

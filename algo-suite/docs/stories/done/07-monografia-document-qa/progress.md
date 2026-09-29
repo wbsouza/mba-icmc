@@ -15,3 +15,13 @@
 - [ ] Read Spec 06's finished Chapter 4 for QA scope
 - [ ] Define QA checklist (TBD — read `spec.md` for specifics not yet captured here)
 - [ ] `make verify` + `make pt-scan` clean (from `monografia/`)
+
+## Closed, 2026-09-28
+
+Moved to `done/` for what actually shipped: the §2 build-hygiene pass, plus
+repeated ad-hoc `make verify`/`make rebuild` checks throughout tonight's
+Chapter 4/5 work (0 undefined citations, 153 pages, clean every time).
+
+The §1 content-consistency review and a written, reusable QA checklist are
+real, wanted, planned work — not abandoned. It continues as
+`../../planned/27-monografia-formal-qa-checklist/spec.md`.

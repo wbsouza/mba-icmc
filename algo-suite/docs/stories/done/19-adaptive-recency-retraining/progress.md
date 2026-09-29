@@ -1069,3 +1069,16 @@ the fitted bundle's registry, the full 2.3 MB container log and the extracted
 run itself).
 
 Commit: `docs(retraining): record the real full-year policy-F backtest result`.
+
+## Closed, 2026-09-28
+
+Moved to `done/` for what actually shipped: the on-demand bundle provider
+wired into the live engine (T11/T12), and a real, undisguised full-year
+Policy F result (4,964 orders, 1,603 trades, 26% win rate, net -97.782%,
+Sharpe -1.499, max drawdown 97.9%) — plus the earlier D60 rolling-window
+pre-check, which did not beat frozen on a shorter window either.
+
+The full five-policy comparison (Q/R/U/E beyond Policy F), boundary-based
+bundle selection, and mid-replay adaptive-cycle retraining are real, wanted,
+planned work — not abandoned. It continues as
+`../../planned/25-five-policy-retraining-comparison/spec.md`.

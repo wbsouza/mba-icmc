@@ -12,6 +12,16 @@ feature-local choices are in the candlestick-context design and assumptions.
   at the open of bar t+N, t = entry-fill bar). Story 19 review-disposition items
   1–10 accepted as proposed. The unavailable `python-cucumber` skill is replaced
   by `cucumber-gherkin` plus the repository's Gherkin-first pytest-bdd rule.
+- AD-002 (2026-09-28, user): Story 23 (Bigalow extended signals: Meeting Line/
+  Counterattack Line, Methods Rising, Fibonacci confluence) authorized, scoped
+  to extend `candle_catalog.py`/`candle_context.py` only; the named/factory
+  filter-instance chain architecture discussed the same session is explicitly
+  deferred to a future story for time. Execution of the three registered
+  backtest studies (Story 19 T18, Story 21 T19, Story 22 T22/T23) is
+  pre-authorized: launch each the moment its Phase 3 integration, native LEAN
+  gates and T16 protocol freeze all pass, without a further go-ahead check-in.
+  This does not waive any gate — a study still does not run until its own
+  registered protocol, data-availability check and native evidence are green.
 
 ## Handoff
 
