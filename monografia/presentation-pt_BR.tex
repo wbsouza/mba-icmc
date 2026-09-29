@@ -1,0 +1,119 @@
+\documentclass[aspectratio=169,17pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{times}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
+
+\definecolor{uspblue}{RGB}{0,63,122}
+\definecolor{usplight}{RGB}{232,241,250}
+\setbeamercolor{structure}{fg=uspblue}
+\setbeamercolor{title}{fg=white,bg=uspblue}
+\setbeamercolor{frametitle}{fg=white,bg=uspblue}
+\setbeamercolor{block title}{fg=white,bg=uspblue}
+\setbeamercolor{block body}{bg=usplight}
+\setbeamercolor{alerted text}{fg=uspblue}
+
+\title[IA Melhora o Trading em Forex?]{O Sentimento Guiado por IA Pode Melhorar o Trading em Forex?}
+\author[Wellington Souza]{Wellington Souza}
+\institute[ICMC/USP]{MBA em Intelig\^encia Artificial e Big Data \\ ICMC, Universidade de S\~ao Paulo}
+\date{S\~ao Carlos, 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  \vspace{-0.6cm}
+  \begin{center}
+    \small Orientadora: Prof.\ Dr.\ Carolina Toledo Ferraz
+  \end{center}
+\end{frame}
+
+\begin{frame}{Motivação \& pergunta}
+  \begin{itemize}
+    \item Forex pode reagir a notícias e choques geopolíticos em segundos; estratégias só de preço ignoram isso quando ocorre.
+    \item \textbf{Pergunta}: sentimento + eventos superam um \textit{baseline} só de preço? Testado, não assumido.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Arquitetura}
+  \centering
+  \resizebox{0.8\textwidth}{!}{\input{img/fig-pipeline-tikz-pt}}
+  \begin{itemize}
+    \item Execução determinística, trilha de auditoria filtro a filtro em cada trade.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Cadeia de execução}
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{img/fig-filter-chain-tikz-pt}}
+  \footnotesize Cada trade registra uma trilha de auditoria filtro a filtro (\texttt{decisions.parquet}).
+\end{frame}
+
+\begin{frame}{Protocolo de avaliação}
+  \begin{itemize}
+    \item \textit{Walk-forward} + $k$-fold purgado com \textit{embargo} (López de Prado).
+    \item Uma janela de teste pré-registrada e intocada por reivindicação.
+    \item vs.\ trabalho mais próximo (Zhang 2025): protocolo de validação diferente, não diretamente comparável.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Resultado principal: um ano de trading, reproduzido}
+  \begin{columns}[T]
+    \column{0.44\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}\\
+    \tiny Março 2016 -- fev 2017, EUR/USD, mesmo ano intocado.
+    \column{0.54\textwidth}
+    \begin{itemize}
+      \item \alert{Nenhuma variação supera o baseline} ($p=0.149$).
+      \item Reproduzido, idêntico byte a byte.
+      \item Célula ``positiva'' = seu controle ($p=0.92$) -- deriva, não vantagem.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Por quê -- três causas auditadas}
+  \begin{itemize}
+    \item Limiares calibrados em um mês não sobreviveram a uma mudança de patamar.
+    \item O meta-modelo não carregou informação em todo o ano.
+    \item O sinal de notícias existe, mas em horizonte de 4h; a estratégia segura por dias.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Dois desdobramentos executados este ano}
+  \begin{itemize}
+    \item \textbf{Retreinamento adaptativo}: modelo congelado, ano completo -- $-97.8\%$, 26\% de acerto. 4/5 políticas seguem pendentes.
+    \item \textbf{Catálogo de candlestick} (22 padrões): um positivo isolado, indistinguível do acaso (teste de permutação, 98.7\%). Catálogo inteiro: $-99.5\%$ / $-32.8\%$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{As notícias do GDELT ajudam o único padrão positivo?}
+  \centering
+  \includegraphics[width=0.62\textwidth]{img/candlestick-news-combination-pt.png}
+  \footnotesize Notícia como camada informativa: trades idênticos -- nunca vetou. Exigindo concordância: zero trades -- os dois sinais nunca coincidiram no ano.
+\end{frame}
+
+\begin{frame}{Conclusão \& trabalhos futuros}
+  \begin{itemize}
+    \item \textit{Pipeline} e camada de execução funcionam de ponta a ponta, comprovado não assumido.
+    \item Nenhuma configuração testada este ano superou o \textit{baseline} só de preço.
+    \item Registrados, ainda não executados: cadeia de confluência, features intermercado, disputa price-action/Ichimoku, 4 políticas de retreinamento.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \centering
+  {\Large Obrigado. Perguntas?}
+\end{frame}
+
+\end{document}

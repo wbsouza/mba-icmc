@@ -1,0 +1,12 @@
+c290399c701c6287f705c4a9f8e7c04fd02bcd98ca62ddb1b8795a4fca8d66cf  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/h1-baseline.json
+b7e1e5644b045f8bfbd1fdb5cca2e59af31860856890a1aa5cb46c60538aec2f  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/h1-hybrid.json
+61112712ec6fbde7477cd4347349c8d091e78b35cf4982da37ca8319f7abbb83  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/h4-baseline.json
+4ec47a47bbb1b48822195a857c3aacf2f4a474578d4d23d02df36658aaf9b76e  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/h4-hybrid.json
+b1fed676d16841ab409b8c90bca323615a18c4e30da1f38028a04cbb040dab6b  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m15-baseline.json
+d77dc8c1b3c79617c19946eadd477043b562343d5758b7ca50e9f5fa459c63a4  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m15-hybrid.json
+33395704b99193e26f1bead0c346a615497e5099be135cdbdefef96ab92e291c  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m30-baseline.json
+b49dc4a06aaf9a17ad97354a03602ae4e9bbcfd9465c8ea6d9380d7bad999242  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m30-hybrid.json
+ba7d08e02d779559db51505c4ed1ab722686b4354573d820d8311bc5332ae9ff  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m5-baseline.json
+1895dcb608117fb223aabfaa785efc64ef26cc8efb0f8ae5109a58c12da600fe  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/m5-hybrid.json
+a2dac1cc7e19e996ed523662084009fefb9a8a1eafca19902e8a34ff57a5c03d  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/news-only-h1.json
+8ba88a08d70289544bf2f6e50d9c0ff022000a925086888622c0d07f28c1b475  /home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-28-session-2/models/news-only-h4.json
