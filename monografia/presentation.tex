@@ -53,6 +53,12 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Execution chain}
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
+  \footnotesize Every trade logs a filter-by-filter audit trail (\texttt{decisions.parquet}).
+\end{frame}
+
 \begin{frame}{Evaluation protocol}
   \begin{itemize}
     \item Walk-forward + purged $k$-fold with embargo (L\'opez de Prado).
@@ -62,12 +68,18 @@
 \end{frame}
 
 \begin{frame}{Headline result: one trading year, reproduced}
-  March 2016 -- Feb 2017, EUR/USD, every arm on the same untouched year.
-  \begin{itemize}
-    \item \alert{No arm beats the baseline} ($p=0.149$, pre-registered).
-    \item Reproduced independently, byte-identical.
-    \item Only ``positive'' cell ($+12.2\%$) = same as its control ($p=0.92$) -- market drift, not an edge.
-  \end{itemize}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}\\
+    \tiny March 2016 -- Feb 2017, EUR/USD, every arm, same untouched year.
+    \column{0.5\textwidth}
+    \begin{itemize}
+      \item \alert{No arm beats the baseline} ($p=0.149$).
+      \item Reproduced, byte-identical.
+      \item ``Positive'' cell = its control ($p=0.92$) -- drift, not an edge.
+    \end{itemize}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Why -- three audited causes}
@@ -83,6 +95,12 @@
     \item \textbf{Adaptive retraining}: frozen model, full year -- $-97.8\%$, 26\% win rate. 4/5 policies still outstanding.
     \item \textbf{Candlestick catalog} (22 patterns): one positive alone, indistinguishable from chance (permutation test, 98.7\%). Whole catalog: $-99.5\%$ / $-32.8\%$.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Does adding GDELT news help the one positive pattern?}
+  \centering
+  \includegraphics[width=0.62\textwidth]{img/candlestick-news-combination.png}
+  \footnotesize News layered on informationally: byte-identical trades -- it never vetoed. Required to agree: zero trades -- the two signals never coincided all year.
 \end{frame}
 
 \begin{frame}{Conclusion \& future work}

@@ -53,6 +53,12 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Cadeia de execução}
+  \centering
+  \resizebox{0.75\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
+  \footnotesize Cada trade registra uma trilha de auditoria filtro a filtro (\texttt{decisions.parquet}).
+\end{frame}
+
 \begin{frame}{Protocolo de avaliação}
   \begin{itemize}
     \item \textit{Walk-forward} + $k$-fold purgado com \textit{embargo} (López de Prado).
@@ -62,11 +68,18 @@
 \end{frame}
 
 \begin{frame}{Resultado principal: um ano de trading, reproduzido}
-  Março 2016 -- fev 2017, EUR/USD, todos os braços no mesmo ano intocado, reproduzido de forma independente.
-  \begin{itemize}
-    \item \alert{Nenhum braço supera o baseline} ($p=0.149$, pré-registrado).
-    \item Única célula ``positiva'' ($+12.2\%$) = igual ao seu controle ($p=0.92$) -- deriva de mercado, não vantagem.
-  \end{itemize}
+  \begin{columns}[T]
+    \column{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}\\
+    \tiny Março 2016 -- fev 2017, EUR/USD, todos os braços, mesmo ano intocado.
+    \column{0.5\textwidth}
+    \begin{itemize}
+      \item \alert{Nenhum braço supera o baseline} ($p=0.149$).
+      \item Reproduzido, idêntico byte a byte.
+      \item Célula ``positiva'' = seu controle ($p=0.92$) -- deriva, não vantagem.
+    \end{itemize}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Por quê -- três causas auditadas}
@@ -82,6 +95,12 @@
     \item \textbf{Retreinamento adaptativo}: modelo congelado, ano completo -- $-97.8\%$, 26\% de acerto. 4/5 políticas seguem pendentes.
     \item \textbf{Catálogo de candlestick} (22 padrões): um positivo isolado, indistinguível do acaso (teste de permutação, 98.7\%). Catálogo inteiro: $-99.5\%$ / $-32.8\%$.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{As notícias do GDELT ajudam o único padrão positivo?}
+  \centering
+  \includegraphics[width=0.62\textwidth]{img/candlestick-news-combination.png}
+  \footnotesize Notícia como camada informativa: trades idênticos -- nunca vetou. Exigindo concordância: zero trades -- os dois sinais nunca coincidiram no ano.
 \end{frame}
 
 \begin{frame}{Conclusão \& trabalhos futuros}
