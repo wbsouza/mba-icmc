@@ -5,8 +5,10 @@ Every chain invocation is kept (the audit trail); the first BUY/SELL row carryin
 signal while the trade is open repeats the id but opened nothing. The F7
 probability is lifted into `p_hat` from the meta-learner's enrichment so the viewer can
 plot it without unpacking the filter rows. F3's detected pattern name is extracted from
-its reason text (`detected candlestick pattern 'hammer'`, or the older `pattern=hammer`
-form) into `decision_filters.pattern_name`.
+its reason text (`detected candlestick pattern 'hammer'`, the older `pattern=hammer`
+form, or the evidence-driven advisory/required_entry mode's `eligible long from hits
+hammer in required_entry mode`, Story 22/23's expanded catalog -- only the first hit
+id is captured when a bar has more than one) into `decision_filters.pattern_name`.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from algo_analyze.resultsdb.artifacts import DECISIONS_FILE, field
 _PATTERN_FORMS = (
     re.compile(r"detected candlestick pattern '([a-z_]+)'"),
     re.compile(r"\bpattern=([a-z_]+)"),
+    re.compile(r"\bfrom hits ([a-z_]+)"),
 )
 _ENTRY_DECISIONS = frozenset({"BUY", "SELL"})
 
