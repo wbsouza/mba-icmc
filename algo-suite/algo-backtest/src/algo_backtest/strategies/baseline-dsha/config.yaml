@@ -1,7 +1,0 @@
-# Frozen-model ablation: only the two F1 direction keys change.
-extends: baseline
-perception_source: double_smoothed_heikin_ashi
-double_smoothed_heikin_ashi:
-  period1: 6
-  period2: 2
-  higher_tf_minutes: 60

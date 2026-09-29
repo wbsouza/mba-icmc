@@ -1,3 +1,0 @@
-delta_total_return,end,hit_rate,max_drawdown,run_id,sharpe,start,strategy,symbol,total_return
-0.0,2015-08-07,0.0,0.0,20260927T034032-491a4f65303c,0.0,2015-08-03,baseline,EURUSD,0.0
-0.0001,2015-08-07,1.0,0.0,20260927T034435-495302e58a88,0.0456,2015-08-03,baseline-dsha,EURUSD,0.0001
