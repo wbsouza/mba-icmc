@@ -184,6 +184,40 @@ def context_config(ctx_ctx: dict[str, Any], field: str, value: str) -> None:
     ctx_ctx["build"] = lambda: ContextConfig(**{field: json.loads(value)})
 
 
+@given(parsers.parse("fibonacci is enabled with a lookback of {lookback:d} bars"))
+def fibonacci_config(ctx_ctx: dict[str, Any], lookback: int) -> None:
+    """A configuration with Fibonacci confluence on, every other parameter default."""
+    ctx_ctx["config"] = CandleConfig(
+        context=ContextConfig(fibonacci_enabled=True, fibonacci_lookback_bars=lookback)
+    )
+
+
+@given(
+    parsers.parse(
+        "a minimal context configuration with fibonacci enabled and a lookback of {lookback:d} bars"
+    )
+)
+def minimal_fibonacci_config(ctx_ctx: dict[str, Any], lookback: int) -> None:
+    """A one-bar-ready EMA/stochastic/level configuration so only Fibonacci warms up."""
+    ctx_ctx["config"] = CandleConfig(
+        context=ContextConfig(
+            ema_period=1,
+            stochastic_k=1,
+            stochastic_k_smooth=1,
+            stochastic_d=1,
+            sma_periods=(1,),
+            fibonacci_enabled=True,
+            fibonacci_lookback_bars=lookback,
+        )
+    )
+
+
+@given("the following closed bars, 60-minute UTC from 01:00:")
+def explicit_bars_table(ctx_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    """An explicit OHLC table, one bar per row, oldest first."""
+    ctx_ctx["bars"] = [tuple(float(value) for value in row) for row in datatable[1:]]
+
+
 @given(
     parsers.parse('a candle configuration with max_history {history:d} and sma_periods "{smas}"')
 )
@@ -451,3 +485,37 @@ def assert_prefix_ema(ctx_ctx: dict[str, Any], ema: float) -> None:
 def assert_close_time(ctx_ctx: dict[str, Any], close_time: str) -> None:
     """The availability time is the evaluated bar's close."""
     assert ctx_ctx["evidence"].close_time == datetime.fromisoformat(close_time)
+
+
+@then(parsers.parse('the fibonacci status is "{status}"'))
+def assert_fibonacci_status(ctx_ctx: dict[str, Any], status: str) -> None:
+    """The Fibonacci confluence field's own readiness."""
+    assert ctx_ctx["evidence"].fibonacci.status == status
+
+
+@then(parsers.parse("the fibonacci level is {level}"))
+def assert_fibonacci_level(ctx_ctx: dict[str, Any], level: str) -> None:
+    """The nearest retracement ratio the close is at, or None."""
+    expected = _maybe(level)
+    actual = ctx_ctx["evidence"].fibonacci.level
+    if expected is None:
+        assert actual is None
+    else:
+        assert actual is not None
+        assert math.isclose(actual, expected, abs_tol=_TOLERANCE)
+
+
+@then(parsers.parse("the fibonacci swing high is {high:g} and swing low is {low:g}"))
+def assert_fibonacci_swing(ctx_ctx: dict[str, Any], high: float, low: float) -> None:
+    """The causal swing high/low the retracement levels are anchored on."""
+    fibonacci = ctx_ctx["evidence"].fibonacci
+    assert fibonacci.swing_high.value is not None
+    assert fibonacci.swing_low.value is not None
+    assert math.isclose(fibonacci.swing_high.value, high, abs_tol=_TOLERANCE)
+    assert math.isclose(fibonacci.swing_low.value, low, abs_tol=_TOLERANCE)
+
+
+@then("the context evidence has no fibonacci field")
+def assert_no_fibonacci(ctx_ctx: dict[str, Any]) -> None:
+    """Fibonacci confluence is absent when not configured/enabled."""
+    assert ctx_ctx["evidence"].fibonacci is None

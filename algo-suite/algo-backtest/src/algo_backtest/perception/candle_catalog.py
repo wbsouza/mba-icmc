@@ -1,13 +1,17 @@
 """Expanded multilabel candlestick catalog over closed bars (Story 22, T3).
 
-Every enabled rule of the Story 22 rule ledger is evaluated on the final closed
-bar and EVERY hit is reported (bullish, bearish and neutral) in stable id order
-(CND-02). A rule that lacks its lookback appears as a WARMUP hit with polarity 0
-(CND-04); a READY rule that did not fire is omitted. The six legacy ids are the
-TA-Lib recognizers exactly as ``perception/candlestick.py`` calls them (default
-candle settings, star penetration 0.3) so that ``legacy_label`` reproduces the
-legacy selector (CND-09); the thirteen new rules are the ledger's explicit
-formulas and never use TA-Lib. Pure: no chain, engine or LEAN dependency.
+Every enabled rule of the Story 22 rule ledger, plus the Story 23 extended-signal
+addendum, is evaluated on the final closed bar and EVERY hit is reported (bullish,
+bearish and neutral) in stable id order (CND-02). A rule that lacks its lookback
+appears as a WARMUP hit with polarity 0 (CND-04); a READY rule that did not fire is
+omitted. The six legacy ids are the TA-Lib recognizers exactly as
+``perception/candlestick.py`` calls them (default candle settings, star penetration
+0.3) so that ``legacy_label`` reproduces the legacy selector (CND-09); the sixteen new
+rules are the ledgers' explicit formulas and never use TA-Lib. The three Story 23
+rules (``bearish_counterattack_line``, ``bullish_counterattack_line``,
+``methods_rising``) are admitted (usable via ``enabled_rules``) but excluded from
+``CandleConfig``'s default so Story 22's frozen fixtures stay byte-identical
+(BEXT-06). Pure: no chain, engine or LEAN dependency.
 """
 
 from __future__ import annotations
@@ -38,6 +42,9 @@ SPINNING_TOP_BODY_RATIO: Final = 0.30
 UMBRELLA_SHADOW_MULTIPLE: Final = 2
 UMBRELLA_OPPOSITE_RATIO: Final = 0.10
 TREND_LOOKBACK: Final = 3
+COUNTERATTACK_TOLERANCE: Final = 0.10
+METHODS_RISING_MIN_PULLBACKS: Final = 3
+METHODS_RISING_MAX_PULLBACKS: Final = 6
 _STAR_PENETRATION = 0.3
 _LEGACY_IDS = frozenset(PATTERN_POLARITY)
 
@@ -134,15 +141,19 @@ def _bearish_harami(bars: Sequence[ClosedBar]) -> bool:
     )
 
 
+def _body_midpoint(prior: _Geometry) -> float:
+    """The midpoint of the prior bar's real body."""
+    return (prior.open + prior.close) / 2
+
+
 def _piercing_line(bars: Sequence[ClosedBar]) -> bool:
     """Opens below the prior close, closes above the prior body midpoint, short of its open."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bearish
         and current.bullish
         and current.open < prior.close
-        and current.close > mid
+        and current.close > _body_midpoint(prior)
         and current.close < prior.open
     )
 
@@ -150,12 +161,11 @@ def _piercing_line(bars: Sequence[ClosedBar]) -> bool:
 def _dark_cloud_cover(bars: Sequence[ClosedBar]) -> bool:
     """Opens above the prior close, closes below the prior body midpoint, short of its open."""
     prior, current = _geometry(bars[-2]), _geometry(bars[-1])
-    mid = (prior.open + prior.close) / 2
     return (
         prior.bullish
         and current.bearish
         and current.open > prior.close
-        and current.close < mid
+        and current.close < _body_midpoint(prior)
         and current.close > prior.open
     )
 
@@ -199,9 +209,52 @@ def _inverted_hammer(bars: Sequence[ClosedBar]) -> bool:
     )
 
 
+def _bearish_counterattack_line(bars: Sequence[ClosedBar]) -> bool:
+    """Bullish prior gaps up past its close; the close returns to it above the dark-cloud mid."""
+    prior, current = _geometry(bars[-2]), _geometry(bars[-1])
+    return (
+        prior.bullish
+        and current.open > prior.close
+        and current.close > _body_midpoint(prior)
+        and abs(current.close - prior.close) <= COUNTERATTACK_TOLERANCE * current.range
+    )
+
+
+def _bullish_counterattack_line(bars: Sequence[ClosedBar]) -> bool:
+    """Bearish prior gaps down past its close; the close returns to it below the piercing mid."""
+    prior, current = _geometry(bars[-2]), _geometry(bars[-1])
+    return (
+        prior.bearish
+        and current.open < prior.close
+        and current.close < _body_midpoint(prior)
+        and abs(current.close - prior.close) <= COUNTERATTACK_TOLERANCE * current.range
+    )
+
+
+def _methods_rising(bars: Sequence[ClosedBar]) -> bool:
+    """A bullish signal bar, 3-6 pullback bars closing >= its open, the last one opening above the
+    previous bar's close and closing above the signal's close."""
+    for pullbacks in range(METHODS_RISING_MIN_PULLBACKS, METHODS_RISING_MAX_PULLBACKS + 1):
+        window = pullbacks + 1
+        if len(bars) < window:
+            break
+        signal = _geometry(bars[-window])
+        if not signal.bullish:
+            continue
+        tail = bars[-pullbacks:]
+        if not all(_geometry(bar).close >= signal.open for bar in tail):
+            continue
+        final = _geometry(tail[-1])
+        if final.open > tail[-2].close and final.close > signal.close:
+            return True
+    return False
+
+
 _NEW_RULES: Final[dict[str, Callable[[Sequence[ClosedBar]], bool]]] = {
+    "bearish_counterattack_line": _bearish_counterattack_line,
     "bearish_harami": _bearish_harami,
     "bearish_kicker": _bearish_kicker,
+    "bullish_counterattack_line": _bullish_counterattack_line,
     "bullish_harami": _bullish_harami,
     "bullish_kicker": _bullish_kicker,
     "dark_cloud_cover": _dark_cloud_cover,
@@ -211,6 +264,7 @@ _NEW_RULES: Final[dict[str, Callable[[Sequence[ClosedBar]], bool]]] = {
     "doji_long_legged": _doji_long_legged,
     "hanging_man": _hanging_man,
     "inverted_hammer": _inverted_hammer,
+    "methods_rising": _methods_rising,
     "piercing_line": _piercing_line,
     "spinning_top": _spinning_top,
 }

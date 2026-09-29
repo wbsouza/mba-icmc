@@ -218,6 +218,12 @@ def context_only(cat_ctx: dict[str, Any], count: int) -> None:
     cat_ctx["bars"] = [_CONTEXT] * count
 
 
+@given("the closed bars:")
+def closed_bars_table(cat_ctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    """An explicit OHLC table, one bar per row, oldest first."""
+    cat_ctx["bars"] = [OHLC(*(float(value) for value in row)) for row in datatable[1:]]
+
+
 @given(parsers.parse("{count:d} flat closed bars ({open:g}, {high:g}, {low:g}, {close:g})"))
 def flat_bars(
     cat_ctx: dict[str, Any], count: int, open: float, high: float, low: float, close: float
@@ -458,3 +464,13 @@ def assert_bounded(cat_ctx: dict[str, Any]) -> None:
     """History stays within the configured bound throughout the replay."""
     assert max(cat_ctx["retained"]) <= cat_ctx["config"].max_history
     assert max(cat_ctx["retained"]) == cat_ctx["config"].max_history
+
+
+_EXTENDED_RULE_IDS = {"bearish_counterattack_line", "bullish_counterattack_line", "methods_rising"}
+
+
+@then("the hits never include the extended rule ids")
+def assert_no_extended_ids(cat_ctx: dict[str, Any]) -> None:
+    """The default catalog omits every Story 23 rule id, enabled or not."""
+    ids = {hit.id for hit in cat_ctx["evidence"].hits}
+    assert not ids & _EXTENDED_RULE_IDS

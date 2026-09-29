@@ -55,6 +55,35 @@ Feature: Expanded multilabel candlestick catalog
   averaged thresholds, marubozu or range-gap requirements that differ from the
   formulas above; the ledger records each difference.
 
+  Story 23 (BEXT-01, BEXT-02, BEXT-03, BEXT-04, BEXT-05, BEXT-06) admits three further
+  rules to the catalog. They are usable via enabled_rules but excluded from the default
+  configuration, so every scenario above stays byte-identical
+  (`docs/stories/in-progress/23-bigalow-extended-signals/rule-ledger-addendum.md` is the
+  T1 ledger for these three):
+    counterattack_tolerance = 0.10 (a separately named constant, same value as
+    doji_body_ratio by convention, not the same constant, so the two rules can diverge
+    independently later).
+    bearish_counterattack_line  prior bullish, open > close[t-1], close > mid(prior),
+                                 abs(close - close[t-1]) <= 0.10 * range
+                                                                 book PDF p.318 lines 12008-12018,
+                                                                 p.368-369 lines 14022-14028; close > mid(prior)
+                                                                 is the mutual-exclusivity guard against
+                                                                 dark_cloud_cover (BEXT-03)
+    bullish_counterattack_line  prior bearish, open < close[t-1], close < mid(prior),
+                                 abs(close - close[t-1]) <= 0.10 * range
+                                                                 same source, mirrored; close < mid(prior)
+                                                                 guards against piercing_line (BEXT-03)
+    methods_rising  bullish signal bar B; for some n in {3,4,5,6}, the n bars right
+                     before the final bar each close >= open(B); the final bar (the
+                     last of those n) opens above the previous bar's close and closes
+                     above close(B)                            book PDF p.260-261 lines 9679-9714;
+                                                                 lookback 4 is the n=3 minimum, n up to 6
+                                                                 is tried whenever enough history exists
+                                                                 (BEXT-04); no bearish mirror is sourced
+
+  Story 23 fixtures reuse the bullish/bearish prior convention above for the
+  counterattack lines; Methods Rising fixtures are given as an explicit bar table.
+
   Readiness: a rule is WARMUP until its lookback (candle_contract.feature table) of
   closed bars exists; a WARMUP rule appears in the hits as a WARMUP entry with
   polarity 0; a READY rule that did not fire is omitted; the evidence status is WARMUP
@@ -348,3 +377,178 @@ Feature: Expanded multilabel candlestick catalog
       Then the legacy label of the catalog hits equals detect_pattern on every prefix
       And the legacy labels over the 500-candle history emit all six legacy names
       And the catalog history never retains more than max_history bars
+
+  Rule: Counterattack Line reverses a gap back to the prior close without crossing the piercing/dark-cloud midpoint
+
+    Scenario Outline: Counterattack Line geometry (<case>)
+      Given the catalog restricted to "bearish_counterattack_line,bullish_counterattack_line,piercing_line,dark_cloud_cover"
+      And the closed bars: the <prior> prior, then (<open>, <high>, <low>, <close>)
+      When the catalog evaluates the final bar
+      Then the READY hits are "<hits>"
+      And the evidence status is "READY"
+
+      Examples:
+        | case                                                | prior   | open | high | low | close | hits                        |
+        | bearish counterattack: gaps to 1020, closes near 1000 | bullish | 1020 | 1025 | 995 | 1002  | bearish_counterattack_line  |
+        | bearish counterattack: no gap past the prior close    | bullish | 995  | 1010 | 985 | 999   |                             |
+        | bearish counterattack boundary: tolerance exactly 4/40| bullish | 1020 | 1020 | 980 | 1004  | bearish_counterattack_line  |
+        | bearish counterattack: tolerance 5 of 40, just past   | bullish | 1020 | 1020 | 980 | 1005  |                             |
+        | bullish counterattack: gaps to 880, closes near 900   | bearish | 880  | 905  | 875 | 902   | bullish_counterattack_line  |
+        | bullish counterattack: no gap past the prior close    | bearish | 905  | 920  | 880 | 898   |                             |
+        | bullish counterattack boundary: tolerance exactly 4/40| bearish | 880  | 900  | 860 | 896   | bullish_counterattack_line  |
+        | bullish counterattack: tolerance 5 of 40, just past   | bearish | 880  | 900  | 860 | 895   |                             |
+
+    Scenario: A close reaching the dark-cloud zone does not also count as a bearish counterattack
+      Given the catalog restricted to "dark_cloud_cover,bearish_counterattack_line"
+      And the closed bars: the bullish prior, then (1020, 1030, 920, 930)
+      When the catalog evaluates the final bar
+      Then the READY hits are "dark_cloud_cover"
+
+    Scenario: A close reaching the piercing zone does not also count as a bullish counterattack
+      Given the catalog restricted to "piercing_line,bullish_counterattack_line"
+      And the closed bars: the bearish prior, then (880, 980, 870, 970)
+      When the catalog evaluates the final bar
+      Then the READY hits are "piercing_line"
+
+    Scenario: A close within counterattack tolerance but past the dark-cloud midpoint stays dark cloud only
+      Given the catalog restricted to "dark_cloud_cover,bearish_counterattack_line"
+      And the closed bars: the bullish prior, then (1020, 1600, 900, 949)
+      When the catalog evaluates the final bar
+      Then the READY hits are "dark_cloud_cover"
+
+    Scenario: A close within counterattack tolerance but past the piercing midpoint stays piercing only
+      Given the catalog restricted to "piercing_line,bullish_counterattack_line"
+      And the closed bars: the bearish prior, then (880, 1000, 300, 951)
+      When the catalog evaluates the final bar
+      Then the READY hits are "piercing_line"
+
+    Scenario Outline: A close exactly at the piercing/dark-cloud midpoint fires neither pattern (<case>)
+      Given the catalog restricted to "<rules>"
+      And the closed bars:
+        | open | high | low | close |
+        | <po> | <ph> | <pl> | <pc> |
+        | <o>  | <h>  | <l>  | <c>  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
+
+      Examples:
+        | case                                          | rules                                        | po   | ph   | pl  | pc   | o    | h    | l   | c   |
+        | bullish counterattack at the piercing mid     | piercing_line,bullish_counterattack_line     | 1000 | 1005 | 980 | 990  | 970  | 1005 | 945 | 995 |
+        | bearish counterattack at the dark-cloud mid   | dark_cloud_cover,bearish_counterattack_line  | 990  | 1005 | 985 | 1000 | 1015 | 1025 | 965 | 995 |
+
+    Scenario Outline: Counterattack lines are WARMUP before two bars and READY at two (<bars> bars)
+      Given the catalog restricted to "bearish_counterattack_line,bullish_counterattack_line"
+      And <bars> context candles
+      When the catalog evaluates the final bar
+      Then the WARMUP hit ids are exactly "<warming>"
+
+      Examples:
+        | bars | warming                                                   |
+        | 1    | bearish_counterattack_line,bullish_counterattack_line     |
+        | 2    |                                                            |
+
+  Rule: Methods Rising is a variable-length bullish continuation with an inclusive pullback floor
+
+    Scenario: Methods Rising fires with the minimum three pullback bars
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1008 | 1010 | 1000 | 1003  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the catalog evaluates the final bar
+      Then the READY hits are "methods_rising"
+
+    Scenario: Methods Rising does not fire when the final close stays below the signal's close
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1008 | 1010 | 1000 | 1003  |
+        | 1010 | 1022 | 1005 | 1018  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
+
+    Scenario: Methods Rising accepts a pullback closing exactly at the signal's open
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1005 | 1008 | 998  | 1000  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the catalog evaluates the final bar
+      Then the READY hits are "methods_rising"
+
+    Scenario: Methods Rising is rejected with only two pullback bars (still WARMUP)
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the catalog evaluates the final bar
+      Then the hit for "methods_rising" has status "WARMUP"
+
+    Scenario: Methods Rising never considers fewer than three pullback bars even with ample history
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 920  | 925  | 895  | 900   |
+        | 1020 | 1025 | 995  | 1000  |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1010 | 1012 | 1000 | 1005  |
+        | 1010 | 1035 | 1005 | 1030  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
+
+    Scenario: Methods Rising fires with the maximum six pullback bars
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1008 | 1010 | 1000 | 1003  |
+        | 1006 | 1009 | 1001 | 1004  |
+        | 1007 | 1011 | 1002 | 1006  |
+        | 1009 | 1012 | 1003 | 1007  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the catalog evaluates the final bar
+      Then the READY hits are "methods_rising"
+
+    Scenario: Methods Rising does not fire over seven pullback bars
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1008 | 1010 | 1000 | 1003  |
+        | 1006 | 1009 | 1001 | 1004  |
+        | 1007 | 1011 | 1002 | 1006  |
+        | 1009 | 1012 | 1003 | 1007  |
+        | 1011 | 1013 | 1004 | 1008  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the catalog evaluates the final bar
+      Then the READY hits are ""
+
+    Scenario: Methods Rising evidence over a prefix is unaffected by what comes after
+      Given the catalog restricted to "methods_rising"
+      And the closed bars:
+        | open | high | low  | close |
+        | 1000 | 1025 | 995  | 1020  |
+        | 1015 | 1018 | 1002 | 1005  |
+        | 1008 | 1010 | 1000 | 1003  |
+        | 1010 | 1030 | 1005 | 1025  |
+      When the same prefix is streamed before a morning-star suffix and before an evening-star suffix
+      Then the per-bar evidence over the prefix is identical under both suffixes
+      And the final prefix hits include "methods_rising"
+
+  Rule: The Story 23 extended-signal rules never appear in the default catalog
+
+    Scenario: The default catalog omits the extended-signal ids even with ample history
+      Given the default catalog
+      And 300 context candles
+      When the catalog evaluates the final bar
+      Then the hits never include the extended rule ids

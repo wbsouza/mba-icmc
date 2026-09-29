@@ -19,6 +19,8 @@ from algo_backtest.perception.candle_contract import (
     CandleHistory,
     ClosedBar,
     ContextConfig,
+    FibonacciEvidence,
+    IndicatorValue,
     PatternHit,
     SequenceEvidence,
 )
@@ -122,13 +124,38 @@ def assert_defaults(cctx: dict[str, Any], version: str, history: int, mode: str)
 
 @then("the enabled rules are exactly, in id order:")
 def assert_enabled_rules(cctx: dict[str, Any], datatable: list[list[str]]) -> None:
-    """The default enables the whole admitted catalog with the registered metadata."""
+    """The default enables exactly this frozen rule set with the registered metadata.
+
+    Scoped to the default configuration's own ``enabled_rules``, not the module-level
+    ``ADMITTED_RULES`` (Story 23 grew the admitted catalog with ids the default does not
+    enable; see ``DEFAULT_ENABLED_RULES``).
+    """
     rows = [(row[0], int(row[1]), int(row[2])) for row in datatable[1:]]
-    assert list(cctx["config"].enabled_rules) == [row[0] for row in rows]
+    enabled = cctx["config"].enabled_rules
+    assert list(enabled) == [row[0] for row in rows]
+    assert list(enabled) == sorted(enabled)
+    assert [(rule, CATALOG[rule].polarity, CATALOG[rule].lookback) for rule in enabled] == rows
+
+
+@then("the admitted catalog includes, in id order:")
+def assert_admitted_includes(cctx: dict[str, Any], datatable: list[list[str]]) -> None:
+    """Every listed id is admitted (usable in enabled_rules) with this exact metadata."""
+    cctx["checked_ids"] = [row[0] for row in datatable[1:]]
+    for rule, polarity, lookback in ((row[0], int(row[1]), int(row[2])) for row in datatable[1:]):
+        assert rule in ADMITTED_RULES
+        assert (CATALOG[rule].polarity, CATALOG[rule].lookback) == (polarity, lookback)
+
+
+@then("the admitted catalog is sorted by id")
+def assert_admitted_sorted(cctx: dict[str, Any]) -> None:
+    """ADMITTED_RULES is declared in ascending id order."""
     assert list(ADMITTED_RULES) == sorted(ADMITTED_RULES)
-    assert [
-        (rule, CATALOG[rule].polarity, CATALOG[rule].lookback) for rule in ADMITTED_RULES
-    ] == rows
+
+
+@then("none of those ids are in the default enabled rules")
+def assert_not_in_default(cctx: dict[str, Any]) -> None:
+    """The previously checked ids are admitted but not part of the default enabled_rules."""
+    assert not set(cctx["checked_ids"]) & set(cctx["config"].enabled_rules)
 
 
 @then(
@@ -341,6 +368,36 @@ def validate_sequence_evidence(cctx: dict[str, Any]) -> None:
 @then(parsers.parse('sequence evidence validation {outcome} mentioning "{mention}"'))
 def assert_sequence_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) -> None:
     """Accepted, or rejected naming the state/confirmation contradiction."""
+    _assert_outcome(cctx, outcome, mention)
+
+
+# --- fibonacci evidence -----------------------------------------------------------------
+
+
+@given(
+    parsers.parse(
+        "a fibonacci evidence with status {status}, swing status {swing_status} and level {level}"
+    )
+)
+def fibonacci_evidence_builder(
+    cctx: dict[str, Any], status: str, swing_status: str, level: str
+) -> None:
+    """Stage a builder for a directly constructed FibonacciEvidence."""
+    status_value, swing_status_value, level_value = _json(status), _json(swing_status), _json(level)
+    swing_value = 1000.0 if swing_status_value == READY else None
+    swing = IndicatorValue(swing_value, swing_status_value)
+    cctx["build"] = lambda: FibonacciEvidence(swing, swing, level_value, status_value)
+
+
+@when("the fibonacci evidence is validated")
+def validate_fibonacci_evidence(cctx: dict[str, Any]) -> None:
+    """Construct the fibonacci evidence, capturing a rejection."""
+    _attempt(cctx, "fibonacci_evidence")
+
+
+@then(parsers.parse('fibonacci evidence validation {outcome} mentioning "{mention}"'))
+def assert_fibonacci_evidence_outcome(cctx: dict[str, Any], outcome: str, mention: str) -> None:
+    """Accepted, or rejected naming the offending level."""
     _assert_outcome(cctx, outcome, mention)
 
 
