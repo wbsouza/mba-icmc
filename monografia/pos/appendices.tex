@@ -2,6 +2,8 @@
 \begin{apendicesenv}
 \partapendices
 
+\input{pos/ai-declaration}
+
 \chapter{Experiment registry} \label{app:experiment-registry}
 
 Table~\ref{tab:experiment-registry} lists every experiment session or job run for this work, in chronological order, with the protocol status it ran under, its cell count, one key result and the evidence file that holds the full record. It is a pointer table: every number is copied from the evidence file named on the same row and must be read there, never from this table alone. The repository copy, \path{algo-suite/docs/experiments/registry.md}, carries the same rows with the training splits, model identities, run identifiers and the remaining evidence paths of each entry. Protocol status uses three values: \emph{registered} when the design, window, cell list and selection rule were written down before any cell ran or any outcome of its window was read; \emph{exploratory} when the design was declared before viewing but on a window an earlier decision had already consumed, or when the monograph counts the job among the trials of Section~\ref{sec:experimental-threats}; \emph{ad hoc} when the job ran without a written registration or was stopped or re-specified after launch. Dates are the UTC time of each job's recorded exit; jobs before the identifier rename of September 28, 2026 (session 1) are archived outside the repository under \path{experiment-test-archives/pre-rename-session-1/} by their dated job name, and the session-2 job stays under the local \path{algo-suite/data/training/} root.
