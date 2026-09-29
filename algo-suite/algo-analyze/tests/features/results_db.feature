@@ -179,11 +179,15 @@ Feature: Results database from run directories
       Then the pattern extracted from "<reason>" is <pattern>
 
       Examples:
-        | reason                                           | pattern           |
-        | detected candlestick pattern 'bullish_engulfing' | bullish_engulfing |
-        | detected candlestick pattern 'evening_star'      | evening_star      |
-        | pattern=hammer                                   | hammer            |
-        | no pattern detected this bar                     | none              |
+        | reason                                                          | pattern           |
+        | detected candlestick pattern 'bullish_engulfing'                | bullish_engulfing |
+        | detected candlestick pattern 'evening_star'                     | evening_star      |
+        | pattern=hammer                                                  | hammer            |
+        | no pattern detected this bar                                   | none              |
+        | eligible long from hits hanging_man in required_entry mode     | hanging_man       |
+        | eligible short from hits dark_cloud_cover in advisory mode     | dark_cloud_cover  |
+        | eligible long from hits hanging_man, doji in required_entry mode | hanging_man      |
+        | warmup: hits none in required_entry mode                       | none              |
 
   Rule: The exit kind follows the closing order and the tagged engine log
 

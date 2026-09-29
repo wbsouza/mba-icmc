@@ -47,7 +47,7 @@ PRES_SRCS := $(wildcard img/*-tikz.tex)
 # `make` and `make pdf` always invoke latexmk; latexmk itself skips the
 # rebuild when no source has changed (fingerprint tracking), so this is
 # both responsive and fast.
-all: pdf
+all: pdf presentations
 
 pdf:
 	@mkdir -p $(BUILD_SUBDIRS)
@@ -108,7 +108,7 @@ $(PDF): $(SRCS)
 	latexmk $(LATEXMK_FLAGS) $(DOC).tex
 
 # Force a full rebuild from a clean state (useful after structural edits).
-rebuild: distclean pdf
+rebuild: distclean pdf presentations
 
 # Continuously rebuild and (if a viewer is configured) refresh the PDF.
 watch:

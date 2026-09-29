@@ -71,6 +71,11 @@ class PatternConfig:
     bearish_patterns: frozenset[str] = _BEARISH_DEFAULT
     detector: str = "disabled"
     mode: str = "legacy"
+    enabled_rules: frozenset[str] | None = None
+    """``expanded`` detector only: restricts the shared catalog/context/sequence
+    producer to this subset of ``perception.candle_contract.ADMITTED_RULES``
+    (isolation sweeps -- one pattern's own backtest). ``None`` (default) keeps the
+    full admitted catalog live, unchanged from before this field existed."""
 
     @property
     def known_patterns(self) -> frozenset[str]:
@@ -78,7 +83,7 @@ class PatternConfig:
         return self.bullish_patterns | self.bearish_patterns
 
 
-_KEYS = ("bullish_patterns", "bearish_patterns", "detector", "mode")
+_KEYS = ("bullish_patterns", "bearish_patterns", "detector", "mode", "enabled_rules")
 
 
 def _names(
@@ -131,8 +136,17 @@ def parse_pattern_config(section: Mapping[str, Any], *, strategy: str) -> Patter
     detector = section.get("detector", "disabled")
     _validate_detector(detector, bullish, bearish)
     mode = _mode(section, strategy)
+    enabled_rules = None
+    if "enabled_rules" in section:
+        if detector != "expanded":
+            raise ValueError(
+                f"strategy {strategy!r}: {_SECTION}.enabled_rules requires "
+                f"{_SECTION}.detector: expanded"
+            )
+        enabled_rules = _names(section, "enabled_rules", frozenset(), strategy)
     return PatternConfig(
-        bullish_patterns=bullish, bearish_patterns=bearish, detector=detector, mode=mode
+        bullish_patterns=bullish, bearish_patterns=bearish, detector=detector, mode=mode,
+        enabled_rules=enabled_rules,
     )
 
 
@@ -155,12 +169,15 @@ def _validate_detector(detector: str, bullish: frozenset[str], bearish: frozense
 
 def pattern_mapping(config: PatternConfig) -> dict[str, Any]:
     """The effective vocabulary and mode as sorted lists, for the resolved config."""
-    return {
+    mapping: dict[str, Any] = {
         "bullish_patterns": sorted(config.bullish_patterns),
         "bearish_patterns": sorted(config.bearish_patterns),
         "detector": config.detector,
         "mode": config.mode,
     }
+    if config.enabled_rules:
+        mapping["enabled_rules"] = sorted(config.enabled_rules)
+    return mapping
 
 
 def _candle_evidence(state: ExecutionState, mode: str) -> CandleEvidence:
