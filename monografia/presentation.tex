@@ -1,4 +1,4 @@
-\documentclass[aspectratio=169,10pt]{beamer}
+\documentclass[aspectratio=169,17pt]{beamer}
 
 \usetheme{Madrid}
 \usecolortheme{default}
@@ -24,322 +24,78 @@
 \setbeamercolor{alerted text}{fg=uspblue}
 
 \title[Can AI Sentiment Improve Forex Trading?]{Can AI-Driven Sentiment Improve Forex Trading?}
-\subtitle{News, Geopolitical Events and NLP-Based Sentiment in Forex Decision-Making}
 \author[Wellington Souza]{Wellington Souza}
-\institute[ICMC/USP]{Institute of Mathematics and Computer Sciences\\University of São Paulo\\MBA in Artificial Intelligence and Big Data}
-\date{São Carlos, 2026}
+\institute[ICMC/USP]{MBA in Artificial Intelligence and Big Data \\ ICMC, University of S\~ao Paulo}
+\date{S\~ao Carlos, 2026}
 
 \begin{document}
 
-% =========================================================================
-% 1. INTRODUCTION AND OBJECTIVES
-% =========================================================================
-
-\section{Introduction and Objectives}
-
 \begin{frame}
   \titlepage
-  \vspace{-0.4cm}
+  \vspace{-0.6cm}
   \begin{center}
     \small Advisor: Prof.\ Dr.\ Carolina Toledo Ferraz
   \end{center}
 \end{frame}
 
-\begin{frame}{Context and motivation}
+\begin{frame}{Motivation \& question}
   \begin{itemize}
-    \item The Forex market reacts within seconds to macroeconomic announcements, central-bank decisions, geopolitical shocks and political instability.
-    \item Retail strategies based only on OHLC and technical indicators fail when the news flow dominates market behavior.
-    \item Modern financial NLP can turn news, sentiment and event context into systematic trading features.
-    \item The work is conceived as an academic TCC \alert{and} as the foundation for a future algorithmic-trading MVP.
+    \item Forex reacts to news and geopolitical shocks in seconds; price-only strategies ignore that.
+    \item \textbf{Question}: does sentiment + events beat a price-only baseline? Tested, not assumed.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Research problem and objectives}
-  \begin{block}{Research question (falsifiable)}
-    Does a hybrid strategy combining technical indicators with NLP-derived sentiment scores and contextual event features outperform a \textit{price-only} baseline on major Forex pairs, in risk-adjusted return, after realistic transaction costs?
-  \end{block}
-
-  \begin{alertblock}{Hypothesis (H1): a conjecture to be tested, not a claim}
-    \small The author \emph{believes} the hybrid will outperform, on the equity-market evidence and the documented failure of a macro-only fusion on EUR/USD and USD/JPY. This is a \alert{hypothesis}: the whole apparatus exists to test it, and a rejection is a valid, reportable result.
-  \end{alertblock}
-
-  \vspace{0.15cm}
-  \textbf{Objectives}
-  \begin{enumerate}
-    \item Build a reproducible pipeline for intraday prices, news and events.
-    \item Generate sentiment and event features via lexical and transformer methods.
-    \item Compare a \textit{price-only} baseline against a hybrid strategy under rigorous backtesting.
-    \item Preserve auditability through deterministic execution and filter-by-filter logs.
-  \end{enumerate}
-\end{frame}
-
-% =========================================================================
-% 2. THEORETICAL FOUNDATION
-% =========================================================================
-
-\section{Theoretical Foundation}
-
-\begin{frame}{Forex and algorithmic trading}
-  \begin{columns}[T]
-    \column{0.48\textwidth}
-    \begin{block}{Foreign-exchange market}
-      \begin{itemize}
-        \item Currency pairs sensitive to interest rates, inflation, risk appetite and geopolitics.
-        \item High liquidity does not remove transaction costs, spreads and slippage.
-        \item BIS 2022: US\$ 7.5T/day (spot US\$ 2.1T).
-      \end{itemize}
-    \end{block}
-
-    \column{0.48\textwidth}
-    \begin{block}{Algorithmic trading and discipline}
-      \begin{itemize}
-        \item Rules must be testable, reproducible and executable without discretion.
-        \item Backtests require realistic costs and strict temporal ordering.
-        \item López de Prado: financial data violates i.i.d.\ $\Rightarrow$ \alert{walk-forward + purged k-fold + embargo} are non-negotiable.
-      \end{itemize}
-    \end{block}
-  \end{columns}
-\end{frame}
-
-\begin{frame}{NLP for finance}
-  \begin{itemize}
-    \item NLP turns unstructured text into numerical representations usable by predictive models.
-    \item Financial language is domain-specific: \emph{liability}, \emph{risk} and \emph{uncertainty} carry specialized meaning.
-    \item Lexical methods (Loughran--McDonald) provide a transparent sentiment baseline.
-    \item Finance-tuned transformers (FinBERT (Araci 2019; Yang et al.\ 2020), BloombergGPT (Wu et al.\ 2023), FinGPT (Liu et al.\ 2023)) capture context, negation and domain semantics above the lexical ceiling.
-    \item Scaled attention: $\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{News, sentiment and geopolitical events}
-  \begin{itemize}
-    \item Market news can carry predictive information not fully reflected in past prices.
-    \item Article-level sentiment approximates tone, uncertainty and directional pressure in market narratives.
-    \item Geopolitical-risk and macroeconomic-event features represent context that affects currencies without a single decisive article.
-    \item \textbf{GDELT 2.0} (Leetaru \& Schrodt 2013): discrete events via the CAMEO taxonomy, updated every 15 min.
-    \item \textbf{GPR index} (Caldara \& Iacoviello 2022): a continuous risk regime from textual analysis of newspapers.
-    \item Central constraint: avoid \emph{look-ahead bias}, with each feature available \emph{before} the decision it influences.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Positioning vs the closest prior art}
-  Closest work: \textbf{Zhang (2025)}: GDELT $\to$ FinBERT $\to$ XGBoost on EUR/USD, USD/JPY and 10y UST, 2017--2025.
-  \vspace{0.2cm}
-  \begin{table}
-    \centering
-    \small
-    \begin{tabular}{lll}
-      \toprule
-      Axis & Zhang (2025) & This work \\
-      \midrule
-      Validation & 5-fold expanding & Combinatorial purged k-fold + embargo \\
-      Resolution & Daily & Intraday (1 min, configurable aggregation) \\
-      Pattern/candle layer & Absent & Present \\
-      Execution & 1 threshold $\to$ direction & Late fusion + meta-learner \\
-      Reported Sharpe & 5.87 (EUR/USD); 4.65 (JPY) & To be reported under a stricter protocol \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-  \vspace{0.1cm}
-  \begin{itemize}
-    \item Overlap in sources/scorer/pairs is high, deliberately.
-    \item Divergence is in the \alert{validation protocol} (López de Prado) and the execution layer.
-  \end{itemize}
-\end{frame}
-
-% =========================================================================
-% 3. METHODOLOGY
-% =========================================================================
-
-\section{Methodology}
-
-\begin{frame}{Methodological overview: system pipeline}
+\begin{frame}{Architecture}
   \centering
-  \resizebox{0.97\textwidth}{!}{\input{img/fig-pipeline-tikz}}
-
-  \vspace{0.3cm}
+  \resizebox{0.8\textwidth}{!}{\input{img/fig-pipeline-tikz}}
   \begin{itemize}
-    \item Modular \texttt{algo-*} suite: \emph{download} $\to$ \emph{transform} $\to$ \emph{score} $\to$ \emph{backtest} $\to$ \emph{analyze}, communicating through an on-disk Parquet contract.
-    \item \alert{\emph{Agentic perception, deterministic execution}}: the LLM acts only in perception (Parquet cache); execution is a deterministic rule on the LEAN engine $\to$ reproducible backtest.
+    \item Deterministic execution, filter-by-filter audit trail on every trade.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Data architecture}
-  \begin{table}
-    \centering
-    \small
-    \begin{tabular}{lll}
-      \toprule
-      Layer & Primary sources & Role \\
-      \midrule
-      Price & Dukascopy (yfinance fallback) & 1-min OHLC, trading grid \\
-      News & GDELT 2.0, FNSPID, CC-News & Article-level textual evidence \\
-      Events & GPR index, calendars, central banks & Daily and macro context \\
-      Canonical & Parquet + DuckDB & Source of truth (analytics, joins, portability) \\
-      Execution & \texttt{lean-data/} (LEAN-native) & Materialized \emph{once}, replayed across the sweep \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-
-  \vspace{0.2cm}
+\begin{frame}{Evaluation protocol}
   \begin{itemize}
-    \item \alert{Split storage}: Parquet = source of truth; \texttt{lean-data/} \emph{derived}, built once, reused across the sweep (never reconverted per run).
-    \item One mode-agnostic feature engine behind a \emph{read-through cache}: each bar computed \alert{exactly once}; identical in backtest and live (no train/serve skew).
-    \item Sources follow a self-registering \emph{adapter} pattern; article features bucketed by publication \emph{timestamp} onto the price grid.
-    \item Training window set by a \emph{coverage rule} (largest span with enough corpus coverage), not an arbitrary cut-off.
-    \item \alert{Twitter/X not ingested}: bulk-history API cost and post-2023 ToS put it out of an academic budget; the social signal comes from Reddit (and StockTwits) instead.
+    \item Walk-forward + purged $k$-fold with embargo (L\'opez de Prado).
+    \item One pre-registered, untouched test window per claim.
+    \item vs.\ closest prior art (Zhang 2025): different validation protocol, not directly comparable.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Implemented price data pipeline}
+\begin{frame}{Headline result: one trading year, reproduced}
+  March 2016 -- Feb 2017, EUR/USD, every arm on the same untouched year.
+  \begin{itemize}
+    \item \alert{No arm beats the baseline} ($p=0.149$, pre-registered).
+    \item Reproduced independently, byte-identical.
+    \item Only ``positive'' cell ($+12.2\%$) = same as its control ($p=0.92$) -- market drift, not an edge.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why -- three audited causes}
+  \begin{itemize}
+    \item Thresholds calibrated on one month didn't survive a level shift.
+    \item The meta-learner carried no information all year.
+    \item The news signal exists, but on a 4h horizon; the strategy holds for days.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Two follow-ups run this year}
+  \begin{itemize}
+    \item \textbf{Adaptive retraining}: frozen model, full year -- $-97.8\%$, 26\% win rate. 4/5 policies still outstanding.
+    \item \textbf{Candlestick catalog} (22 patterns): one positive alone, indistinguishable from chance (permutation test, 98.7\%). Whole catalog: $-99.5\%$ / $-32.8\%$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Conclusion \& future work}
+  \begin{itemize}
+    \item Pipeline and execution layer work end to end, proven not assumed.
+    \item No configuration tested this year beat the price-only baseline.
+    \item Registered, not yet run: confluence chain, intermarket features, price-action/Ichimoku contest, 4 retraining policies.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
   \centering
-  \resizebox{0.95\textwidth}{!}{\input{img/fig-data-pipeline-tikz}}
-
-  \vspace{0.25cm}
-  \begin{itemize}
-    \item \alert{Runnable today}: \texttt{download} (raw Dukascopy \texttt{.bi5} over plain HTTP, no credentials) and \texttt{transform} (decode $\to$ resample $\to$ canonical \texttt{QuoteBar} Parquet) are implemented and gated, test-first.
-    \item \alert{Selectable timeframe}: standard Forex set (M1, M5, M15, M30, H1, H4, D1). The strategy is \emph{multi-timeframe} -- each filter reads its own timeframe, chosen empirically in simulation; the transform pre-materializes each one.
-    \item Fail-fast: a month is written \emph{only} when its raw hours are all present and decode cleanly (otherwise reported \texttt{INCOMPLETE}/\texttt{CORRUPT}, nothing written, so no truncated partition).
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Feature layer}
-  \begin{columns}[T]
-    \column{0.5\textwidth}
-    \textbf{Price-derived}
-    \begin{itemize}
-      \item Returns and volatility
-      \item Technical indicators
-      \item Candlestick and chart-pattern signals
-      \item Regime and trend descriptors
-    \end{itemize}
-
-    \column{0.5\textwidth}
-    \textbf{Text/event-derived}
-    \begin{itemize}
-      \item Loughran--McDonald sentiment
-      \item FinBERT sentiment scores
-      \item Geopolitical and macroeconomic aggregates (GDELT, GPR)
-    \end{itemize}
-  \end{columns}
-  \vspace{0.2cm}
-  \footnotesize
-  \textbf{Fifth family, market activity:} relative per-currency strength from \emph{tick-volume} (an activity proxy; the day's dominant currency indicates direction). \textbf{Sentiment is attributed per currency} (EUR/USD/JPY) and combined into the pair differential: USD-macro news (e.g.\ FOMC) feeds both pairs.
-\end{frame}
-
-\begin{frame}{Experimental variables}
-  \begin{table}
-    \centering
-    \small
-    \begin{tabular}{p{2.6cm}p{9.5cm}}
-      \toprule
-      Type & Variables \\
-      \midrule
-      Independent (manipulated) & 5 feature families (TA-structural, indicators, patterns, news, market-activity); LightGBM hyperparameters in a restricted grid; thresholds $\theta_{high}, \theta_{low}$; \textbf{news sub-model on/off} (key manipulation: baseline vs hybrid) \\
-      Dependent (measured) & Sharpe, max drawdown, hit rate, holding time, turnover \\
-      Controlled (fixed) & Empirical cost model, temporal split, seeds, pinned library versions \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-  \vspace{0.15cm}
-  \footnotesize\textbf{Type of relationship investigated:} a \emph{controlled comparison} (ablation), not strict causality. The work measures whether the marginal predictive content of textual signals translates into risk-adjusted return after costs; it does not claim text \emph{causes} exchange-rate moves.
-\end{frame}
-
-\begin{frame}{Fusion and deterministic execution}
-  \begin{columns}[T]
-    \column{0.48\textwidth}
-    \begin{block}{Perception via late fusion}
-      \begin{itemize}
-        \item Separate sub-models represent feature families.
-        \item A meta-learner combines their probabilities.
-        \item Per-feature-family ablations become straightforward.
-      \end{itemize}
-    \end{block}
-
-    \column{0.48\textwidth}
-    \begin{block}{Execution filter chain}
-      \begin{itemize}
-        \item Converts probabilities into trade decisions.
-        \item Applies spread, risk, timing and capital guards.
-        \item Logs accepted and rejected decisions for audit.
-      \end{itemize}
-    \end{block}
-  \end{columns}
-\end{frame}
-
-\begin{frame}{Deterministic execution chain}
-  \centering
-  \resizebox{0.95\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
-
-  \vspace{0.25cm}
-  \footnotesize Context filters accumulate evidence; hard veto gates short-circuit to HOLD; the terminal rule emits BUY/SELL/HOLD. Each run writes \emph{trades.json} (the engine's trade ledger, grouped flat-to-flat) and \emph{decisions.parquet} (the bar-level audit, linked by \texttt{trade\_id}).
-\end{frame}
-
-\begin{frame}{Backtesting and evaluation protocol}
-  \begin{itemize}
-    \item Compare the hybrid strategy vs the \textit{price-only} baseline under identical assumptions.
-    \item Walk-forward preserves chronological ordering.
-    \item Combinatorial purged k-fold + embargo mitigates leakage in time series.
-    \item Temporal split: train 2015--2022, validation 2023, test 2024 (a single pass on the test span, no iteration).
-    \item Metrics: Sharpe, max drawdown, hit rate, holding time, turnover; cost sensitivity. Headline Sharpe reported with the probability-valued \alert{deflated Sharpe ratio} (registered search history) and a paired stationary-bootstrap test of the mean daily return difference.
-    \item Baselines: \textit{price-only} (same harness), Loughran--McDonald dictionary, Zhang (2025).
-    \item Non-deterministic models report \alert{mean $\pm$ standard deviation} across CV folds.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Numbered experiments}
-  \begin{table}
-    \centering
-    \small
-    \begin{tabular}{p{0.5cm}p{4.4cm}p{3.6cm}p{2.8cm}}
-      \toprule
-      \# & Target & Key independent variable & Primary metric \\
-      \midrule
-      0 & Engine sanity checks (buy-hold, random, perfect-foresight) & Known-answer strategies & Sharpe bounds \\
-      1 & Calibrate \textit{price-only} baseline on EUR/USD & LightGBM hyperparameters & Sharpe, max drawdown \\
-      2 & Full hybrid vs baseline on EUR/USD & News sub-model on/off & Sharpe, drawdown, hit \\
-      3 & Replicate on USD/JPY & Pair (EUR/USD vs USD/JPY) & Same + statistical test \\
-      4 & Ablation: price / +sent / +events / full & News sub-family enabled & Same \\
-      5 & Direct comparison vs Zhang (2025) & Validation protocol & Sharpe \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-  \vspace{0.15cm}
-  \footnotesize Each experiment $\to$ one section of Chapter 4. Tiered delivery (layered MVP): Inner (data + baseline) $\to$ Middle (EUR/USD hybrid) $\to$ Outer (USD/JPY + ablation + Zhang).
-\end{frame}
-
-% =========================================================================
-% 4. CLOSING
-% =========================================================================
-
-\section{Expected Results and Conclusion}
-
-\begin{frame}{Expected contributions and acceptance criterion}
-  \textbf{Methodological contributions:}
-  \begin{enumerate}
-    \item A reproducible architecture to align intraday Forex prices with news and geopolitical-event features.
-    \item A hybrid perception layer combining technical indicators, lexical sentiment, transformer sentiment and event aggregates.
-    \item An auditable deterministic execution layer suitable for backtest, paper trading and future live deployment.
-    \item An evaluation protocol explicitly addressing leakage, transaction costs and regime change.
-  \end{enumerate}
-  \vspace{0.1cm}
-  \begin{block}{Hypothesis-acceptance criterion}
-    \small The hypothesis is \alert{accepted} if Sharpe$_{hybrid}$ $>$ Sharpe$_{baseline} + \Delta$ \emph{or} drawdown$_{hybrid}$ $<$ drawdown$_{baseline} - \Delta$ in $\geq 3/5$ experiments, with statistical significance. \textbf{A null result is also a result:} if the hybrid does not beat the baseline, analyzing the conditions under which it fails is the contribution.
-  \end{block}
-\end{frame}
-
-\begin{frame}{Conclusion and next steps}
-  \begin{itemize}
-    \item The TCC addresses a practical limitation of \textit{price-only} Forex strategies: they ignore textual information.
-    \item Proposed solution: a layered system with explicit boundaries between perception, fusion and execution.
-    \item Intermediate delivery (methodology/proposal) \alert{complete}; final submission \alert{2026-09-01}, with a scope freeze in late August (Full vs Medium).
-    \item \alert{Asset-class-agnostic} architecture (LEAN-aligned vocabulary): the TCC scope is Forex, but the same engine adapts to equities, ETFs, futures, bonds and crypto by swapping the adapter and configuration.
-    \item Future work: multi-agent NLP, RL in execution, larger LLMs, multi-asset expansion, paper and live trading (OANDA via LEAN).
-  \end{itemize}
-
-  \vspace{0.4cm}
-  \centering
-  {\Large Thank you! Questions?}\\
+  {\Large Thank you. Questions?}\\
   \vspace{0.3cm}
   \footnotesize \texttt{wbsouza.work@gmail.com}
 \end{frame}
