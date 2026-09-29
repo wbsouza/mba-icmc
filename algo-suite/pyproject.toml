@@ -1,0 +1,128 @@
+## algo-suite — uv workspace root (virtual; not a package itself).
+## Members are the six algo-* tools. One shared lock, shared dev tooling.
+## See docs/architecture.md (§4 tool suite, §11 stack, §13 conventions).
+
+[tool.uv.workspace]
+members = [
+    "algo-core",
+    "algo-download",
+    "algo-transform",
+    "algo-score",
+    "algo-backtest",
+    "algo-analyze",
+]
+
+## algo-core is the shared lib; every other tool depends on it from the workspace.
+[tool.uv.sources]
+algo-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-bdd>=7",
+    "pytest-cov>=5",
+    "allure-pytest-bdd>=2.13",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "respx>=0.21",
+    "testcontainers>=4.14.0",
+    "types-pyyaml>=6",
+    # Mutation testing (Hardener gate) + CRAP analysis (coverage x cyclomatic complexity)
+    "mutmut>=3.2.0",
+    "radon>=6.0.1",
+    "pylint>=3.2",
+    # Writes real binary .xls fixtures (xlrd's read-only counterpart) so GPR decoder
+    # tests exercise the actual production spreadsheet format, not just CSV/TSV.
+    "xlwt>=1.3.0",
+]
+
+[tool.pytest.ini_options]
+# Two opt-in marks are deselected by default so the gate stays offline/fast:
+#   network     — hits a real external feed (Dukascopy);    run: uv run pytest -m network
+#   integration — spins the pinned LEAN container (~10 GB); run: uv run pytest -m integration
+markers = [
+    "network: hits a real external data feed; opt-in, excluded from the default gate",
+    "integration: spins a real container via testcontainers; opt-in, excluded from the default gate",
+]
+addopts = "-m 'not network and not integration' --import-mode=importlib"
+# tools/ holds standalone repo-root dev/quality tooling (mutation_harness.py) with no
+# installed package name; this makes `import mutation_harness` resolve from tests/
+# without a manual sys.path hack in conftest.py.
+pythonpath = ["tools"]
+# mutants/ is mutmut's regenerated mutated-source+test scratch copy; without this,
+# pytest recurses into it and re-runs (and mis-collects) every tool's whole suite.
+norecursedirs = [
+    "*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}",
+    "mutants",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# spikes/ holds throwaway de-risking exploration (e.g. the LEAN spike); not gated.
+# algos/ holds LEAN algorithm files (import AlgorithmImports — only valid inside the
+# LEAN container's Python), run in the engine, never imported by our code; not gated.
+# mutants/ is mutmut's regenerated mutated-source scratch copy; not gated.
+extend-exclude = ["**/spikes/**", "**/algos/**", "**/mutants/**"]
+
+[tool.ruff.lint]
+# E/F pyflakes+pycodestyle, I import order, UP pyupgrade, B bugbear, SIM
+# simplify, C90 mccabe cyclomatic complexity (enforces low complexity).
+select = ["E", "F", "I", "UP", "B", "SIM", "C90"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 8
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# spikes/ is throwaway exploration (LEAN spike + its generated ws/); not type-checked.
+# Tests are run by pytest; mypy checks src only to avoid duplicate module names.
+# mutants/ is mutmut's regenerated mutated-source scratch copy; not type-checked.
+# algo_backtest/engine/algorithm.py does `from AlgorithmImports import *` and subclasses
+# QCAlgorithm from it — a wildcard import from an unresolvable-outside-the-LEAN-container
+# module leaves those names undefined to mypy; same container-only boundary as algos/, not
+# type-checked. engine/brokerage/oanda.py imports AlgorithmImports too but only by name
+# (not `*`), so the ignore_missing_imports override below is enough for it.
+# engine/chain_algorithm.py subclasses ExecutionAlgorithm under the same `*` import (the
+# shared chain-driven LEAN glue); its LEAN-free logic is in chain/wiring.py, which is
+# type-checked.
+# docs/stories/*/evidence/ holds each story's standalone QA gate script, always named
+# qa_check.py — two of them are a duplicate top-level module name to `mypy .`, which aborts
+# the whole run; each is type-checked on its own with `uv run mypy --strict <path>` and
+# exercised by its Gherkin feature (tests/features/qa_check_*.feature).
+exclude = [
+    "(^|/)spikes/",
+    "(^|/)algos/",
+    "(^|/)tests/",
+    "(^|/)mutants/",
+    "(^|/)docs/stories/[^/]+/[^/]+/evidence/",
+    "(^|/)algo_backtest/engine/algorithm\\.py$",
+    "(^|/)algo_backtest/engine/chain_algorithm\\.py$",
+]
+
+# testcontainers (+ its docker-py) ship no py.typed; algo-backtest's production run path
+# imports them. gdeltnews (TD-28's article-text reconstruction) ships no py.typed either.
+# AlgorithmImports is LEAN's injected namespace, real only inside the LEAN container;
+# order_executor.py imports one name from it lazily (function-local, not at module scope)
+# to normalize a fill's OrderStatus. Ignore their missing stubs rather than litter inline
+# type: ignores.
+[[tool.mypy.overrides]]
+module = ["testcontainers.*", "docker.*", "gdeltnews.*", "AlgorithmImports"]
+ignore_missing_imports = true
+
+# lightgbm/scikit-learn (Spec 04g's meta-learner sub-models) ship no py.typed marker
+# at the pinned versions.
+[[tool.mypy.overrides]]
+module = ["lightgbm.*", "sklearn.*"]
+ignore_missing_imports = true
+
+# matplotlib ships no py.typed marker at the pinned version; algo-analyze's figure
+# renderers (_style.py) import it directly.
+[[tool.mypy.overrides]]
+module = ["matplotlib.*"]
+ignore_missing_imports = true
+
+[tool.coverage.report]
+# The module guard only runs under `python -m`; it is not behavior the BDD suite can reach.
+exclude_also = ['if __name__ == "__main__":']

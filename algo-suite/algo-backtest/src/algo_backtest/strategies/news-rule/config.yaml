@@ -1,0 +1,35 @@
+# Strategy "news-rule": a rule-only news strategy with NO meta-learner (story 14).
+# extends: news-only, so the chain is news-only's minus F7: F4 decides the direction from
+# the day's GDELT event intensity itself (news_context.direction_source: intensity — BUY at
+# or above intensity_buy_threshold, SELL at or below intensity_sell_threshold, NEUTRAL
+# between; intensity_sign -1 swaps the two so the Goldstein sign convention is a
+# registered experiment cell), still vetoing at or below event_intensity_veto_threshold
+# first; F5 and F6 keep the trade viable. Without f7_meta_learner the chain names its
+# closing rule with `terminal_filter` (chain/terminal.py LastFilterTerminalDecision): the
+# last filter's recommendation is the decision, BUY/SELL as they are, NEUTRAL/ABSTAIN → HOLD.
+# No F7 means no model: `algo-backtest run --strategy news-rule` takes no --model.
+#
+# The two intensity thresholds below are placeholders (0.9 / 0.3) to be overridden per
+# experiment cell (a variant `extends: news-rule` restating only news_context.*). The
+# `meta_learner:` section news-only declares is dropped (top-level null), as F7 is absent.
+# Decision bars H1; risk_guard / capital_mgmt are the Heikin-Ashi H4 template's values
+# inherited from news-only. `news-rule-h4` restates only the H4 clock.
+schema_version: 2
+extends: news-only
+
+filters:
+  - f4_news_context
+  - f5_risk_guard
+  - f6_capital_mgmt
+terminal_filter: f4_news_context
+
+# F7 is not in the chain: drop the meta_learner section news-only declares.
+meta_learner: null
+
+news_context:
+  event_intensity_veto_threshold: -0.5
+  sentiment_direction_threshold: 0.15   # unused under direction_source: intensity, kept for the record
+  direction_source: intensity
+  intensity_buy_threshold: 0.9          # placeholder — override per cell
+  intensity_sell_threshold: 0.3         # placeholder — override per cell
+  intensity_sign: 1

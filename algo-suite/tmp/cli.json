@@ -1,0 +1,241 @@
+{
+  "name" : "algo-download CLI wiring",
+  "scenarios" : [ {
+    "name" : "A dry run lists the plan without I/O",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --month 2020-01 --dry-run\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"EURUSD 2020-01-02 14h\""
+    }, {
+      "keyword" : "And",
+      "text" : "no .bi5 file was written under the data root"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "An unknown source fails fast naming the known sources",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source nope --symbol EURUSD --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"dukascopy\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A run with neither a month nor a range fails fast",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "The version command prints the package version",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"version\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    }, {
+      "keyword" : "And",
+      "text" : "the output is non-empty"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A badly formatted month fails fast",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --month 2020/01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"YYYY-MM\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "An impossible month fails fast with a friendly range",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --month 2020-13\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains either \"1-12\" or \"01-12\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "An unknown symbol fails fast mentioning the catalog",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol XXXYYY --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the lowercased output contains \"catalog\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A from-month after the to-month fails fast",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --from 2020-03 --to 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A mocked run reports written payloads and exits zero",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the datafeed returns 200 with \"TICKS\" and no throttle"
+    }, {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    }, {
+      "keyword" : "And",
+      "text" : "the lowercased output contains \"written\""
+    }, {
+      "keyword" : "And",
+      "text" : "at least one .bi5 file was written under the data root"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A mocked range downloads each month and exits zero",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the datafeed returns 200 with \"TICKS\" and no throttle"
+    }, {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source dukascopy --symbol EURUSD --from 2020-01 --to 2020-02\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    }, {
+      "keyword" : "And",
+      "text" : "the directory \"raw/dukascopy/EURUSD/2020/01\" exists under the data root"
+    }, {
+      "keyword" : "And",
+      "text" : "the directory \"raw/dukascopy/EURUSD/2020/02\" exists under the data root"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A global source (no symbol) rejects --symbol",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gdelt --symbol EURUSD --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"--symbol\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A global source (no symbol) runs without --symbol",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT datafeed returns 200 with \"ZIP\" and no throttle"
+    }, {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gdelt --month 2020-01 --dry-run\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A whole-window source (no date partitioning) rejects --month",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gpr --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"--month\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A whole-window source (no date partitioning) rejects --from/--to",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gpr --from 2020-01 --to 2020-02\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"--from\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A whole-window source runs with neither --symbol nor a date flag",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GPR datafeed returns 200 with \"XLS\" and no throttle"
+    }, {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gpr\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    }, {
+      "keyword" : "And",
+      "text" : "the lowercased output contains \"written\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A second global source (no symbol) rejects --symbol",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gdelt_ngrams --symbol EURUSD --month 2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits non-zero"
+    }, {
+      "keyword" : "And",
+      "text" : "the output contains \"--symbol\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A second global source (no symbol) runs without --symbol",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT NGrams datafeed returns 200 with \"GZIP\" and no throttle"
+    }, {
+      "keyword" : "When",
+      "text" : "I invoke the CLI with \"run --source gdelt_ngrams --month 2020-01 --dry-run\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the CLI exits 0"
+    } ],
+    "examples" : [ ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "ALGO_DATA_ROOT points at a writable temp directory"
+  } ]
+}

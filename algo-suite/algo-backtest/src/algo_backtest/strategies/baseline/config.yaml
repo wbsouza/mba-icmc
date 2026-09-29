@@ -1,0 +1,122 @@
+# Strategy "baseline" (Spec 04, Experiment 1 — docs/experiments.md #1): price-only.
+# Feature families: TA-structural (F1), indicator (F2), pattern (F3) — the news family
+# (F4) is excluded (PRD.md §1: "baseline uses the price-derived families"). F5/F6 are
+# execution-viability gates, not feature families; F7 is the terminal threshold rule.
+#
+# Every configurable filter owns its own section below (2026-09-27 amendment, story 09):
+# a filter listed in `filters:` without its section, or a section without its filter, is
+# a hard stop. F1/F2/F3 have no tunable parameters beyond `perception_source`.
+schema_version: 2
+
+filters:
+  - f1_trend
+  - f2_indicator
+  - f3_pattern
+  - f5_risk_guard
+  - f6_capital_mgmt
+  - f7_meta_learner
+
+# Price-feature parameters shared by F1/F2 and the F7 feature families (train and serve
+# read the same values; the trained model records them and a run refuses a model fitted
+# on different periods). All optional — these are the defaults. atr_period is the Wilder
+# ATR behind the atr_pips feature and swing_lookback_bars the window behind
+# swing_low_pips / swing_high_pips — F6's stop-distance sources (story 12).
+price_features:
+  ema_fast: 3
+  ema_slow: 8
+  ema_higher_tf: 60
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  atr_period: 14
+  swing_lookback_bars: 60
+
+# F2 — oscillator confirmation thresholds. Optional; these are the defaults.
+indicator:
+  rsi_midline: 50
+  macd_hist_threshold: 0
+
+# F3 — candlestick vocabulary (no detector is wired yet, TD-51). Optional; defaults.
+pattern:
+  bullish_patterns: [bullish_engulfing, hammer, morning_star]
+  bearish_patterns: [bearish_engulfing, shooting_star, evening_star]
+
+# F5 — RiskGuard caps (specs.md §14.8). `null` disables one cap. Drawdown limits are PnL
+# floors, so they are <= 0 (-0.05 = a 5% loss).
+risk_guard:
+  portfolio_at_risk_cap: 0.10
+  daily_drawdown_limit: -0.05
+  weekly_drawdown_limit: -0.15
+  max_concurrent_trades_per_account: 2   # reference open-trade limit (specs.md §14.7)
+  max_leverage: 30
+
+# F6 — fixed-fractional sizing (specs.md §14.7, 3% for the reference strategy), the per-lot
+# economics the chain feeds it, and — since story 12 (execution realism) — the
+# reference trade plan (specs.md §14.5–14.7): stop first, lot from risk_per_trade and the stop
+# distance, targets and trailing steps as multiples of that distance. pip_value_per_lot
+# follows the standard EURUSD convention (~$10/pip per 100k-unit lot); assumed_leverage
+# derives margin per lot. The plan keys have defaults (a single full-size target at 2 ×
+# the stop, nothing else); they are spelled out here so the run records the reference plan explicitly.
+capital_mgmt:
+  risk_per_trade: 0.03
+  stop_loss_pips: 20.0            # base stop distance when stop_distance_source is fixed
+  pip_value_per_lot: 10.0
+  lot_notional_units: 100000
+  assumed_leverage: 30
+  # Fraction the base stop distance is shrunk toward entry, in [0, 1) — reference
+  # stop-loss decrease = 20 %.
+  stop_loss_shrink: 0.20
+  # Floors on the shrunk stop distance: an absolute one in pips, and a multiplier on the
+  # broker's minimum stop distance (execution.broker_stop_level_pips) — reference
+  # stop-level factor = 1.2. The effective floor is the larger of the two.
+  min_stop_pips: 5.0
+  min_stop_factor: 1.2
+  # Take-profit levels as multiples of the stop distance and the fraction of the position
+  # closed at each; the fractions sum to at most 1 (the rest rides the trailing stop) —
+  # reference final target factor 2.0, lot percentage 50 %.
+  targets:
+    - {at_level_ratio: 2.0, close_fraction: 0.5}
+  # Trailing-stop steps: armed when price has moved at_level_ratio × stop distance in the
+  # trade's favour, stop moved to to_level_ratio × stop distance from entry (negative =
+  # still below entry) — reference trail-stop at-level 0.5, to-level -0.66.
+  trail_stops:
+    - {at_level_ratio: 0.5, to_level_ratio: -0.66}
+  # Minimum final-target distance / stop distance before F6 lets a signal through; null
+  # disables the veto. 2.0 = the reference final target itself.
+  min_reward_risk: 2.0
+  # Where the base stop distance comes from: fixed (stop_loss_pips), atr (atr_multiplier ×
+  # the bar's ATR in pips, price_features.atr_period) or swing (the distance to the rolling
+  # swing low/high over price_features.swing_lookback_bars — the reference strategy's structural template
+  # stop, which the shrink then tightens).
+  stop_distance_source: swing
+  atr_multiplier: 2.0
+
+# F7 — the terminal threshold rule. theta_high/theta_low are calibrated on the validation
+# span and held fixed. regime_gate=true is the dissertation's rule (BUY needs F1's bull
+# regime, SELL its bear regime); false trades on p_hat alone. The 2015-09 pilot found the
+# fitted model anti-aligned with F1's regime on every bar, so the gated rule never fired
+# (docs/stories/done/09-six-month-training-september-pilot/progress.md).
+meta_learner:
+  families:
+    - trend
+    - indicator
+    - pattern
+  theta_high: 0.55
+  theta_low: 0.45
+  regime_gate: false
+  label_horizon_minutes: 15   # training label look-ahead (optional; default 15)
+
+# Execution costs and holding rule (story 12, execution realism; specs.md §14.7). Not tied
+# to a filter: always resolved, every key optional (defaults are the frictionless case),
+# recorded in the run's strategy-config.{json,yaml}.
+execution:
+  spread_pips: 1.0          # bid/ask spread charged on every fill, in pips (reference broker ~1 pip)
+  commission_per_lot: 0.0   # account-currency fee per 1.0 lot per side (reference broker: none)
+  min_hold_bars: 0          # bars a position must stay open before an opposite signal closes it
+  # The broker's minimum distance between price and a stop/target order, in pips (OANDA's
+  # is not exposed by LEAN, so it is declared). F6 floors the stop at min_stop_factor × this.
+  broker_stop_level_pips: 0.0
+  close_on_veto: false     # a filter veto (NO_TRADE) leaves an open position to its stop, targets,
+                            # trail and min-hold exits (the reference strategy did not close on a signal change;
+                            # only its USD/JPY variant did). true = close at once on any veto.

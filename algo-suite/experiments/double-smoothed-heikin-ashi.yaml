@@ -1,0 +1,20 @@
+# Frozen-F7-model perception ablation, a wiring comparison rather than a thesis result.
+# Requires materialized EURUSD minute data for August 2015.
+# ALGO_DATA_ROOT=<root> ALGO_BROKER__ADAPTER=oanda uv run algo-backtest experiment run \
+#   --spec experiments/double-smoothed-heikin-ashi.yaml
+experiment: double-smoothed-heikin-ashi
+runs:
+  - id: ema
+    strategy: baseline
+    symbol: EURUSD
+    from: 2015-08-03
+    to: 2015-08-07
+    params:
+      cash: 10000
+  - id: double-smoothed-heikin-ashi
+    strategy: baseline-dsha
+    symbol: EURUSD
+    from: 2015-08-03
+    to: 2015-08-07
+    params:
+      cash: 10000

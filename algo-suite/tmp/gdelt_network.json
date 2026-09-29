@@ -1,0 +1,32 @@
+{
+  "name" : "GDELT adapter against the live datafeed (opt-in)",
+  "scenarios" : [ {
+    "name" : "A real slot, an out-of-coverage slot, and resume",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a GDELT source against the live feed"
+    }, {
+      "keyword" : "When",
+      "text" : "I fetch the real Events slot 2026-09-22 09:45"
+    }, {
+      "keyword" : "Then",
+      "text" : "the slot status is WRITTEN with a positive byte count"
+    }, {
+      "keyword" : "And",
+      "text" : "the raw path is \"raw/gdelt/2026/09/22/20260922094500.export.CSV.zip\""
+    }, {
+      "keyword" : "And",
+      "text" : "the payload is a zip containing exactly one CSV named \"20260922094500.export.CSV\""
+    }, {
+      "keyword" : "When",
+      "text" : "I fetch the out-of-coverage slot 2015-02-17 00:00"
+    }, {
+      "keyword" : "Then",
+      "text" : "the slot status is MISSING with an empty marker persisted"
+    }, {
+      "keyword" : "And",
+      "text" : "both slots are now done on disk"
+    } ],
+    "examples" : [ ]
+  } ]
+}

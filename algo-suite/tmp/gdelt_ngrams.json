@@ -1,0 +1,123 @@
+{
+  "name" : "Download GDELT Web News NGrams 3.0 (raw only)",
+  "scenarios" : [ {
+    "name" : "Planning performs no I/O",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I plan gdelt_ngrams for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the plan lists 44640 minute units"
+    }, {
+      "keyword" : "And",
+      "text" : "no HTTP request was made"
+    }, {
+      "keyword" : "And",
+      "text" : "no file was written under the data root"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Happy path writes raw payloads at the canonical path",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I download gdelt_ngrams for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "a raw payload exists at \"raw/gdelt_ngrams/2020/01/02/20200102143400.webngrams.json.gz\""
+    }, {
+      "keyword" : "And",
+      "text" : "no file is written outside the raw store"
+    }, {
+      "keyword" : "And",
+      "text" : "no unit is FAILED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Resume is a filesystem no-op",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "gdelt_ngrams \"2020-01\" is already downloaded"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt_ngrams for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "no HTTP request was made"
+    }, {
+      "keyword" : "And",
+      "text" : "every unit is SKIPPED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A minute the provider never published is MISSING and durable, not FAILED",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT NGrams datafeed has no data for minute 2020-01-02 14:34"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt_ngrams for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "\"raw/gdelt_ngrams/2020/01/02/20200102143400.webngrams.json.gz\" exists as an empty payload"
+    }, {
+      "keyword" : "And",
+      "text" : "that minute is counted MISSING"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A minute fetch that never completes writes nothing and flips the exit code",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT NGrams datafeed always errors for minute 2020-01-02 14:34"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt_ngrams for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "no file exists at \"raw/gdelt_ngrams/2020/01/02/20200102143400.webngrams.json.gz\""
+    }, {
+      "keyword" : "And",
+      "text" : "that minute is counted FAILED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits non-zero"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "The minute URL is directly guessable from its timestamp, no master list needed",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I build the GDELT NGrams URL for minute 2020-01-02 14:34"
+    }, {
+      "keyword" : "Then",
+      "text" : "the URL is \"https://data.gdeltproject.org/gdeltv3/webngrams/20200102143400.webngrams.json.gz\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "The raw path is day-partitioned and round-trips to the same minute",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I round-trip the raw path under \"/data\" for minute 2020-01-02 14:34"
+    }, {
+      "keyword" : "Then",
+      "text" : "the parsed minute equals the original minute"
+    } ],
+    "examples" : [ ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "a writable data root"
+  }, {
+    "keyword" : "And",
+    "text" : "the GDELT NGrams datafeed returns gzip bytes by default"
+  } ]
+}

@@ -1,0 +1,22 @@
+%% pre/resumo.tex
+%% Portuguese-language abstract (Resumo) required by ABNT NBR 14724 and by
+%% the ICMC-USP MBA submission rules, even though the body of the document
+%% is in English. Mirrors pre/abstract.tex in content and ordering.
+\setlength{\absparsep}{18pt}
+\begin{resumo}[Resumo]
+ \begin{otherlanguage*}{brazil}
+    \begin{flushleft}
+        \setlength{\absparsep}{0pt}
+        \SingleSpacing
+        \imprimirautorabr~~\textbf{\imprimirtituloresumo}.	\imprimirdata. \pageref{LastPage} p.
+        \imprimirtipotrabalho~-~\imprimirinstituicao, \imprimirlocal, \imprimirdata.
+    \end{flushleft}
+    \OnehalfSpacing
+    Este trabalho investiga se atributos de sentimento e de eventos derivados de t\'ecnicas de Processamento de Linguagem Natural (PLN) s\~ao capazes de melhorar o desempenho ajustado a risco de uma estrat\'egia de negocia\c{c}\~ao algor\'itmica no mercado de c\^ambio (Forex) em rela\c{c}\~ao a uma estrat\'egia de refer\^encia baseada apenas em pre\c{c}os. A pergunta \'e relevante porque o mercado de c\^ambio \'e fortemente influenciado por fluxos de not\'icias e por informa\c{c}\~ao macroecon\^omica; ainda assim, a literatura sobre previs\~ao de retornos financeiros a partir de texto tem se concentrado em mercados acion\'arios, deixando essa classe de ativos comparativamente menos explorada. A abordagem proposta constr\'oi, sobre dois pares principais de c\^ambio em resolu\c{c}\~ao de um minuto, uma estrat\'egia h\'ibrida que combina sinais t\'ecnicos com atributos de sentimento e de eventos extra\'idos de texto financeiro e de um \'indice p\'ublico de risco geopol\'itico, integrados em uma \'unica decis\~ao de negocia\c{c}\~ao sob disciplina temporal estrita (\emph{point-in-time}) e com um atraso conservador entre a publica\c{c}\~ao e o uso da informa\c{c}\~ao; as fontes de dados, os escoradores e os componentes de decis\~ao s\~ao detalhados no cap\'itulo de metodologia. A avalia\c{c}\~ao contrasta a estrat\'egia h\'ibrida com a estrat\'egia de refer\^encia baseada apenas em pre\c{c}os, em dados fora da amostra, sob custos de transa\c{c}\~ao realistas, complementada por um estudo de abla\c{c}\~ao que isola a contribui\c{c}\~ao marginal do canal textual e por um teste estat\'istico formal da diferen\c{c}a entre as distribui\c{c}\~oes de retornos. A contribui\c{c}\~ao \'e dupla: um teste emp\'irico e falsific\'avel da hip\'otese de que adicionar atributos textuais derivados de PLN melhora o desempenho ajustado a risco nos dois pares-alvo, e uma metodologia reutiliz\'avel que trabalhos subsequentes possam estender sem reimplementa\c{c}\~ao.
+
+    \vspace{\onelineskip}
+
+    \noindent
+    \textbf{Palavras-chave}: negocia\c{c}\~ao algor\'itmica. mercado de c\^ambio (Forex). processamento de linguagem natural. an\'alise de sentimento financeiro. extra\c{c}\~ao de eventos. FinBERT. GDELT. risco geopol\'itico. \emph{backtesting}.
+ \end{otherlanguage*}
+\end{resumo}

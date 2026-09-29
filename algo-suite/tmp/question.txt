@@ -1,0 +1,25 @@
+Spec ambiguity blocking: algo-score/SPEC.md §6.2 names an `event_intensity`
+column ("GDELT aggregate") but never defines the aggregation formula. The
+canonical GdeltEvent row (algo-transform/src/algo_transform/events.py) has
+per-event `goldstein_scale` (float, conflict/cooperation intensity, -10..+10)
+and `avg_tone` (float, document tone, -100..+100), with multiple events per
+`event_date` (day). events/gdelt.py must collapse these into one daily
+event_intensity value before forward-filling to the minute grid — this is a
+methodology decision (specs.md territory), not something the specifier should
+invent unilaterally.
+
+Options considered:
+  (a) mean(goldstein_scale) per day — simplest, matches how GPR is a single
+      published index value per day; ignores avg_tone entirely.
+  (b) mean(goldstein_scale) weighted by num_mentions per day — down-weights
+      thin-coverage events; more defensible as a "regime" signal.
+  (c) a composite of goldstein_scale and avg_tone (e.g. z-scored and summed)
+      — captures both event severity and tone but adds an undocumented
+      combination rule.
+
+Recommendation: (a), mean(goldstein_scale) per day, unweighted. It is the
+simplest defensible choice, mirrors GPR's own one-value-per-day shape, and
+keeps avg_tone free for a future scorer-side use instead of conflating it
+into a single number now. Please confirm (a), or specify (b)/(c)/other so
+this can be written as a dated specs.md amendment before the Gherkin locks
+in a golden-value test.
