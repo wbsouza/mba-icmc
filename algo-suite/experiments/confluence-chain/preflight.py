@@ -90,8 +90,16 @@ def _slots(window_start: datetime, window_end: datetime, clock_minutes: int) -> 
 
 
 def partition_path(pair: str, clock_minutes: int, month: str) -> str:
-    """The conventional Parquet partition path for one pair/clock/month."""
-    return f"algo-suite/data/parquet/forex/{pair}/clock={clock_minutes}/{month}.parquet"
+    """The M1 price partition a pair/month needs, relative to the data root.
+
+    This is `algo_core.layout.price_path`'s real on-disk layout
+    (``parquet/forex/<pair>/m1/year=YYYY/month=MM/data.parquet``): every signal-bar
+    clock is aggregated from that one M1 store, so the path does not depend on
+    `clock_minutes` (kept in the signature so callers still name the clock they are
+    checking). `month` is ``YYYY-MM``.
+    """
+    year, month_number = month.split("-")
+    return f"parquet/forex/{pair}/m1/year={year}/month={month_number}/data.parquet"
 
 
 def _group_contiguous(times: list[datetime], step: timedelta) -> list[list[datetime]]:
@@ -163,7 +171,8 @@ def compute_population_ledger(
         month = f"{window_start:%Y-%m}"
         raise ValueError(
             f"{_TOOL}: missing source partition for pair {pair!r} clock {clock_minutes} "
-            f"month {month} — expected at {partition_path(pair, clock_minutes, month)} — "
+            f"month {month} — expected at {partition_path(pair, clock_minutes, month)} "
+            "(relative to the data root) — "
             "materialize it by running the ingestion pipeline for that month before this "
             "preflight can pass"
         )

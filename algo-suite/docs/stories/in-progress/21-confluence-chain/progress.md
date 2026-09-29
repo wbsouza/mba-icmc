@@ -910,3 +910,39 @@ to `Implemented (..., T17)`.
 
 Next: T18 (`experiments/confluence-chain/compare.py`, the registered comparison
 report), depends on T17.
+
+## Hardener phase 3 (2026-09-28)
+
+Manual mutation testing (no `mutmut` for `experiments/`) of the work since `f6c464a`: T17's
+`experiments/confluence-chain/run_cells.py` (78 mutations), T16's registration `README.md`
+(16) and the one production function this pass had to fix, `preflight.py::partition_path`
+(6) — 100 total, each applied in place one at a time, run against the covering step files and
+restored, `git status --porcelain` matching baseline after every one (0 drift). T18
+(`compare.py`) had not landed, so it is out of scope. Full tables and traces in
+`mutation-phase3.md`.
+
+Result: 94 KILLED, 6 SURVIVED, all justified, 0 unjustified. Four `run_cells.py` equivalents
+(R4 cell-id set is order-free; R9 `compute_arm_ledger` never reads `clock_minutes`; R13/R14
+the required partition is clock-independent) and two README prose claims with no executable
+counterpart until T18 (D11/D12, bootstrap block length / resamples — T18 must bind the D7
+numbers to the README). Negative control R32 KILLED. The first pass killed only 10 of 66 on
+`run_cells.py` because T17's tests always injected a permissive gate and fake runner; the 56
+survivors were closed with 63 new Gherkin scenarios/examples in
+`confluence_run_contract.feature` (15 → 78), none weakening an existing one.
+
+Genuine production finding fixed: `preflight.partition_path` (and so T17's `population_gate`)
+targeted a layout `algo_core.layout` never writes (`algo-suite/data/parquet/forex/<pair>/
+clock=N/<month>.parquet` joined onto a `data_root` that is already `algo-suite/data`), so the
+gate would have hard-failed on real data. It now returns the real M1 store path
+(`parquet/forex/<pair>/m1/year=YYYY/month=MM/data.parquet`, data-root-relative), cross-checked
+against `algo_core.layout.price_path` by a scenario. Gate scope (file existence only) unchanged.
+
+Gates: full suite `uv run pytest algo-backtest/tests -q -p no:cacheprovider` 2015 passed (was
+1952); `uv run ruff check algo-backtest experiments` clean; `uv run mypy --strict
+experiments/confluence-chain` clean. Follow-up for the engine-integration hardening pass
+(PR #91 comment #7845): the `on_fill`-after-time-exit call order in
+`chain_algorithm.py::on_order_event` is load-bearing (8/10 native scenarios fail if reordered).
+Agent: hardener (Claude Sonnet 5.5). Branch `feat/21-confluence-chain`, base `00b91fa`.
+
+Next: T18 (`experiments/confluence-chain/compare.py`, the registered comparison report),
+depends on T17.
