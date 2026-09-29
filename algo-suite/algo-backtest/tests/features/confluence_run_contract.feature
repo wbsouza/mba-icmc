@@ -252,7 +252,7 @@ Feature: Confluence run contract — the bounded fourteen-cell launch harness (s
       Then the real population gate over both clocks fails naming clock 60 and month "2016-03"
 
     Scenario Outline: the expected partition is the storage layout's real M1 price partition
-      Then the partition expected for pair "<pair>", clock <clock> and month "<month>" is the layout's forex m1 price path
+      Then the partition expected for pair "<pair>", clock <clock> and month "<month>" is the lean-data minute quote store's day-zip glob
 
       Examples:
         | pair   | clock | month   |

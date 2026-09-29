@@ -90,16 +90,18 @@ def _slots(window_start: datetime, window_end: datetime, clock_minutes: int) -> 
 
 
 def partition_path(pair: str, clock_minutes: int, month: str) -> str:
-    """The M1 price partition a pair/month needs, relative to the data root.
+    """Where this pair's month lives in the real materialized data store, for display only.
 
-    This is `algo_core.layout.price_path`'s real on-disk layout
-    (``parquet/forex/<pair>/m1/year=YYYY/month=MM/data.parquet``): every signal-bar
-    clock is aggregated from that one M1 store, so the path does not depend on
-    `clock_minutes` (kept in the signature so callers still name the clock they are
-    checking). `month` is ``YYYY-MM``.
+    H1 and H4 both aggregate from the same materialized minute quotes — the lean-data
+    store `algo_backtest.run.lean_data_covers` itself checks, and the same one
+    `algo-backtest run`'s own CLI gates on (`cli.py`: `lean_data_dir_for(...).glob(
+    "*_quote.zip")`) — so this does not depend on `clock_minutes` (kept in the
+    signature so callers still name the clock they are checking; a diagnostic string
+    only, `population_gate` calls `lean_data_covers` directly for the real check
+    rather than reconstructing this path). `month` is ``YYYY-MM``.
     """
-    year, month_number = month.split("-")
-    return f"parquet/forex/{pair}/m1/year={year}/month={month_number}/data.parquet"
+    del clock_minutes
+    return f"lean-data/forex/oanda/minute/{pair.lower()}/{month}*_quote.zip"
 
 
 def _group_contiguous(times: list[datetime], step: timedelta) -> list[list[datetime]]:

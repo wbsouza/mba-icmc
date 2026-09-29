@@ -26,7 +26,8 @@ from typing import Any
 
 import pytest
 import yaml
-from algo_core import layout
+from algo_core.instrument import build_instrument
+from algo_core.layout import lean_data_dir_for
 from pytest_bdd import given, parsers, scenarios, then, when
 
 scenarios("../features/confluence_run_contract.feature")
@@ -420,16 +421,15 @@ def _status_is_list(run_contract_ctx: _RunContractCtx, cell_id: str) -> None:
 
 
 def _write_partitions(ctx: _RunContractCtx, skip_month: str) -> None:
-    """Create every study month's M1 price partition, except `skip_month`, under the data root."""
+    """Create one materialized lean-data day-zip for every study month except `skip_month` —
+    the same file `population_gate`'s real `lean_data_covers` check looks for."""
+    directory = lean_data_dir_for(ctx.data_root, build_instrument("EURUSD"), "minute")
+    directory.mkdir(parents=True, exist_ok=True)
     for month in _STUDY_MONTHS:
         if month == skip_month:
             continue
         year, month_number = month.split("-")
-        path = layout.price_path(
-            ctx.data_root, "forex", "EURUSD", "m1", int(year), int(month_number)
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"")
+        (directory / f"{year}{month_number}01_quote.zip").write_bytes(b"")
 
 
 @given(parsers.parse('a data root holding every M1 monthly partition except "{month}"'))
@@ -740,13 +740,14 @@ def _check_gate_h4_fails(run_contract_ctx: _RunContractCtx, clock: int, month: s
 @then(
     parsers.parse(
         'the partition expected for pair "{pair}", clock {clock:d} and month "{month}" is the '
-        "layout's forex m1 price path"
+        "lean-data minute quote store's day-zip glob"
     )
 )
 def _check_partition_layout(tmp_path: Path, pair: str, clock: int, month: str) -> None:
-    year, month_number = month.split("-")
-    expected = layout.price_path(tmp_path, "forex", pair, "m1", int(year), int(month_number))
-    assert tmp_path / rc.pf.partition_path(pair, clock, month) == expected
+    directory = lean_data_dir_for(tmp_path, build_instrument(pair), "minute")
+    expected = f"{directory}/{month}*_quote.zip"
+    displayed = tmp_path / rc.pf.partition_path(pair, clock, month)
+    assert str(displayed) == expected
 
 
 @then(parsers.parse("the real population gate refuses cells that differ in {difference}"))

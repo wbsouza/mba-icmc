@@ -63,7 +63,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from algo_backtest.run import lean_data_covers
 from algo_core.atomicio import write_text_atomic
+from algo_core.instrument import build_instrument
 
 HERE = Path(__file__).resolve().parent
 SUITE = HERE.parents[1]
@@ -150,10 +152,6 @@ def _arm_ledger_status(cell: LaunchCell) -> tuple[str, str | None]:
     return str(ledger.status), (None if ledger.reason is None else str(ledger.reason))
 
 
-def _partition_path(pair: str, clock_minutes: int, month: str) -> str:
-    return str(pf.partition_path(pair, clock_minutes, month))
-
-
 def _date_window(start: str, end: str) -> tuple[datetime, datetime]:
     window_start, window_end = pf.date_window(start, end)
     return window_start, window_end
@@ -228,10 +226,10 @@ def months_between(start: date, end: date) -> list[tuple[str, str, str]]:
 
 
 def population_gate(cells: Sequence[LaunchCell], data_root: Path) -> None:
-    """The real, file-existence-only price-population gate (CC-24); see module docstring.
+    """The real materialized-data-coverage price-population gate (CC-24); see module docstring.
 
     Raises:
-        ValueError: any required month's source partition is absent for any requested
+        ValueError: any required month has no materialized lean-data for any requested
             clock, or the requested cells disagree on pair/window (a registration bug).
     """
     if not cells:
@@ -245,17 +243,27 @@ def population_gate(cells: Sequence[LaunchCell], data_root: Path) -> None:
         )
     (pair,) = pairs
     ((study_start, study_end),) = windows
+    instrument = build_instrument(pair)
     for clock_minutes in sorted({cell.clock_minutes for cell in cells}):
-        for label, month_start, month_end in months_between(
+        # Reuse the same real coverage check `algo-backtest run` itself gates on
+        # (algo_backtest.run.lean_data_covers) — H1 and H4 both aggregate from the same
+        # materialized minute quotes, so this is clock-independent (the month label
+        # below is used only for `_check_population_month`'s own window bounds).
+        for _label, month_start, month_end in months_between(
             date.fromisoformat(study_start), date.fromisoformat(study_end)
         ):
-            partition = data_root / _partition_path(pair, clock_minutes, label)
+            partition_exists = lean_data_covers(
+                data_root,
+                instrument,
+                date.fromisoformat(month_start),
+                date.fromisoformat(month_end),
+            )
             _check_population_month(
                 pair=pair,
                 clock_minutes=clock_minutes,
                 month_start=month_start,
                 month_end=month_end,
-                partition_exists=partition.is_file(),
+                partition_exists=partition_exists,
             )
 
 
