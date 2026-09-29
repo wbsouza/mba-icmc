@@ -1,0 +1,45 @@
+# Second registered protocol: the broader-window H4 matrix. Prepared with
+# `runner.py prepare --plan experiments/heikin-ashi-signals/plan-broad-window.yaml`.
+# Every window boundary below was registered before any outcome on 2016-11 was viewed.
+schema_version: 1
+classification: exploratory
+family: heikin-ashi-h4-template
+symbol: EURUSD
+cash: 10000
+broker_adapter: oanda
+train_start: '2015-03-02'
+train_end: '2015-12-31'
+calibration_start: '2016-01-01'
+calibration_end: '2016-01-31'
+heldout_end: '2016-02-29'
+test_start: '2016-03-01'
+test_end: '2016-11-30'
+train_timeout_seconds: 14400
+backtest_timeout_seconds: 21600
+model_policy: separate_per_variant
+resources:
+  workers: 1
+  lean_max_concurrent: 6
+  lean_container_cpus: 4
+  lean_container_mem_gib: 8
+  training_numeric_threads: 4
+  training_device: cpu
+mode: baseline
+variants:
+  - heikin-ashi-h4-disabled-volume-off
+  - heikin-ashi-h4-disabled-volume-on
+  - heikin-ashi-h4-talib-volume-off
+  - heikin-ashi-h4-talib-volume-on
+hybrid_variants:
+  - heikin-ashi-h4-hybrid-disabled-volume-off
+  - heikin-ashi-h4-hybrid-disabled-volume-on
+  - heikin-ashi-h4-hybrid-talib-volume-off
+  - heikin-ashi-h4-hybrid-talib-volume-on
+registration:
+  registered_at: '2026-09-28T01:44:00Z'
+  # 2016-03..2016-10 stays exploratory: the M1 one-year outcomes on that span were read
+  # (by a different model family and clock). November 2016 is the only untouched month.
+  primary_comparison: "hybrid vs baseline, TA-Lib on, activity off, paired daily equity difference"
+  trial_count: 8
+  warmup: "first 59 H4 bars excluded identically in every cell (no prior-history priming in the engine)"
+  confirmatory_months: ['2016-11']

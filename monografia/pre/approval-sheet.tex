@@ -1,0 +1,38 @@
+%% pre/approval-sheet.tex
+%% Alternative to the scanned approval sheet PDF.
+\begin{folhadeaprovacao}
+  \begin{center}
+       {\ABNTEXchapterfont\bfseries\large\imprimirautor}
+     \vspace*{2cm}
+
+    \begin{center}
+      \ABNTEXchapterfont\bfseries\Large\imprimirtitulo
+    \end{center}
+        \vspace*{2cm}
+        \hspace{.45\textwidth}
+    \begin{minipage}{.5\textwidth}
+        \imprimirpreambulo
+    \end{minipage}
+        \vspace*{2cm}
+    \end{center}
+
+  \begin{center}
+      {\ABNTEXchapterfont\bfseries\large\ {Defense date: \rule{4cm}{0.4pt}} \\}
+        \vspace*{\fill}
+      {\ABNTEXchapterfont\bfseries\large\ {Examination committee:} \\}
+
+        \assinatura{\textbf{\imprimirorientador} \\}
+        \renewcommand{\orientadorname}{Carolina Toledo Ferraz}
+
+        \imprimirorientadorRotulo
+        \par
+        %\assinatura{\textbf{Professor} \\ Member 1}
+        %\assinatura{\textbf{Professor} \\ Member 2}
+        %\assinatura{\textbf{Professor} \\ Member 3}
+        %\assinatura{\textbf{Professor} \\ Member 4}
+        \vspace*{\fill}
+       {\ABNTEXchapterfont\bfseries\large\imprimirlocal}
+    \par
+    {\ABNTEXchapterfont\bfseries\large\imprimirdata}
+\end{center}
+\end{folhadeaprovacao}

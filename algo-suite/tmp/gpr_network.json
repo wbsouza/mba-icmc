@@ -1,0 +1,29 @@
+{
+  "name" : "GPR adapter against the live datafeed (opt-in)",
+  "scenarios" : [ {
+    "name" : "A real fetch and resume",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a GPR source against the live feed"
+    }, {
+      "keyword" : "When",
+      "text" : "I fetch the real GPR index"
+    }, {
+      "keyword" : "Then",
+      "text" : "the unit status is WRITTEN with a positive byte count"
+    }, {
+      "keyword" : "And",
+      "text" : "the raw path is \"raw/gpr/data_gpr_export.xls\""
+    }, {
+      "keyword" : "And",
+      "text" : "the payload is a non-empty Excel file"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gpr again"
+    }, {
+      "keyword" : "Then",
+      "text" : "the unit is now SKIPPED"
+    } ],
+    "examples" : [ ]
+  } ]
+}

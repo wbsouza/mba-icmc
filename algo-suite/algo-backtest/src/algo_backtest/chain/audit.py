@@ -1,0 +1,127 @@
+"""decisions.parquet audit trail (Spec 04f, specs.md §11.3.4).
+
+Converts a `ChainOutcome` (`chain/model.py`, Spec 04b) into a `DecisionRow` and
+persists a batch of rows via `algo_core`'s `ParquetRepository`. `ChainOutcome`'s
+dataclasses (`ExecutionState`, `FilterResult`) are internal to the chain's
+run-loop mechanics; `DecisionRow` is the separate, pydantic-typed persistence
+shape the Repository serde layer needs (nested `list[BaseModel]` fields dump
+cleanly to a Parquet `list<struct<...>>` column — a plain dataclass does not).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime
+from pathlib import Path
+
+from algo_backtest.chain.model import ChainOutcome, Decision, FilterResult
+from algo_core.repository.parquet import ParquetRepository
+from pydantic import BaseModel
+
+
+class FilterResultRow(BaseModel):
+    """One `FilterResult` mirrored into a `DecisionRow.filter_results` struct entry.
+
+    `enrichment`/`metadata` are `| None`, not always `dict`: pyarrow infers a Parquet
+    struct type from the batch's dicts, and a *childless* struct (every row's dict
+    empty, e.g. F1/F2/F3's usual case) fails to write outright
+    ("Cannot write struct type 'metadata' with no child field to Parquet") — confirmed
+    against a real `algos/baseline/main.py` run (Spec 04h) once `decisions.parquet` was
+    actually written for the first time. `_filter_result_row` maps an empty dict to
+    `None` at this boundary so the column infers `null` (an all-empty batch) or a
+    real struct with proper per-row nulls (a mixed batch) — both writable — while a
+    `FilterResult.enrichment`/`.metadata` with real keys is unaffected.
+    """
+
+    filter_name: str
+    recommendation: str
+    reason: str
+    confidence: float | None
+    veto: bool
+    enrichment: dict[str, object] | None
+    metadata: dict[str, object] | None
+
+
+class DecisionRow(BaseModel):
+    """One audit-trail row: a single chain invocation.
+
+    Column set and nullability follow `algo-backtest/SPEC.md` §6.2 (the tool's own
+    colocated, already-merged spec) rather than the thesis-level `specs.md` §11.3.4,
+    which describes the same table at a conceptual level but omits `trade_id`
+    entirely. SPEC.md §6.2 gives `trade_id` explicitly as `string | null`, `null`
+    for `NO_TRADE` — the foreign key to the future `trades.parquet`, populated for
+    every other decision (`BUY`/`SELL` opens a trade, `HOLD` manages one).
+    """
+
+    trade_id: str | None
+    timestamp: datetime
+    pair: str
+    features_hash: str
+    filter_results: list[FilterResultRow]
+    final_decision: str
+    vetoed_by: str | None
+
+
+def _hash_features(features: dict[str, object]) -> str:
+    """Hash a feature dict deterministically for the `features_hash` column.
+
+    Dict iteration order reflects insertion, not content, so two feature dicts built
+    in a different order would hash differently without a sorted-key serialization first.
+    """
+    payload = json.dumps(features, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _filter_result_row(result: FilterResult) -> FilterResultRow:
+    """Map one chain-internal `FilterResult` dataclass onto its persistence row shape.
+
+    `or None`: an empty `enrichment`/`metadata` dict (F1/F2/F3's common case — most
+    filters set neither) becomes `None` here, not `{}` — see `FilterResultRow`'s own
+    docstring for why a childless-struct Parquet column is unwritable.
+    """
+    return FilterResultRow(
+        filter_name=result.filter_name,
+        recommendation=result.recommendation.value,
+        reason=result.reason,
+        confidence=result.confidence,
+        veto=result.veto,
+        enrichment=result.enrichment or None,
+        metadata=result.metadata or None,
+    )
+
+
+def decision_row_from_outcome(outcome: ChainOutcome, trade_id: str | None) -> DecisionRow:
+    """Convert a `ChainOutcome` into a `DecisionRow` ready for the audit-trail Parquet file.
+
+    Hashes `outcome.state.features` as it stands at chain completion — the accumulated
+    feature set after every filter's enrichment — since `ChainOutcome` preserves no
+    separate pre-chain snapshot to hash instead (see its own aliasing caveat in
+    `chain/model.py`). `vetoed_by` names the first `FilterResult` with `veto=True` in
+    `outcome.state.filter_results`, or `None` when the chain reached its terminal
+    decision-maker without a veto.
+
+    `trade_id` is forced to `None` for a `NO_TRADE` decision regardless of what the
+    caller passes, per `algo-backtest/SPEC.md` §6.2's "`null` for `NO_TRADE`" contract
+    — a stand-aside/veto row has no trade to be a foreign key to, so a caller-supplied
+    value here would be fabricated data, not a real `trades.parquet` join target.
+    """
+    vetoed_by = next(
+        (result.filter_name for result in outcome.state.filter_results if result.veto),
+        None,
+    )
+    row_trade_id = None if outcome.decision is Decision.NO_TRADE else trade_id
+    return DecisionRow(
+        trade_id=row_trade_id,
+        timestamp=outcome.state.timestamp,
+        pair=outcome.state.pair,
+        features_hash=_hash_features(outcome.state.features),
+        filter_results=[_filter_result_row(r) for r in outcome.state.filter_results],
+        final_decision=outcome.decision.value,
+        vetoed_by=vetoed_by,
+    )
+
+
+def write_decisions(rows: list[DecisionRow], path: Path) -> None:
+    """Write a batch of `DecisionRow`s to `path` as the `decisions.parquet` audit trail."""
+    ParquetRepository(DecisionRow, path).put(rows)

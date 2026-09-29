@@ -1,0 +1,586 @@
+{
+ "run": {
+  "strategy": "hybrid",
+  "symbol": "EURUSD",
+  "start": "2016-03-01",
+  "end": "2016-04-30",
+  "params": {
+   "cash": "10000"
+  },
+  "success": true,
+  "closed_trades": 2,
+  "broker_adapter": "oanda"
+ },
+ "metrics": {
+  "total_return": 0.045,
+  "sharpe": 1.1,
+  "max_drawdown": 0.0095,
+  "hit_rate": 0.5
+ },
+ "config": {
+  "capital_mgmt": {
+   "lot_notional_units": 100000.0,
+   "risk_per_trade": 0.03
+  },
+  "meta_learner": {
+   "theta_high": 0.55,
+   "theta_low": 0.45,
+   "regime_gate": false
+  },
+  "pattern": {
+   "detector": "talib"
+  },
+  "price_features": {
+   "bar_minutes": 60
+  },
+  "volume_strength": {
+   "lookback": 20,
+   "min_relative_activity": 1.0
+  },
+  "filters": [
+   "f1_trend",
+   "f2_indicator",
+   "f3_pattern",
+   "f4_news_context",
+   "volume_strength",
+   "f5_risk_guard",
+   "f6_capital_mgmt",
+   "f7_meta_learner"
+  ],
+  "indicator": {
+   "rsi_midline": 50.0,
+   "macd_hist_threshold": 0.0
+  }
+ },
+ "provenance": {
+  "capital_mgmt.lot_notional_units": "h4-base/config.yaml",
+  "capital_mgmt.risk_per_trade": "h4-base/config.yaml",
+  "meta_learner.theta_high": "h4-base/config.yaml",
+  "meta_learner.theta_low": "h4-base/config.yaml",
+  "meta_learner.regime_gate": "hybrid/config.yaml",
+  "pattern.detector": "hybrid/config.yaml",
+  "price_features.bar_minutes": "hybrid/config.yaml",
+  "volume_strength.lookback": "h4-base/config.yaml",
+  "volume_strength.min_relative_activity": "h4-base/config.yaml",
+  "filters": "hybrid/config.yaml",
+  "indicator.rsi_midline": "h4-base/config.yaml",
+  "indicator.macd_hist_threshold": "h4-base/config.yaml"
+ },
+ "trades": [
+  {
+   "entryTime": "2016-03-02T10:00:00Z",
+   "entryPrice": 1.1,
+   "direction": 0,
+   "quantity": 100000.0,
+   "exitTime": "2016-03-02T15:00:00Z",
+   "exitPrice": 1.105,
+   "profitLoss": 500.0,
+   "totalFees": 0.0,
+   "duration": "05:00:00",
+   "isWin": true,
+   "orderIds": [
+    1,
+    3
+   ]
+  },
+  {
+   "entryTime": "2016-03-10T08:00:00Z",
+   "entryPrice": 1.125,
+   "direction": 1,
+   "quantity": -50000.0,
+   "exitTime": "2016-03-10T14:00:00Z",
+   "exitPrice": 1.127,
+   "profitLoss": -100.0,
+   "totalFees": 0.0,
+   "duration": "06:00:00",
+   "isWin": false,
+   "orderIds": [
+    5,
+    6
+   ]
+  }
+ ],
+ "orders": {
+  "1": {
+   "id": 1,
+   "type": 0
+  },
+  "2": {
+   "id": 2,
+   "type": 2
+  },
+  "3": {
+   "id": 3,
+   "type": 1
+  },
+  "5": {
+   "id": 5,
+   "type": 0
+  },
+  "6": {
+   "id": 6,
+   "type": 2
+  },
+  "7": {
+   "id": 7,
+   "type": 1
+  }
+ },
+ "plans": [
+  {
+   "entry_order_id": 1,
+   "entry_time": "2016-03-02T10:00:00+00:00",
+   "direction": "buy",
+   "lots": 1.0,
+   "quantity": 100000.0,
+   "entry_price": 1.1,
+   "stop_loss": 1.098,
+   "take_profits": [
+    {
+     "price": 1.105,
+     "close_fraction": 0.5,
+     "quantity": -50000.0
+    },
+    {
+     "price": 1.11,
+     "close_fraction": 0.5,
+     "quantity": -50000.0
+    }
+   ],
+   "trail_stops": [
+    {
+     "at_level_ratio": 2.0,
+     "to_level_ratio": 0.1,
+     "at_price": 1.104,
+     "to_price": 1.1002
+    }
+   ],
+   "spread_pips": 1.0
+  },
+  {
+   "entry_order_id": 5,
+   "entry_time": "2016-03-10T08:00:00+00:00",
+   "direction": "sell",
+   "lots": 0.5,
+   "quantity": -50000.0,
+   "entry_price": 1.125,
+   "stop_loss": 1.128,
+   "take_profits": [
+    {
+     "price": 1.12,
+     "close_fraction": 1.0,
+     "quantity": 50000.0
+    }
+   ],
+   "trail_stops": [
+    {
+     "at_level_ratio": 2.0,
+     "to_level_ratio": 0.1,
+     "at_price": 1.119,
+     "to_price": 1.1247
+    }
+   ],
+   "spread_pips": 1.0
+  }
+ ],
+ "equity": [
+  [
+   "2016-03-01T00:00:00+00:00",
+   10000.0
+  ],
+  [
+   "2016-03-02T15:00:00+00:00",
+   10500.0
+  ],
+  [
+   "2016-03-10T14:00:00+00:00",
+   10400.0
+  ],
+  [
+   "2016-03-31T00:00:00+00:00",
+   10400.0
+  ],
+  [
+   "2016-04-30T00:00:00+00:00",
+   10450.0
+  ]
+ ],
+ "log": [
+  "2016-03-01 00:00:00 HYBRID_MODEL_SHA256=abababababababababababababababababababababababababababababababab",
+  "2016-03-02 10:00:00 HYBRID_PLAN|entry=1.1|lots=1.0|quantity=100000.0|stop=1.098|targets=[(1.105, -50000.0)]",
+  "2016-03-10 12:00:00 HYBRID_TRAIL|entry=1.125|from=1.128|to=1.127|steps=[0]",
+  "2016-03-10 14:00:00 HYBRID_OCO_CANCEL|reason=flat|orders=[7]"
+ ],
+ "decisions": [
+  {
+   "trade_id": null,
+   "timestamp": "2016-03-02T09:00:00",
+   "final_decision": "NO_TRADE",
+   "vetoed_by": "volume_strength",
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=2.0, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 0.74",
+     true,
+     null
+    ]
+   ]
+  },
+  {
+   "trade_id": "1",
+   "timestamp": "2016-03-02T10:00:00",
+   "final_decision": "BUY",
+   "vetoed_by": null,
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=3.2, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "BUY",
+     "rsi=58.3, macd_hist=0.00021, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "BUY",
+     "detected candlestick pattern 'hammer'",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "no active high-risk event (event_intensity=0.5089); no clear net sentiment signal for EURUSD at this timestamp",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 1.62469",
+     false,
+     null
+    ],
+    [
+     "f5_risk_guard",
+     "ABSTAIN",
+     "no risk-guard caps breached",
+     false,
+     null
+    ],
+    [
+     "f6_capital_mgmt",
+     "ABSTAIN",
+     "sufficient margin for proposed lot size 1.0; trade plan from atr stop (long 20.0, short 20.0 pips), lot 1.0, spread 1.0 pips, reward:risk long 2.5, short 2.5",
+     false,
+     null
+    ],
+    [
+     "f7_meta_learner",
+     "BUY",
+     "p_hat=0.61, theta_high=0.55, theta_low=0.45, regime_gate=False, regime=n/a",
+     false,
+     0.61
+    ]
+   ]
+  },
+  {
+   "trade_id": "5",
+   "timestamp": "2016-03-10T08:00:00",
+   "final_decision": "SELL",
+   "vetoed_by": null,
+   "filters": [
+    [
+     "F1_trend",
+     "SELL",
+     "trend_direction=-1.0, trend_strength=3.2, higher_tf_trend_direction=-1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "SELL",
+     "rsi=41.2, macd_hist=-0.00018, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "ABSTAIN",
+     "no pattern detected this bar",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "no active high-risk event (event_intensity=0.5089); no clear net sentiment signal for EURUSD at this timestamp",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 1.62469",
+     false,
+     null
+    ],
+    [
+     "f5_risk_guard",
+     "ABSTAIN",
+     "no risk-guard caps breached",
+     false,
+     null
+    ],
+    [
+     "f6_capital_mgmt",
+     "ABSTAIN",
+     "sufficient margin for proposed lot size 0.5; trade plan from atr stop (long 20.0, short 20.0 pips), lot 0.5, spread 1.0 pips, reward:risk long 2.5, short 2.5",
+     false,
+     null
+    ],
+    [
+     "f7_meta_learner",
+     "SELL",
+     "p_hat=0.4, theta_high=0.55, theta_low=0.45, regime_gate=False, regime=n/a",
+     false,
+     0.4
+    ]
+   ]
+  },
+  {
+   "trade_id": "1",
+   "timestamp": "2016-03-02T11:00:00",
+   "final_decision": "NO_TRADE",
+   "vetoed_by": "f5_risk_guard",
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=2.2, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "BUY",
+     "rsi=57.0, macd_hist=0.00011, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "ABSTAIN",
+     "no pattern detected this bar",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "no active high-risk event (event_intensity=0.4100); no clear net sentiment signal for EURUSD at this timestamp",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 1.21",
+     false,
+     null
+    ],
+    [
+     "f5_risk_guard",
+     "ABSTAIN",
+     "open_trade_count 1 has reached the cap 1",
+     true,
+     null
+    ]
+   ]
+  },
+  {
+   "trade_id": null,
+   "timestamp": "2016-03-03T09:00:00",
+   "final_decision": "NO_TRADE",
+   "vetoed_by": "f5_risk_guard",
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=2.2, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "BUY",
+     "rsi=57.0, macd_hist=0.00011, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "ABSTAIN",
+     "no pattern detected this bar",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "no active high-risk event (event_intensity=0.4100); no clear net sentiment signal for EURUSD at this timestamp",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 1.21",
+     false,
+     null
+    ],
+    [
+     "f5_risk_guard",
+     "ABSTAIN",
+     "daily_pnl_fraction -0.0744 is below limit -0.05",
+     true,
+     null
+    ]
+   ]
+  },
+  {
+   "trade_id": null,
+   "timestamp": "2016-03-03T10:00:00",
+   "final_decision": "NO_TRADE",
+   "vetoed_by": "f5_risk_guard",
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=2.2, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "BUY",
+     "rsi=57.0, macd_hist=0.00011, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "ABSTAIN",
+     "no pattern detected this bar",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "no active high-risk event (event_intensity=0.4100); no clear net sentiment signal for EURUSD at this timestamp",
+     false,
+     null
+    ],
+    [
+     "volume_strength",
+     "ABSTAIN",
+     "relative tick activity 1.21",
+     false,
+     null
+    ],
+    [
+     "f5_risk_guard",
+     "ABSTAIN",
+     "daily_pnl_fraction -0.0712 is below limit -0.05",
+     true,
+     null
+    ]
+   ]
+  },
+  {
+   "trade_id": null,
+   "timestamp": "2016-03-04T09:00:00",
+   "final_decision": "NO_TRADE",
+   "vetoed_by": "f4_news_context",
+   "filters": [
+    [
+     "F1_trend",
+     "BUY",
+     "trend_direction=1.0, trend_strength=2.2, higher_tf_trend_direction=1.0",
+     false,
+     null
+    ],
+    [
+     "F2_indicator",
+     "BUY",
+     "rsi=57.0, macd_hist=0.00011, rsi_midline=50.0, macd_hist_threshold=0.0",
+     false,
+     null
+    ],
+    [
+     "F3_pattern",
+     "ABSTAIN",
+     "no pattern detected this bar",
+     false,
+     null
+    ],
+    [
+     "f4_news_context",
+     "ABSTAIN",
+     "active high-risk event: event_intensity=-0.7312 <= veto threshold -0.5000",
+     true,
+     null
+    ]
+   ]
+  }
+ ],
+ "m1": [
+  {
+   "day": "2016-03-02",
+   "first_hour": 6,
+   "hours": 12,
+   "base_bid": 1.095
+  },
+  {
+   "day": "2016-03-10",
+   "first_hour": 4,
+   "hours": 7,
+   "base_bid": 1.13
+  }
+ ],
+ "statement": [
+  "## Open Trades:",
+  "",
+  "| Ticket | Open Time | Type | Lots | Item | Price | S / L | T / P | Price | Commission | R/O Swap | Trade P/L |",
+  "|---|---|---|---|---|---|---|---|---|---|---|---|",
+  "| 9 | 2016.04.29 10:00 | buy | 0.50 | EURUSD | 1.13000 | 1.12500 | 1.14000 / 1.15000 | 1.13100 | 0.00 | 0.00 | 50.00 |",
+  "| **Total** |  |  |  |  |  |  |  |  | 0.00 | 0.00 | 50.00 |",
+  "",
+  "Floating P/L: 50.00",
+  "",
+  "## A/C Summary:",
+  "",
+  "|  |  |  |  |",
+  "|---|---|---|---|",
+  "| Previous Ledger Balance | 10,000.00 | Floating P/L | 50.00 |",
+  "| Closed Trade P/L | 400.00 | Total Credit Facility | 0.00 |",
+  "| Deposit/Withdrawal | 0.00 | Equity | 10,450.00 |",
+  "| Balance | 10,400.00 | Margin Requirement | 0.00 |",
+  ""
+ ]
+}

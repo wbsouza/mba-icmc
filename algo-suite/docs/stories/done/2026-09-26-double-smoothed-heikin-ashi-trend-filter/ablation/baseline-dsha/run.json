@@ -1,0 +1,11 @@
+{
+  "strategy": "baseline-dsha",
+  "symbol": "EURUSD",
+  "start": "2015-08-03",
+  "end": "2015-08-07",
+  "params": {
+    "size": "0.5"
+  },
+  "success": true,
+  "closed_trades": 2
+}

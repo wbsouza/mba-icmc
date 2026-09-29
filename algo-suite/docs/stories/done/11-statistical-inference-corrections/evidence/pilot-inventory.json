@@ -1,0 +1,39 @@
+{
+  "action": "preserve historical artifacts; regenerate into separate v2 outputs",
+  "legacy_notice": "pre-v2 deflated_sharpe adjustments and pooled-trade p-values are exploratory",
+  "runs": [
+    {
+      "deflated_sharpe_probability": null,
+      "descriptive_metrics": {
+        "hit_rate": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe": 0.0,
+        "total_return": 0.0
+      },
+      "descriptive_metrics_sha256": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908",
+      "dsr_assumptions": "classical asymptotic expression; serial dependence not corrected",
+      "legacy_notice": "pre-v2 deflated_sharpe adjustments and pooled-trade p-values are exploratory",
+      "reason": "missing inference-inputs.json; declare equity coverage and conventions",
+      "run": "runs/baseline/20260927T044836-4cd12c922200",
+      "schema_version": 2,
+      "status": "unavailable"
+    },
+    {
+      "deflated_sharpe_probability": null,
+      "descriptive_metrics": {
+        "hit_rate": 0.0,
+        "max_drawdown": 0.0,
+        "sharpe": 0.0,
+        "total_return": 0.0
+      },
+      "descriptive_metrics_sha256": "a9108757eec327723ea83d7b12588abe64febf7d45935f7f7b166d412d568908",
+      "dsr_assumptions": "classical asymptotic expression; serial dependence not corrected",
+      "legacy_notice": "pre-v2 deflated_sharpe adjustments and pooled-trade p-values are exploratory",
+      "reason": "missing inference-inputs.json; declare equity coverage and conventions",
+      "run": "runs/hybrid/20260927T053156-4f2ebf081eaf",
+      "schema_version": 2,
+      "status": "unavailable"
+    }
+  ],
+  "schema_version": 2
+}
