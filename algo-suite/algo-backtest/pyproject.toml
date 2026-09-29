@@ -1,0 +1,80 @@
+[project]
+name = "algo-backtest"
+version = "0.0.0"
+description = "Materialize Parquet into the durable lean-data store; LightGBM meta-learner + deterministic filter chain on LEAN."
+requires-python = ">=3.11"
+dependencies = [
+    "algo-core",
+    "algo-score",
+    "typer>=0.12",
+    "testcontainers>=4.14.0",
+    "pyyaml>=6",
+    "structlog>=24",
+    "pyarrow>=16",
+    "lightgbm>=4.5",
+    "scikit-learn>=1.5",
+    "numpy>=1.26",
+    "TA-Lib>=0.6.7,<0.9",
+    "matplotlib>=3.8",
+]
+
+[project.scripts]
+algo-backtest = "algo_backtest.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/algo_backtest"]
+
+[tool.uv.sources]
+algo-core = { workspace = true }
+algo-score = { workspace = true }
+
+[tool.mutmut]
+source_paths = ["src"]
+# tests/steps/test_training_perception_config.py exec-loads scripts/train_*_meta_learner.py
+# by path, so the mutated scratch tree needs a copy of scripts/ for the stats run to pass.
+also_copy = ["scripts"]
+# Hardener passes for this package, scoped to each story's differential file(s):
+# Spec 04b (filter-chain mechanics), Spec 04c (F1-F3 price filters),
+# Spec 04d (risk & capital-management filters F5/F6),
+# Spec 04f (decisions.parquet audit trail).
+only_mutate = [
+    "src/algo_backtest/chain/model.py",
+    "src/algo_backtest/chain/filters/f1_trend.py",
+    "src/algo_backtest/chain/filters/f2_indicator.py",
+    "src/algo_backtest/chain/filters/f3_pattern.py",
+    "src/algo_backtest/rules/risk_math.py",
+    "src/algo_backtest/rules/trail_stop.py",
+    "src/algo_backtest/rules/close_portion.py",
+    "src/algo_backtest/rules/risk_guard.py",
+    "src/algo_backtest/chain/filters/f5_risk_guard.py",
+    "src/algo_backtest/chain/filters/f6_capital_mgmt.py",
+    "src/algo_backtest/chain/audit.py",
+    # Spec 04e (news-context filter F4)
+    "src/algo_backtest/chain/filters/f4_news_context.py",
+    # Spec 04g (F7 meta-learner)
+    "src/algo_backtest/chain/filters/f7_meta_learner.py",
+    # Spec 04h (terminal decision + strategy config extends composition,
+    # decision-recorder trade_id bookkeeping, hybrid strategy registration)
+    "src/algo_backtest/chain/terminal.py",
+    "src/algo_backtest/strategies.py",
+    "src/algo_backtest/chain/decision_recorder.py",
+    "src/algo_backtest/run.py",
+    # PR #40 review follow-up: shared chain wiring, F7 training data + portable model
+    # persistence, LEAN market hours.
+    "src/algo_backtest/chain/wiring.py",
+    "src/algo_backtest/training.py",
+    "src/algo_backtest/chain/filters/f7_model_io.py",
+    "src/algo_backtest/market_hours.py",
+    # Spec 04k pure perception; LEAN adapters require make check-perception.
+    "src/algo_backtest/perception/config.py",
+    "src/algo_backtest/perception/heikin_ashi.py",
+    "src/algo_backtest/perception/offline.py",
+    # Story 09 amendment (per-filter config.yaml sections, F7 regime gate, cash param):
+    # shared fail-fast section parsing.
+    "src/algo_backtest/chain/params.py",
+    "src/algo_backtest/chain/price_features.py",
+]

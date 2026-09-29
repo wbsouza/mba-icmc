@@ -1,0 +1,26 @@
+% pre/symbols.tex - List of mathematical symbols used in this work.
+% Grouped by domain (price/market, model, evaluation, NLP/attention) but
+% rendered as a single ordered list by the abntex2 \simbolos environment.
+\begin{simbolos}
+  % --- Market and price -------------------------------------------------
+  \item[$P_{XY,t}$] Price of currency pair $XY$ at time $t$
+  \item[$t$] Discrete time index (minute bar)
+  \item[$H$] Forecast horizon (number of bars into the future)
+  % --- Strategy state at time $t$ --------------------------------------
+  \item[$\hat{p}_t$] Calibrated probability output of the meta-learner at time $t$
+  \item[$\theta_{\text{high}}$] Upper decision threshold on $\hat{p}_t$
+  \item[$\theta_{\text{low}}$] Lower decision threshold on $\hat{p}_t$
+  \item[$r_t$] Trend-regime label at time $t$ (bull, bear, sideways)
+  \item[$v_t$] Event-veto flag from the news-context filter at time $t$
+  % --- Cross-validation ------------------------------------------------
+  \item[$k$] Number of folds in combinatorial purged $k$-fold cross-validation
+  % --- Transformer / attention -----------------------------------------
+  \item[$X$] Input token sequence to a Transformer block
+  \item[$Q$] Query matrix in scaled dot-product attention
+  \item[$K$] Key matrix in scaled dot-product attention
+  \item[$V$] Value matrix in scaled dot-product attention
+  \item[$W^Q, W^K, W^V$] Learned projection matrices for $Q$, $K$, $V$
+  \item[$d_k$] Dimensionality of the key vectors (attention scaling factor)
+  \item[$h$] Number of parallel attention heads in multi-head attention
+  \item[$n$] Length of a sub-word $n$-gram in BPE tokenization
+\end{simbolos}

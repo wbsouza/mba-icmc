@@ -1,0 +1,40 @@
+[project]
+name = "algo-download"
+version = "0.0.0"
+description = "Bulk download per source (Dukascopy, GDELT, GPR) into the raw store, via registry+factory adapters."
+requires-python = ">=3.11"
+dependencies = [
+    "algo-core",
+    "typer>=0.12",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+algo-download = "algo_download.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/algo_download"]
+
+[tool.uv.sources]
+algo-core = { workspace = true }
+
+[tool.mutmut]
+source_paths = ["src"]
+# Scope hardening to the files each hardener task touched (differential gate,
+# swarmforge/constitution/articles/engineering.prompt). Extended for the GDELT
+# article-text adapter task with adapters/gdelt_ngrams/*.py and source.py
+# (the DataSource port move).
+only_mutate = [
+    "src/algo_download/adapters/gdelt/*.py",
+    "src/algo_download/adapters/gdelt_ngrams/*.py",
+    "src/algo_download/adapters/gpr/*.py",
+    "src/algo_download/adapters/raw_http.py",
+    "src/algo_download/adapters/dukascopy/source.py",
+    "src/algo_download/cli.py",
+    "src/algo_download/request.py",
+    "src/algo_download/source.py",
+]

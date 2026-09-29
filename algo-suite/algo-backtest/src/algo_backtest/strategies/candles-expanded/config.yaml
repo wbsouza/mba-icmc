@@ -1,0 +1,39 @@
+# Strategy "candles-expanded" (Story 22/23 integration lane, T7 minimum viable slice):
+# a rule-only strategy proving the shared candle_catalog/candle_context/candle_sequence
+# producer reaches native signal production. extends: baseline, but drops F2 and F7:
+# F1 (trend/regime) and F3 (candlestick pattern, required_entry mode over the Story
+# 22/23 expanded ~19+3-rule catalog) are the only feature families; F5/F6 keep the
+# trade viable. Without f7_meta_learner the chain names its closing rule with
+# `terminal_filter` (chain/terminal.py LastFilterTerminalDecision): F3's own
+# recommendation is the decision, BUY/SELL as they are, ABSTAIN (including a
+# required_entry veto) -> HOLD. No F7 means no model: `algo-backtest run --strategy
+# candles-expanded` takes no --model.
+#
+# `pattern.detector: expanded` (chain/market_signals.py) wires the Story 22/23 shared
+# producer (CandleCatalog + ContextEvaluator + SequenceEvaluator, perception/candle_*.py)
+# into `state.features["candle_evidence"]` every closed bar, in place of the legacy
+# six-label TA-Lib detector. `pattern.mode: required_entry` makes F3 veto new entries
+# unless exactly one candidate direction is eligible (CND-12); existing position
+# protection is untouched by that veto (CND-13).
+schema_version: 2
+extends: baseline
+
+filters:
+  - f1_trend
+  - f3_pattern
+  - f5_risk_guard
+  - f6_capital_mgmt
+terminal_filter: f3_pattern
+
+# F2 is not in the chain: drop the section baseline declares for it.
+indicator: null
+
+# F3 — the expanded catalog, required-entry mode. bullish_patterns/bearish_patterns are
+# unused by required_entry (it reads candle_evidence, not candlestick_pattern) and are
+# left at baseline's default six-label vocabulary for the record.
+pattern:
+  detector: expanded
+  mode: required_entry
+
+# F7 is not in the chain: drop the meta_learner section baseline declares.
+meta_learner: null
