@@ -26,3 +26,7 @@ build/
 # machine via `codegraph init`/`codegraph sync`. codegraph.json (the
 # exclude config) IS tracked.
 /.codegraph/
+
+# machine-specific symlinks (Overleaf rejects symlinks)
+algo-suite/data-nas
+algo-suite/.worktrees/
