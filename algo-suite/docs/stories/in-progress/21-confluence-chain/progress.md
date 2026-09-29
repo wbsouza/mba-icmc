@@ -946,3 +946,21 @@ Agent: hardener (Claude Sonnet 5.5). Branch `feat/21-confluence-chain`, base `00
 
 Next: T18 (`experiments/confluence-chain/compare.py`, the registered comparison report),
 depends on T17.
+
+Reconciliation, coordinator session, 2026-09-28: the hardener's "genuine production finding"
+above was itself wrong about which store is real. `algo_core.layout.price_path`'s parquet
+layout is not what `algo-backtest run` or `lean_data_covers` read at runtime (confirmed
+directly in `cli.py`: `lean_data_dir_for(...).glob("*_quote.zip")`) — it is a separate store
+used elsewhere in the pipeline. The hardener's own cross-check test asserted
+`partition_path() == price_path()` using the same inputs on both sides, so it could not have
+caught this; a single-file-per-month `.is_file()` check against either layout would in fact
+still fail on real data, since the real store is one zip per day, not one file per month.
+
+A separate worktree (`run/21-launch-2026-09-28`) found and fixed this same root bug hours
+earlier while actually launching real cells, calling `lean_data_covers()` directly instead of
+reconstructing a path — proven correct by a real successful launch. Ported that proven fix
+onto this branch (`e56c255`): `population_gate()` now calls `lean_data_covers()` directly;
+`partition_path()` is now display-only (the real lean-data day-zip glob, not load-bearing);
+test fixtures now create real day-zips via `lean_data_dir_for()` instead of parquet stubs; the
+layout cross-check now compares against the real lean-data glob, so it can actually catch this
+class of bug. Full suite 2015 passed / 53 deselected (unchanged), ruff and mypy --strict clean.
