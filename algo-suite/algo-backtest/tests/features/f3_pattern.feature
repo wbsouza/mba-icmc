@@ -79,6 +79,19 @@ Feature: F3 pattern filter
         | integer instead of list      | {bearish_patterns: 5}                                        | strategy 'baseline': pattern.bearish_patterns must be a non-empty list of pattern names, got 5 |
         | non-string entry             | {bullish_patterns: [hammer, 7]}                              | strategy 'baseline': pattern.bullish_patterns must contain only strings                |
         | unknown key                  | {neutral_patterns: [doji]}                                   | strategy 'baseline': pattern has unknown keys ['neutral_patterns']                   |
+        | enabled_rules without expanded | {detector: talib, enabled_rules: [hanging_man]}            | strategy 'baseline': pattern.enabled_rules requires pattern.detector: expanded       |
+
+  Rule: enabled_rules (2026-09-28, isolation sweeps) restricts the expanded catalog to a named subset
+
+    Scenario: enabled_rules with detector expanded parses to the given subset
+      Given a pattern section {detector: expanded, enabled_rules: [hanging_man]}
+      When the pattern config is parsed for strategy "baseline"
+      Then the parsed enabled_rules are "hanging_man"
+
+    Scenario: enabled_rules absent leaves the full admitted catalog live
+      Given a pattern section {detector: expanded}
+      When the pattern config is parsed for strategy "baseline"
+      Then the parsed enabled_rules are unset
 
     Scenario Outline: the configured vocabulary drives the recommendation (<case>)
       Given a pattern section <section>

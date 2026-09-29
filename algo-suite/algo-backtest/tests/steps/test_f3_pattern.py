@@ -133,6 +133,18 @@ def _bullish(f3_ctx: _F3Ctx, names: str) -> None:
     assert f3_ctx.config.bullish_patterns == _names(names)
 
 
+@then(parsers.parse('the parsed enabled_rules are "{names}"'))
+def _enabled_rules(f3_ctx: _F3Ctx, names: str) -> None:
+    assert f3_ctx.config is not None
+    assert f3_ctx.config.enabled_rules == _names(names)
+
+
+@then("the parsed enabled_rules are unset")
+def _enabled_rules_unset(f3_ctx: _F3Ctx) -> None:
+    assert f3_ctx.config is not None
+    assert f3_ctx.config.enabled_rules is None
+
+
 @then(parsers.parse('the parsed bearish patterns are "{names}"'))
 def _bearish(f3_ctx: _F3Ctx, names: str) -> None:
     assert f3_ctx.config is not None

@@ -34,8 +34,11 @@ class MarketSignals:
         self._context: ContextEvaluator | None = None
         self._sequence: SequenceEvaluator | None = None
         if pattern and pattern.detector == "expanded":
+            resolved_rules = (
+                tuple(sorted(pattern.enabled_rules)) if pattern.enabled_rules else ADMITTED_RULES
+            )
             candle_config = CandleConfig(
-                enabled_rules=ADMITTED_RULES, timeframe_minutes=bar_minutes,
+                enabled_rules=resolved_rules, timeframe_minutes=bar_minutes,
                 policy_mode=pattern.mode,
             )
             self._catalog = CandleCatalog(candle_config, pair=pair)
