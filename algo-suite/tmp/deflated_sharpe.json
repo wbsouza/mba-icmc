@@ -1,0 +1,55 @@
+{
+  "name" : "Deflated Sharpe ratio",
+  "scenarios" : [ {
+    "name" : "Deflation penalizes many trials (golden value)",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "an observed Sharpe of 0.5 from 100 trade returns with skew 0.0 and kurtosis 3.0"
+    }, {
+      "keyword" : "And",
+      "text" : "50 independent trials"
+    }, {
+      "keyword" : "When",
+      "text" : "the deflated Sharpe ratio is computed"
+    }, {
+      "keyword" : "Then",
+      "text" : "it equals 0.2573452749201449 within tolerance 1e-9"
+    }, {
+      "keyword" : "And",
+      "text" : "it is lower than the observed Sharpe of 0.5"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A single trial is an exact no-op",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "an observed Sharpe of 0.5 from 100 trade returns with skew 0.0 and kurtosis 3.0"
+    }, {
+      "keyword" : "And",
+      "text" : "1 independent trial"
+    }, {
+      "keyword" : "When",
+      "text" : "the deflated Sharpe ratio is computed"
+    }, {
+      "keyword" : "Then",
+      "text" : "it equals the observed Sharpe of 0.5 exactly"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Zero-variance returns fail fast",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "trade returns with zero variance"
+    }, {
+      "keyword" : "When",
+      "text" : "the deflated Sharpe ratio is computed"
+    }, {
+      "keyword" : "Then",
+      "text" : "it raises an error naming the zero-variance input"
+    }, {
+      "keyword" : "And",
+      "text" : "no NaN or infinite value is returned"
+    } ],
+    "examples" : [ ]
+  } ]
+}
