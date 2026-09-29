@@ -266,9 +266,21 @@ def train_meta_learner(
     split: WalkForwardSplit,
     *,
     random_state: int = _DEFAULT_RANDOM_STATE,
+    family_weights: Sequence[float] | None = None,
+    combiner_weights: Sequence[float] | None = None,
 ) -> TrainedMetaLearner:
     """Fit one LightGBM sub-model per family on `split.train`, then a logistic meta-learner
     combining the families' out-of-sample probabilities (from `split.validation`) into p̂_t.
+
+    ``family_weights`` (Story 19, RWT-07): one finite non-negative weight per ``split.train``
+    row, in ``split.train`` order, forwarded verbatim as ``sample_weight`` to every family's
+    LightGBM fit. ``combiner_weights`` (Story 19, RWT-08): one finite non-negative weight per
+    ``split.validation`` row, in ``split.validation`` order, forwarded verbatim as
+    ``sample_weight`` to the logistic combiner's fit. The retraining weights module produces
+    and mean-one normalizes both vectors independently per stage; F7 only validates each one
+    against its own stage's row count and forwards it to that stage alone. Both vectors are
+    validated — ``family_weights`` first — before any family is fitted (fail fast, RWT-02).
+    Omitted (``None``), a stage is fitted exactly as before (RWT-17).
 
     The meta-learner is deliberately calibrated on `split.validation`, never on
     `split.train`: fitting it on the same rows the family models were trained on would
@@ -282,28 +294,36 @@ def train_meta_learner(
     proves this).
 
     Raises:
-        ValueError: if `families` is empty, or if `split.validation` doesn't contain
-            both classes (a degenerate walk-forward window the logistic combiner
-            cannot be fit on) — fail fast rather than silently returning a
-            single-class-biased combiner.
+        ValueError: if `families` is empty, if ``family_weights`` or ``combiner_weights``
+            is not one finite non-negative value per its stage's row, or if
+            `split.validation` doesn't contain at least two classes with positive combiner
+            weight (a degenerate walk-forward window the logistic combiner cannot be fit
+            on) — fail fast rather than silently returning a single-class-biased combiner.
     """
     if not families:
         raise ValueError(f"{_FILTER_NAME}: at least one feature family is required to train")
+    family_sample_weights = _validated_stage_weights(
+        family_weights, len(split.train), name="family_weights", span="split.train"
+    )
+    combiner_sample_weights = _validated_stage_weights(
+        combiner_weights, len(split.validation), name="combiner_weights", span="split.validation"
+    )
     family_models = {
-        family: _fit_family(family, split.train, random_state=random_state)
+        family: _fit_family(
+            family, split.train, random_state=random_state, sample_weights=family_sample_weights
+        )
         for family in families
     }
     meta_inputs = _family_predictions(family_models, families, split.validation)
     labels = np.array([row.label for row in split.validation])
-    if len(set(labels.tolist())) < 2:
-        raise ValueError(
-            f"{_FILTER_NAME}: split.validation has only one label class "
-            f"({len(split.validation)} rows) — the logistic combiner cannot be calibrated "
-            "on a single-class validation span. Widen validation_end or the training "
-            "window so validation covers both classes."
-        )
+    _require_two_combiner_classes(labels, combiner_sample_weights)
     meta_model = LogisticRegression(random_state=random_state, max_iter=1000)
-    meta_model.fit(meta_inputs, labels)
+    if combiner_sample_weights is None:
+        meta_model.fit(meta_inputs, labels)
+    else:
+        meta_model.fit(
+            meta_inputs, labels, sample_weight=np.asarray(combiner_sample_weights, dtype=float)
+        )
     return TrainedMetaLearner(
         families=tuple(families), family_models=family_models, meta_model=meta_model
     )
@@ -326,14 +346,80 @@ def _family_predictions(
     )
 
 
+def _validated_stage_weights(
+    weights: Sequence[float] | None, row_count: int, *, name: str, span: str
+) -> Sequence[float] | None:
+    """`name` (`family_weights`/`combiner_weights`) checked for length, finiteness and sign
+    against `span`'s row count, before any fitting stage runs."""
+    if weights is None:
+        return None
+    if len(weights) != row_count:
+        raise ValueError(
+            f"{_FILTER_NAME}: {name} has {len(weights)} values but {span} has "
+            f"{row_count} rows — pass exactly one weight per {span.split('.')[-1]} row, "
+            f"in {span} order"
+        )
+    for index, weight in enumerate(weights):
+        if not math.isfinite(weight):
+            raise ValueError(
+                f"{_FILTER_NAME}: {name}[{index}] is not finite ({weight!r}) — "
+                "every sample weight must be a finite non-negative number"
+            )
+        if weight < 0:
+            raise ValueError(
+                f"{_FILTER_NAME}: {name}[{index}] is negative ({weight!r}) — "
+                "every sample weight must be a finite non-negative number"
+            )
+    return weights
+
+
+def _require_two_combiner_classes(labels: np.ndarray, weights: Sequence[float] | None) -> None:
+    """Refuse a combiner fit whose validation span has fewer than two classes, weighted or not.
+
+    Unweighted, "one class" means fewer than two distinct labels. Weighted, `combiner_weights`
+    can additionally zero out one class's total weight, leaving the fit one-class in practice
+    even though both labels are present.
+    """
+    distinct = sorted(set(labels.tolist()))
+    if len(distinct) < 2:
+        raise ValueError(
+            f"{_FILTER_NAME}: split.validation has only one label class "
+            f"({len(labels)} rows) — the logistic combiner cannot be calibrated "
+            "on a single-class validation span. Widen validation_end or the training "
+            "window so validation covers both classes."
+        )
+    if weights is None:
+        return
+    positive_classes = sorted(
+        {label for label, weight in zip(labels.tolist(), weights, strict=True) if weight > 0}
+    )
+    if len(positive_classes) < 2:
+        raise ValueError(
+            f"{_FILTER_NAME}: combiner_weights leave only one label class with positive "
+            f"weight ({positive_classes!r} of {distinct!r}) — the logistic combiner needs "
+            "at least two classes with positive weight to fit"
+        )
+
+
 def _fit_family(
-    family: FeatureFamily, train: Sequence[TrainingRow], *, random_state: int
+    family: FeatureFamily,
+    train: Sequence[TrainingRow],
+    *,
+    random_state: int,
+    sample_weights: Sequence[float] | None = None,
 ) -> LightGBMFamilyModel:
-    """Fit one family's LightGBM sub-model on the walk-forward train split."""
+    """Fit one family's LightGBM sub-model on the walk-forward train split.
+
+    ``sample_weights`` (row-aligned with ``train``) is passed as LightGBM's ``sample_weight``
+    when given; when ``None`` the fit call is exactly the legacy one.
+    """
     inputs = np.array([family_vector(family, row.features) for row in train])
     labels = np.array([row.label for row in train])
     booster = LGBMClassifier(random_state=random_state, **_LGBM_PARAMS)
-    booster.fit(inputs, labels)
+    if sample_weights is None:
+        booster.fit(inputs, labels)
+    else:
+        booster.fit(inputs, labels, sample_weight=np.asarray(sample_weights, dtype=float))
     return LightGBMFamilyModel(booster=booster)
 
 
@@ -374,7 +460,9 @@ def parse_f7_config(section: Mapping[str, Any], *, strategy: str) -> F7Config:
         )
     regime_gate = require_bool(section, "regime_gate", section=_SECTION, strategy=strategy)
     return F7Config(
-        theta_high=theta_high, theta_low=theta_low, regime_gate=regime_gate,
+        theta_high=theta_high,
+        theta_low=theta_low,
+        regime_gate=regime_gate,
         label_horizon_minutes=_horizon(section, strategy),
     )
 

@@ -8,7 +8,7 @@ execution by the current request. [Design](design.md), [requirements](spec.md).
 Activate **tlc-spec-driven** by name before future implementation and follow its
 Execute flow. If unavailable, STOP and tell the user. Obtain plan approval and a
 separate execution go-ahead; confirm tool preferences and offer sequential
-whole-phase worker batches before dispatch. No agents are launched now.
+whole-phase worker batches before dispatch. No implementation agents are launched now.
 
 Use CodeGraph before code discovery, apply_patch for edits, Gherkin/pytest-bdd for
 all tests, and actual project gates. Use docs-writer for documents. Tests and
@@ -81,6 +81,15 @@ confirmation before spawning. Never split shared F7 edits between concurrent
 workers. A separate implementation worktree is recommended when Git writes are
 available. The current worktree holds planning documents only.
 
+Across stories, follow the
+[parallel delivery and file-ownership plan](../../../algo-suite/docs/stories/parallel-19-21-22.md).
+This lane can run beside Stories 21 and 22 after the contract checkpoint.
+Within this lane keep the task order below. T5–T6 own the F7 fitting patch;
+Story 22 T9's encoder patch follows those commits under the integration owner's
+lease. T12–T15 and the monograph tasks require that same single-writer lease
+for shared files. This is a scheduling boundary, not a second implementation
+of each task. Do not change the pinned feature contract in this experiment.
+
 ```text
 T1 -> T2 -> T3 -> T4 -> T5
 T5 -> T6 -> T7 -> T8 -> T9 -> T10
@@ -100,25 +109,25 @@ authorization to execute, complete gates and available inputs.
 
 ### T1: Register the adaptive comparison protocol
 
-**What**: Freeze exact source/config hashes, five policies, dates, half-life, stage spans, support minima, seed, host timeout and finite attempt budget. Review the native host-coordination approach before enabling it; unresolved feasibility blocks replay work.
+**What**: Freeze exact source/config hashes, five policies, dates, half-life, stage spans, support minima, seed, host timeout and finite attempt budget. Record approval or rejection of every review-disposition item, including lifecycle, initial control and optional H4. Review native host coordination before enabling it; unresolved feasibility blocks replay work.
 
-**Where**: `algo-suite/docs/stories/planned/19-adaptive-recency-retraining/method-design.md`
+**Where**: `algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/method-design.md`
 **Depends on**: None
-**Requirement**: RWT-18, RWT-21
+**Requirement**: RWT-18, RWT-21, RWT-29
 **Reuses**: Session-2 registration and this design.
 **Tools**: Execution Protocol tools; no workers dispatched during planning.
 **Tests**: Document checks. Check all protocol fields, baseline identity, E/U equal support, data inventory and exploratory status. No fits or performance inspection in this task.
 **Gate**: Docs from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Docs gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Docs gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `docs(retraining): register the adaptive comparison protocol`
 
 ### T2: Build the incremental data and label-maturity adapter
 
-**What**: Consume validated local batches with explicit close/availability timestamps, persist monotonic watermarks and pending versus mature labels; reuse canonical feature generation without consulting future data.
+**What**: Consume complete local M1 Parquet partitions and the canonical feature cache with explicit close/availability timestamps; persist per-source partition identities, cutoff-visible row watermarks and pending versus mature labels. A completed month on disk does not make its later rows historically available. Price-only scope does not require GDELT; enabling news needs separately registered event-availability and completion-marker contracts.
 
 **Where**: `algo-suite/algo-backtest/src/algo_backtest/retraining/ingestion.py`
 **Depends on**: T1
@@ -129,8 +138,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Host from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): build the incremental data and label-maturity adapter`
 
@@ -147,8 +156,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): implement exact-utc epoch planning`
 
@@ -165,8 +174,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): implement exponential weights and feasibility checks`
 
@@ -183,8 +192,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): pass weights through family-model fitting`
 
@@ -203,8 +212,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): pass independent weights through combiner fitting`
 
@@ -221,8 +230,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Host from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): publish immutable epoch bundles`
 
@@ -239,8 +248,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Quick from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Quick gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): implement separate-span threshold calibration`
 
@@ -250,15 +259,15 @@ authorization to execute, complete gates and available inputs.
 
 **Where**: `algo-suite/algo-backtest/src/algo_backtest/retraining/trainer.py`
 **Depends on**: T8
-**Requirement**: RWT-01, RWT-06, RWT-09, RWT-11, RWT-24
+**Requirement**: RWT-01, RWT-06, RWT-09, RWT-11, RWT-24, RWT-30
 **Reuses**: T2–T8 components and existing family-contract validation.
 **Tools**: Execution Protocol tools; no workers dispatched during planning.
-**Tests**: BDD integration. At least 9 BDD cases: all policies, exact row/weight provenance, insufficient support, pending labels excluded, future-tail mutation invariance, no trade-profit selection and failed fit without publication.
+**Tests**: BDD integration. At least 10 BDD cases: all policies, exact row/weight provenance, insufficient support, pending labels excluded, future-tail mutation invariance, no trade-profit selection, failed fit without publication and repeated-fit equality of semantic model payload hashes. Volatile duration/wall-time metadata is preserved separately, not falsely required to be byte-identical.
 **Gate**: Host from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): orchestrate one epoch's weighted training`
 
@@ -275,8 +284,8 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Host from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Host gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `feat(retraining): implement the full adaptive-cycle coordinator`
 
@@ -306,10 +315,10 @@ authorization to execute, complete gates and available inputs.
 
 **Where**: `algo-suite/algo-backtest/src/algo_backtest/engine/chain_algorithm.py`
 **Depends on**: T11
-**Requirement**: RWT-12, RWT-13, RWT-14, RWT-17, RWT-26
+**Requirement**: RWT-12, RWT-13, RWT-14, RWT-17, RWT-26, RWT-30
 **Reuses**: Production on_data, PnlWindows and native minute_pnl_anchors fixture.
 **Tools**: Execution Protocol tools; no workers dispatched during planning.
-**Tests**: BDD integration. At least 9 native BDD scenarios: month/year boundary, open trade, same-minute protective event, risk veto, continuous equity/indicators, legacy mode, host timeout and adaptive-versus-prepared-cycle replay parity.
+**Tests**: BDD integration. At least 10 native BDD scenarios: month/year boundary, open trade, same-minute protective event, risk veto, continuous equity/indicators, legacy mode, host timeout, adaptive-versus-prepared-cycle parity and identical decision payloads on a second pinned replay (excluding documented volatile telemetry only).
 **Gate**: Native from Gate Check Commands.
 **Done when**:
 
@@ -376,14 +385,14 @@ authorization to execute, complete gates and available inputs.
 
 ### T16: Report paired policy results and time diagnostics
 
-**What**: Compare E-U daily equity with registered inference settings; publish all policies, failures, monthly/model-age diagnostics and effective filter/training settings. Do not tune or pick best months.
+**What**: Compare E-U daily equity with registered inference settings; publish all policies, failures, monthly/model-age diagnostics and effective filter/training settings. Show E's stage-specific effective N beside R's row counts and actual threshold values per epoch. Report E/U log-loss, Brier and directional accuracy on identical cutoff-valid rows with counts, independently of realized trades; classification metrics do not establish trading profit.
 
 **Where**: `algo-suite/algo-analyze/src/algo_analyze/retraining_report.py`
 **Depends on**: T15
-**Requirement**: RWT-19, RWT-20, RWT-21
+**Requirement**: RWT-19, RWT-20, RWT-21, RWT-29
 **Reuses**: Existing portfolio alignment, significance_report and report schemas.
 **Tools**: Execution Protocol tools; no workers dispatched during planning.
-**Tests**: BDD unit/integration. At least 8 BDD cases: known paired returns, shifted grids, mismatched costs, flat/bankrupt equity unavailable, failed candidate, small-n refusal, exact parameters and exploratory labeling.
+**Tests**: BDD unit/integration. At least 11 BDD cases: known paired returns, shifted grids, mismatched costs, flat/bankrupt equity unavailable, failed candidate, small-n refusal, exact parameters, exploratory labeling, hand-calculated Brier/log-loss, identical-row E/U comparisons and per-epoch threshold/effective-N/count preservation.
 **Gate**: Analysis from Gate Check Commands.
 **Done when**:
 
@@ -414,7 +423,7 @@ authorization to execute, complete gates and available inputs.
 
 **What**: After separate execution authorization and all prior gates, run the frozen matrix and archive real commands, cycle/fit durations, all attempts, artifact hashes and complete parameter/result tables.
 
-**Where**: `algo-suite/docs/stories/planned/19-adaptive-recency-retraining/evidence/results.md`
+**Where**: `algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/evidence/results.md`
 **Depends on**: T17
 **Requirement**: RWT-18, RWT-19, RWT-21
 **Reuses**: T15 runner, T16 report and T1 protocol.

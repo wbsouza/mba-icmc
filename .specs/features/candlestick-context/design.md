@@ -6,9 +6,9 @@ architecture decision is approved by the existence of this document.
 
 ## Architecture
 
-Use one causal rule producer for offline preparation and LEAN. Keep the old
-single-label mode intact. Add optional learned context through locally prepared,
-immutable per-bar outputs; do not require a model runtime inside LEAN.
+Use one causal deterministic rule producer for offline preparation and LEAN.
+Keep the old single-label mode intact. Laya is DEFERRED; no learned-provider
+adapter, training pipeline or inference cache belongs to the active design.
 
 ```text
 Canonical closed UTC bars
@@ -18,14 +18,12 @@ Canonical closed UTC bars
                    |
                    +-> decision evidence -> results database -> viewer
 
-Reviewed sequences -> chronological split -> frozen Laya model -> keyed cache
-                                                                |
-                          optional context provider <------------+
+Reviewed sequences -> purged chronological evaluation partitions
+  -> registered rules-only comparisons -> recognition and trading evidence
 ```
 
-The cache design adds an artifact lifecycle but isolates model dependencies from
-engine replay. Direct in-container inference is the alternative recorded in
-context.md; it requires a separate dependency and reproducibility decision.
+Reviewed recognition data and leakage checks remain active independently of
+learned models. Existing F7 retains normal model provenance and compatibility.
 
 ## Reuse and proposed boundaries
 
@@ -44,7 +42,30 @@ not claims that those files exist today.
 | Recording | `algo-backtest/src/algo_backtest/chain/decision_recorder.py` | Serialize evidence independently of recommendation/action. |
 | Analysis ingestion | `algo-analyze/src/algo_analyze/resultsdb/decisions.py` | Additive, versioned ingestion; historical omissions remain null. |
 | Viewer | `algo-viewer/src/model/patterns.ts`, `algo-viewer/src/views/TradeDrawer.tsx` | Catalog metadata and explicit decision evidence. |
-| Learned provider | New optional `algo-backtest/src/algo_backtest/candle_learning/` package | Label validation, training, inference, evaluation and cache preparation outside pure numerical modules. |
+| Reviewed recognition dataset | New `algo-backtest/src/algo_backtest/candle_evaluation/dataset.py` | Validate reviewed/weak/excluded labels and causal evaluation partitions without model fitting. |
+| Rules experiment runner | New `tools/candlestick_experiments.py` | Execute the registered deterministic matrix and produce recognition metrics plus separate trading evidence. |
+
+## Parallel ownership and handoff gates
+
+The coordinator owns the [shared Stories 19/21/22 plan](../../../algo-suite/docs/stories/parallel-19-21-22.md).
+Main owns coordination and Story 19; a separate agent owns Story 21; lane C owns
+Story 22. This is future implementation planning, not a worker/worktree launch.
+
+| Surface | Future owner and handoff |
+| --- | --- |
+| Rule ledger, new candle perception modules, `f3_pattern.py` | Lane C (Story 22), with co-located Gherkin tests. |
+| `chain/filters/f7_meta_learner.py` | Story 19 owns fitting changes first; after its tested contract handoff, Story 22 T9 integrates the encoder serially. No simultaneous edits. |
+| `training.py`, `signal_contract.py`, `chain/market_signals.py`, `chain/decision_recorder.py` | Coordinator integration lease before T7/T8/T10/T11; record agreed interfaces, base revision and regression evidence in the shared plan. |
+| Results schema/ingestion and viewer | Coordinator integration lease before T12–T14; agree additive fields and old-artifact behavior with Stories 19/21. |
+| Monograph | One coordinator-designated editor; T24 supplies verified prose/tables to that editor. |
+
+Before Phase 1, the coordinator records lane boundaries and evidence/availability
+contracts in the shared plan. Before Phase 2, confirm signal contracts, F3/chain
+semantics and protection scheduling with Story 21, then acquire each shared-file
+lease. Story 19's fitting handoff is a required gate before T9. After T14, the
+coordinator accepts legacy, native/offline parity and old/new audit/viewer evidence
+before Phase 3. T22 requires T16 and a registered rules-only matrix; no deferred
+task gates execution. T24 waits for the single monograph editor's handoff window.
 
 ## Evidence contract
 
@@ -62,8 +83,9 @@ boundary examples. The maximum history proposal is 256 bars; reject configuratio
 requiring more and never silently shorten a window.
 
 Configuration separates detector mode, enabled catalog, context parameters,
-sequence rules, decision policy, and provider. Canonical serialization and a
-versioned hash cover these fields plus feature order and learned-artifact identity.
+sequence rules and decision policy, with deterministic rule provenance. Canonical
+serialization and a versioned hash cover these fields plus feature order and
+existing F7 model/calibration identity where enabled; these are not Laya artifacts.
 Old artifacts without these fields use only the explicit legacy compatibility
 path; they cannot be admitted to a new feature schema.
 
@@ -97,45 +119,45 @@ vetoed. No Bigalow-inspired exit orders or stop changes are part of this slice.
 If the current callback order cannot preserve protection, stop for design review
 before enabling required mode; do not silently widen the risk-policy scope.
 
-## Learned provider and artifact lifecycle
+## Reviewed dataset and evaluation lifecycle
 
-Laya is an experimental context classifier, not an established candlestick
-oracle. T17 must verify the pinned upstream loading/schema interface and license
-before implementation; this plan does not invent an API or assume llama.cpp
-support. Model weights may require preparation-time downloads, never replay-time
-network access. Keep optional dependencies out of the default LEAN runtime.
+T15 retains reviewed labels, weak rule labels and ambiguous exclusions with
+separate provenance and adjudication. Purge overlapping input windows and outcome
+horizons across chronological development, reserved threshold-calibration and
+final-evaluation partitions. Rules derived from source definitions are frozen
+before final evaluation; any data-derived normalization uses development only.
+Calibration here means rule-threshold review in a reserved partition, not learned
+probability calibration. Do not tune on the final evaluation set. CND-18/19 apply
+even when no model is fitted.
 
-Reviewed labels, weak rule labels and ambiguous exclusions have separate
-provenance. Split chronologically with purging of overlapping input windows and
-outcome horizons. Fit preprocessing on train only and calibration on the reserved
-calibration set. Do not tune on the final test set. Register a trial budget first.
+T16 registers label support, costs, windows, metrics, feasible dependence-aware
+statistical inference, trial budget and stop criteria. T22 validates that registration, calculates per-label recognition and
+coverage metrics and records every rules experiment attempt before execution.
+Run collisions and incomplete/failed attempts remain visible without overwriting
+earlier evidence. Metrics belong to the bounded runner's attempt bundle and its
+co-located tests; a separately reusable metric component requires a task split
+and plan revalidation. Existing F7 provenance follows the shared integration contract.
 
-The input serialization is versioned and bounded. Token overflow is an error,
-not truncation. Unknown labels, non-finite probabilities, extra fields or invalid
-schema fail validation. Repeatability means identical labels and the specified
-probability tolerance in a pinned environment, not universal bitwise determinism.
+## Deferred design archive
 
-Cache identity includes pair, timeframe, bar close, window hash, model/tokenizer/
-schema/calibration hashes and preprocessing version. Prepare in a temporary
-artifact, validate, then atomically publish; identical reuse is allowed, conflicting
-content is rejected. No automatic deletion or overwriting of old artifacts.
-Require complete preflight coverage before backtest startup. Runtime corruption
-must produce a failed-run record, never a fallback signal. This backtest-only
-failure behavior is not a live-position recovery design.
+The earlier Laya proposal covered a pinned local adapter (T17), specialization
+(T18), learned recognition/calibration/repeatability (T19), immutable output cache
+(T20) and replay provider (T21). All five are DEFERRED with CND-20–24, outside
+active components, dependencies, tests and rollout. Its historical reference links
+remain in the Story 22 brief. Reactivation requires a separate scope amendment.
 
 ## Experiments and reporting
 
-Register exact windows, costs, seeds, thresholds, trial budget and feasible
-inference settings before launching. Compare legacy, expanded geometry,
-geometry-plus-context, then optional learned context under the same other
+Register exact windows, costs, seeds, thresholds and trial budget before
+launching. Compare legacy, expanded geometry and geometry-plus-context under the same other
 filters. Quote activity is a separately registered factor, not a bundled change.
-Use recognition metrics (per-label precision/recall, coverage and calibration)
+Use recognition metrics (per-label precision/recall, multilabel errors and coverage)
 separately from cost-adjusted return, drawdown and trade-count metrics.
 
 Report every attempt with all resolved filter settings, including disabled
-filters, dataset/config/code/model hashes, failures and exclusions. Modern-model
-evaluation on old market data is retrospective; input-window purging alone does
-not establish that upstream pretraining was free of historical contamination.
+filters, dataset/config/code/protocol hashes, existing F7 model provenance when
+enabled, failures and exclusions. Previously inspected periods remain exploratory;
+a new registration cannot turn them into an untouched holdout.
 No book anecdote, accuracy score or profitable backtest authorizes live trading.
 
 ## Verification and rollout
@@ -146,8 +168,7 @@ the existing architecture/coverage/CRAP/mutation gates to the new pure modules.
 Viewer acceptance tests cover both old and new artifacts and a detection whose
 direction differs from the final action. Synthetic data proves mechanics only.
 
-The first rollout ends with rules and report integration. Learned-context work
-can stop at a documented negative feasibility result; it must not manufacture
-labels or weaken thresholds to continue. Re-scope unperformed downstream tasks
-explicitly if that happens. Final completion requires the skill's independent
+The active rollout consists of Phase 1 T1–T6, Phase 2 T7–T14 and Phase 3
+T15–T16 plus T22–T24: reviewed dataset, protocol, runner, evidence and monograph.
+No active task depends on T17–T21. Final completion requires the skill's independent
 Verifier and discrimination sensor, after implementation is separately authorized.

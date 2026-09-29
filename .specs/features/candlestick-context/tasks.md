@@ -1,11 +1,14 @@
 # Candlestick context implementation plan
 
 **Status**: Draft for review. Planning only, explicitly confirmed by the user.
-All 24 tasks are pending. No engine changes, dependency installation, model
-training, experiments or agents are authorized by this document.
+All 19 active tasks (T1–T16, T22–T24) are pending. T17–T21 are DEFERRED.
+No engine changes, dependency installation, training, experiments or agents are
+authorized by this planning amendment.
 
 **Design**: [design.md](design.md). **Requirements**: [spec.md](spec.md).
-This is the canonical task checklist for the Story 13 extension.
+This is the canonical task checklist for Story 22; Story 13 is historical.
+Active scope: deterministic rules only, with reviewed recognition/evaluation data.
+Laya is explicitly DEFERRED, not an optional active implementation path.
 
 ## Execution Protocol
 
@@ -18,7 +21,11 @@ Before any future execution, obtain scope/design approval and confirm tool and
 skill preferences. Proposed tools for every task: CodeGraph for code discovery,
 shell for checks, apply_patch for edits; skill tlc-spec-driven, plus docs-writer
 for documentation tasks. Check installed capabilities rather than invent APIs.
-Offer sequential batch workers before dispatch; no worker is launched now.
+Future Stories 19/21/22 implementation can proceed in parallel under the
+[coordinator-owned plan](../../../algo-suite/docs/stories/parallel-19-21-22.md).
+Within lane C, phases and tasks stay sequential. No worker or implementation
+worktree is created now. Main owns coordination and Story 19; a separate agent
+owns Story 21.
 
 Write Gherkin first, implement one component, run its gate, then mark its checkbox
 and update requirement traceability in the same atomic Conventional Commit.
@@ -33,20 +40,44 @@ evidence, diff range and PASS/FAIL. Run the skill completion validator. Survivin
 faults become fix tasks; at most three fix/reverify iterations before escalation.
 No validation.md is created during planning.
 
+## Parallel ownership and handoff gates
+
+The [shared plan](../../../algo-suite/docs/stories/parallel-19-21-22.md) owns
+cross-story contracts, integration leases and acceptance of each handoff.
+
+| Surface / tasks | Ownership and prerequisite |
+| --- | --- |
+| Rules/perception/F3, T1–T6 | Lane C owns Story 22. Freeze evidence schema and closed-bar availability contract with the coordinator before implementation. |
+| `market_signals.py` (T7), `signal_contract.py` (T8) | Coordinator integration lease; agree F3/Story 21 chain semantics and independent protection before editing. |
+| `f7_meta_learner.py` (T9) | Story 19 owns fitting changes first; Story 22 integrates its encoder serially after Story 19's tested fitting/feature-contract handoff. |
+| `training.py` (T10), `decision_recorder.py` (T11) | Coordinator integration lease over the agreed point-in-time and provenance contracts. |
+| Results schema/ingestion (T12), viewer (T13–T14) | Coordinator integration lease; shared old/new fixtures and additive schema agreed across the three stories. |
+| T15–T16, T22–T23 | Lane C rules evaluation; after T14, coordinator accepts legacy/parity/protection/audit evidence; T22 requires T16's registered matrix. |
+| Monograph (T24) | One coordinator-designated editor; lane C hands over verified tables/prose and source evidence after T23. |
+
+Each lease records the base revision, exact files, integration owner, agreed
+contract and regression evidence in the shared plan; release it before another
+lane edits those files. These are cross-story gates, not deferred-task dependencies.
+The canonical `Depends on` fields below describe only this story's active DAG.
+
 ## Test Coverage Matrix
 
-Generated from algo-suite/CLAUDE.md, Makefile, pyproject.toml and viewer package
-scripts; confirm before Execute. Samples: candlestick_detector, f3_pattern,
-closed_signal_parity, training_family_contract, signal_configuration and viewer
-patterns features and their step implementations. Existing tests are a floor.
+Generated from `algo-suite/CLAUDE.md`, `algo-suite/Makefile`,
+`algo-suite/algo-backtest/Makefile`, `algo-suite/pyproject.toml`,
+`algo-suite/algo-viewer/package.json` and `monografia/Makefile`; confirm before
+Execute. Sampled features under `algo-suite/algo-backtest/tests/features/`:
+`candlestick_detector.feature`, `f3_pattern.feature`, `closed_signal_parity.feature`,
+`training_family_contract.feature`, `signal_configuration.feature`; also
+`algo-suite/algo-viewer/tests/features/patterns.feature` and representative
+pytest-bdd steps. Existing tests are a floor; no implementation tests were run
+while preparing this amendment.
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | --- | --- | --- | --- | --- |
 | Domain | Gherkin/pytest-bdd unit | All branches and applicable AC/edge cases; core 100% line coverage, CRAP <=8 | algo-backtest/tests/features + tests/steps | Quick; Pure for new perception modules |
 | Native | Gherkin/pytest-bdd integration | Happy/error/boundary cases, closed-bar parity and protection regression | algo-backtest/tests/steps | Full |
-| Artifacts | Gherkin/pytest-bdd integration | Round-trip, old/new schema, corrupt/partial/colliding records | owning package tests/features + tests/steps | Artifacts |
+| Artifacts | Gherkin/pytest-bdd integration | Round-trip, old/new schema, corrupt/partial/colliding records; hand-calculated rules metrics and leakage rejection | owning package tests/features + tests/steps | Artifacts |
 | Viewer | Cucumber acceptance | Old/new rendering, every new state, semantic distinction and malformed data | algo-viewer/tests | Viewer |
-| Model | Gherkin/pytest-bdd + real local smoke | Contract failures plus pinned real-checkpoint evidence; doubles alone insufficient | algo-backtest/tests/features + tests/steps | Model |
 | Documentation | Documentation checks | Source/requirement/parameter completeness, links and evidence reconciliation | story documents / Chapter 4 | Docs, Evidence or Monograph |
 
 Scenario counts below are proposed minima, not execution results. Before each
@@ -69,11 +100,10 @@ counts; the workspace test target's no-tests behavior is not sufficient evidence
 | Full | Native wiring | `make check`; `uv run pytest algo-backtest/tests/steps/test_closed_signal_parity.py algo-backtest/tests/steps/test_minute_pnl_anchors.py -m integration`; explicitly select new native scenarios with `-m integration` |
 | Artifacts | Persistence/runner | `make check`; explicitly select owning package's new BDD files, including integration marker where used |
 | Viewer | UI component | `make viewer-check` |
-| Model | Optional local model | Quick plus explicit new model-smoke BDD selection; resolve the optional environment in T17, record the exact command and pinned revision before running |
 | Docs | Planning/source/protocol | `git diff --check`; strict skill spec/tasks validators; source/Markdown-link checks |
 | Evidence | Experimental report | Docs plus reconciliation with each immutable run manifest and metric artifact |
 | Monograph | Chapter update | Evidence plus `make verify` from monografia |
-| Build | End of each applicable phase | `make check`; Viewer for UI changes; Pure/Full for numerical/native changes; `make audit` after dependencies change |
+| Build | End of each applicable phase | `make check`; Viewer for UI changes; Pure/Full for numerical/native changes; `make audit` and debt review before advancing to the next implementation task per CLAUDE.md |
 
 Strict planning validators, from repository root:
 
@@ -83,30 +113,29 @@ python3 /home/wellington/.agents/skills/tlc-spec-driven/scripts/validate_tasks.p
 ```
 
 Resolve the installed skill directory anew in another environment. Missing Docker,
-weights, data, dependency wheels or network is a recorded blocked gate, not PASS.
+market data, dependency wheels or network is a recorded blocked gate, not PASS.
+The Monograph gate must inspect the citation scan: `make verify` prints warnings
+but does not itself reject every undefined citation. Record zero undefined citations.
 Do not install or download anything during this planning turn.
 
 ## Execution Plan
 
-Four sequential phases: rules (6 tasks), integration (8), learned context (7),
-then experiments/reporting (3). Conservative single-owner ordering avoids
-overlapping contract edits; dependencies below include rollout gates as well as
-direct code dependencies. Future batches may group consecutive whole phases near
-the skill's task budget; confirm delegation before execution, never split a phase
-between concurrent workers. No agents or extra worktrees exist for this plan.
+Three sequential phases in lane C: rules (6 tasks), integration (8), then
+rules evaluation/reporting (5). Other story lanes may progress independently;
+shared-file work is serialized through the coordinator's integration leases.
+These phase boundaries also define the lane's future handoff units.
 
 ```text
 T1 -> T2 -> T3 -> T4 -> T5 -> T6
 T6 -> T7 -> T8 -> T9 -> T10 -> T11 -> T12 -> T13 -> T14
-T14 -> T15 -> T16 -> T17 -> T18 -> T19 -> T20 -> T21
-T21 -> T22 -> T23 -> T24
+T14 -> T15 -> T16 -> T22 -> T23 -> T24
 ```
 
-Release checkpoint after T14: explicit rules and evidence UI. T15–T21 are optional
-learned-context research, contingent on reviewed labels and a feasible protocol.
-A negative feasibility result requires an explicit scope amendment; it does not
-complete unperformed tasks. T22 may run rules-only after an approved amendment.
-No historical backtest result alone permits live deployment.
+Release checkpoint after T14: deterministic rules and evidence UI, with coordinator
+acceptance of legacy parity and independent protection. Phase 3 has five tasks:
+reviewed rules dataset, registered protocol, runner, evidence and monograph.
+T22 depends on T16, with no learned-provider feasibility gate. No active task
+depends on T17–T21. Historical backtests do not authorize live deployment.
 
 ## Task Breakdown
 
@@ -116,7 +145,7 @@ No historical backtest result alone permits live deployment.
 
 **What**: Record book PDF/printed pages, slide numbers and video times, exact geometry/context/confirmation rules, TA-Lib equivalence or differences, and optional EarnForex license/source review. Mark unsupported or ambiguous definitions deferred, including broader chart formations.
 
-**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-rule-ledger.md`
+**Where**: `algo-suite/docs/stories/in-progress/22-candlestick-context-extension/candlestick-rule-ledger.md`
 **Depends on**: None
 **Requirement**: CND-01
 **Reuses**: Source brief and timestamped video notes.
@@ -242,7 +271,7 @@ No historical backtest result alone permits live deployment.
 
 ### T8: Fingerprint the complete signal contract
 
-**What**: Canonicalize and verify catalog, timeframe, context, feature order and optional model/calibration identity; retain explicit legacy compatibility only.
+**What**: Canonicalize and verify catalog, timeframe, context, feature order and existing F7 model/calibration identity when F7 is enabled; retain explicit legacy compatibility only. Acquire the coordinator lease; no Laya artifact identity is added.
 
 **Where**: `algo-suite/algo-backtest/src/algo_backtest/signal_contract.py`
 **Depends on**: T7
@@ -260,7 +289,7 @@ No historical backtest result alone permits live deployment.
 
 ### T9: Version the F7 pattern feature encoder
 
-**What**: Add an ordered expanded feature schema while preserving old signed-polarity encoding for old model families.
+**What**: Add an ordered expanded feature schema while preserving old signed-polarity encoding for old model families. Story 19 completes its fitting changes first; accept its tested handoff in the shared plan before serial T9 integration.
 
 **Where**: `algo-suite/algo-backtest/src/algo_backtest/chain/filters/f7_meta_learner.py`
 **Depends on**: T8
@@ -303,7 +332,7 @@ No historical backtest result alone permits live deployment.
 **Requirement**: CND-15
 **Reuses**: Existing decision_trail record format.
 **Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 6 BDD cases: round-trip, opposing hits, unavailable context, learned provenance, veto and bullish detection with final SELL.
+**Tests**: Gherkin/pytest-bdd integration. At least 6 BDD cases: round-trip, opposing hits, unavailable context, deterministic rule provenance, veto and bullish detection with final SELL.
 **Gate**: Artifacts (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
@@ -357,7 +386,7 @@ No historical backtest result alone permits live deployment.
 **Requirement**: CND-16, CND-17
 **Reuses**: Existing trade drawer and T13 catalog metadata.
 **Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Cucumber acceptance. At least 6 Cucumber scenarios: historical omission, multiple/opposing hits, veto, warmup, learned provider and detection-direction/final-action disagreement.
+**Tests**: Cucumber acceptance. At least 6 Cucumber scenarios: historical omission, multiple/opposing hits, veto, warmup, rule provenance and detection-direction/final-action disagreement.
 **Gate**: Viewer (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
@@ -366,13 +395,13 @@ No historical backtest result alone permits live deployment.
 
 **Commit**: `feat(candles): render separate pattern and decision evidence`
 
-### Phase 3: Optional frozen learned context
+### Phase 3: Rules evaluation and reporting
 
-### T15: Validate reviewed sequence labels and split boundaries
+### T15: Validate reviewed rules-recognition data and split boundaries
 
-**What**: Create a dataset validator with reviewed/weak/ambiguous provenance, label adjudication records and chronological input-window/outcome-horizon overlap checks.
+**What**: Create a rules-recognition dataset validator with reviewed/weak/ambiguous provenance, label adjudication and chronological input-window/outcome-horizon overlap checks across development, reserved threshold-calibration and final evaluation; no learned model is required.
 
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_learning/dataset.py`
+**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_evaluation/dataset.py`
 **Depends on**: T14
 **Requirement**: CND-18, CND-19
 **Reuses**: Existing timestamp validation and training-family conventions.
@@ -388,14 +417,14 @@ No historical backtest result alone permits live deployment.
 
 ### T16: Register bounded recognition and trading protocol
 
-**What**: Register exact splits, costs, seeds, label minimums, calibration metrics, acceptance thresholds, trial budget, inference feasibility and stop criteria before fitting or outcome inspection.
+**What**: Register exact rules-evaluation splits, costs, seeds, label minimums, per-label precision/recall and coverage metrics, acceptance thresholds, feasible dependence-aware statistical inference, trial budget and stop criteria before final-outcome inspection. Freeze legacy/geometry/geometry-plus-context comparisons; no Laya feasibility or training gate.
 
-**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-method-design.md`
+**Where**: `algo-suite/docs/stories/in-progress/22-candlestick-context-extension/candlestick-method-design.md`
 **Depends on**: T15
 **Requirement**: CND-19, CND-26
 **Reuses**: Existing method-design approach and T15 validated dataset inventory.
 **Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Documentation checks. Document checks cover every protocol field, frozen baseline matrix, embargo/purge calculation and no use of speaker performance claims as acceptance evidence.
+**Tests**: Documentation checks. Document checks cover every protocol field, frozen baseline matrix, embargo/purge calculation, sample support and feasibility of the registered statistical inference, and no use of speaker performance claims as acceptance evidence.
 **Gate**: Docs (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
@@ -404,108 +433,16 @@ No historical backtest result alone permits live deployment.
 
 **Commit**: `docs(candles): register bounded recognition and trading protocol`
 
-### T17: Implement optional pinned Laya inference adapter
-
-**What**: Verify upstream interface/license, pin revision and optional dependencies, then implement bounded input/output validation outside LEAN. Record environment and model identity.
-
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_learning/laya_adapter.py`
-**Depends on**: T16
-**Requirement**: CND-20, CND-21
-**Reuses**: T2 schema and T16 protocol; primary upstream model documentation must be checked before coding.
-**Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 8 BDD contract cases for serialization, token overflow, unknown/extra fields, non-finite scores, label constraints, missing weights and manifest completeness; one real pinned-checkpoint smoke in addition to doubles.
-**Gate**: Model (commands above); record baseline and final collected/passed counts.
-**Done when**:
-
-- [ ] The component meets the cited ACs and all listed cases pass its Model gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
-
-**Commit**: `feat(candles): implement optional pinned laya inference adapter`
-
-### T18: Implement frozen specialization pipeline
-
-**What**: Train the optional context classifier using validated splits, train-only preprocessing and a separate calibration partition; publish immutable lineage metadata.
-
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_learning/train.py`
-**Depends on**: T17
-**Requirement**: CND-19, CND-21
-**Reuses**: T15 dataset validator and T17 pinned adapter.
-**Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 7 BDD cases: forbidden overlap, test access rejection, seed/config persistence, train-only preprocessing, calibration provenance, failed-fit record and tiny real-training smoke.
-**Gate**: Model (commands above); record baseline and final collected/passed counts.
-**Done when**:
-
-- [ ] The component meets the cited ACs and all listed cases pass its Model gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
-
-**Commit**: `feat(candles): implement frozen specialization pipeline`
-
-### T19: Evaluate recognition, calibration and repeatability
-
-**What**: Produce per-label metrics, coverage, calibration and repeatability results versus rules and a registered simpler baseline; apply T16 acceptance without test tuning.
-
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_learning/evaluate.py`
-**Depends on**: T18
-**Requirement**: CND-21, CND-22, CND-26
-**Reuses**: Existing analysis conventions, T16 protocol and T18 frozen artifact.
-**Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 8 BDD cases including hand-calculated metrics, no positives, abstention coverage, weak-label separation, manifest lineage, identical labels over 100 repeats and probability tolerance pass/fail boundaries.
-**Gate**: Model (commands above); record baseline and final collected/passed counts.
-**Done when**:
-
-- [ ] The component meets the cited ACs and all listed cases pass its Model gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
-
-**Commit**: `feat(candles): evaluate recognition, calibration and repeatability`
-
-### T20: Materialize immutable learned-output cache
-
-**What**: Publish validated per-bar output artifacts with complete identity, atomic publication and no conflicting overwrite; detect duplicate or incomplete rows.
-
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/candle_learning/cache.py`
-**Depends on**: T19
-**Requirement**: CND-23, CND-24
-**Reuses**: Existing source-hash artifact conventions and T19 accepted or explicitly experimental model.
-**Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 9 BDD cases: identical reuse, key/content collision, interrupted write, missing row, duplicates, stale window, corrupt bytes, mismatch and successful publication.
-**Gate**: Artifacts (commands above); record baseline and final collected/passed counts.
-**Done when**:
-
-- [ ] The component meets the cited ACs and all listed cases pass its Artifacts gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
-
-**Commit**: `feat(candles): materialize immutable learned-output cache`
-
-### T21: Integrate cache-backed optional provider
-
-**What**: Wire the optional provider at the signal boundary with complete preflight validation; replay the same records offline and in LEAN without model downloads. Keep learned mode advisory in this rollout.
-
-**Where**: `algo-suite/algo-backtest/src/algo_backtest/chain/candle_provider.py`
-**Depends on**: T20
-**Requirement**: CND-10, CND-11, CND-13, CND-14, CND-24
-**Reuses**: T7 integration and T20 immutable cache; small wiring changes belong to this component.
-**Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 10 native/host BDD scenarios covering parity, absent/corrupt/stale/duplicate data, startup contract mismatch, advisory abstention, no fallback, no replay network and unchanged protection scheduling.
-**Gate**: Full (commands above); record baseline and final collected/passed counts.
-**Done when**:
-
-- [ ] The component meets the cited ACs and all listed cases pass its Full gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
-
-**Commit**: `feat(candles): integrate cache-backed optional provider`
-
-### Phase 4: Registered experiments and publication
-
 ### T22: Record complete experiment attempts and parameters
 
-**What**: Create a bounded runner for the registered matrix that records every attempt, resolved settings for every enabled/disabled filter, costs and code/data/model/protocol hashes before execution.
+**What**: Create one bounded evaluation runner for T16's rules-only matrix, producing one auditable attempt bundle with recognition metrics, separate trading outcomes, enabled/disabled filter settings, costs and code/data/protocol hashes plus ordinary F7 provenance when enabled. Metric calculation is internal to this runner's registered output, with its BDD checks in this task; no independently shippable metric service is included.
 
 **Where**: `algo-suite/tools/candlestick_experiments.py`
-**Depends on**: T21
-**Requirement**: CND-25
-**Reuses**: Existing experiment scripts and run manifests; production backtests occur only after separate execution authorization.
+**Depends on**: T16
+**Requirement**: CND-25, CND-26
+**Reuses**: Existing experiment scripts, analysis conventions and run manifests; production backtests occur only after separate execution authorization. If implementation requires a separately reusable metric component, split and revalidate the plan before proceeding rather than hiding that component or its tests in runner wiring.
 **Tools**: Common Execution Protocol tools; no delegated execution yet.
-**Tests**: Gherkin/pytest-bdd integration. At least 8 BDD scenarios: full manifest, disabled filters, failed run, interrupted run, existing run collision, bounded trial count, dry-run command generation and config/result identity.
+**Tests**: Gherkin/pytest-bdd integration. At least 13 BDD scenarios: full manifest, disabled filters, failed run, interrupted run, existing run collision, bounded trial count, dry-run command generation, config/result identity, hand-calculated per-label precision/recall, no positives, readiness/abstention coverage, weak-label separation and recognition/trading metric separation.
 **Gate**: Artifacts (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
@@ -518,7 +455,7 @@ No historical backtest result alone permits live deployment.
 
 **What**: Publish the registered comparisons and recognition results with complete per-filter parameter tables, costs, sample sizes, uncertainty, exclusions and artifact links; report negative/inconclusive outcomes.
 
-**Where**: `algo-suite/docs/stories/planned/22-candlestick-context-extension/candlestick-results.md`
+**Where**: `algo-suite/docs/stories/in-progress/22-candlestick-context-extension/candlestick-results.md`
 **Depends on**: T22
 **Requirement**: CND-25, CND-26
 **Reuses**: T16 frozen protocol and T22 experiment artifacts.
@@ -534,7 +471,7 @@ No historical backtest result alone permits live deployment.
 
 ### T24: Update the monograph from verified evidence
 
-**What**: Add an evidence-backed extension section separating recognition and trading results, retrospective-model limitations and remaining live-readiness prerequisites.
+**What**: Add an evidence-backed extension section separating rules recognition and trading results, exploratory-data limitations and remaining live-readiness prerequisites. Hand the verified contribution to the single monograph editor under the shared plan.
 
 **Where**: `monografia/chapters/04-experimental-evaluation.tex`
 **Depends on**: T23
@@ -549,6 +486,25 @@ No historical backtest result alone permits live deployment.
 - [ ] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `docs(candles): update the monograph from verified evidence`
+
+## Deferred task history
+
+These stable IDs preserve the earlier Laya proposal. All are DEFERRED, outside
+the active DAG, phase counts, co-location table and completion criteria. Historical
+prerequisites below are archival only. Reactivation requires a new scope amendment;
+no active task waits for a deferred result. CND-18/19 remain active in T15/T16.
+
+| ID | Historical deliverable and proposed location | Historical prerequisites / requirements | Historical checks (inactive) | Status |
+| --- | --- | --- | --- | --- |
+| T17 | Pinned Laya adapter: verify upstream interface/license, revision and bounded I/O; `candle_learning/laya_adapter.py`. | T16; CND-20/21 | Token overflow, invalid schema/labels/scores, missing weights, manifest completeness; real pinned-checkpoint smoke. | DEFERRED |
+| T18 | Frozen specialization, train-only preprocessing and reserved calibration; `candle_learning/train.py`. | T17; CND-19/21 | Split overlap, forbidden test access, seed/lineage, failed fit and tiny training smoke. CND-19 is now independently covered by active T15/T16. | DEFERRED |
+| T19 | Learned recognition/calibration/repeatability; `candle_learning/evaluate.py`. | T18; CND-21/22/26 | Per-label metrics, no positives, weak labels, lineage, 100-repeat labels and probability tolerance 0.000001. Rules metrics now belong to active T22/T23. | DEFERRED |
+| T20 | Immutable per-bar learned-output cache with atomic publication; `candle_learning/cache.py`. | T19; CND-23/24 | Identical reuse, collisions, interrupted publication, absent/duplicate/stale/corrupt rows. | DEFERRED |
+| T21 | Cache-backed replay provider; `chain/candle_provider.py`. | T20; CND-10/11/13/14/24 | Native/offline parity, preflight, advisory abstention, no fallback/network and protection. Active rule-path coverage remains in T6–T10. | DEFERRED |
+
+Historical paths above are relative to `algo-suite/algo-backtest/src/algo_backtest/`;
+they are not proposed active modules. No optional Laya adapter, cache, training,
+token-budget check or checkpoint-smoke gate is part of the active plan.
 
 ## Task Granularity Check
 
@@ -575,11 +531,6 @@ revalidate before proceeding. Do not disguise broad rewrites as wiring.
 | T14 | One render separate pattern and decision evidence component | Atomic outcome defined |
 | T15 | One validate reviewed sequence labels and split boundaries component | Atomic outcome defined |
 | T16 | One document | Atomic outcome defined |
-| T17 | One implement optional pinned laya inference adapter component | Atomic outcome defined |
-| T18 | One implement frozen specialization pipeline component | Atomic outcome defined |
-| T19 | One evaluate recognition, calibration and repeatability component | Atomic outcome defined |
-| T20 | One materialize immutable learned-output cache component | Atomic outcome defined |
-| T21 | One integrate cache-backed optional provider component | Atomic outcome defined |
 | T22 | One record complete experiment attempts and parameters component | Atomic outcome defined |
 | T23 | One document | Atomic outcome defined |
 | T24 | One document | Atomic outcome defined |
@@ -604,12 +555,7 @@ revalidate before proceeding. Do not disguise broad rewrites as wiring.
 | T14 | T13 | T13 | Match |
 | T15 | T14 | T14 | Match |
 | T16 | T15 | T15 | Match |
-| T17 | T16 | T16 | Match |
-| T18 | T17 | T17 | Match |
-| T19 | T18 | T18 | Match |
-| T20 | T19 | T19 | Match |
-| T21 | T20 | T20 | Match |
-| T22 | T21 | T21 | Match |
+| T22 | T16 | T16 | Match |
 | T23 | T22 | T22 | Match |
 | T24 | T23 | T23 | Match |
 
@@ -633,12 +579,6 @@ revalidate before proceeding. Do not disguise broad rewrites as wiring.
 | T14 | Viewer | Cucumber acceptance | Cucumber acceptance | Co-located in task |
 | T15 | Domain | Gherkin/pytest-bdd unit | Gherkin/pytest-bdd unit | Co-located in task |
 | T16 | Documentation | Documentation checks | Documentation checks | Co-located in task |
-| T17 | Model | Gherkin/pytest-bdd integration + real smoke | Gherkin/pytest-bdd integration + real smoke | Co-located in task |
-| T18 | Model | Gherkin/pytest-bdd integration + real smoke | Gherkin/pytest-bdd integration + real smoke | Co-located in task |
-| T19 | Model | Gherkin/pytest-bdd integration + real smoke | Gherkin/pytest-bdd integration + real smoke | Co-located in task |
-| T20 | Artifacts | Gherkin/pytest-bdd integration | Gherkin/pytest-bdd integration | Co-located in task |
-| T21 | Native | Gherkin/pytest-bdd integration | Gherkin/pytest-bdd integration | Co-located in task |
 | T22 | Artifacts | Gherkin/pytest-bdd integration | Gherkin/pytest-bdd integration | Co-located in task |
 | T23 | Documentation | Documentation checks | Documentation checks | Co-located in task |
 | T24 | Documentation | Documentation checks | Documentation checks | Co-located in task |
-
