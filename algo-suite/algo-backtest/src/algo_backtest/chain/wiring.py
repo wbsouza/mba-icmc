@@ -44,6 +44,18 @@ from algo_backtest.chain.model import Filter, TerminalDecision
 from algo_backtest.chain.terminal import F7TerminalDecision, LastFilterTerminalDecision
 from algo_backtest.strategies import KNOWN_FILTERS, StrategyChainConfig
 
+# The closed canonical (YAML) -> runtime `FilterResult.filter_name` map any single-filter
+# terminal rule needs: F1/F2/F3's runtime name is capitalized, unlike their YAML key
+# (F4/constant_direction's aren't, which is why a terminal_filter of f3_pattern going
+# through this map unmapped went unnoticed until a non-F7 chain first named it terminal).
+_VOTER_NAME_MAP: dict[str, str] = {
+    "f1_trend": "F1_trend",
+    "f2_indicator": "F2_indicator",
+    "f3_pattern": "F3_pattern",
+    "f4_news_context": "f4_news_context",
+    "constant_direction": "constant_direction",
+}
+
 # F1 hard-requires trend_strength in [0, 100] (an ADX-style reading); the EMA-gap proxy
 # below is in basis points and can exceed that on a volatile bar, so it is clamped.
 _TREND_STRENGTH_CAP = 100.0
@@ -235,7 +247,12 @@ def terminal_decision(config: StrategyChainConfig) -> TerminalDecision:
             f"strategy {config.name!r} lists no f7_meta_learner and names no terminal_filter — "
             "load it through load_strategy_chain_config, which requires one of the two"
         )
-    return LastFilterTerminalDecision(config.terminal_filter)
+    # `config.terminal_filter` is the canonical (YAML) name; `strategies.py` already
+    # proved it is a `DIRECTION_FILTERS` member, so `_VOTER_NAME_MAP` always has it.
+    # F1/F2/F3's runtime `FilterResult.filter_name` differs in case from their YAML
+    # key (F4/constant_direction's don't, which is why this went unnoticed until a
+    # non-F7 chain first named F3 its terminal_filter).
+    return LastFilterTerminalDecision(_VOTER_NAME_MAP[config.terminal_filter])
 
 
 _T = TypeVar("_T")

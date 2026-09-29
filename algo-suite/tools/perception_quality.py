@@ -28,6 +28,16 @@ ALLOWED = {
     "offline": {"algo_backtest.perception.heikin_ashi"},
     "bar_clock": set(),
     "candlestick": {"algo_backtest.perception.heikin_ashi"},
+    "candle_contract": set(),
+    "candle_context": {"algo_backtest.perception.candle_contract"},
+    "candle_catalog": {
+        "algo_backtest.perception.candle_contract",
+        "algo_backtest.perception.candlestick",
+    },
+    "candle_sequence": {
+        "algo_backtest.perception.candle_contract",
+        "algo_backtest.perception.candle_catalog",
+    },
     "volume": set(),
     "tick_activity": {"algo_backtest.months"},
     "lean_indicator": {"algo_backtest.perception.heikin_ashi", "QuantConnect.Indicators"},

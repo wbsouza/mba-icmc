@@ -154,8 +154,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Docs (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Docs gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Docs gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `docs(candles): review and freeze the source-rule ledger`
 
@@ -172,8 +172,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Quick (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Quick gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Quick gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `feat(candles): define immutable pattern evidence and configuration`
 
@@ -190,8 +190,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Pure (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `feat(candles): implement the expanded geometry catalog`
 
@@ -208,8 +208,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Pure (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `feat(candles): implement causal context evaluation`
 
@@ -226,8 +226,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Pure (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Pure gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `feat(candles): implement next-bar confirmation state machine`
 
@@ -244,8 +244,8 @@ depends on T17–T21. Historical backtests do not authorize live deployment.
 **Gate**: Quick (commands above); record baseline and final collected/passed counts.
 **Done when**:
 
-- [ ] The component meets the cited ACs and all listed cases pass its Quick gate; no existing scenarios are removed or silently skipped.
-- [ ] Evidence and requirement/task status are included in one atomic commit.
+- [x] The component meets the cited ACs and all listed cases pass its Quick gate; no existing scenarios are removed or silently skipped.
+- [x] Evidence and requirement/task status are included in one atomic commit.
 
 **Commit**: `feat(candles): implement explicit f3 policy modes`
 

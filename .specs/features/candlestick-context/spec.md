@@ -155,18 +155,18 @@ only; they are never presented as market-performance evidence.
 
 | Requirement ID | Story | Tasks | Status |
 | --- | --- | --- | --- |
-| CND-01 | P1 evidence | T1, T3 | In Tasks |
-| CND-02 | P1 evidence | T2, T3 | In Tasks |
-| CND-03 | P1 evidence | T2, T4, T7 | In Tasks |
-| CND-04 | P1 evidence | T3, T4 | In Tasks |
-| CND-05 | P1 evidence | T3, T4, T5, T7 | In Tasks |
-| CND-06 | P1 evidence | T4 | In Tasks |
-| CND-07 | P1 evidence | T5 | In Tasks |
-| CND-08 | P1 evidence | T5 | In Tasks |
-| CND-09 | P1 evidence | T3, T6, T7, T9 | In Tasks |
+| CND-01 | P1 evidence | T1, T3 | Implemented (T1, T3) |
+| CND-02 | P1 evidence | T2, T3 | Implemented (T2, T3) |
+| CND-03 | P1 evidence | T2, T4, T7 | Implemented (T2, T4) |
+| CND-04 | P1 evidence | T3, T4 | Implemented (T3, T4) |
+| CND-05 | P1 evidence | T3, T4, T5, T7 | Implemented (T3, T4, T5) |
+| CND-06 | P1 evidence | T4 | Implemented (T4) |
+| CND-07 | P1 evidence | T5 | Implemented (T5) |
+| CND-08 | P1 evidence | T5 | Implemented (T5) |
+| CND-09 | P1 evidence | T3, T6, T7, T9 | Implemented (T3, T6) |
 | CND-10 | P1 evidence | T7, T10 | In Tasks |
-| CND-11 | P1 decisions | T6 | In Tasks |
-| CND-12 | P1 decisions | T6 | In Tasks |
+| CND-11 | P1 decisions | T6 | Implemented (T6) |
+| CND-12 | P1 decisions | T6 | Implemented (T6) |
 | CND-13 | P1 decisions | T7 | In Tasks |
 | CND-14 | P1 decisions | T8, T9, T10 | In Tasks |
 | CND-15 | P1 decisions | T11, T12 | In Tasks |

@@ -340,7 +340,9 @@ def build_training_rows(
     periods = price_features_config or PriceFeatureConfig()
     horizon_bars = _horizon_bars(horizon_minutes, periods.bar_minutes)
     bars = _training_bars(bars, periods, perception)
-    signals = MarketSignals(pattern_config, volume_config)
+    signals = MarketSignals(
+        pattern_config, volume_config, bar_minutes=periods.bar_minutes, pair=instrument.symbol,
+    )
     signal_features = [signals.update(bar) for bar in bars]
     duration = timedelta(minutes=periods.bar_minutes)
     directions = _perception_features(bars, perception or PerceptionConfig())
