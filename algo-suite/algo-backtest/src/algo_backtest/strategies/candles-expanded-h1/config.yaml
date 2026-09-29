@@ -1,0 +1,16 @@
+# H1 variant of candles-expanded, committed 2026-09-28 for the 2016-03/2017-02
+# comparison window: the M1 (bar_minutes: 1, baseline's default) cadence hit TD-71's
+# documented same-bar stop/target double-fill gap over that window and was correctly
+# refused at the statement step ("trade-plans.json has no plan with entry_order_id
+# ..."; docs/technical-debt.md TD-71). TD-71 notes this was "never in the reported
+# H1/H4 runs" -- this variant restates only the decision clock (H1) to sidestep that
+# known executor limitation. This is a real config change (60x slower decision
+# cadence, materially fewer trades), NOT the identical strategy candles-expanded runs
+# at -- disclose that wherever a result from this variant is used
+# (docs/stories/in-progress/22-candlestick-context-extension/progress.md has the
+# 2016-03/2017-02 comparison entry).
+schema_version: 2
+extends: candles-expanded
+
+price_features:
+  bar_minutes: 60

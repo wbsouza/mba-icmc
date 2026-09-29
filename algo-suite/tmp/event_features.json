@@ -1,0 +1,93 @@
+{
+  "name" : "Event features",
+  "scenarios" : [ {
+    "name" : "A daily series is forward-filled onto the minute grid",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a daily <source> series",
+      "parameters" : [ "source" ]
+    }, {
+      "keyword" : "When",
+      "text" : "I build event features"
+    }, {
+      "keyword" : "Then",
+      "text" : "each minute carries the most recent prior daily <column> value",
+      "parameters" : [ "column" ]
+    } ],
+    "examples" : [ {
+      "source" : "gpr",
+      "column" : "gpr"
+    }, {
+      "source" : "gdelt",
+      "column" : "event_intensity"
+    } ]
+  }, {
+    "name" : "A gap in the daily series carries forward, never interpolates",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a daily <source> series with a missing day",
+      "parameters" : [ "source" ]
+    }, {
+      "keyword" : "When",
+      "text" : "I build event features"
+    }, {
+      "keyword" : "Then",
+      "text" : "minutes in the missing day carry the last known prior <column> value",
+      "parameters" : [ "column" ]
+    }, {
+      "keyword" : "And",
+      "text" : "no value is interpolated between the surrounding days"
+    } ],
+    "examples" : [ {
+      "source" : "gpr",
+      "column" : "gpr"
+    }, {
+      "source" : "gdelt",
+      "column" : "event_intensity"
+    } ]
+  }, {
+    "name" : "Minutes before any data exists have no feature value",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "a daily <source> series whose first observation is on day 2",
+      "parameters" : [ "source" ]
+    }, {
+      "keyword" : "When",
+      "text" : "I build event features"
+    }, {
+      "keyword" : "Then",
+      "text" : "minutes before day 2 have no <column> value",
+      "parameters" : [ "column" ]
+    }, {
+      "keyword" : "And",
+      "text" : "that absence is not fabricated as zero"
+    } ],
+    "examples" : [ {
+      "source" : "gpr",
+      "column" : "gpr"
+    }, {
+      "source" : "gdelt",
+      "column" : "event_intensity"
+    } ]
+  }, {
+    "name" : "GDELT event_intensity is the unweighted mean of goldstein_scale per day",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "GDELT events on 2020-01-05 with goldstein_scale -4.0, 2.0, and 6.0"
+    }, {
+      "keyword" : "When",
+      "text" : "I build event features"
+    }, {
+      "keyword" : "Then",
+      "text" : "every minute of 2020-01-05 carries event_intensity 1.3333333333333333"
+    }, {
+      "keyword" : "And",
+      "text" : "avg_tone is not folded into event_intensity"
+    } ],
+    "examples" : [ ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "canonical event Parquet exists for gdelt and gpr"
+  } ]
+}

@@ -1,0 +1,12 @@
+# algo-download overrides. Copy to `download.yaml` to activate.
+# Only the sources you enable are downloaded; absent = convention defaults.
+
+# sources:
+#   dukascopy:
+#     enabled: true
+#     symbols: [EURUSD, USDJPY]
+#     years: [2015, 2024]
+#   gdelt:
+#     enabled: true
+#   gpr:
+#     enabled: true

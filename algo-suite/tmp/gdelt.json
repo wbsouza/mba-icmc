@@ -1,0 +1,123 @@
+{
+  "name" : "Download GDELT event data (raw only)",
+  "scenarios" : [ {
+    "name" : "Planning performs no I/O",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I plan gdelt for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "the plan lists 2976 slot units"
+    }, {
+      "keyword" : "And",
+      "text" : "no HTTP request was made"
+    }, {
+      "keyword" : "And",
+      "text" : "no file was written under the data root"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Happy path writes raw payloads at the canonical path",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I download gdelt for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "a raw payload exists at \"raw/gdelt/2020/01/02/20200102143000.export.CSV.zip\""
+    }, {
+      "keyword" : "And",
+      "text" : "no file is written outside the raw store"
+    }, {
+      "keyword" : "And",
+      "text" : "no unit is FAILED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Resume is a filesystem no-op",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "gdelt \"2020-01\" is already downloaded"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "no HTTP request was made"
+    }, {
+      "keyword" : "And",
+      "text" : "every unit is SKIPPED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A slot the provider never published is MISSING and durable, not FAILED",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT datafeed has no data for slot 2020-01-02 14:30"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "\"raw/gdelt/2020/01/02/20200102143000.export.CSV.zip\" exists as an empty payload"
+    }, {
+      "keyword" : "And",
+      "text" : "that slot is counted MISSING"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits 0"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "A slot fetch that never completes writes nothing and flips the exit code",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "the GDELT datafeed always errors for slot 2020-01-02 14:30"
+    }, {
+      "keyword" : "When",
+      "text" : "I download gdelt for \"2020-01\""
+    }, {
+      "keyword" : "Then",
+      "text" : "no file exists at \"raw/gdelt/2020/01/02/20200102143000.export.CSV.zip\""
+    }, {
+      "keyword" : "And",
+      "text" : "that slot is counted FAILED"
+    }, {
+      "keyword" : "And",
+      "text" : "the run exits non-zero"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "The slot URL is directly guessable from its timestamp, no master list needed",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I build the GDELT Events URL for slot 2020-01-02 14:30"
+    }, {
+      "keyword" : "Then",
+      "text" : "the URL is \"https://data.gdeltproject.org/gdeltv2/20200102143000.export.CSV.zip\""
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "The raw path is day-partitioned and round-trips to the same slot",
+    "steps" : [ {
+      "keyword" : "When",
+      "text" : "I round-trip the raw path under \"/data\" for slot 2020-01-02 14:30"
+    }, {
+      "keyword" : "Then",
+      "text" : "the parsed slot equals the original slot"
+    } ],
+    "examples" : [ ]
+  } ],
+  "background" : [ {
+    "keyword" : "Given",
+    "text" : "a writable data root"
+  }, {
+    "keyword" : "And",
+    "text" : "the GDELT datafeed returns zip bytes by default"
+  } ]
+}

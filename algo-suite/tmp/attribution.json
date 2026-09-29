@@ -1,0 +1,57 @@
+{
+  "name" : "Per-currency attribution",
+  "scenarios" : [ {
+    "name" : "route an article to the currency it concerns",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "an article about <subject>",
+      "parameters" : [ "subject" ]
+    }, {
+      "keyword" : "When",
+      "text" : "attribution runs"
+    }, {
+      "keyword" : "Then",
+      "text" : "it contributes to currency <currency>",
+      "parameters" : [ "currency" ]
+    } ],
+    "examples" : [ {
+      "subject" : "the ECB raising rates",
+      "currency" : "EUR"
+    }, {
+      "subject" : "an FOMC decision",
+      "currency" : "USD"
+    }, {
+      "subject" : "BOJ intervention",
+      "currency" : "JPY"
+    } ]
+  }, {
+    "name" : "USD-macro news feeds both pairs",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "an FOMC article attributed to USD"
+    }, {
+      "keyword" : "When",
+      "text" : "the feature layer forms pair features"
+    }, {
+      "keyword" : "Then",
+      "text" : "both EURUSD and USDJPY consume the USD sentiment stream"
+    } ],
+    "examples" : [ ]
+  }, {
+    "name" : "Article with no attributable currency is dropped",
+    "steps" : [ {
+      "keyword" : "Given",
+      "text" : "an article concerning none of EUR, USD, JPY"
+    }, {
+      "keyword" : "When",
+      "text" : "attribution runs"
+    }, {
+      "keyword" : "Then",
+      "text" : "it is excluded from per-currency output"
+    }, {
+      "keyword" : "And",
+      "text" : "it is counted in the run report, not raised as an error"
+    } ],
+    "examples" : [ ]
+  } ]
+}

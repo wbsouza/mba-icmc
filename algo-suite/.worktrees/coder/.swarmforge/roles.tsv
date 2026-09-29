@@ -1,0 +1,6 @@
+specifier	master	/home/wellington/workspace/algo-suite	swarmforge-specifier	Specifier	claude	task	forward-only
+coder	coder	/home/wellington/workspace/algo-suite/.worktrees/coder	swarmforge-coder	Coder	codex	task	forward-only
+cleaner	cleaner	/home/wellington/workspace/algo-suite/.worktrees/cleaner	swarmforge-cleaner	Cleaner	codex	batch	back-one
+architect	architect	/home/wellington/workspace/algo-suite/.worktrees/architect	swarmforge-architect	Architect	codex	batch	back-all
+hardender	hardender	/home/wellington/workspace/algo-suite/.worktrees/hardender	swarmforge-hardender	Hardender	claude	batch	forward-only
+QA	QA	/home/wellington/workspace/algo-suite/.worktrees/QA	swarmforge-QA	Qa	codex	batch	back-all
