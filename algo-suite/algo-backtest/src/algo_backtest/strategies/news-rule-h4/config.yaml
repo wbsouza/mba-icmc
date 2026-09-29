@@ -1,9 +1,0 @@
-# Strategy "news-rule-h4": news-rule on the Heikin-Ashi H4 template's clock (H4 decision
-# bars, exact complete UTC buckets). Everything else — the F4 intensity rule and its
-# placeholder thresholds, terminal_filter, the template's risk_guard / capital_mgmt — is
-# inherited from news-rule/config.yaml unchanged. No F7, so no label horizon to restate.
-schema_version: 2
-extends: news-rule
-
-price_features:
-  bar_minutes: 240
