@@ -633,4 +633,3 @@ cannot be established, report the affected study unavailable.
 
 Planning completion means strict spec/tasks validators and source-preservation
 checks pass; it does not mean any of T1–T22 is implemented or approved.
-

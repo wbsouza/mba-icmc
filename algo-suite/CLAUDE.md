@@ -20,7 +20,7 @@ Build output is ignored by the unscoped `build/` line in the root `.gitignore`.
 
 - **Scope and assignment brief:** `monografia/final-research-project-proposal.pdf`.
 - **Architectural decisions for the empirical work:** `algo-suite/PRD.md` (product/scope/roadmap), each tool's `algo-suite/algo-<tool>/SPEC.md`, and `algo-suite/docs/` (design corpus, `technical-debt.md`, stories). `algo-suite/specs.md` is the superseded dated-decision archive those were split from — read it for the *why* of older decisions, but amend the live sources, not it. Do not contradict a recorded decision without writing a new dated amendment.
-- **Submission track:** TCC normal (Track a) — Introduction, Theoretical Foundation, Methodology/Proposal. Final submission 2026-05-25, scope freeze 2026-05-18.
+- **Submission track:** TCC normal (Track a) — Introduction, Theoretical Foundation, Methodology/Proposal. Final submission 2026-09-29, scope freeze 2026-05-18.
 
 ## Common commands
 

@@ -401,7 +401,7 @@ authorization to execute, complete gates and available inputs.
 
 **Commit**: `feat(retraining): report paired policy results and time diagnostics`
 
-### T17: Document the adaptive methodology in Chapter 3
+### T17: Document the adaptive methodology in Chapter 3 [x]
 
 **What**: Explain lifecycle, exponential observation weights, independent stage calibration, future-only activation, fixed controls and exploratory status before new runs.
 
@@ -414,10 +414,12 @@ authorization to execute, complete gates and available inputs.
 **Gate**: Monograph from Gate Check Commands.
 **Done when**:
 
-- [ ] The stated outcome and all listed acceptance cases pass the Monograph gate; actual test/check counts and evidence are recorded.
-- [ ] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
+- [x] The stated outcome and all listed acceptance cases pass the Monograph gate; actual test/check counts and evidence are recorded.
+- [x] Task/spec status and relevant public documentation are updated in the same atomic commit, with no skipped or deleted regression tests.
 
 **Commit**: `docs(retraining): document the adaptive methodology in chapter 3`
+
+**Note**: Executed before T16 by coordinator decision (methodology precedes runs); the phase gate is unaffected.
 
 ### T18: Execute and archive the registered five-policy study
 

@@ -199,3 +199,50 @@ flowchart TD
     D --> D3["Central-bank scrapers (FOMC/ECB/BOJ)"]
     D --> D4["Reddit Pushshift archive"]
 ```
+
+## Review, 2026-09-28 (Stories 19/21/22 implementation push)
+
+Worktree `docs/monograph-19-21-22` at `0f503be`, read-only review ahead of Chapters 4/5 receiving Story 19/21/22 results. `algo-suite/PRD.md` records the deposit deadline as **2026-09-29 (tomorrow relative to this review)**; `algo-suite/CLAUDE.md`'s "Submission track" line still says "Final submission 2026-05-25" and this snapshot's own header dates are explicitly historical — both are stale against PRD.md's own correction. Flagging this first because it changes how the remaining findings should be triaged.
+
+### 1. Build health
+
+`make rebuild`: clean full build, exit 0, **131 pages**. `make verify`: **zero undefined citations**. `make pt-scan`: one genuine leftover-Portuguese phrase in the body, everything else in the flagged-word list is expected (bibliography entries citing Portuguese-language sources by their original titles, the required pt-BR Resumo, the catalog card).
+
+- **Real fix needed:** `chapters/03-methodology.tex:352` (filter F8, extended-filter set) — "pattern list (expansível até $\sim$60 padrões do TA-Lib)" is untranslated Portuguese inside English body text.
+- Two more English-only slips pt-scan's accent-only scan doesn't catch: `chapters/01-introduction.tex` cites `\citeauthor{vanhelden2021fx}, Tabela~6, p.~35` ("Tabela" → "Table"); `bib/references.bib`'s `kassis2026skills` entry has `urlaccessdate = {26 set. 2026}` ("set." → "Sep.").
+
+### 2. Consistency against the committed Scope/Stack/Feature/Decision rows above
+
+This snapshot is a frozen methodology-freeze record (its own header defers to `PRD.md` and `parquet-evaluation.md` for anything about schedule/architecture), so "direction" is read here as the committed rows above, checked against the current manuscript + evidence.
+
+| Item | Status | Note |
+| --- | --- | --- |
+| Research question / H1 on the 2024 test span | **Not yet addressed** | Ch.1's H1 (`chapters/01-introduction.tex`) is literally scoped to "the 2024 test span"; every result Chapter 4 reports is 2015–2017 (six-month pilot, then March 2016–Feb 2017). Chapter 4 correctly labels this exploratory, but Ch.1 doesn't acknowledge that the stated test span is out of reach given the deposit date above. |
+| EUR/USD + USD/JPY | **Partially addressed** | Architecture is pair-agnostic and the commitment is stated; all Chapter 4 evidence is EUR/USD only, USD/JPY unrun. |
+| Lexicon (Loughran–McDonald) + Transformer (FinBERT) scorers | **Not yet addressed** | Ch.4 states text sentiment is absent throughout; only the GDELT event-intensity (Goldstein) scalar is live. |
+| GDELT 2.0, GKG primary | **Partially addressed** | Implemented path uses GDELT Events (event intensity), not GKG-derived sentiment; §3.6.7 (`subsec:why-event-index`) explains this as a deliberate, documented schedule trade-off, not silent drift. |
+| Caldara–Iacoviello GPR index | **Not yet addressed** | Not present in any Ch.4 run. |
+| Outer-tier corpora (FNSPID, CC-News, central banks, Reddit) | **Not yet addressed** | Still "planned" in §3.5; consistent with the layered-MVP graceful-degradation plan this snapshot itself describes. |
+| Storage/compute stack (Parquet canonical, materialized `lean-data/`, read-through cache, LEAN pinned engine) | **Addressed** | §3.3 and §3.9 match the running system; Ch.4 evidence (hash-pinned engine image, materializer parity tests) corroborates it. |
+| Decision architecture (5 sub-models, late fusion, F1–F7 chain) | **Addressed (core), partial (extended F8–F20)** | F1–F7 run in every reported cell; F3 has a real TA-Lib detector only in the newer H4 cells (predecessor pilot's F3 config was inert); F8–F20 are specified in §3.8.2 but only F8/F3-equivalent TA-Lib detection is actually exercised so far. |
+| Definition of success (incl. "no improvement, with a disciplined explanation") | **Addressed** | Chapters 4–5 report exactly this outcome for the reproduced one-year study, with an auditable, registered-before-viewing trail — the strongest point of alignment between this snapshot's stated intent and what was actually built. |
+
+### 3. Chapter 3's new "Adaptive Recency-Weighted Retraining" subsection (`subsec:adaptive-retraining`, lines 429–457)
+
+Reads well in place: it opens by referring back to the walk-forward protocol stated just above it, uses the same F7/terminal-filter and combiner vocabulary as the rest of the chapter, and reuses the Politis–Romano stationary-bootstrap citation already established in §3.10.1 rather than introducing a new method. It matches Chapter 5's forward-reference to "five policies (frozen, thresholds refreshed, rolling, expanding, exponentially weighted)" verbatim in ordering. No claim in it contradicts anything stated elsewhere in Chapter 3 or in the abstract (the abstract doesn't mention retraining at all, which is fine — it's a secondary study, not part of the H1 claim).
+
+One gap: it isn't cross-referenced from Table~\ref{tab:experiments} ("Numbered Experiments," nine rows). A reader moving from this new subsection straight into that table may wonder whether the retraining study is an implicit tenth experiment. A one-line pointer either way (e.g., "reported separately from the numbered experiments above") would close it.
+
+### 4. Chapter 4/5 readiness for Stories 19/21/22
+
+Chapter 4 is **not** the skeleton `algo-suite/CLAUDE.md` still describes ("work in progress... section plan only, no results yet") — that line is stale. The chapter is a dense, dated, evidence-linked report running through a reproduced one-year, twelve-cell comparison ("session 2"), and it already states its central finding as a disciplined negative result. Two sections remain literal placeholders: §4.2 "Data Coverage" and §4.10 "Comparison with Closest Prior Art" (both "\textit{To be added in the final version}"). Given the deposit date noted above, these need to be either filled or explicitly carried as a known gap in the final submission, not left silently pending.
+
+Chapter 1's closing "Document Structure" paragraph (last paragraph of `chapters/01-introduction.tex`) still says the experimental chapter "will be completed for the final submission, once the empirical results... have been produced" — that describes the intermediate-submission state and is now stale against Chapter 4's actual content; it should be rewritten to describe what the final chapter contains.
+
+Nothing in Chapters 4–5 pre-commits to a direction for the Story 19/21/22 results: the four registered follow-ups in §5.2 (`subsec:future-registered`) — adaptive retraining, confluence chain, exogenous-market features, and the price-action/momentum/Ichimoku contest — are framed as open, registered hypotheses against "the baseline these studies must beat," not as claims of a particular outcome. That framing is safe to build on regardless of what Stories 19/21/22 find.
+
+### Summary for the team lead
+
+- Build: 131 pages, 0 undefined citations, pt-scan clean apart from one real leftover-Portuguese phrase (§3.8.2, F8) plus two accent-less English-only slips ("Tabela," "set.").
+- Direction tally: 2 fully addressed, 3 partially addressed, 5 not yet addressed (table above) — all consistent with the declared layered-MVP schedule, nothing silently dropped.
+- Top findings: (1) the 2026-09-29 deposit deadline in `PRD.md` contradicts the stale `2026-05-25` line in `algo-suite/CLAUDE.md` and isn't reflected anywhere in this file; (2) H1 as worded targets the 2024 test span, which no run has touched; (3) Chapter 4 is already a full evidence-backed report, not a skeleton — two "to be added" sections remain; (4) Chapter 1's structure paragraph is stale relative to Chapter 4's actual content; (5) the new retraining subsection is solid but not cross-referenced from the numbered-experiments table.

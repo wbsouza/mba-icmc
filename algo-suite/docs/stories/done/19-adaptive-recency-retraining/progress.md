@@ -62,7 +62,7 @@ convention; update both in the same tested task commit.
 - [ ] T14: Package schedules and lifecycle metadata in runs.
 - [ ] T15: Expose adaptive preparation and replay orchestration.
 - [ ] T16: Report paired policy results and time diagnostics.
-- [ ] T17: Document the adaptive methodology in Chapter 3.
+- [x] T17: Document the adaptive methodology in Chapter 3.
 - [ ] T18: Execute and archive the registered five-policy study.
 - [ ] T19: Write verified findings into Chapter 4.
 
@@ -1069,6 +1069,35 @@ the fitted bundle's registry, the full 2.3 MB container log and the extracted
 run itself).
 
 Commit: `docs(retraining): record the real full-year policy-F backtest result`.
+
+## Log
+
+- 2026-09-28 (monograph editor, worktree `/tmp/mba-impl-monograph`, branch
+  `docs/monograph-19-21-22`, base `3d17d7f`): T17 done. Added
+  Section~\ref{subsec:adaptive-retraining} ("Adaptive Recency-Weighted
+  Retraining") to `monografia/chapters/03-methodology.tex:429-458`, inside
+  Section~\ref{sec:evaluation} (Backtesting and Evaluation Protocol), right
+  after the walk-forward/CPCV/transaction-cost material and before Numbered
+  Experiments. Documents, as registered methodology only (no results, no
+  numbers from any run): the consume/mature/fit/validate/publish/load-on-demand
+  lifecycle with continuous account state; the five policies F/Q/R/U/E and the
+  exact temporal contract from the frozen T1 protocol
+  (`/tmp/mba-impl-19/algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/method-design.md`);
+  exponential weights with h=60, mean-one normalization per stage, n_eff as a
+  weight-concentration diagnostic, not an independent-observation count;
+  independent unweighted q10/q90 stage calibration; support minima;
+  future-only activation with no last-good-model fallback; fixed controls
+  across policies; the primary E-U paired stationary-bootstrap endpoint plus
+  secondary R-U/Q-F and E/U prediction-quality metrics; and explicit
+  exploratory status. Executed before T16 by coordinator decision
+  (methodology precedes runs); the phase gate is unaffected. Gate: `make`
+  (131 pages, no errors), `make verify` (131 pages, zero undefined
+  citations/references), `make pt-scan` (no new Portuguese text; all listed
+  words are pre-existing elsewhere in the manuscript) — all green in
+  `monografia/`. Traceability: RWT-21, RWT-22 set to `Implemented (T17)` in
+  `.specs/features/recency-weighted-retraining/spec.md`; T17 checked in
+  `.specs/features/recency-weighted-retraining/tasks.md` with a note on the
+  T16/T17 ordering.
 
 ## Closed, 2026-09-28
 
