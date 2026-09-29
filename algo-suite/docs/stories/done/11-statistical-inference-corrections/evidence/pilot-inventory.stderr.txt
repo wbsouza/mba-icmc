@@ -1,1 +1,0 @@
-[2m2026-09-27T08:44:24.980804Z[0m [[32m[1minfo     [0m] [1mconfig                        [0m [36mprovenance[0m=[35m'DATA ROOT: data_root=/home/wellington/workspace/mba-agents/mba-main/algo-suite/data/training/2026-09-26-six-month-pilot/data (from ALGO_DATA_ROOT)'[0m
