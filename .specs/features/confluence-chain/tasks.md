@@ -114,8 +114,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] BUY/SELL unanimity, required abstention, all-abstain, conflict, explicit HOLD, invalid names, absent/duplicate results and F5/F6 short-circuit match spec outcomes; legacy terminals retain their behavior.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] BUY/SELL unanimity, required abstention, all-abstain, conflict, explicit HOLD, invalid names, absent/duplicate results and F5/F6 short-circuit match spec outcomes; legacy terminals retain their behavior.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_agreement.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_agreement.py` in this task; at least 12 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_agreement.py`; Build and applicable Regression before handoff.
@@ -133,8 +133,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Positive/negative/zero return votes match independent prices at L=480 and L=120; warmup is distinct from missing/malformed data; duplicates, nonfinite/nonpositive closes and bad ordering fail; original F1 still vetoes its original conflict cases.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Positive/negative/zero return votes match independent prices at L=480 and L=120; warmup is distinct from missing/malformed data; duplicates, nonfinite/nonpositive closes and bad ordering fail; original F1 still vetoes its original conflict cases.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_momentum.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_momentum.py` in this task; at least 10 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_momentum.py`; Build and applicable Regression before handoff.
@@ -152,8 +152,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Linear q10/q90 match independent examples; exact month boundary, mid-month start, late arrivals, revised suffix and repeated lookup preserve prior snapshots; missing/invalid rows fail; valid initial collection reports WARMUP; provenance fields round-trip through plain values.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Linear q10/q90 match independent examples; exact month boundary, mid-month start, late arrivals, revised suffix and repeated lookup preserve prior snapshots; missing/invalid rows fail; valid initial collection reports WARMUP; provenance fields round-trip through plain values.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_history.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_history.py` in this task; at least 12 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_history.py`; Build and applicable Regression before handoff.
@@ -171,8 +171,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Approved sign maps high to SELL and low to BUY, including equality boundaries; interior is NEUTRAL; equal quantiles always HOLD; warmup does not fall back to static cuts; late current input fails; legacy static and sentiment modes remain unchanged.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Approved sign maps high to SELL and low to BUY, including equality boundaries; interior is NEUTRAL; equal quantiles always HOLD; warmup does not fall back to static cuts; late current input fails; legacy static and sentiment modes remain unchanged.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_relative_intensity.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_relative_intensity.py` in this task; at least 10 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_relative_intensity.py`; Build and applicable Regression before handoff.
@@ -190,8 +190,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Omitted option round-trips legacy defaults; bool/fraction/zero/negative N fail; explicit time plan has no targets/trail or target-based reward-risk veto; existing ATR, stop floors, spread and sizing remain in effect. Record the accepted timing contract before adding this field.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Omitted option round-trips legacy defaults; bool/fraction/zero/negative N fail; explicit time plan has no targets/trail or target-based reward-risk veto; existing ATR, stop floors, spread and sizing remain in effect. Record the accepted timing contract before adding this field.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_capital_plan.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_capital_plan.py` in this task; at least 8 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_capital_plan.py`; Build and applicable Regression before handoff.
@@ -211,8 +211,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Accepted bar-open timing (D5: exit at the open of bar t+N, t = the bar during which the entry filled, due at the close of t+N-1, submit at the first event at or after that open) handles exact and mid-bar fills, H1/H4, gaps, partial bars, repeated events, same-side votes, reversal, full/partial stop fills, rejection/retry and end-of-stream pending state; never requests a second live close; no same-event re-entry.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Accepted bar-open timing (D5: exit at the open of bar t+N, t = the bar during which the entry filled, due at the close of t+N-1, submit at the first event at or after that open) handles exact and mid-bar fills, H1/H4, gaps, partial bars, repeated events, same-side votes, reversal, full/partial stop fills, rejection/retry and end-of-stream pending state; never requests a second live close; no same-event re-entry.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_time_exit.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_time_exit.py` in this task; at least 14 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_time_exit.py`; Build and applicable Regression before handoff.
@@ -230,8 +230,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] BUY and SELL configurations emit only their named vote; invalid direction fails; both remain subject to real F5/F6 vetoes; neither reads news or an F7 model.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] BUY and SELL configurations emit only their named vote; invalid direction fails; both remain subject to real F5/F6 vetoes; neither reads news or an F7 model.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_controls.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_controls.py` in this task; at least 4 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_controls.py`; Build and applicable Regression before handoff.
@@ -249,8 +249,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] An independent example distinguishes a 1e-4 return from a 0.0001 price change; bad joins, missing future horizon and missing prices are explicit; original archive hash is checked before/after; outputs use a new caller-specified path. Do not rerun the PR #87 outlier analysis.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] An independent example distinguishes a 1e-4 return from a 0.0001 price change; bad joins, missing future horizon and missing prices are explicit; original archive hash is checked before/after; outputs use a new caller-specified path. Do not rerun the PR #87 outlier analysis.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_horizon_units.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_horizon_units.py` in this task; at least 5 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_horizon_units.py`; Build and applicable Regression before handoff.
@@ -268,8 +268,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Ledger separates calendar-expanded rows (January 744 is not assumed tradable), expected valid closed bars, closures, warmup and missing days/minutes; reconciles H1/H4 and monthly cutoffs; file sizes/.done alone cannot pass completeness or availability; absent sources fail with remediation; M-only and drift controls do not demand news.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Ledger separates calendar-expanded rows (January 744 is not assumed tradable), expected valid closed bars, closures, warmup and missing days/minutes; reconciles H1/H4 and monthly cutoffs; file sizes/.done alone cannot pass completeness or availability; absent sources fail with remediation; M-only and drift controls do not demand news.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_preflight.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_preflight.py` in this task; at least 10 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_preflight.py`; Build and applicable Regression before handoff.
@@ -287,8 +287,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Exactly 14 unique IDs; A/B/T-only/M-only named-voter lists are correct; controls need no news; time plans explicitly disable targets/trail; A-plan pins every inherited exit setting; costs, caps and clocks are invariant; F3/F7/adaptive/candlestick/SR arms cannot enter the manifest.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Exactly 14 unique IDs; A/B/T-only/M-only named-voter lists are correct; controls need no news; time plans explicitly disable targets/trail; A-plan pins every inherited exit setting; costs, caps and clocks are invariant; F3/F7/adaptive/candlestick/SR arms cannot enter the manifest.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_cells.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_cells.py` in this task; at least 8 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_cells.py`; Build and applicable Regression before handoff.
@@ -405,11 +405,27 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Record accepted D1–D11, exact 14 IDs/config hashes, exploratory labels for every cell/window, H1/H4 horizons, main and secondary contrasts, bootstrap settings, population source, costs, no model dependency, one initial attempt per cell and no automatic outcome-based retry. Record main's global resource cap/timeout and source revision; no invented approval or resource values.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Record accepted D1–D11, exact 14 IDs/config hashes, exploratory labels for every cell/window, H1/H4 horizons, main and secondary contrasts, bootstrap settings, population source, costs, no model dependency, one initial attempt per cell and no automatic outcome-based retry. Record main's global resource cap/timeout and source revision; no invented approval or resource values.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Document contract review; one recorded checklist covering each mapped requirement, referenced parameter/path and unsupported-claim check; not runtime-test deferral.
 **Gate**: Docs as defined above; record actual outcomes before task completion.
+
+**Verification record** (Docs gate, run from repo root):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| CC-23 (14 cell IDs, arms, clocks) | reviewed against `make_cells.py`'s `ARMS`/`CLOCK_LOOKBACK`/`_cell_id` | 14 IDs listed match generator exactly |
+| CC-27 (exploratory labels) | reviewed against source spec.md and `context.md`'s "Companion Qualifications" | full year and Nov–Feb both labeled exploratory/already-inspected |
+| CC-28 (clock contract) | reviewed against `design.md`'s momentum/horizon paragraphs | L=480/120, 4-bar horizon = 4h/16h scheduled, stated |
+| CC-29 (primary contrast/bootstrap) | reviewed against spec.md D7 | H1 A vs T-only Nov–Feb, block 4/sensitivity 2/999/seed 42/alpha .05, stated |
+| Population/cost source check | cross-checked against `algo-suite/PRD.md` §7 and `make_cells.py`'s `_OANDA_EXECUTION` | corrected: price population is Dukascopy tick data, not OANDA; OANDA is cost/broker-floor only |
+| Intensity-relative gap | cross-checked against integration branch `feat/integrate-19-21-22` Phase 3 log and `preflight.py`'s `_NEWS_REQUIRED_ARMS`/`_NO_NEWS_ARMS` | 8 of 14 cells (A/B/A-plan/T-only × H1/H4) recorded UNAVAILABLE pending GDELT `available_at`; 6 cells (M-only, always-short, always-long × H1/H4) recorded launch-ready |
+| `close_on_veto` conflict check | reviewed `make_cells.py`'s `_execution_for` | all 14 cells set `close_on_veto: false`; conflict does not affect this manifest |
+| `validate_tasks.py --strict` | `python3 /home/wellington/.claude/skills/tlc-spec-driven/scripts/validate_tasks.py .specs/features/confluence-chain/tasks.md --strict` | see commit gate output |
+| `git diff --check` | `git diff --check` | clean |
+
+No gate is blocked; no completion is claimed beyond what these checks cover.
 
 #### T17: Build a bounded fourteen-cell launch harness
 
@@ -424,8 +440,8 @@ T14 -> T16 -> T17 -> T18 -> T20 -> T19 -> T21 -> T22
 
 **Done when**:
 
-- [ ] Gherkin fake-runner fixtures prove exactly 14 allowed IDs, distinct output roots, bounded attempts, no model fitting, preflight failure launches zero cells, nonzero child exits persist failure and resume never overwrites an existing attempt. Record per-cell statuses and actual code/config/source hashes. Harness development launches no research cells.
-- [ ] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
+- [x] Gherkin fake-runner fixtures prove exactly 14 allowed IDs, distinct output roots, bounded attempts, no model fitting, preflight failure launches zero cells, nonzero child exits persist failure and resume never overwrites an existing attempt. Record per-cell statuses and actual code/config/source hashes. Harness development launches no research cells.
+- [x] Same-task verification below passes; record actual commands, counts, exit status and artifact paths. No completion claim while a gate is blocked.
 
 **Tests**: Gherkin unit/component; write `algo-suite/algo-backtest/tests/features/confluence_run_contract.feature` first and `algo-suite/algo-backtest/tests/steps/test_confluence_run_contract.py` in this task; at least 7 new scenario/example cases. Retain relevant existing regression cases.
 **Gate**: Quick: `uv run pytest algo-backtest/tests/steps/test_confluence_run_contract.py`; Build and applicable Regression before handoff.

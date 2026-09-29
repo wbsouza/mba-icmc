@@ -34,6 +34,20 @@ SELL at or below `intensity_sell_threshold`, NEUTRAL between; `intensity_sign: -
 BUY and SELL so the sign convention of the Goldstein reading is a registered experiment
 cell rather than a guess. With `intensity` as the source F4 can be the chain's terminal
 filter (`terminal_filter: f4_news_context`, no F7).
+
+`direction_source: intensity_relative` (story 21, the confluence chain) compares the bar's
+event_intensity I with the decision month's frozen quantile snapshot from
+`chain/intensity_history.py` (T3), injected explicitly as ``snapshots`` (cutoff →
+`IntensitySnapshot`; F4 never computes quantiles itself), with the current intensity's
+point-in-time provenance injected as ``availability`` (decision minute → `available_at`).
+Unswapped (`intensity_sign: 1`): I >= q90 → BUY, I <= q10 → SELL, strictly between →
+NEUTRAL; the registered `intensity_sign: -1` swaps it: I >= q90 → SELL, I <= q10 → BUY.
+Equal quantiles are a degenerate snapshot: HOLD for every I (not a configuration error).
+A WARMUP snapshot is HOLD with no static-threshold fallback. An intensity that became
+available after the decision time, a decision minute without an availability record, or
+a month without a snapshot raises. The veto still fires first. The result's metadata
+carries the snapshot provenance (`intensity_snapshot_cutoff`, `intensity_snapshot_status`,
+`intensity_q_low`, `intensity_q_high`, `intensity_sample_count`, `intensity_source_hash`).
 """
 
 from __future__ import annotations
@@ -44,6 +58,11 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 
+from algo_backtest.chain.intensity_history import (
+    READY,
+    IntensitySnapshot,
+    calibration_window,
+)
 from algo_backtest.chain.model import ExecutionState, FilterResult, Recommendation
 from algo_backtest.chain.params import optional_choice, optional_number, require_number
 from algo_backtest.months import BAR_DURATION, months_between
@@ -58,8 +77,8 @@ _EVENT_KIND = "gdelt"
 _SENTIMENT_SCORER = "lm"
 
 _SECTION = "news_context"
-_SENTIMENT, _INTENSITY = "sentiment", "intensity"
-_DIRECTION_SOURCES = frozenset({_SENTIMENT, _INTENSITY})
+_SENTIMENT, _INTENSITY, _RELATIVE = "sentiment", "intensity", "intensity_relative"
+_DIRECTION_SOURCES = frozenset({_SENTIMENT, _INTENSITY, _RELATIVE})
 _INTENSITY_KEYS = ("intensity_buy_threshold", "intensity_sell_threshold")
 
 
@@ -75,11 +94,13 @@ class NewsContextConfig:
       recommend a direction from net sentiment; below it (or with no sentiment data at
       all) F4 ABSTAINs rather than guess. ``None`` disables the direction-recommendation
       path entirely (F4 only ever vetoes or ABSTAINs).
-    - ``direction_source``: ``sentiment`` (the above) or ``intensity`` — the direction
+    - ``direction_source``: ``sentiment`` (the above), ``intensity`` — the direction
       comes from the event intensity itself: BUY at or above
       ``intensity_buy_threshold``, SELL at or below ``intensity_sell_threshold``,
-      NEUTRAL in between (both required, buy strictly above sell); ``intensity_sign``
-      ``-1`` swaps BUY and SELL.
+      NEUTRAL in between (both required, buy strictly above sell) — or
+      ``intensity_relative`` — the same rule against the decision month's frozen q90 /
+      q10 (see the module docstring; the static thresholds are refused);
+      ``intensity_sign`` ``-1`` swaps BUY and SELL in both intensity modes.
     """
 
     event_intensity_veto_threshold: float | None
@@ -95,10 +116,11 @@ def parse_news_context_config(section: Mapping[str, Any], *, strategy: str) -> N
 
     Raises:
         ValueError: a threshold key is absent (an explicit `null` disables that half
-            instead) or not a number; `direction_source` is not `sentiment`/`intensity`;
-            with `intensity`, a missing intensity threshold or a buy threshold not
-            strictly above the sell one; with `sentiment`, an intensity threshold that
-            would be silently ignored; `intensity_sign` other than 1 or -1.
+            instead) or not a number; `direction_source` is not
+            `sentiment`/`intensity`/`intensity_relative`; with `intensity`, a missing
+            intensity threshold or a buy threshold not strictly above the sell one; with
+            `sentiment` or `intensity_relative`, an intensity threshold that would be
+            silently ignored; `intensity_sign` other than 1 or -1.
     """
     source = optional_choice(
         section, "direction_source", default=_SENTIMENT, choices=_DIRECTION_SOURCES,
@@ -123,13 +145,13 @@ def _intensity_thresholds(
     section: Mapping[str, Any], source: str, strategy: str
 ) -> tuple[float | None, float | None]:
     """The two intensity thresholds: required and ordered under `intensity`, refused
-    under `sentiment` (they would change nothing, so their presence is a config error)."""
-    if source == _SENTIMENT:
+    under any other source (they would change nothing, so their presence is a config error)."""
+    if source != _INTENSITY:
         stray = [key for key in _INTENSITY_KEYS if key in section]
         if stray:
             raise ValueError(
                 f"strategy {strategy!r}: {_SECTION} declares {stray!r} but direction_source is "
-                f"'{_SENTIMENT}' — set direction_source: {_INTENSITY} or remove the thresholds"
+                f"'{source}' — set direction_source: {_INTENSITY} or remove the thresholds"
             )
         return None, None
     buy = require_number(section, "intensity_buy_threshold", section=_SECTION, strategy=strategy)
@@ -347,32 +369,100 @@ def _sentiment_recommendation(
     return Recommendation.BUY if polarity > 0.0 else Recommendation.SELL
 
 
-def _intensity_recommendation(intensity: float, config: NewsContextConfig) -> Recommendation:
-    """BUY at or above the buy threshold, SELL at or below the sell one, NEUTRAL between —
-    then swapped when `intensity_sign` is -1."""
-    assert config.intensity_buy_threshold is not None
-    assert config.intensity_sell_threshold is not None
-    if intensity >= config.intensity_buy_threshold:
+def _banded_recommendation(
+    intensity: float, high: float, low: float, sign: int
+) -> Recommendation:
+    """BUY at or above `high`, SELL at or below `low`, NEUTRAL strictly between — then
+    swapped when `sign` is -1 (shared by the static and the relative intensity modes)."""
+    if intensity >= high:
         recommendation = Recommendation.BUY
-    elif intensity <= config.intensity_sell_threshold:
+    elif intensity <= low:
         recommendation = Recommendation.SELL
     else:
         return Recommendation.NEUTRAL
-    if config.intensity_sign == -1:
+    if sign == -1:
         return Recommendation.SELL if recommendation is Recommendation.BUY else Recommendation.BUY
     return recommendation
 
 
+def _intensity_recommendation(intensity: float, config: NewsContextConfig) -> Recommendation:
+    """The static-threshold vote: `_banded_recommendation` against the configured cuts."""
+    assert config.intensity_buy_threshold is not None
+    assert config.intensity_sell_threshold is not None
+    return _banded_recommendation(
+        intensity, config.intensity_buy_threshold, config.intensity_sell_threshold,
+        config.intensity_sign,
+    )
+
+
+def _snapshot_provenance(snapshot: IntensitySnapshot) -> dict[str, object]:
+    """The snapshot fields the audit trail keeps beside a relative-mode vote (CC-31)."""
+    return {
+        "intensity_snapshot_cutoff": snapshot.cutoff.isoformat(),
+        "intensity_snapshot_status": snapshot.status,
+        "intensity_q_low": snapshot.q_low,
+        "intensity_q_high": snapshot.q_high,
+        "intensity_sample_count": snapshot.sample_count,
+        "intensity_source_hash": snapshot.source_hash,
+    }
+
+
+def _relative_reason(
+    intensity: float, snapshot: IntensitySnapshot, sign: int, vote: Recommendation
+) -> str:
+    """Which cut the intensity crossed (or not), the snapshot's cutoff, the sign, the vote."""
+    assert snapshot.q_low is not None and snapshot.q_high is not None
+    if intensity >= snapshot.q_high:
+        comparison = f">= q90 {snapshot.q_high!r}"
+    elif intensity <= snapshot.q_low:
+        comparison = f"<= q10 {snapshot.q_low!r}"
+    else:
+        comparison = f"within (q10 {snapshot.q_low!r}, q90 {snapshot.q_high!r})"
+    return (
+        f"event_intensity={intensity:.4f} {comparison} of snapshot cutoff "
+        f"{snapshot.cutoff.isoformat()}, intensity_sign={sign}: {vote.value}"
+    )
+
+
 @dataclass
 class F4NewsContextFilter:
-    """The chain's news-context gate: implements `Filter.apply()`."""
+    """The chain's news-context gate: implements `Filter.apply()`.
+
+    - ``snapshots``: cutoff → `IntensitySnapshot` of that month; required (and only
+      read) under `direction_source: intensity_relative`.
+    - ``availability``: decision minute → when its event_intensity became available;
+      required under `intensity_relative` (the current input's point-in-time provenance).
+
+    Raises:
+        ValueError: relative mode built without a snapshot source or an availability source.
+    """
 
     index: NewsContextIndex
     config: NewsContextConfig
+    snapshots: Mapping[datetime, IntensitySnapshot] | None = None
+    availability: Mapping[datetime, datetime] | None = None
+
+    def __post_init__(self) -> None:
+        """Relative mode needs both injected sources; the other modes ignore them."""
+        if self.config.direction_source != _RELATIVE:
+            return
+        if self.snapshots is None:
+            raise ValueError(
+                f"{_FILTER_NAME}: direction_source {_RELATIVE} needs an intensity snapshot "
+                "source (cutoff → IntensitySnapshot from chain/intensity_history.py) — inject "
+                "it when wiring the filter"
+            )
+        if self.availability is None:
+            raise ValueError(
+                f"{_FILTER_NAME}: direction_source {_RELATIVE} needs the current intensity's "
+                "availability (decision minute → available_at) — inject it when wiring the "
+                "filter; availability is never inferred"
+            )
 
     def apply(self, state: ExecutionState) -> FilterResult:
         """VETO on an active high-risk event; otherwise recommend by the configured
-        direction source (net sentiment, else ABSTAIN; or the intensity thresholds)."""
+        direction source (net sentiment, else ABSTAIN; the static intensity thresholds;
+        or the month's frozen relative quantiles)."""
         intensity = _event_intensity_at(self.index, state.timestamp)
         if _is_high_risk(intensity, self.config.event_intensity_veto_threshold):
             return self._result(
@@ -383,7 +473,67 @@ class F4NewsContextFilter:
             )
         if self.config.direction_source == _INTENSITY:
             return self._intensity_result(intensity)
+        if self.config.direction_source == _RELATIVE:
+            return self._relative_result(state.timestamp, intensity)
         return self._sentiment_result(state, intensity)
+
+    def _relative_result(self, timestamp: datetime, intensity: float) -> FilterResult:
+        """Direction against the decision month's frozen snapshot (see the module docstring).
+
+        Raises:
+            ValueError: no availability record for `timestamp`, an intensity available only
+                after it, or no snapshot for its month.
+        """
+        self._check_available(timestamp)
+        snapshot = self._snapshot_for(timestamp)
+        provenance = _snapshot_provenance(snapshot)
+        sign = self.config.intensity_sign
+        if snapshot.status != READY or snapshot.q_low is None or snapshot.q_high is None:
+            reason = (
+                f"snapshot for cutoff {snapshot.cutoff.isoformat()} is {snapshot.status} "
+                f"(sample_count {snapshot.sample_count}): no thresholds yet, HOLD without a "
+                "static fallback"
+            )
+            return self._result(Recommendation.HOLD, reason, intensity, metadata=provenance)
+        if snapshot.q_low == snapshot.q_high:
+            reason = (
+                f"degenerate snapshot: q10 == q90 == {snapshot.q_low!r} at cutoff "
+                f"{snapshot.cutoff.isoformat()}: HOLD for every intensity "
+                f"(event_intensity={intensity:.4f})"
+            )
+            return self._result(Recommendation.HOLD, reason, intensity, metadata=provenance)
+        vote = _banded_recommendation(intensity, snapshot.q_high, snapshot.q_low, sign)
+        reason = _relative_reason(intensity, snapshot, sign, vote)
+        return self._result(vote, reason, intensity, metadata=provenance)
+
+    def _check_available(self, timestamp: datetime) -> None:
+        """The current intensity was knowable no later than the decision minute (D2)."""
+        assert self.availability is not None
+        available = self.availability.get(timestamp)
+        when = timestamp.isoformat()
+        if available is None:
+            raise ValueError(
+                f"{_FILTER_NAME}: no availability record for the event_intensity at {when} — "
+                f"{_RELATIVE} needs point-in-time provenance for every decision minute"
+            )
+        if available > timestamp:
+            raise ValueError(
+                f"{_FILTER_NAME}: the event_intensity at {when} became available at "
+                f"{available.isoformat()}, after the decision time {when} — a causal violation; "
+                "fix the availability ledger or exclude the bar"
+            )
+
+    def _snapshot_for(self, timestamp: datetime) -> IntensitySnapshot:
+        """The injected snapshot of `timestamp`'s UTC month."""
+        assert self.snapshots is not None
+        cutoff = calibration_window(timestamp).cutoff
+        snapshot = self.snapshots.get(cutoff)
+        if snapshot is None:
+            raise ValueError(
+                f"{_FILTER_NAME}: no intensity snapshot for cutoff {cutoff.isoformat()} — "
+                "preload the month's history so its snapshot exists before its first decision"
+            )
+        return snapshot
 
     def _intensity_result(self, intensity: float) -> FilterResult:
         """Direction from the event intensity itself against the two thresholds."""
@@ -426,8 +576,10 @@ class F4NewsContextFilter:
         *,
         veto: bool = False,
         sentiment: float | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> FilterResult:
-        """One F4 result: the intensity always enriched, the sentiment when it decided."""
+        """One F4 result: the intensity always enriched, the sentiment when it decided,
+        `metadata` (the relative mode's snapshot provenance) beside the sentiment flag."""
         enrichment: dict[str, object] = {"news_event_intensity": intensity}
         if sentiment is not None:
             enrichment["news_sentiment_score"] = sentiment
@@ -437,5 +589,8 @@ class F4NewsContextFilter:
             reason=reason,
             veto=veto,
             enrichment=enrichment,
-            metadata={"sentiment_source_present": self.index.sentiment_source_present},
+            metadata={
+                "sentiment_source_present": self.index.sentiment_source_present,
+                **(metadata or {}),
+            },
         )
