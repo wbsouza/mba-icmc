@@ -1,1 +1,0 @@
-../../../../../algo-score/tests/qa/spec-algo-score-event-features.qa.md
