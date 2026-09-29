@@ -1,0 +1,1282 @@
+{
+  "configuration": {
+    "seed": 20260927,
+    "replications": 300,
+    "observations": 1200,
+    "burn_in": 300,
+    "resamples": 499,
+    "block_lengths": [
+      1,
+      10,
+      20,
+      40
+    ],
+    "primary_block_length": 20,
+    "null_gate_bound": 0.08774917217635375,
+    "extensions": [
+      {
+        "block_length_rule": "floor(n^(1/3))",
+        "observations": [
+          90,
+          180
+        ],
+        "rule_lengths": {
+          "90": 4,
+          "180": 5
+        },
+        "scenario_indices": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "gates": "null rejection <= null_gate_bound at the rule length; power reported"
+      },
+      {
+        "block_length_rule": "floor(n/10)",
+        "observations": [
+          90,
+          180
+        ],
+        "rule_lengths": {
+          "90": 9,
+          "180": 18
+        },
+        "scenario_indices": [
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ],
+        "gates": "null rejection <= null_gate_bound at the rule length; power reported"
+      }
+    ],
+    "marginal_difference_sd": 0.01,
+    "baseline_sd": 0.01,
+    "seed_construction": "SeedSequence([20260927, scenario_index]).spawn(300)",
+    "numpy_version": "2.4.6",
+    "production_source_sha256": {
+      "deflated.py": "88aa6951d90aed3cc12708c20d2aaa1b41ce276c7e9aa6766b58ce17775c07c1",
+      "significance.py": "b7c544bdc527de89c225a2825841ff5224cda54a7c7f0f1e611a5b81cbab5f99"
+    }
+  },
+  "results": [
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 18,
+      "replications": 300,
+      "rejection_rate": 0.06,
+      "wilson_95_interval": [
+        0.038286369524692054,
+        0.09283944515290843
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 16,
+      "replications": 300,
+      "rejection_rate": 0.05333333333333334,
+      "wilson_95_interval": [
+        0.03309191251909646,
+        0.08486914177483133
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 18,
+      "replications": 300,
+      "rejection_rate": 0.06,
+      "wilson_95_interval": [
+        0.038286369524692054,
+        0.09283944515290843
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 23,
+      "replications": 300,
+      "rejection_rate": 0.07666666666666666,
+      "wilson_95_interval": [
+        0.051627611786607464,
+        0.1124101038501748
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 280,
+      "replications": 300,
+      "rejection_rate": 0.9333333333333333,
+      "wilson_95_interval": [
+        0.899276940483885,
+        0.9564324844548417
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 300,
+      "replications": 300,
+      "rejection_rate": 1.0,
+      "wilson_95_interval": [
+        0.9873570287754538,
+        0.9999999999999998
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 93,
+      "replications": 300,
+      "rejection_rate": 0.31,
+      "wilson_95_interval": [
+        0.26034352510199493,
+        0.3644608039633325
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 24,
+      "replications": 300,
+      "rejection_rate": 0.08,
+      "wilson_95_interval": [
+        0.054346855395144764,
+        0.11627324043347391
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 21,
+      "replications": 300,
+      "rejection_rate": 0.07,
+      "wilson_95_interval": [
+        0.046236944827176336,
+        0.10463601042593323
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 22,
+      "replications": 300,
+      "rejection_rate": 0.07333333333333333,
+      "wilson_95_interval": [
+        0.04892399383922859,
+        0.10853134160571733
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 237,
+      "replications": 300,
+      "rejection_rate": 0.79,
+      "wilson_95_interval": [
+        0.7403888774230657,
+        0.8322781992666975
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 151,
+      "replications": 300,
+      "rejection_rate": 0.5033333333333333,
+      "wilson_95_interval": [
+        0.44707193979203275,
+        0.5595104403998036
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 149,
+      "replications": 300,
+      "rejection_rate": 0.49666666666666665,
+      "wilson_95_interval": [
+        0.4404895596001963,
+        0.5529280602079671
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 145,
+      "replications": 300,
+      "rejection_rate": 0.48333333333333334,
+      "wilson_95_interval": [
+        0.4273544128335898,
+        0.5397336862072283
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 298,
+      "replications": 300,
+      "rejection_rate": 0.9933333333333333,
+      "wilson_95_interval": [
+        0.9760224167496929,
+        0.998169851642088
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 10,
+      "role": "sensitivity",
+      "rejections": 286,
+      "replications": 300,
+      "rejection_rate": 0.9533333333333334,
+      "wilson_95_interval": [
+        0.923202639772079,
+        0.9720010663176659
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 20,
+      "role": "primary",
+      "rejections": 282,
+      "replications": 300,
+      "rejection_rate": 0.94,
+      "wilson_95_interval": [
+        0.9071605548470915,
+        0.9617136304753079
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 1200,
+      "block_length": 40,
+      "role": "sensitivity",
+      "rejections": 286,
+      "replications": 300,
+      "rejection_rate": 0.9533333333333334,
+      "wilson_95_interval": [
+        0.923202639772079,
+        0.9720010663176659
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 13,
+      "replications": 300,
+      "rejection_rate": 0.043333333333333335,
+      "wilson_95_interval": [
+        0.025496448084407246,
+        0.07271746563401146
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 17,
+      "replications": 300,
+      "rejection_rate": 0.056666666666666664,
+      "wilson_95_interval": [
+        0.03567747646328951,
+        0.08886595802247463
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 52,
+      "replications": 300,
+      "rejection_rate": 0.17333333333333334,
+      "wilson_95_interval": [
+        0.13470060049746765,
+        0.22022614070256905
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 68,
+      "replications": 300,
+      "rejection_rate": 0.22666666666666666,
+      "wilson_95_interval": [
+        0.18291950380328575,
+        0.2773253204661327
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 143,
+      "replications": 300,
+      "rejection_rate": 0.4766666666666667,
+      "wilson_95_interval": [
+        0.42080166187431245,
+        0.533121676782833
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 154,
+      "replications": 300,
+      "rejection_rate": 0.5133333333333333,
+      "wilson_95_interval": [
+        0.4569640167618392,
+        0.5693655040055061
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 92,
+      "replications": 300,
+      "rejection_rate": 0.30666666666666664,
+      "wilson_95_interval": [
+        0.2572057600770161,
+        0.3610161887964749
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 41,
+      "replications": 300,
+      "rejection_rate": 0.13666666666666666,
+      "wilson_95_interval": [
+        0.10236514609208625,
+        0.1801554129977505
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 119,
+      "replications": 300,
+      "rejection_rate": 0.39666666666666667,
+      "wilson_95_interval": [
+        0.34295083194304077,
+        0.452995382110032
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 73,
+      "replications": 300,
+      "rejection_rate": 0.24333333333333335,
+      "wilson_95_interval": [
+        0.19822154125071836,
+        0.2949351839778819
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 166,
+      "replications": 300,
+      "rejection_rate": 0.5533333333333333,
+      "wilson_95_interval": [
+        0.496755238029873,
+        0.6085628450395089
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 4,
+      "role": "primary",
+      "rejections": 94,
+      "replications": 300,
+      "rejection_rate": 0.31333333333333335,
+      "wilson_95_interval": [
+        0.2634843975598553,
+        0.36790231169730847
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 16,
+      "replications": 300,
+      "rejection_rate": 0.05333333333333334,
+      "wilson_95_interval": [
+        0.03309191251909646,
+        0.08486914177483133
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 20,
+      "replications": 300,
+      "rejection_rate": 0.06666666666666667,
+      "wilson_95_interval": [
+        0.043567515545158274,
+        0.10072305951611496
+      ],
+      "registered_gate_pass": true,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 75,
+      "replications": 300,
+      "rejection_rate": 0.25,
+      "wilson_95_interval": [
+        0.20436988915825566,
+        0.3019515964540173
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 84,
+      "replications": 300,
+      "rejection_rate": 0.28,
+      "wilson_95_interval": [
+        0.23221902212795326,
+        0.33334388521084696
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 218,
+      "replications": 300,
+      "rejection_rate": 0.7266666666666667,
+      "wilson_95_interval": [
+        0.6736074258805683,
+        0.7739944271643041
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 224,
+      "replications": 300,
+      "rejection_rate": 0.7466666666666667,
+      "wilson_95_interval": [
+        0.6945458844004171,
+        0.7925502497954735
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 104,
+      "replications": 300,
+      "rejection_rate": 0.3466666666666667,
+      "wilson_95_interval": [
+        0.2950585411049252,
+        0.40215197007060216
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 32,
+      "replications": 300,
+      "rejection_rate": 0.10666666666666667,
+      "wilson_95_interval": [
+        0.07657584904594214,
+        0.14670328831736743
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 137,
+      "replications": 300,
+      "rejection_rate": 0.45666666666666667,
+      "wilson_95_interval": [
+        0.40120290256178365,
+        0.5132261549443436
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 65,
+      "replications": 300,
+      "rejection_rate": 0.21666666666666667,
+      "wilson_95_interval": [
+        0.1737878350698321,
+        0.2667098486240773
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 193,
+      "replications": 300,
+      "rejection_rate": 0.6433333333333333,
+      "wilson_95_interval": [
+        0.5876297656515226,
+        0.6954125825974409
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 5,
+      "role": "primary",
+      "rejections": 120,
+      "replications": 300,
+      "rejection_rate": 0.4,
+      "wilson_95_interval": [
+        0.3461651905860969,
+        0.4563634036588123
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n^(1/3))"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 19,
+      "replications": 300,
+      "rejection_rate": 0.06333333333333334,
+      "wilson_95_interval": [
+        0.040916882383915276,
+        0.09679131248552161
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 30,
+      "replications": 300,
+      "rejection_rate": 0.1,
+      "wilson_95_interval": [
+        0.07094791459501532,
+        0.1391664623846215
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 50,
+      "replications": 300,
+      "rejection_rate": 0.16666666666666666,
+      "wilson_95_interval": [
+        0.1287653312036807,
+        0.21299664961268325
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 74,
+      "replications": 300,
+      "rejection_rate": 0.24666666666666667,
+      "wilson_95_interval": [
+        0.20129380271657715,
+        0.2984453027038595
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 138,
+      "replications": 300,
+      "rejection_rate": 0.46,
+      "wilson_95_interval": [
+        0.4044631474970939,
+        0.5165482902008698
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 175,
+      "replications": 300,
+      "rejection_rate": 0.5833333333333334,
+      "wilson_95_interval": [
+        0.5268355964602695,
+        0.6377239083356395
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 89,
+      "replications": 300,
+      "rejection_rate": 0.2966666666666667,
+      "wilson_95_interval": [
+        0.24781139053784687,
+        0.35066341776013515
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 42,
+      "replications": 300,
+      "rejection_rate": 0.14,
+      "wilson_95_interval": [
+        0.10527132693072412,
+        0.18383161235094903
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 118,
+      "replications": 300,
+      "rejection_rate": 0.3933333333333333,
+      "wilson_95_interval": [
+        0.3397391051458938,
+        0.44962472871534254
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 61,
+      "replications": 300,
+      "rejection_rate": 0.20333333333333334,
+      "wilson_95_interval": [
+        0.16167385164165787,
+        0.25249431128490607
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 162,
+      "replications": 300,
+      "rejection_rate": 0.54,
+      "wilson_95_interval": [
+        0.4834517097991302,
+        0.5955368525029061
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 90,
+      "block_length": 9,
+      "role": "primary",
+      "rejections": 90,
+      "replications": 300,
+      "rejection_rate": 0.3,
+      "wilson_95_interval": [
+        0.2509396637848768,
+        0.35411752470494157
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 16,
+      "replications": 300,
+      "rejection_rate": 0.05333333333333334,
+      "wilson_95_interval": [
+        0.03309191251909646,
+        0.08486914177483133
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 28,
+      "replications": 300,
+      "rejection_rate": 0.09333333333333334,
+      "wilson_95_interval": [
+        0.06536421957889091,
+        0.1315853970170732
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 67,
+      "replications": 300,
+      "rejection_rate": 0.22333333333333333,
+      "wilson_95_interval": [
+        0.17987135808006235,
+        0.27379108599751967
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 99,
+      "replications": 300,
+      "rejection_rate": 0.33,
+      "wilson_95_interval": [
+        0.2792344636154957,
+        0.3850641466008499
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 226,
+      "replications": 300,
+      "rejection_rate": 0.7533333333333333,
+      "wilson_95_interval": [
+        0.7015546972961404,
+        0.7987061972834228
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.0,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 234,
+      "replications": 300,
+      "rejection_rate": 0.78,
+      "wilson_95_interval": [
+        0.7297473820840871,
+        0.8231725540301672
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 90,
+      "replications": 300,
+      "rejection_rate": 0.3,
+      "wilson_95_interval": [
+        0.2509396637848768,
+        0.35411752470494157
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.0,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 28,
+      "replications": 300,
+      "rejection_rate": 0.09333333333333334,
+      "wilson_95_interval": [
+        0.06536421957889091,
+        0.1315853970170732
+      ],
+      "registered_gate_pass": false,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 138,
+      "replications": 300,
+      "rejection_rate": 0.46,
+      "wilson_95_interval": [
+        0.4044631474970939,
+        0.5165482902008698
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.001,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 61,
+      "replications": 300,
+      "rejection_rate": 0.20333333333333334,
+      "wilson_95_interval": [
+        0.16167385164165787,
+        0.25249431128490607
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 1,
+      "role": "IID comparator",
+      "rejections": 174,
+      "replications": 300,
+      "rejection_rate": 0.58,
+      "wilson_95_interval": [
+        0.5234831499847111,
+        0.6344939746193615
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    },
+    {
+      "phi": 0.6,
+      "mean_effect": 0.002,
+      "n_observations": 180,
+      "block_length": 18,
+      "role": "primary",
+      "rejections": 119,
+      "replications": 300,
+      "rejection_rate": 0.39666666666666667,
+      "wilson_95_interval": [
+        0.34295083194304077,
+        0.452995382110032
+      ],
+      "registered_gate_pass": null,
+      "p_interval_disagreements": 0,
+      "block_length_rule": "floor(n/10)"
+    }
+  ],
+  "all_registered_gates_pass": false
+}
