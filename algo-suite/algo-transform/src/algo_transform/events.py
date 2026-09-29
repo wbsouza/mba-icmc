@@ -8,7 +8,13 @@ from pydantic import BaseModel, ConfigDict
 
 
 class GdeltEvent(BaseModel):
-    """One canonical row from the GDELT Events export table."""
+    """One canonical row from the GDELT Events export table.
+
+    ``date_added`` is GDELT's own ``DATEADDED`` column (when GDELT ingested this
+    event) -- kept as availability provenance so downstream features never assume
+    a day's aggregate was knowable before its slowest-arriving contributing event
+    actually arrived.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -22,6 +28,7 @@ class GdeltEvent(BaseModel):
     num_mentions: int
     num_sources: int
     num_articles: int
+    date_added: datetime
     source_url: str
 
 

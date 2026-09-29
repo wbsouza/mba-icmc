@@ -31,3 +31,10 @@ Feature: Decode a raw GDELT Events slot into canonical event rows
       | a non-empty payload that is not a valid zip                  |
       | a zip whose CSV row has a mismatched column count             |
       | a zip whose CSV row has an invalid numeric field              |
+      | a zip whose CSV row has an invalid DATEADDED value            |
+
+  # gdelt-decode-04
+  Scenario: A GDELT event row's DATEADDED becomes the canonical date_added field
+    Given a GDELT Events zip for slot 2020-01-02 14:30 containing 1 tab-delimited event rows with DATEADDED 20200103091500
+    When I decode it
+    Then the event's date_added is 2020-01-03T09:15:00+00:00

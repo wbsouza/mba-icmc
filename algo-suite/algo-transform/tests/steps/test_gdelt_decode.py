@@ -20,7 +20,7 @@ def context() -> dict[str, object]:
     return {"raw_path": Path("raw/gdelt/2020/01/02/20200102143000.export.CSV.zip")}
 
 
-def _event_row(event_id: int) -> str:
+def _event_row(event_id: int, date_added: str = "20200102153000") -> str:
     """Build a 61-column GDELT Events row with canonical fields populated."""
     row = [""] * 61
     row[0] = str(event_id)
@@ -33,6 +33,7 @@ def _event_row(event_id: int) -> str:
     row[32] = "2"
     row[33] = "5"
     row[34] = "-1.25"
+    row[59] = date_added
     row[60] = f"https://example.test/{event_id}"
     return "\t".join(row)
 
@@ -52,6 +53,18 @@ def _zip(rows: list[str]) -> bytes:
 )
 def _events_zip(context: dict[str, object], stamp: str, count: int) -> None:
     context["payload"] = _zip([_event_row(index + 1) for index in range(count)])
+
+
+@given(
+    parsers.parse(
+        "a GDELT Events zip for slot {stamp} containing {count:d} tab-delimited event rows "
+        "with DATEADDED {date_added}"
+    )
+)
+def _events_zip_with_date_added(
+    context: dict[str, object], stamp: str, count: int, date_added: str
+) -> None:
+    context["payload"] = _zip([_event_row(index + 1, date_added) for index in range(count)])
 
 
 @given(
@@ -76,6 +89,13 @@ def _bad_column_count(context: dict[str, object]) -> None:
 def _bad_numeric_field(context: dict[str, object]) -> None:
     row = _event_row(1).split("\t")
     row[30] = "not-a-number"
+    context["payload"] = _zip(["\t".join(row)])
+
+
+@given("a zip whose CSV row has an invalid DATEADDED value")
+def _bad_date_added(context: dict[str, object]) -> None:
+    row = _event_row(1).split("\t")
+    row[59] = "not-a-date"
     context["payload"] = _zip(["\t".join(row)])
 
 
@@ -106,6 +126,12 @@ def _fields_preserved(context: dict[str, object]) -> None:
     assert event.goldstein_scale == 3.5
     assert event.avg_tone == -1.25
     assert event.source_url == "https://example.test/1"
+
+
+@then(parsers.parse("the event's date_added is {expected}"))
+def _date_added(context: dict[str, object], expected: str) -> None:
+    event = context["events"][0]  # type: ignore[index]
+    assert event.date_added.isoformat() == expected
 
 
 @then("no row has an article-text field")

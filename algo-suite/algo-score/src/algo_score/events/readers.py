@@ -22,22 +22,38 @@ def read_gpr_daily_values(data_root: Path) -> list[DailyValue]:
 
 
 def read_gdelt_daily_values(data_root: Path, start: date, end: date) -> list[DailyValue]:
-    """Read GDELT events and aggregate by unweighted mean GoldsteinScale per day."""
+    """Read GDELT events and aggregate by unweighted mean GoldsteinScale per day.
+
+    Each day's ``available_at`` is the max ``date_added`` among that day's events —
+    conservative: the day's aggregate is only fully knowable once GDELT's
+    latest-arriving contributing event for that day has itself arrived.
+    """
     events: dict[date, list[float]] = {}
+    available_at: dict[date, datetime] = {}
     for path in _gdelt_input_paths(data_root, start, end):
         if not path.exists():
             continue
         table = pq.read_table(path)  # type: ignore[no-untyped-call]
-        for day, value in zip(
+        if "date_added" not in table.column_names:
+            raise ValueError(
+                f"{path}: missing date_added column. Fix: re-run the GDELT export "
+                "(scripts/bigquery_ctas_export_gdelt_events.py) to add this provenance."
+            )
+        for day, value, added in zip(
             table.column("event_date").to_pylist(),
             table.column("goldstein_scale").to_pylist(),
+            table.column("date_added").to_pylist(),
             strict=True,
         ):
-            events.setdefault(_as_date(day), []).append(float(value))
+            key = _as_date(day)
+            events.setdefault(key, []).append(float(value))
+            added_at = _as_datetime(added)
+            if key not in available_at or added_at > available_at[key]:
+                available_at[key] = added_at
     if not events:
         raise ValueError("missing GDELT event Parquet for requested window")
     return [
-        DailyValue(day=day, value=sum(values) / len(values))
+        DailyValue(day=day, value=sum(values) / len(values), available_at=available_at[day])
         for day, values in sorted(events.items())
     ]
 
@@ -88,3 +104,10 @@ def _as_date(value: object) -> date:
     if isinstance(value, date):
         return value
     raise TypeError(f"expected date-like value, got {value!r}")
+
+
+def _as_datetime(value: object) -> datetime:
+    """Normalize an Arrow-read timestamp value to a ``datetime``."""
+    if isinstance(value, datetime):
+        return value
+    raise TypeError(f"expected datetime-like value, got {value!r}")
