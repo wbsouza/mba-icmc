@@ -4,6 +4,30 @@
 
 \input{pos/ai-declaration}
 
+\chapter{Operational details of data and engine integration} \label{app:operational-details}
+
+This appendix holds the execution details moved out of Chapter~\ref{cap:methodology}. They explain how the pipeline was run; they do not bear on the research question.
+
+\section*{Storage and caching}
+
+Apache Parquet is the canonical store for every dataset, partitioned as \path{parquet/<source>/<table>/year=YYYY/month=MM/data.parquet}; every other artifact is derived and rebuilt from it. Because the backtester replays the same inputs across many runs, minute-resolution prices are materialized once into a durable engine-native store (\path{lean-data/}) and reused, with an optional \texttt{tmpfs} copy for faster reads. Features are computed by one mode-agnostic function behind a read-through cache, so each bar is computed once and later accesses are cache hits.
+
+\section*{GDELT acquisition history}
+
+The first ingestion path pulled GDELT's fifteen-minute update files over HTTP, about 350{,}000 units for the window. GDELT answered bulk pulls with \texttt{429 Too Many Requests}, which put the floor of a single pass above nineteen hours before retries. Two attempts stalled on that limit, and a further run was lost when the writer to network-attached storage failed part-way on a transient error; the data root was then moved to local NVMe for reliability. The path was replaced on September 25, 2026 by a single \texttt{CREATE TABLE AS SELECT} over the public BigQuery events table, exported to Parquet. Even so, the events table took about twenty-six hours to land nineteen months, and ingestion was still running while the experiments started, which is why a month enters the protocol only once its completion marker exists. The queries are version-controlled under \path{algo-suite/scripts/bigquery/}.
+
+\section*{Engine integration and parity}
+
+The materializer writes minute bars in the layout LEAN expects, pinned to the image \texttt{quantconnect/lean:17748}; an integration test confirmed that LEAN stores Forex minute data in UTC indexed by bar start, so UTC Parquet maps one-to-one onto engine bars. Training features are computed over the bar stream the engine delivers (market-hours calendar, fill-forward of missing minutes, indicators seeded as LEAN seeds them), and an automated test verifies that, on every decision bar, price and news features equal the corresponding training row to nine decimal places.
+
+\section*{Seeds and model persistence}
+
+The LightGBM and logistic trainers fix their random state to 42. Models are saved as LightGBM text format plus the logistic coefficients and intercept in one JSON document that embeds the training provenance (split boundaries, label horizon, SHA-256 hashes of input partitions, code revision, library versions); loading executes no code. Library versions are pinned in \texttt{uv.lock}.
+
+\section*{Stage gates of the experimental workflow}
+
+(1) Register the experiment; (2) acquire sources with completion markers; (3) normalize and verify coverage; (4) prepare features and engine data and verify feature parity; (5) freeze splits and labels; (6) fit family models on fitting-span rows only; (7) calibrate the combiner on the later span; (8) freeze model artifacts and hashes; (9) check engine and execution assumptions with known-answer controls; (10) replay held-out periods with frozen models; (11) audit coverage, decision-to-trade joins and zero-trade outcomes before interpreting metrics; (12) extend with further completed periods or register a new refit using only earlier data.
+
 \chapter{Experiment registry} \label{app:experiment-registry}
 
 Table~\ref{tab:experiment-registry} lists every experiment session or job run for this work, in chronological order, with the protocol status it ran under, its cell count, one key result and the evidence file that holds the full record. It is a pointer table: every number is copied from the evidence file named on the same row and must be read there, never from this table alone. The repository copy, \path{algo-suite/docs/experiments/registry.md}, carries the same rows with the training splits, model identities, run identifiers and the remaining evidence paths of each entry. Protocol status uses three values: \emph{registered} when the design, window, cell list and selection rule were written down before any cell ran or any outcome of its window was read; \emph{exploratory} when the design was declared before viewing but on a window an earlier decision had already consumed, or when the monograph counts the job among the trials of Section~\ref{sec:experimental-threats}; \emph{ad hoc} when the job ran without a written registration or was stopped or re-specified after launch. Dates are the UTC time of each job's recorded exit; jobs before the identifier rename of September 28, 2026 (session 1) are archived outside the repository under \path{experiment-test-archives/pre-rename-session-1/} by their dated job name, and the session-2 job stays under the local \path{algo-suite/data/training/} root.

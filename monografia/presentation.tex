@@ -38,76 +38,122 @@
   \end{center}
 \end{frame}
 
-\begin{frame}{Motivation \& question}
+\begin{frame}{Introduction and Motivation}
   \begin{itemize}
-    \item Forex can react to news and geopolitical shocks in seconds; price-only strategies ignore that when it happens.
-    \item \textbf{Question}: does sentiment + events beat a price-only baseline? Tested, not assumed.
+    \item Forex reacts to price, liquidity, macroeconomic news and geopolitical shocks.
+    \item Price-only strategies can miss part of that information set.
+    \item This work tests whether news-derived event features add predictive value.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Architecture}
+\begin{frame}{Objective and Research Question}
+  \small
+  \begin{itemize}
+    \item \textbf{Objective}: design and evaluate a hybrid Forex strategy using price signals and GDELT event intensity.
+    \item \textbf{Question}: does the event family improve performance over a price-only baseline?
+    \item Execution: GDELT event intensity; text sentiment was not evaluated.
+    \item The answer is based on paired comparison, registered configurations and reproduced results.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Theoretical Background}
+  \begin{itemize}
+    \item Forex market structure, transaction costs and out-of-sample evaluation.
+    \item Financial machine learning and overfitting risk in backtests.
+    \item Financial NLP as motivation; executed experiments use coded events, not article-level sentiment.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Methodology: Executed Pipeline}
   \centering
-  \resizebox{0.8\textwidth}{!}{\input{img/fig-pipeline-tikz}}
+  \begin{tikzpicture}[
+    node distance=0.45cm and 0.35cm,
+    pipebox/.style={draw, rounded corners, fill=blue!10, minimum width=2.1cm, minimum height=0.68cm, align=center, font=\scriptsize},
+    arrow/.style={-{Stealth[length=2mm]}, thick}
+  ]
+  \node[pipebox] (data) {Data};
+  \node[pipebox, right=of data] (features) {Feature\\Construction};
+  \node[pipebox, right=of features] (models) {Models\\Used};
+  \node[pipebox, below=of models] (strategies) {Strategies};
+  \node[pipebox, left=of strategies] (evaluation) {Experimental\\Evaluation};
+  \node[pipebox, left=of evaluation] (stats) {Statistical\\Analysis};
+  \draw[arrow] (data) -- (features);
+  \draw[arrow] (features) -- (models);
+  \draw[arrow] (models) -- (strategies);
+  \draw[arrow] (strategies) -- (evaluation);
+  \draw[arrow] (evaluation) -- (stats);
+  \end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Methodology: Evaluation}
   \begin{itemize}
-    \item Deterministic execution, filter-by-filter audit trail on every trade.
+    \item Three price-family models in the baseline; the hybrid adds one event-family model.
+    \item Logistic meta-learner receives only family-model probabilities.
+    \item Both strategies run under the same execution model, costs and controls.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Execution chain}
-  \centering
-  \resizebox{0.75\textwidth}{!}{\input{img/fig-filter-chain-tikz}}
-  \footnotesize Every trade logs a filter-by-filter audit trail (\texttt{decisions.parquet}).
-\end{frame}
-
-\begin{frame}{Evaluation protocol}
-  \begin{itemize}
-    \item Walk-forward + purged $k$-fold with embargo (L\'opez de Prado).
-    \item One pre-registered, untouched test window per claim.
-    \item vs.\ closest prior art (Zhang 2025): different validation protocol, not directly comparable.
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Headline result: one trading year, reproduced}
+\begin{frame}{Results and Discussion}
   \begin{columns}[T]
     \column{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}\\
-    \tiny March 2016 -- Feb 2017, EUR/USD, every arm, same untouched year.
-    \column{0.5\textwidth}
+    \includegraphics[width=0.95\textwidth]{img/equity-trading-year-h1.png}\\
+    \tiny March 2016 -- Feb 2017, EUR/USD (window registered before simulation).
+    \column{0.48\textwidth}
+    \small
     \begin{itemize}
-      \item \alert{No arm beats the baseline} ($p=0.149$).
-      \item Reproduced, byte-identical.
-      \item ``Positive'' cell = its control ($p=0.92$) -- drift, not an edge.
+      \item \alert{Paired hybrid vs.\ baseline difference not significant} ($p=0.149$).
+      \item Main result reproduced with the same numbers.
+      \item Positive cell = drift (always-short control, $p=0.92$).
     \end{itemize}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Why -- three audited causes}
+\begin{frame}{Discussion of Negative Results}
   \begin{itemize}
-    \item Thresholds calibrated on one month didn't survive a level shift.
-    \item The meta-learner carried no information all year.
-    \item The news signal exists, but on a 4h horizon; the strategy holds for days.
+    \item A positive return in one cell did not imply predictive ability.
+    \item Thresholds calibrated on one month did not survive a level shift.
+    \item The observed news signal was short-horizon, while the exit rule held positions for days.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Two follow-ups run this year}
+\begin{frame}{Complementary Results}
   \begin{itemize}
-    \item \textbf{Adaptive retraining}: frozen model, full year -- $-97.8\%$, 26\% win rate. 4/5 policies still outstanding.
-    \item \textbf{Candlestick catalog} (22 patterns): one positive alone, indistinguishable from chance (permutation test, 98.7\%). Whole catalog: $-99.5\%$ / $-32.8\%$.
+    \item \textbf{Adaptive retraining}: frozen policy lost $97.8\%$ over the year; the other policies remain future work.
+    \item \textbf{Candlestick catalog}: the single positive pattern was indistinguishable from chance after multiple-comparisons control.
+    \item \textbf{News + candlestick}: the agreement gate had no news-side direction to confirm the pattern.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Does adding GDELT news help the one positive pattern?}
-  \centering
-  \includegraphics[width=0.62\textwidth]{img/candlestick-news-combination.png}
-  \footnotesize News layered on informationally: byte-identical trades -- it never vetoed. Required to agree: zero trades -- the two signals never coincided all year.
+\begin{frame}{News and the Positive Pattern}
+  \begin{columns}[T]
+    \column{0.54\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{img/candlestick-news-combination.png}
+    \column{0.42\textwidth}
+    \small
+    \begin{itemize}
+      \item Informational news mode: identical trades.
+      \item Agreement required: zero trades.
+      \item F4 abstained on all eligible bars; no active disagreement was observed.
+    \end{itemize}
+  \end{columns}
 \end{frame}
 
-\begin{frame}{Conclusion \& future work}
+\begin{frame}{Conclusion}
   \begin{itemize}
-    \item Pipeline and execution layer work end to end, proven not assumed.
-    \item No configuration tested this year beat the price-only baseline.
-    \item Registered, not yet run: confluence chain, intermarket features, price-action/Ichimoku contest, 4 retraining policies.
+    \item In the tested configuration, the answer to the research question is negative.
+    \item The main scientific lesson is that apparent profit can reflect drift rather than prediction.
+    \item The empirical contribution is an interpretable, reproducible and audited negative result.
+    \item The technical contribution is the reusable pipeline, replay and audit-trail infrastructure.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Limitations and Future Work}
+  \begin{itemize}
+    \item Limitations: one main window, one currency pair and hand-picked thresholds never fitted on held-out data.
+    \item Planned components, such as text sentiment, full article text and additional sources, were not evaluated.
+    \item Future work: adaptive retraining, confluence chain, intermarket features and additional pairs.
   \end{itemize}
 \end{frame}
 

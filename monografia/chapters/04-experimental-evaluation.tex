@@ -1,7 +1,7 @@
 \chapter{Experimental Evaluation} \label{cap:experimental-evaluation}
 \providecommand{\pending}{\textit{pending}}
 
-This chapter distinguishes implemented tooling, exploratory execution, and evidence that could support the research hypothesis. The status snapshot is September 28, 2026 (September 27 in the operator's Pacific timezone); Section~\ref{subsec:intermediate-provenance} records the frozen 00:36 UTC predecessor archive, Section~\ref{subsec:h4-snapshot} the completed H4 matrix at 01:11 UTC, and Section~\ref{sec:confirmation-results} the final outcomes of the predecessor jobs that were still running at those snapshots, without replacing either historical record. The workflow in Section~\ref{subsec:workflow-stages} governs the transition between these states. A completed training job or a successful engine replay does not by itself constitute a validated comparison. Two rounds of September-2015 replays under the pilot execution contract have run: the first, executed on September 26, closed no trades and is diagnosed in Section~\ref{subsec:zero-trade}; the second, executed on September 27 after the amendment of Section~\ref{subsec:strategy-config}, closed about one thousand trades per strategy and is reported in Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results}. The execution-model reruns and the one-year protocol that followed are reported in Section~\ref{sec:confirmation-results}; both lose most of the account. The chapter remains an implementation and execution report; it does not establish H1.
+This chapter separates implemented tooling, exploratory execution and evidence that bears on the research hypothesis. The main record is the September 28, 2026 status snapshot (September 27 in the operator's Pacific timezone): Section~\ref{subsec:intermediate-provenance} records the frozen 00:36 UTC predecessor archive, Section~\ref{subsec:h4-snapshot} records the completed H4 matrix at 01:11 UTC, and Section~\ref{sec:confirmation-results} reports the final outcomes of predecessor jobs that were still running at those snapshots. A completed training job or a successful engine replay is not, by itself, a validated comparison. Two September-2015 replay rounds were run under the pilot execution contract: the first closed no trades and is diagnosed in Section~\ref{subsec:zero-trade}; the second, after the configuration amendment of Section~\ref{subsec:strategy-config}, closed about one thousand trades per strategy and is reported in Sections~\ref{sec:baseline-results} and~\ref{sec:hybrid-results}. The execution-model reruns and the one-year protocol that followed are reported in Section~\ref{sec:confirmation-results}; both lose most of the account. The chapter remains an implementation and execution report. It does not establish H1.
 
 \section{Experimental Setup} \label{sec:experimental-setup}
 
@@ -32,11 +32,11 @@ Both offline training jobs completed on September 26 and saved separate portable
 
 Section~\ref{subsec:deterministic-execution} commits every parameter of every filter to the strategy's configuration file rather than to code. The implementation realizes this as one YAML descriptor per strategy, \path{strategies/<name>/config.yaml}, with one section per configurable filter: \path{price_features} (the EMA, RSI and MACD periods shared by training and serving), \path{indicator} (F2), \path{pattern} (F3), \path{news_context} (F4), \path{risk_guard} (F5), \path{capital_mgmt} (F6) and \path{meta_learner} (F7, holding $\theta_{\text{high}}$, $\theta_{\text{low}}$, the regime-gate switch $g$ and the label horizon). Each filter parses and validates its own section; a filter listed without its section, a section without its filter, a missing key or an out-of-range value stops the run before the first bar. Variants are expressed through \path{extends:} chains of any depth, which compose like override files: the hybrid descriptor inherits the F5, F6 and F7 sections from the baseline and adds only \path{news_context}, so both variants face identical execution assumptions by construction. Sections with defaults may be omitted, and the loader writes the effective values back so that the \path{strategy-config.json} saved with every run shows exactly what was used. The command \path{algo-backtest explain-strategy} prints the resolved configuration together with the origin of every value (the descriptor that set it, or the default), and the same provenance is written per run as \path{strategy-provenance.json}. The provenance file was added after the September replays reported below; those runs carry the resolved \path{strategy-config.json} only.
 
-This mechanism is what makes a configuration diff the unit of experimental manipulation. The ablations of Section~\ref{subsec:strategy-variants} will vary one parameter, or one filter, per variant descriptor while everything else is inherited unchanged, and the saved provenance makes the manipulated value auditable from the run directory. Table~\ref{tab:pilot-parameters} lists the values resolved for the September replays. The two run parameters, \path{size} and \path{cash}, are the only values passed on the command line. The F6 section computes a risk-based lot from \path{risk_per_trade} and the fixed stop distance, but the chain strategies size their orders from the \path{size} parameter as a fraction of equity held as notional; the risk-based lot is computed, not applied. The consequences are discussed with the results.
+This mechanism makes a configuration diff the unit of experimental manipulation. The ablations of Section~\ref{subsec:strategy-variants} vary one parameter, or one filter, per variant descriptor while everything else is inherited unchanged, and the saved provenance makes the manipulated value auditable from the run directory. Table~\ref{tab:pilot-parameters} lists the values resolved for the September replays. The two run parameters, \path{size} and \path{cash}, are the only values passed on the command line. The F6 section computes a risk-based lot from \path{risk_per_trade} and the fixed stop distance, but the chain strategies size their orders from the \path{size} parameter as a fraction of equity held as notional; the risk-based lot is computed, not applied. The consequences are discussed with the results.
 
 \begin{table}[htbp]
 \centering
-\caption{Parameters resolved for the September-2015 replays, from the runs' \texttt{strategy-config.json} and \texttt{run.json}. The hybrid adds an F4 \texttt{news\_context} section and inherits everything else.}
+\caption[Parameters resolved for the September-2015 replays]{Parameters resolved for the September-2015 replays, from the runs' \texttt{strategy-config.json} and \texttt{run.json}. The hybrid adds an F4 \texttt{news\_context} section and inherits everything else.}
 \label{tab:pilot-parameters}
 \small
 \begin{tabular}{p{2.6cm}p{5.2cm}p{5.0cm}}
@@ -85,7 +85,7 @@ The execution-realism and sweep jobs record revision \path{7165308778fd}. Their 
 F1 & EMA perception recorded in runtime logs; upstream EMA periods 3/8/60 on minute bars. The 60-period EMA is not an H1/H4 bar series. \\
 F2 & RSI period 14, midline 50; MACD 12/26/9, histogram threshold 0. \\
 F3 & Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. These configured names do not imply a detector: the predecessor runtime supplies no candle pattern. \\
-F4 & Absent from baseline; hybrid event-intensity veto threshold $-0.5$ and sentiment-direction threshold 0.15. Text sentiment is absent in these runs. \\
+F4 & Absent from baseline; hybrid event-intensity veto threshold $-0.5$ and a configured direction threshold of 0.15 for the missing sentiment subchannel. Text sentiment is absent in these runs. \\
 F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.10. Configured limits are not independently verified enforcement. \\
 F6 & Risk fraction 0.03; swing lookback 60 bars; stop shrink 0.20; minimum 5 pips; minimum reward/risk 2. Target: 2R closes 0.5; trailing step: at 0.5R, stop to $-0.66$R. \\
 F7 & Thresholds 0.55/0.45; regime gate off; label horizon 15 minutes. Families: trend, indicator, pattern; hybrid additionally includes news. \\
@@ -119,7 +119,7 @@ Section~\ref{subsec:deterministic-execution} requires $\theta_{\text{high}}$ and
 
 \begin{table}[htbp]
 \centering
-\caption{Signal count, share of bars and fifteen-minute directional hit rate for candidate thresholds, from \texttt{threshold-calibration.json}. July is the combiner's own calibration span; August is the trainer's held-out partition.}
+\caption[Threshold calibration signal counts and directional hit rates]{Signal count, share of bars and fifteen-minute directional hit rate for candidate thresholds, from \texttt{threshold-calibration.json}. July is the combiner's own calibration span; August is the trainer's held-out partition.}
 \label{tab:threshold-calibration}
 \small
 \begin{tabular}{llllrrr}
@@ -227,7 +227,7 @@ The second replay round loaded the frozen September-26 models into the amended c
 
 \begin{table}[htbp]
 \centering
-\caption{September-2015 replays with the gate off. Run identifiers \texttt{baseline/20260927T094856-5d34ecde9301} and \texttt{hybrid/20260927T100447-5e124bec56dc}. Decision counts are bar-level rows of \texttt{decisions.parquet}; F1-vetoed bars never reached F7.}
+\caption[September-2015 replays with the gate off]{September-2015 replays with the gate off. Run identifiers \texttt{baseline/20260927T094856-5d34ecde9301} and \texttt{hybrid/20260927T100447-5e124bec56dc}. Decision counts are bar-level rows of \texttt{decisions.parquet}; F1-vetoed bars never reached F7.}
 \label{tab:september-replay}
 \small
 \begin{tabular}{p{5.2cm}rr}
@@ -273,7 +273,7 @@ Under the execution model, both hybrid replays of each month lose more than half
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{../algo-suite/docs/stories/done/13-pattern-volume-experiments/evidence/figures/execution-september-print.pdf}
-\caption{Observed September equity and drawdown for completed runs R08 and R13, in 2:1 panels. Legends join the parameter appendix; curves use the original \texttt{equity.csv} samples. Drawdown is relative to each sampled running peak and need not equal the engine's rounded maximum-drawdown statistic.}
+\caption[Observed September equity and drawdown for runs R08 and R13]{Observed September equity and drawdown for completed runs R08 and R13, in 2:1 panels. Legends join the parameter appendix; curves use the original \texttt{equity.csv} samples. Drawdown is relative to each sampled running peak and need not equal the engine's rounded maximum-drawdown statistic.}
 \label{fig:intermediate-equity}
 \end{figure}
 
@@ -285,7 +285,7 @@ Two sets of runs are reported. The first replays September, October and November
 
 \begin{table}[htbp]
 \centering
-\caption{September--November 2015 reruns under the execution model, frozen six-month models, \$10,000 per run. Run identifiers, under \texttt{2026-09-26-six-month-pilot/data/runs/}: baseline \texttt{20260927T234946-8b17461d5460}, \texttt{20260928T000257-8bcf7832dc99}, \texttt{20260928T001557-8c84def875ee}; hybrid \texttt{20260927T235410-8b548f4bfa30}, \texttt{20260928T001007-8c33716e9a9f}, \texttt{20260928T004327-8e053507dfb3}. R08/R09/R10 and R13/R14/P01 in the evidence appendix.}
+\caption[September--November 2015 reruns under the execution model]{September--November 2015 reruns under the execution model, frozen six-month models, \$10,000 per run. Run identifiers are recorded as R08/R09/R10 for the baseline and R13/R14/P01 for the hybrid in the project registry.}
 \label{tab:confirmation-2015}
 \small
 \begin{tabular}{llrrrrr}
@@ -306,7 +306,7 @@ The September baseline ledger explains the loss. Of its 320 closed trades, 249 e
 
 \begin{table}[htbp]
 \centering
-\caption{One-year protocol: continuous simulation March 1--October 31, 2016, one-year models, \$10,000 per strategy. Run identifiers, under \texttt{2026-09-28-one-year-protocol/data/runs/}: baseline \texttt{20260928T000117-8bb8148c2302} (R19), hybrid \texttt{20260928T000142-8bbdd0d8fd2c} (R20). Models \texttt{0b41fd39ebf3} and \texttt{b67ac32e1fc5}.}
+\caption[One-year protocol results for baseline and hybrid]{One-year protocol: continuous simulation March 1--October 31, 2016, one-year models, \$10,000 per strategy. Run identifiers, under \texttt{2026-09-28-one-year-protocol/data/runs/}: baseline \texttt{20260928T000117-8bb8148c2302} (R19), hybrid \texttt{20260928T000142-8bbdd0d8fd2c} (R20). Models \texttt{0b41fd39ebf3} and \texttt{b67ac32e1fc5}.}
 \label{tab:one-year-results}
 \small
 \begin{tabular}{lrrrrr}
@@ -321,7 +321,7 @@ hybrid   & 1,029 & 24.8\% & $-\$8{,}775.76$ & 88.2\% & 0.63 \\
 
 \begin{table}[htbp]
 \centering
-\caption{Monthly returns of the one-year simulation, as a percentage of the equity at the start of each month. Source: each run's \texttt{equity.csv}.}
+\caption[Monthly returns of the one-year simulation]{Monthly returns of the one-year simulation, as a percentage of the equity at the start of each month. Source: each run's \texttt{equity.csv}.}
 \label{tab:one-year-monthly}
 \small
 \begin{tabular}{lrrrrrrrr}
@@ -337,7 +337,7 @@ hybrid   & $-40.8$ & $-41.5$ & $-7.7$ & $-13.6$ & $-25.0$ & $-19.7$ & $-15.0$ & 
 \begin{figure}[htbp]
 \centering
 \IfFileExists{img/equity-consolidated.png}{\includegraphics[width=\textwidth]{img/equity-consolidated.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Consolidated equity chart missing: \path{equity-consolidated.png} produced by the equity-curve consolidation command over the one-year runs.}\vspace{2em}}}}
-\caption{Consolidated equity curves of the baseline and hybrid over the one-year simulation, from \$10,000, under the execution model of Section~\ref{subsec:execution-model}. Source: \texttt{algo-analyze equity-curves} over the two runs' \texttt{equity.csv} files (run identifiers as in Table~\ref{tab:one-year-results}).}
+\caption[Consolidated equity curves of the baseline and hybrid]{Consolidated equity curves of the baseline and hybrid over the one-year simulation, from \$10,000, under the execution model of Section~\ref{subsec:execution-model}. Source: \texttt{algo-analyze equity-curves} over the two runs' \texttt{equity.csv} files (run identifiers as in Table~\ref{tab:one-year-results}).}
 \label{fig:equity-consolidated}
 \end{figure}
 
@@ -420,7 +420,7 @@ Closed-trade counts come from both the manifest and the actual trade ledger, not
 F1 & EMA perception; complete 240-minute bars; EMA 3/8/60. The 60-period series is an H4 EMA, not the reference H1 selector. \\
 F2 & RSI 14 with midline 50; MACD 12/26/9 with histogram threshold 0; ATR period 14. \\
 F3 & Disabled or TA-Lib per row. Bullish: engulfing, hammer, morning star; bearish: engulfing, evening star, shooting star. \\
-F4 & Absent in H01--H04; H05--H08: event veto threshold $-0.5$, sentiment-direction threshold 0.15. Text sentiment is missing. \\
+F4 & Absent in H01--H04; H05--H08: event veto threshold $-0.5$, configured direction threshold 0.15 for the missing sentiment subchannel. Text sentiment is missing. \\
 Volume & Absent in odd-numbered H rows; even rows use quote-tick activity, lookback 20 prior closed bars, minimum relative activity 1.0. Not exchange-traded volume. \\
 F5 & Daily/weekly drawdown limits $-0.05/-0.15$; concurrent-trade cap 2; portfolio-at-risk cap 0.18. \\
 F6 & Risk fraction 0.03; swing lookback 60; stop shrink 0.5; minimum 5 pips; minimum reward/risk 2. Targets 4R/6R, each closes 0.5; trail at 2R to $+0.1$R. \\
@@ -494,7 +494,7 @@ H1, calibrated 5 / 10 / 15\,\% & baseline & 114 / 196 / 316 & $+3.1\%$ / $-26.6\
 \begin{figure}[htbp]
 \centering
 \IfFileExists{img/equity-tuning-h4q.png}{\includegraphics[width=\textwidth]{img/equity-tuning-h4q.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-tuning-h4q.png}.}\vspace{2em}}}}
-\caption{Equity of four calibrated H4 variants (ATR stop, base, hybrid, activity off), March--November 2016, from \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\caption[Equity of four calibrated H4 variants]{Equity of four calibrated H4 variants (ATR stop, base, hybrid, activity off), March--November 2016, from \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
 \label{fig:equity-tuning-h4q}
 \end{figure}
 
@@ -512,13 +512,14 @@ The six news-only cells have run (evidence \path{news-only-cells-20260928T0545Z.
 
 \subsection{One trading year, all arms} \label{subsec:trading-year}
 
-All ten cells completed (evidence \path{trading-year-cells-20260928T0640Z.md}, \path{trading-year-inference-20260928T0640Z.md}; registration in \path{trading-year-registration.md}). A timestamp audit of that job (appended to \path{trading-year-registration.md}) shows that each stage's cells were fixed in the plan file and strategy configurations seconds before its launch, but that the paragraphs narrating the registration of the first four stages were written after those stages had finished; the pre-specification of the primary comparison therefore rests on the one-year protocol of Section~\ref{subsec:one-year-protocol} and on the plan files, not on the times stated in that README. Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
+All ten cells completed; the project experiment registry names the result, inference and registration files. A timestamp audit of that job shows that each stage's cells were fixed in the plan file and strategy configurations seconds before its launch, but that the paragraphs narrating the registration of the first four stages were written after those stages had finished; the pre-specification of the primary comparison therefore rests on the one-year protocol of Section~\ref{subsec:one-year-protocol} and on the plan files, not on the times stated in that README. Table~\ref{tab:trading-year} gives the year and its untouched months; Figure~\ref{fig:equity-trading-year} the H1 equity paths.
 
 \begin{table}[htbp]
 \centering
 \caption{One trading year, March 1, 2016 to February 28, 2017, \$10,000 per cell, one-year models unchanged. Untouched months November 2016--February 2017; win rate is the share of closed trades with positive profit.}
 \label{tab:trading-year}
-\small
+\scriptsize
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{llrrrrrrrr}
 \toprule
 \textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
@@ -540,7 +541,7 @@ H4 & rule, reversed sign & 10 & 60\% & $-3.5$ & $+5.6$ & $+1.1$ & $-4.2$ & $+3.6
 \begin{figure}[htbp]
 \centering
 \IfFileExists{img/equity-trading-year-h1.png}{\includegraphics[width=\textwidth]{img/equity-trading-year-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-trading-year-h1.png}.}\vspace{2em}}}}
-\caption{Equity of the four H1 arms over the trading year, from \$10,000: price-only, hybrid, news-only and the reversed-sign rule. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\caption[Equity of the four H1 arms over the trading year]{Equity of the four H1 arms over the trading year, from \$10,000: price-only, hybrid, news-only and the reversed-sign rule. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
 \label{fig:equity-trading-year}
 \end{figure}
 
@@ -556,7 +557,8 @@ The second purpose of the session was to report each learned strategy as one sim
 \centering
 \caption{Session 2, both sides in one run: March 1, 2016 to February 28, 2017, \$10,000 per cell, retrained one-year models, symmetric January-2016 quantile thresholds. Untouched months November 2016--February 2017. The H4 cells and the rule cells are the same accounts as in Table~\ref{tab:trading-year} and reproduce it exactly.}
 \label{tab:session-2}
-\small
+\scriptsize
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{llrrrrrrrr}
 \toprule
 \textbf{Clock} & \textbf{Arm} & \textbf{Trades} & \textbf{Win} & \textbf{Mar--Oct} & \textbf{Nov} & \textbf{Dec} & \textbf{Jan} & \textbf{Feb} & \textbf{Year} \\
@@ -584,7 +586,7 @@ H4 & always-short control & 91 & 31\% & $-5.1$ & $+6.6$ & $+0.5$ & $-2.1$ & $+1.
 \begin{figure}[htbp]
 \centering
 \IfFileExists{img/equity-session2-h1.png}{\includegraphics[width=\textwidth]{img/equity-session2-h1.png}}{\fbox{\parbox{0.9\textwidth}{\centering\vspace{2em}\textit{Chart missing: \path{equity-session2-h1.png}.}\vspace{2em}}}}
-\caption{Equity of the H1 both-sides cells over the trading year, from \$10,000: price-only and hybrid at 10\,\% per side, the same pair with the regime gate, the reversed-sign rule and its always-short control. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
+\caption[Equity of the H1 both-sides cells over the trading year]{Equity of the H1 both-sides cells over the trading year, from \$10,000: price-only and hybrid at 10\,\% per side, the same pair with the regime gate, the reversed-sign rule and its always-short control. Source: \texttt{algo-analyze equity-curves} over the runs' \texttt{equity.csv}.}
 \label{fig:equity-session-2}
 \end{figure}
 
@@ -594,11 +596,11 @@ Letting the short side fire does not help the learned chains; it multiplies thei
 
 Section~\ref{sec:candlestick-screening} reports its results at the H1 (sixty-minute) decision cadence rather than the M1 cadence used throughout Sections~\ref{sec:baseline-results}--\ref{subsec:session-2}. The departure is deliberate and disclosed, not a silent substitution: technical-debt item TD-71 (\path{algo-suite/docs/technical-debt.md}) records that LEAN's same-bar stop/target double-fill defect, already responsible for the sub-hour failures of Section~\ref{subsec:session-2}, corrupts M1-cadence runs specifically over this exact registered window (March 1, 2016 to February 28, 2017), so H1 sidesteps a known executor limitation there.
 
-The Policy F run reported in this section, by contrast, was run at M1. An earlier draft of this section incorrectly labeled Table~\ref{tab:policy-f-year} as H1: the run's own \path{strategy.yaml} (\path{price_features.bar_minutes: 1}, sha256 archived in \path{evidence/policy-f-registered-year-run.md}) shows it was M1, over the identical window TD-71 flags. The run exited cleanly (exit code 0) with no \path{trade-plans.json} inconsistency raised by algo-backtest's statement builder -- but that check is what catches TD-71's failure mode, and this run's numbers were read directly from LEAN's own \texttt{STATISTICS::} block rather than through it, so a clean exit rules out only that specific check, not a same-bar double fill at the order-event level. Executor integrity for this run is therefore \textbf{unverified}: not proven defective, and not proven clean. The $-97.782\%$ result below is reported as observed, with this caveat attached, rather than re-run or discarded under the submission deadline.
+The Policy F run reported in this section, by contrast, was run at M1. An earlier draft of this section incorrectly labeled Table~\ref{tab:policy-f-year} as H1: the run's own strategy file records \path{bar_minutes: 1}, and the archived evidence file \path{policy-f-registered-year-run.md} confirms its hash, so it was M1 over the identical window TD-71 flags. The run exited cleanly (exit code 0) with no trade-plan inconsistency raised by algo-backtest's statement builder -- but that check is what catches TD-71's failure mode, and this run's numbers were read directly from LEAN's own \texttt{STATISTICS::} block rather than through it, so a clean exit rules out only that specific check, not a same-bar double fill at the order-event level. Executor integrity for this run is therefore \textbf{unverified}: not proven defective, and not proven clean. The $-97.782\%$ result below is reported as observed, with this caveat attached, rather than re-run or discarded under the submission deadline.
 
 The first of the four December-extension follow-ups (Section~\ref{subsec:future-registered} of Chapter~\ref{cap:conclusion}) registered five retraining policies -- frozen (F), thresholds refreshed (Q), rolling (R), expanding (U) and exponentially weighted (E) -- on one continuous account, with prediction quality per epoch as an endpoint next to the paired daily-equity test. Of the five, only Policy F has since completed a run over the full registered year; refreshed-threshold, rolling, expanding and exponentially weighted comparisons remain outstanding, and no ranking across the five policies is reported here.
 
-A narrower, earlier check bears on why the frozen policy was the one completed first. Distinct from the three-month offline refit already noted in Chapter~\ref{cap:conclusion}, a second offline trial (evidence \path{algo-suite/docs/stories/in-progress/19-adaptive-recency-retraining/evidence/d60-trial-results.md}) refit the H1 and H4 price-only family models monthly on a trailing 60-day window and chained the resulting months across the same one-year span: the 60-day policy did not beat a frozen comparator at either clock ($-45.4\,\%$ against $-51.3\,\%$ at H1, $-12.3\,\%$ against $-4.3\,\%$ at H4, over the same span), and the paired daily-return difference on the untouched months does not reject the null at either clock ($p=0.725$ at H1, $p=0.327$ at H4). This 60-day arm is kept in the study as the short-window control rather than as a candidate; it establishes only that the shortest of the five registered windows does not beat the frozen model, not that no adaptive policy can.
+A narrower, earlier check bears on why the frozen policy was the one completed first. Distinct from the three-month offline refit already noted in Chapter~\ref{cap:conclusion}, a second offline trial, recorded in \path{d60-trial-results.md}, refit the H1 and H4 price-only family models monthly on a trailing 60-day window and chained the resulting months across the same one-year span: the 60-day policy did not beat a frozen comparator at either clock ($-45.4\,\%$ against $-51.3\,\%$ at H1, $-12.3\,\%$ against $-4.3\,\%$ at H4, over the same span), and the paired daily-return difference on the untouched months does not reject the null at either clock ($p=0.725$ at H1, $p=0.327$ at H4). This 60-day arm is kept in the study as the short-window control rather than as a candidate; it establishes only that the shortest of the five registered windows does not beat the frozen model, not that no adaptive policy can.
 
 Table~\ref{tab:policy-f-year} reports Policy F's own registered-year backtest: the family and combiner models fitted once at $D_0=$ March 1, 2016 (spans of 311,737 fitting rows, 29,825 combiner-calibration rows and 28,801 threshold rows, all well above the registered minima) and never refit, run as the baseline chain from a single \$10,000 account over the full March 1, 2016--February 28, 2017 window. This exercises the frozen half of the adaptive-retraining harness -- the phase-3 minimum-viable single-pinned-bundle wiring, with no mid-replay refit and no bundle-sourced threshold override -- and is disclosed as such: it is not yet the full five-policy harness, only the case where fit-once and never-refit coincide.
 
@@ -636,11 +638,11 @@ With all 22 admitted patterns active together (strategy \path{candles-expanded-h
 
 \subsection{Per-pattern isolation sweep} \label{subsec:candles-per-pattern}
 
-Each of the 22 admitted patterns was isolated in its own backtest via \path{pattern.enabled_rules}, so that the trades reported for a pattern are attributable to that pattern alone, subject to the neutral-polarity caveat below. Table~\ref{tab:candles-per-pattern} reports round-trip trade-level accounting: a trade counts as a win if its total profit or loss, summed across every fill that closed it, is positive. This differs from each run's own \path{metrics.json} \path{hit_rate} statistic, which counts per closing fill rather than per round-trip position; because the catalog inherits the baseline's partial-target plan (a first target closing half the position, the remainder on a trailing stop), a position that nets an overall loss can still contribute a guaranteed win to \path{hit_rate} whenever it reached its partial target before its final exit. The two statistics were reconciled exactly for all 22 runs (for example, \path{hanging_man} closes 47 exit legs at \path{hit_rate}$=0.4894$, i.e.\ $23/47$, against the round-trip $15/38=39.5\%$ reported below); the round-trip figure, not \path{hit_rate}, is the one used for pattern selection throughout this section.
+Each of the 22 admitted patterns was isolated in its own backtest through the enabled-rules configuration key, so that the trades reported for a pattern are attributable to that pattern alone, subject to the neutral-polarity caveat below. Table~\ref{tab:candles-per-pattern} reports round-trip trade-level accounting: a trade counts as a win if its total profit or loss, summed across every fill that closed it, is positive. This differs from each run's own \path{metrics.json} \path{hit_rate} statistic, which counts per closing fill rather than per round-trip position; because the catalog inherits the baseline's partial-target plan (a first target closing half the position, the remainder on a trailing stop), a position that nets an overall loss can still contribute a guaranteed win to \path{hit_rate} whenever it reached its partial target before its final exit. The two statistics were reconciled exactly for all 22 runs (for example, Hanging Man closes 47 exit legs at \path{hit_rate}$=0.4894$, i.e.\ $23/47$, against the round-trip $15/38=39.5\%$ reported below); the round-trip figure, not \path{hit_rate}, is the one used for pattern selection throughout this section.
 
 \begin{table}[htbp]
 \centering
-\caption{Per-pattern isolation sweep, 22 admitted candlestick patterns, EUR/USD, March 1, 2016--February 28, 2017, \$10,000, H1, sorted by net profit or loss (round-trip trade-level accounting). Pattern names are given in natural form; each corresponds to the strategy's own \texttt{pattern.enabled\_rules} identifier (lower-case, underscore-separated) used throughout the surrounding text.}
+\caption[Per-pattern isolation sweep for 22 candlestick patterns]{Per-pattern isolation sweep, 22 admitted candlestick patterns, EUR/USD, March 1, 2016--February 28, 2017, \$10,000, H1, sorted by net profit or loss (round-trip trade-level accounting). Pattern names are given in natural form; each corresponds to the strategy's own \texttt{pattern.enabled\_rules} identifier (lower-case, underscore-separated) used throughout the surrounding text.}
 \label{tab:candles-per-pattern}
 \small
 \begin{tabular}{p{4.6cm}rrr}
@@ -693,7 +695,7 @@ Fourth, a composite trend score (signed \path{trend_direction} times \path{trend
 
 \begin{table}[htbp]
 \centering
-\caption{Gated variants of \texttt{hanging\_man}, the ungated base and four real gates, EUR/USD, March 1, 2016--February 28, 2017, \$10,000 starting cash.}
+\caption[Gated variants of Hanging Man and four real gates]{Gated variants of \texttt{hanging\_man}, the ungated base and four real gates, EUR/USD, March 1, 2016--February 28, 2017, \$10,000 starting cash.}
 \label{tab:candles-gated-hanging-man}
 \small
 \begin{tabular}{p{6.4cm}rrr}
@@ -725,7 +727,7 @@ Every real gate underperforms the simple ungated baseline; several make it subst
 
 \subsection{A multiple-comparisons check on the screen} \label{subsec:candles-multiple-comparisons}
 
-Twenty-two independent patterns were screened in Section~\ref{subsec:candles-per-pattern} and exactly one, \path{hanging_man}, showed a net-positive result. A permutation test (evidence and script \path{algo-suite/docs/stories/in-progress/22-candlestick-context-extension/evidence/multiple-comparisons-permutation-test.md}, seed 20260928) addresses whether this is more than the number expected by chance: the 1,026 pooled trades of Section~\ref{subsec:candles-context-diagnostics} were repeatedly reshuffled and re-partitioned, 20,000 times, into 22 groups of the same sizes as the real patterns, and the best (maximum) group total in each reshuffled trial was compared against the observed best, \path{hanging_man}'s $+\$478.43$. In 98.7\% of the 20,000 reshuffles (19,741 of 20,000), the best-of-22 result was at least as good as the one actually observed. \path{hanging_man}'s apparent edge is therefore not distinguishable from chance: finding one positive result out of 22 independent screens is, given this trade population's characteristics (a pooled mean of $-\$31.79$ per trade across all 1,026 trades), an unremarkable outcome rather than a surprising one. The screening process identified no pattern whose performance is statistically distinguishable from noise; \path{hanging_man}'s result is reported as a screening artifact consistent with the multiple-comparisons null, not as a discovered trading edge.
+Twenty-two independent patterns were screened in Section~\ref{subsec:candles-per-pattern} and exactly one, Hanging Man, showed a net-positive result. A permutation test, recorded with its script in \path{multiple-comparisons-permutation-test.md}, addresses whether this is more than the number expected by chance: the 1,026 pooled trades of Section~\ref{subsec:candles-context-diagnostics} were repeatedly reshuffled and re-partitioned, 20,000 times, into 22 groups of the same sizes as the real patterns, and the best (maximum) group total in each reshuffled trial was compared against Hanging Man's $+\$478.43$. In 98.7\% of the 20,000 reshuffles (19,741 of 20,000), the best-of-22 result was at least as good as the one actually observed. Hanging Man's apparent edge is therefore not distinguishable from chance: finding one positive result out of 22 independent screens is, given this trade population's characteristics (a pooled mean of $-\$31.79$ per trade across all 1,026 trades), an unremarkable outcome rather than a surprising one. The screening process identified no pattern whose performance is statistically distinguishable from noise; Hanging Man's result is reported as a screening artifact consistent with the multiple-comparisons null, not as a discovered trading edge.
 
 \subsection{Solo filter-family screening} \label{subsec:solo-filter-sweep}
 
@@ -751,13 +753,13 @@ F4's feature data required building a derived per-bar feature layer for this win
 
 \subsection{News and candlestick combination} \label{subsec:news-candlestick-combination}
 
-The combination of price-action patterns with news context tests this thesis's original central hypothesis directly. Two variants were run with \path{hanging_man} as the base pattern and F4 added to the chain.
+The combination of price-action patterns with news context tests one concrete version of the thesis hypothesis. Two variants were run with \path{hanging_man} as the base pattern and F4 added to the chain.
 
 First, with F4 present informationally only, never vetoing: 38 trades at $+\$478.43$, byte-for-byte identical to the pattern alone, trade for trade. F4 never once vetoed on any of \path{hanging_man}'s 38 eligible bars this year, so this is a genuine no-op, not a subtle null result.
 
-Second, with F4 required to agree with the pattern (a real agreement gate): zero trades. This was investigated rather than only reported: on every one of the 35 bars where \path{hanging_man} was individually eligible, F4's own recommendation was ABSTAIN, because GDELT-derived sentiment for EUR/USD never once cleared its 0.15 threshold at the same time \path{hanging_man}'s own conditions were met. The two signals did not conflict; they simply never coincided over this entire year, so the null result here concerns the temporal non-coincidence of the two signal sources in this specific dataset, not an active disagreement between them.
+Second, with F4 required to agree with the pattern (a real agreement gate): zero trades. This was investigated rather than only reported: on every one of the 35 bars where \path{hanging_man} was individually eligible, F4's recommendation for EUR/USD was ABSTAIN. The archived configuration records the event-intensity veto threshold and the 0.15 threshold for the sentiment subchannel, but no article-level sentiment input was available in this run. The zero-trade result therefore means that the agreement gate had no news-side direction to agree with the pattern, not that an observed news direction actively contradicted it.
 
-In Wellington's own words, ``in the end, the news did not have a strong influence on the trades directly'' -- under this specific implementation and these specific, uncalibrated placeholder thresholds. This is a scoped finding about this GDELT feature build, this window and these thresholds, not a general claim that news-based features have no value in principle: the thresholds were never calibrated for this window, and a properly calibrated or differently-thresholded news signal might behave differently.
+Under this implementation and these uncalibrated placeholder thresholds, the news filter either left the pattern's trades unchanged (informational mode) or removed all of them (agreement gate). This is a scoped finding about this GDELT feature build, this window, the missing sentiment subchannel and these thresholds, not a general claim that news-based features have no value in principle: a properly calibrated event-direction rule or an actual text-sentiment input might behave differently.
 
 \section{Comparison with Closest Prior Art} \label{sec:zhang-comparison}
 

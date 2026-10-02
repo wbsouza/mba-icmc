@@ -1,0 +1,24 @@
+% Executed pipeline figure for Chapter 3.
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  node distance=0.55cm and 0.45cm,
+  pipebox/.style={draw, rounded corners, fill=blue!10, minimum width=2.6cm, minimum height=0.75cm, align=center, font=\footnotesize},
+  arrow/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[pipebox] (data) {Data};
+\node[pipebox, right=of data] (features) {Feature\\construction};
+\node[pipebox, right=of features] (models) {Models\\used};
+\node[pipebox, below=of models] (strategies) {Strategies};
+\node[pipebox, left=of strategies] (evaluation) {Experimental\\evaluation};
+\node[pipebox, left=of evaluation] (stats) {Statistical\\analysis};
+
+\draw[arrow] (data) -- (features);
+\draw[arrow] (features) -- (models);
+\draw[arrow] (models) -- (strategies);
+\draw[arrow] (strategies) -- (evaluation);
+\draw[arrow] (evaluation) -- (stats);
+\end{tikzpicture}
+\caption{Pipeline effectively executed in the experiments reported in Chapter~\ref{cap:experimental-evaluation}.}
+\label{fig:executed-pipeline}
+\end{figure}

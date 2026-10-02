@@ -1,11 +1,11 @@
-# Makefile for the TCC dissertation.
+# Makefile for the monograph.
 #
 # Drives latexmk against main.tex; auxiliary files land under build/ to
 # keep the source tree clean. The class file relies on bibtex (not biber)
 # and uses makeindex, both of which latexmk runs automatically.
 
 DOC      := main
-OUT      := tcc
+OUT      := monograph
 BUILDDIR := build
 PDF      := $(BUILDDIR)/$(OUT).pdf
 
@@ -77,7 +77,7 @@ pres-view:
 	xdg-open $(BUILDDIR)/$(PRES).pdf >/dev/null 2>&1 &
 
 help:
-	@echo "TCC dissertation - available make targets"
+	@echo "Monograph - available make targets"
 	@echo ""
 	@echo "  make            Build $(PDF) (incremental)"
 	@echo "  make pdf        Same as 'make'"

@@ -41,9 +41,10 @@
 \documentclass[
 % -- opções da classe memoir --
 12pt,		% tamanho da fonte
-openright,	% capítulos começam em pág ímpar (insere página vazia caso preciso)
-twoside,  % para impressão em anverso (frente) e verso. Oposto a oneside - Nota: utilizar \imprimirfolhaderosto*
+openany,	% capítulos podem começar em qualquer página para reduzir páginas em branco
+%twoside,  % para impressão em anverso (frente) e verso. Oposto a oneside - Nota: utilizar \imprimirfolhaderosto*
 %oneside, % para impressão em páginas separadas (somente anverso) -  Nota: utilizar \imprimirfolhaderosto
+oneside,
 % inclua uma % antes do comando twoside e exclua a % antes do oneside 
 a4paper,			% tamanho do papel. 
 % -- opções da classe abntex2 --
@@ -108,6 +109,9 @@ brazil				% idioma adicional para hifenização
 
 % url.sty / hyperref usam \UrlFont para \url e \path: rotear via \monospacesize.
 \renewcommand{\UrlFont}{\monospacesize\origttfamily}
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\do\/\do\-\do\_\do\.\do\:}
+\makeatother
 
 % ---
 % Pacotes de citações
@@ -347,13 +351,15 @@ brazil				% idioma adicional para hifenização
 % References
 \bibliography{bib/references}
 
-% Appendices
-\include{pos/appendices}
+% Appendices are kept in source but omitted from the main PDF to keep the
+% monograph focused and below the page target requested after advisor review.
+% Detailed operational evidence remains in the repository experiment registry.
+% \include{pos/appendices}
 
 % Annexes
 %\include{pos/annexes}
 
 % Index
-\include{pos/index}
+% \include{pos/index}
 
 \end{document}
