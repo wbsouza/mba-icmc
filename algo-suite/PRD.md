@@ -23,11 +23,21 @@ readiness, and statistical corrections. Rolling/CPCV validation and inferential
 claims are not completed. The current deposit deadline is September 29, 2026;
 older schedule dates below are historical.
 
+> **Final scope (as executed in the delivered thesis).** What follows is the initial
+> plan. The thesis executed **EUR/USD only**, on one-minute bars over about two
+> years (February 2015 to February 2017), with **GDELT coded-event intensity** as the
+> news signal. USD/JPY, text-sentiment scoring in the reported experiments, the
+> ten-year window, combinatorial purged cross-validation and rolling refits were
+> **not executed**. The implementation is unchanged: the tools still support those
+> parts. This document is kept as the plan; the thesis (`monografia/`) is the
+> reference for what was executed, and `docs/scope-cuts.md` lists the differences.
+
 ## At a glance (1-page summary)
 
 - **What:** test whether adding NLP sentiment + geopolitical/event context to a
   price-only Forex baseline improves risk-adjusted return after costs
-  (hypothesis **H1**), on **EUR/USD** and **USD/JPY**, over **2015–2024**.
+  (hypothesis **H1**), on **EUR/USD** and **USD/JPY**, over **2015–2024** (initial plan;
+  executed: EUR/USD only, February 2015 to February 2017).
 - **How:** a modular pipeline of five tools, each named for its step —
   `algo-download → algo-transform → algo-score → algo-backtest → algo-analyze`
   (shared lib `algo-core`) — communicating through a canonical Parquet
@@ -90,7 +100,7 @@ price filter in the chain), isolates the news family's own contribution between 
 `Instrument` value object, the data/filesystem contracts and the filter chain
 carry no Forex assumption (design doc §6.1; monografia Ch.5). The *current
 implementation scope is Forex-first*: this TCC implements and evaluates only FX
-(EUR/USD, USD/JPY). Equities, commodities and crypto are supported by the design
+(EUR/USD and USD/JPY in the plan; only EUR/USD was run). Equities, commodities and crypto are supported by the design
 (a new `AssetSpec` + adapters) but are **not** built or evaluated here — they are
 future work. Where this PRD and the specs say "Forex", "pip", "currency pair",
 that is the current implementation, not a limit of the architecture.
@@ -113,7 +123,7 @@ that is the current implementation, not a limit of the architecture.
 
 ## 3. Currency pairs
 
-- **Now:** **EUR/USD** and **USD/JPY** (USD per euro; yen per US dollar).
+- **Plan:** **EUR/USD** and **USD/JPY** (USD per euro; yen per US dollar). **Executed:** EUR/USD only; USD/JPY was not run.
 - Two pairs (not one) force a clean `Instrument` abstraction — JPY breaks single-pair
   assumptions (pip at 0.01 vs 0.0001, price magnitudes, carry-trade regime).
 - **Future:** if the approach validates, simulate across all major FX pairs
@@ -122,7 +132,7 @@ that is the current implementation, not a limit of the architecture.
 
 ## 4. Time window
 
-- **Target:** **2015-02-19 → 2024-12-31** (~10 years). GDELT 2.0 starts
+- **Target (plan):** **2015-02-19 → 2024-12-31** (~10 years). **Executed:** about two years, February 2015 to February 2017. GDELT 2.0 starts
   2015-02-19 (earliest practical bound); 2025 is left unobserved as
   out-of-sample data for follow-up work.
 - **Coverage rule (data-driven):** computed after ingestion; the coverage matrix
@@ -341,7 +351,7 @@ These are future work (no implementation or evaluation in the TCC).
 
 | Account / tool | Why | When |
 |---|---|---|
-| Dukascopy historical datafeed | tick data (EUR/USD, USD/JPY) via direct HTTP download (raw `.bi5`) — **public, no account/credentials** | phase 1 |
+| Dukascopy historical datafeed | tick data (EUR/USD; USD/JPY planned, not run) via direct HTTP download (raw `.bi5`) — **public, no account/credentials** | phase 1 |
 | Docker + LEAN CLI | backtester runtime | phase 3 |
 | OANDA demo (credentials) | paper execution via LEAN's Oanda brokerage (Phase 6 stretch) | after phase 5 |
 

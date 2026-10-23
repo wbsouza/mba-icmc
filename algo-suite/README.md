@@ -124,6 +124,12 @@ of `strategies/<name>/config.yaml` with recorded provenance
 (`algo-backtest/SPEC.md` §6.4.1). Current Chapter-4 status:
 [`docs/ch04-deliverables.md`](docs/ch04-deliverables.md).
 
+**Scope of the delivered thesis.** The thesis executed EUR/USD only, over about two
+years (February 2015 to February 2017), with GDELT coded-event intensity as the news
+signal. The suite still supports more than was run (a second pair, the sentiment
+scorer, a longer window); what was and was not executed is listed in
+[`docs/scope-cuts.md`](docs/scope-cuts.md).
+
 ## Conventions
 
 SOLID, clean code, single-return value objects, no magic numbers, GoF only where

@@ -7,7 +7,7 @@ omissions; the thesis lists deferred items as documented future work
 
 | Feature | Status | Rationale |
 |---|---|---|
-| Multi-asset (equities, crypto, futures) | **CUT** | Forex only for the thesis. The `Instrument`/`SecurityType` model keeps the door open, but only FX majors are built (EUR/USD, USD/JPY the targets). |
+| Multi-asset (equities, crypto, futures) | **CUT** | Forex only for the thesis. The `Instrument`/`SecurityType` model keeps the door open, but only FX majors are built (EUR/USD, USD/JPY the planned targets; only EUR/USD was run). |
 | Strategy config inheritance (`extends:`) | **CUT (general form)** | Post-TCC (TD-8). Strategy-level `extends:` chains of any depth with cycle detection are built (`algo_backtest/strategies.py`, 2026-09-27; `hybrid` extends `baseline`, variants may extend either from an external `--strategies-dir`); a base may not itself extend. |
 | Layered config file/env loading | **BUILT** | `algo_core.config.resolve` merges `ALGO_*` env > `conf/<tool>.yaml` > `conf/algo.yaml` > defaults (TD-3 resolved). The chain strategies' F5/F6/F7 settings are still explicit constants, not threaded from config (TD-43). |
 | Live trading / OANDA brokerage (Phase 6) | **CUT** | Out of scope; no broker connectivity from this repo. Credentials never on the critical path. |
@@ -18,3 +18,7 @@ omissions; the thesis lists deferred items as documented future work
 | yfinance daily fallback | **DEFERRED** | Resilience branch only; built after the primary Dukascopy → backtest chain is proven (TD-17). |
 | A01–A04 ablations (§4.5) | **MAYBE** | Run only if time permits after baseline + hybrid; the baseline (§4.3) is the priority. |
 | 7-layer filter chain (veto/enrichment) | **BUILT (smoke-test fidelity)** | All of F1–F7 run in LEAN via the `baseline`/`hybrid` strategies with the `decisions.parquet` audit trail; F3 has no real pattern detector and F5/F6 use placeholder economics (TD-51). The first price-only backtests (`baseline-ma`/`baseline-meanrev`) predate the chain. |
+| USD/JPY and the second-pair replication (Exp 3) | **NOT EXECUTED** | In the initial plan, not run in the delivered thesis. The reported work is EUR/USD only. |
+| Ten-year window (2015 to 2024) | **REDUCED** | The executed window is about two years (February 2015 to February 2017). |
+| Text-sentiment scoring in the reported experiments | **NOT USED** | `algo-score` implements the Loughran–McDonald scorer, but the reported experiments use only GDELT coded-event intensity. |
+| Combinatorial purged CV and rolling refits | **NOT EXECUTED** | Chronological spans with purged labels were used instead (thesis, Chapter 3). |

@@ -131,8 +131,8 @@ removed by starting Task 09.
 - Register any hyperparameter/threshold search and preserve its trial count.
   The present fit uses a fixed small LightGBM configuration, not a completed
   search or model-selection study.
-- Produce paired runs, figures, significance, ablations, and USD/JPY replication
-  where claimed. The implemented analyzer is not proof these analyses ran.
+- Produce paired runs, figures, significance, ablations, and, where claimed, a USD/JPY replication
+  (planned, not executed in the delivered thesis). The implemented analyzer is not proof these analyses ran.
 - Audit GDELT point-in-time availability: the present event-date aggregate with
   a next-day lag still allows late-reported events to enter earlier aggregates.
   Do not describe this pipeline as completely leak-free.
