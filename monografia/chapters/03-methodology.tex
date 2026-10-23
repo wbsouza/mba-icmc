@@ -91,7 +91,7 @@ The separation between a model-based perception layer and this rule-based execut
 
 The experiments compare the following variants, all on the same chain and execution model. The \textbf{baseline} uses the three price-family models. The \textbf{hybrid} adds the news-family probability to the combiner and the F4 event gate; its comparison with the baseline therefore measures the combined effect of both, and isolating either requires a separate ablation. The follow-up studies add: rule-based news cells (event-intensity trigger on a trailing-quantile threshold, with reversed-sign and always-short controls); an H4/H1/M15 timeframe sweep with TA-Lib patterns and a quote-activity gate; a news-only strategy registered before its outcome; the frozen policy of the adaptive-retraining study; and a screen of a 22-pattern candlestick catalogue, per pattern, in combination and under gated variants. Their definitions and registration dates are summarized with their results in Chapter~\ref{cap:experimental-evaluation}; the full registry is kept in the repository.
 
-\section{Experimental Evaluation} \label{sec:evaluation}
+\section{Evaluation Protocol} \label{sec:evaluation}
 
 \subsection{Execution engine} \label{sec:execution-engine}
 

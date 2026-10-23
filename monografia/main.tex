@@ -67,10 +67,10 @@ brazil				% idioma adicional para hifenização
 % ---
 \usepackage[T1]{fontenc}		% Seleção de códigos de fonte.
 \usepackage[utf8]{inputenc}		% Codificação do documento (conversão automática dos acentos)
-%\usepackage{lmodern}			% Usa a fonte Latin Modern
+\usepackage{lmodern}			% Usa a fonte Latin Modern (padrão do template USPSC)
 % Para utilizar a fonte Times New Roman, inclua uma % no início do comando acima  "\usepackage{lmodern}"
 % Abaixo, tire a % antes do comando  \usepackage{times}
-\usepackage{times}		    	% Usa a fonte Times New Roman (ABNT NBR 14724)
+%\usepackage{times}		    	% Times New Roman desativada: o template aprovado usa Latin Modern
 % Para usar a fonte , lembre-se de tirar a % do comando %\renewcommand{\ABNTEXchapterfont}{\rmfamily}, localizado mais abaixo, logo após "Outras opções para nota de rodapé no Sistema Numérico"
 \usepackage{lastpage}			% Usado pela Ficha catalográfica
 \usepackage{indentfirst}		% Indenta o primeiro parágrafo de cada seção.
@@ -156,7 +156,7 @@ brazil				% idioma adicional para hifenização
 
 \renewcommand{\footnotesize}{\small} %Comando para diminuir a fonte das notas de rodapé
 %Para utilizar a fonte Times New Roman, inclua retire % do início do comando abaixo
-\renewcommand{\ABNTEXchapterfont}{\rmfamily}
+%\renewcommand{\ABNTEXchapterfont}{\rmfamily}  % desativado: o padrão do template (\sffamily) é o usado nas monografias aprovadas
 
 % ---
 % Pacote para agrupar a citação numérica consecutiva
@@ -355,6 +355,12 @@ brazil				% idioma adicional para hifenização
 % monograph focused and below the page target requested after advisor review.
 % Detailed operational evidence remains in the repository experiment registry.
 % \include{pos/appendices}
+
+% Mandatory USP MBA AI-usage declaration (kept even though other appendices are omitted).
+\begin{apendicesenv}
+\partapendices
+\input{pos/ai-declaration}
+\end{apendicesenv}
 
 % Annexes
 %\include{pos/annexes}
