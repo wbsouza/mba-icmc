@@ -32,6 +32,14 @@ SRCS := $(DOC).tex pre-textual.tex units.tex \
 LATEXMK_FLAGS := -pdf -interaction=nonstopmode -file-line-error \
                  -outdir=$(BUILDDIR) -jobname=$(OUT)
 
+# Optional signature image for the AI declaration, read from the environment:
+#   SIGNATURE_PNG=/path/to/signature.png make
+# Never committed; without it the signature line is left blank.
+SIGNATURE_PNG ?=
+ifneq ($(strip $(SIGNATURE_PNG)),)
+LATEXMK_FLAGS += -usepretex='\def\signaturepath{$(SIGNATURE_PNG)}'
+endif
+
 # Beamer decks (Workshop de Ideias / defence). Two independent, standalone
 # sources sharing the TikZ figures under img/ via \input. Each builds its own
 # PDF into build/. PRES_EN is the English deck (matches the thesis language);

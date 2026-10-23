@@ -41,10 +41,9 @@
 \documentclass[
 % -- opções da classe memoir --
 12pt,		% tamanho da fonte
-openany,	% capítulos podem começar em qualquer página para reduzir páginas em branco
-%twoside,  % para impressão em anverso (frente) e verso. Oposto a oneside - Nota: utilizar \imprimirfolhaderosto*
+openright,	% capítulos começam em pág ímpar (insere página vazia caso preciso)
+twoside,  % para impressão em anverso (frente) e verso (padrão do template USPSC)
 %oneside, % para impressão em páginas separadas (somente anverso) -  Nota: utilizar \imprimirfolhaderosto
-oneside,
 % inclua uma % antes do comando twoside e exclua a % antes do oneside 
 a4paper,			% tamanho do papel. 
 % -- opções da classe abntex2 --
@@ -267,28 +266,30 @@ brazil				% idioma adicional para hifenização
 \AddToShipoutPicture{\BackgroundBranco}
 \includepdf{pre/blank-page.pdf}
 
-% Title page (twoside variant)
-\imprimirfolharostocar*
+% Title page (without the Graduate Studies Office stamp, removed on request; use \imprimirfolharostocar* to restore it)
+\imprimirfolhaderosto*
 
 % Cataloging sheet (provided by the library as a PDF after submission).
 % Re-enable the \includepdf line once catalog-card.pdf is available.
 % \includepdf{pre/catalog-card.pdf}
 \include{pre/catalog-card}
 
-% Additional title page in Portuguese (ABNT NBR 14724 / USP MBA convention).
-% Title stays in English; preamble, concentration area, advisor label, and the
-% "Versão original" note appear in pt-BR. Same layout as Bruna Magrini's
-% well-evaluated 2025 ICMC-USP TCC.
-\imprimirfolhaderostoadic*
+% Additional title page in Portuguese: removed on request (it duplicated the
+% English title page). To restore it, re-enable the line below.
+% \imprimirfolhaderostoadic*
 
 % Errata
 %\include{pre/errata}
 
-% Approval sheet (signed PDF generated after the defense).
-% Re-enable the \includepdf line once approval-sheet.pdf is available.
+% Approval sheet: removed from this version on request. To restore it, re-enable
+% the lines below (or \includepdf the signed PDF from the secretariat).
 % \includepdf{pre/approval-sheet.pdf}
-\include{pre/approval-sheet}
+% \include{pre/approval-sheet}
+% \includepdf{pre/blank-page.pdf}
+
+% Blank page before the dedication (as in the approved monographs)
 \includepdf{pre/blank-page.pdf}
+\cleardoublepage
 
 % Dedication
 \include{pre/dedication}
@@ -301,6 +302,7 @@ brazil				% idioma adicional para hifenização
 
 % Abstract (English).
 \include{pre/abstract}
+
 
 % ABNT NBR 14724 requires a Portuguese-language abstract (Resumo) on
 % ICMC-USP MBA submissions, even when the body of the document is in English.
@@ -352,7 +354,7 @@ brazil				% idioma adicional para hifenização
 \bibliography{bib/references}
 
 % Appendices are kept in source but omitted from the main PDF to keep the
-% monograph focused and below the page target requested after advisor review.
+% monograph focused (there is no page limit; the advisor only suggested keeping it short).
 % Detailed operational evidence remains in the repository experiment registry.
 % \include{pos/appendices}
 

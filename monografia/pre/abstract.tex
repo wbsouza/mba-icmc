@@ -1,4 +1,5 @@
 %% pre/abstract.tex
+\setlength{\absparsep}{18pt}
 \begin{resumo}[Abstract]
  \begin{otherlanguage*}{english}
     \begin{flushleft}
@@ -7,9 +8,7 @@
         \imprimirtipotrabalhoabs~-~\imprimirinstituicao, \imprimirlocal, 	\imprimirdata.
     \end{flushleft}
     \OnehalfSpacing
-   This work investigates whether news-derived event features can improve the risk-adjusted performance of a Forex trading strategy beyond a price-only baseline. Although the title refers to AI-driven sentiment, the executed study tests GDELT coded-event intensity; article-level sentiment scoring was not executed. The question matters because the Forex market is strongly driven by news flow and macroeconomic information, yet the literature on text-based prediction of financial returns has concentrated on equities, leaving the asset class comparatively underexplored. The executed approach builds, on EUR/USD at minute resolution, a hybrid trading pipeline that combines technical signals with GDELT event-intensity features, fused into a single trade decision under strict point-in-time discipline and a conservative publication-to-use delay. Evaluation contrasts the hybrid against the price-only baseline under the same execution model, complemented by ablations, drift controls, multiple-comparisons checks and paired statistical tests. The hybrid strategy did not outperform the baseline in the tested configuration. The main contributions are a reproducible negative result showing that apparent profitability does not necessarily imply predictive ability, and a reusable methodology that subsequent work can extend with richer text sources, additional instruments and broader validation protocols.
-
-   \vspace{\onelineskip}
+   This work investigates whether news-derived event features can improve the risk-adjusted performance of a Forex trading strategy beyond a price-only baseline. The executed study tests GDELT coded-event intensity; article-level sentiment scoring was not executed. The question matters because the Forex market is strongly driven by news flow and macroeconomic information, yet the literature on text-based prediction of financial returns has concentrated on equities, leaving the asset class comparatively underexplored. The executed approach builds, on EUR/USD at minute resolution, a hybrid trading pipeline that combines technical signals with GDELT event-intensity features, fused into a single trade decision under strict point-in-time discipline and a conservative publication-to-use delay. Evaluation contrasts the hybrid against the price-only baseline under the same execution model, complemented by ablations, drift controls, multiple-comparisons checks and paired statistical tests. The hybrid strategy did not outperform the baseline in the tested configuration. The main contributions are a reproducible negative result showing that apparent profitability does not necessarily imply predictive ability, and a reusable methodology that subsequent work can extend with richer text sources, additional instruments and broader validation protocols.
 
    \noindent
    \textbf{Keywords}: algorithmic trading. forex. event features. GDELT. backtesting. reproducibility. financial machine learning.
