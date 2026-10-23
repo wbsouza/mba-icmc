@@ -4,7 +4,7 @@
 
 Chapter~\ref{cap:introduction} asked whether news-derived event features improve the risk-adjusted performance of a Forex strategy over a price-only baseline (Section~\ref{sec:theme-problem}). This chapter summarizes the answer, the contributions, the limitations and the directions that follow from it.
 
-This work built a deterministic Forex evaluation pipeline that combines price-derived and news-derived features, then used it to test whether adding a news family to a price-only strategy improves cost-adjusted return. The executed study is a fixed-model EUR/USD evaluation: one baseline and one hybrid strategy replayed on LEAN under a common execution model, followed by registered follow-ups over one trading year (Chapter~\ref{cap:experimental-evaluation}). The ten-year, two-pair, multi-source design with rolling retraining and combinatorial cross-validation remains a target and not a result; it is mentioned in Section~\ref{subsec:future-unexecuted}.
+This work built a deterministic Forex evaluation pipeline that combines price-derived and news-derived features, then used it to test whether adding a news family to a price-only strategy improves cost-adjusted return. The executed study is a fixed-model EUR/USD evaluation: one baseline and one hybrid strategy replayed on LEAN under a common execution model, followed by registered follow-ups over one trading year (Chapter~\ref{cap:experimental-evaluation}). The ten-year, multi-source design with rolling retraining and combinatorial cross-validation remains a target and not a result; it is mentioned in Section~\ref{subsec:future-unexecuted}.
 
 \subsection{Answer to the research question} \label{subsec:answer-rq}
 
@@ -45,5 +45,5 @@ The original design contained components that no reported experiment exercised. 
     \item \textbf{Text sentiment and more news sources:} article-level sentiment (a lexicon baseline, a FinBERT-class scorer, later an LLM agent), the GPR index as a model input, and further corpora. This is the most direct test of whether article text, as opposed to coded events, adds information.
     \item \textbf{A wider filter catalogue:} additional confirmation, regime and consensus gates, and a weighted terminal rule that lets weak signals offset each other, which the veto chain does not allow.
     \item \textbf{A fuller validation protocol:} combinatorial purged cross-validation with embargo, rolling refits over a multi-year window, and a studentized bootstrap for short windows.
-    \item \textbf{More instruments and longer windows:} USD/JPY and other pairs, a currency-strength family, and other asset classes through adapter substitution.
+    \item \textbf{More instruments and longer windows:} Other currency pairs, a currency-strength family, and other asset classes through adapter substitution.
 \end{itemize}
